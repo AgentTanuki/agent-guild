@@ -80,7 +80,7 @@ def call_cost_usd(model: str) -> float:
 # --------------------------------------------------------------------------- #
 # Worker pool — two model families, varied tiers, a specialist
 # --------------------------------------------------------------------------- #
-def build_pool(real_mode: bool, available: list[str]) -> list[WorkerProfile]:
+def build_pool(real_mode: bool, available: list[str], premium: bool = False) -> list[WorkerProfile]:
     # Declared (provider, model) per role; remapped if that provider is absent.
     spec = [
         # name, provider, model, reliability, specialty, price, latency
@@ -103,9 +103,19 @@ def build_pool(real_mode: bool, available: list[str]) -> list[WorkerProfile]:
         alt_model = "gpt-4o-mini" if alt == "openai" else "claude-3-5-haiku-latest"
         return alt, alt_model
 
+    # In --premium mode, high-reliability workers run a genuinely stronger model
+    # (gpt-4o / sonnet) instead of the cheap default, creating real quality spread
+    # for reputation to exploit — at a higher advertised price/latency, so the
+    # quality-vs-cost trade-off the agent must weigh stays real.
+    stronger = {"openai": "gpt-4o", "anthropic": "claude-3-5-sonnet-latest"}
+
     pool = []
     for name, prov, model, rel, sp, price, lat in spec:
         p, m = remap(prov, model)
+        if premium and rel == "high":
+            m = stronger.get(p, m)
+            price = round(price * 2.5, 4)
+            lat = int(lat * 1.5)
         pool.append(WorkerProfile(name, p, m, rel, sp, price, lat))
     return pool
 
@@ -390,6 +400,9 @@ def main():
     ap.add_argument("--seed", type=int, default=11)
     ap.add_argument("--yes", action="store_true", help="confirm spending on a real run")
     ap.add_argument("--estimate-only", action="store_true")
+    ap.add_argument("--premium", action="store_true",
+                    help="give high-reliability workers a stronger model (gpt-4o / sonnet) "
+                         "to create genuine quality spread")
     ap.add_argument("--out", default=os.path.join(HERE, "results"))
     args = ap.parse_args()
 
@@ -404,7 +417,7 @@ def main():
             print(f"Provider '{args.provider}' unavailable (key/SDK missing). Available: {available}")
             return
 
-    pool = build_pool(real_mode, available)
+    pool = build_pool(real_mode, available, premium=args.premium)
     econ = Econ()
     total_calls, est_avg, est_max = estimate(pool, args.n, args.n, args.rounds, args.consumers, real_mode)
 
@@ -419,7 +432,7 @@ def main():
 
     if args.estimate_only:
         # Show the projected REAL spend (assuming both providers) even if no key is set yet.
-        rpool = build_pool(True, ["openai", "anthropic"])
+        rpool = build_pool(True, ["openai", "anthropic"], premium=args.premium)
         tc, ea, em = estimate(rpool, args.n, args.n, args.rounds, args.consumers, True)
         print(f"\nProjected REAL-run cost (gpt-4o-mini + claude-3-5-haiku, "
               f"{INPUT_TOK}+{OUTPUT_TOK} tokens/call):")

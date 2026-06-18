@@ -37,6 +37,9 @@ guild.json
 live/experiments/results/*
 !live/experiments/results/.gitkeep
 
+# ---- Local run helpers (machine-specific paths) ----
+*.command
+
 # ---- OS / editor ----
 .DS_Store
 Thumbs.db

@@ -1,7 +1,7 @@
 # Agent Guild — Real-World Findings
 
-> **⚠ OFFLINE SELF-VALIDATION (deterministic backend, NOT a real-world result)**
-> provider mode: `mock` · transactions: 152 · estimated spend: $0.0000 · seed: 11
+> **REAL LLM RUN — gpt-4o-mini**
+> provider mode: `openai` · transactions: 152 · estimated spend: $0.0105 · seed: 11
 
 ## Question
 
@@ -11,17 +11,17 @@ Do autonomous agents choose Agent Guild **because it improves their own expected
 
 | Condition | Success | Failure | Avg utility | Avg latency | Real $ |
 |-----------|--------:|--------:|------------:|------------:|-------:|
-| A — random, no Guild | 80.0% | 20.0% | 0.455 | 673 ms | $0.0000 |
-| B — Guild-only | 90.0% | 10.0% | 0.657 | 1084 ms | $0.0000 |
+| A — random, no Guild | 97.5% | 2.5% | 0.771 | 3110 ms | $0.0028 |
+| B — Guild-only | 97.5% | 2.5% | 0.731 | 3339 ms | $0.0028 |
 
-**Quality gain from the Guild (B − A): +10.0%.**
+**Quality gain from the Guild (B − A): +0.0%.**
 
 ## C — free choice (agents may bypass the Guild)
 
-- adoption over rounds: `█▁▂▄▃▄▅▆▆▅▅▆`
-- **final adoption (last third): 75%**
-- mean utility — Guild action 0.672 vs random 0.206 (gain +0.467)
-- does the attestation graph improve selection? Guild-pick success 93% (early) → 93% (late)
+- adoption over rounds: `█▁▂▃▃▂▃▂▃▄▃▂`
+- **final adoption (last third): 33%**
+- mean utility — Guild action 0.679 vs random 0.736 (gain -0.057)
+- does the attestation graph improve selection? Guild-pick success 100% (early) → 100% (late)
 
 ## Honest caveats
 
@@ -29,11 +29,10 @@ Do autonomous agents choose Agent Guild **because it improves their own expected
 - The **"premium" worker is not a bigger model** in the cheapest setup — its quality edge comes from a careful prompt, so real quality/price spread may be understated. Use `--premium` mental model (swap gpt-4o / sonnet) for a harsher test.
 - The hiring agent's selection, the learner, and the economic weights are **parameters**; the result is conditional on them. They are in source and on the CLI.
 - Summary tasks use a **keyword rubric**, the least clean of the four evaluators.
-- **These specific numbers are from the offline backend** and exist only to prove the harness runs end to end. They are NOT evidence about real model behaviour.
 
 ## Recommendation
 
-**VALIDATION-ONLY.** Offline self-validation only — no real LLM calls were made. Run with a provider key and --yes to obtain a real-world result before deciding.
+**STOP.** The Guild did NOT improve task success (B−A = +0.0%). Reputation-based selection is not beating random here. Stop and rethink the signal before building further.
 
 ## Reproduce
 
