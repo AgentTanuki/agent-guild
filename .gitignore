@@ -1,7 +1,45 @@
-node_modules
-dist
-dist2
-.DS_Store
+# ---- Node / frontend ----
+node_modules/
+dist/
+dist2/
 *.local
+.vite/
+vite.config.*.timestamp-*.mjs
+
+# ---- TypeScript ----
 *.tsbuildinfo
-vite.config.ts.timestamp-*
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- Secrets / local config ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Guild runtime data & generated experiment outputs ----
+live/guild/data/
+guild.json
+live/experiments/results/*
+!live/experiments/results/.gitkeep
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

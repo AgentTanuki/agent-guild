@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Agent Guild — a portable, cryptographic reputation layer for AI agents.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AgentTanuki/agent-guild.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
