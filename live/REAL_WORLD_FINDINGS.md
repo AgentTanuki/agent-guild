@@ -1,7 +1,7 @@
 # Agent Guild — Real-World Findings
 
-> **REAL LLM RUN — gpt-4o-mini**
-> provider mode: `openai` · transactions: 152 · estimated spend: $0.0105 · seed: 11
+> **REAL LLM RUN — gpt-4o, gpt-4o-mini**
+> provider mode: `openai` · transactions: 152 · estimated spend: $0.0926 · seed: 11
 
 ## Question
 
@@ -11,17 +11,17 @@ Do autonomous agents choose Agent Guild **because it improves their own expected
 
 | Condition | Success | Failure | Avg utility | Avg latency | Real $ |
 |-----------|--------:|--------:|------------:|------------:|-------:|
-| A — random, no Guild | 97.5% | 2.5% | 0.771 | 3110 ms | $0.0028 |
-| B — Guild-only | 97.5% | 2.5% | 0.731 | 3339 ms | $0.0028 |
+| A — random, no Guild | 87.5% | 12.5% | 0.487 | 3490 ms | $0.0309 |
+| B — Guild-only | 95.0% | 5.0% | 0.730 | 2345 ms | $0.0082 |
 
-**Quality gain from the Guild (B − A): +0.0%.**
+**Quality gain from the Guild (B − A): +7.5%.**
 
 ## C — free choice (agents may bypass the Guild)
 
-- adoption over rounds: `█▁▂▃▃▂▃▂▃▄▃▂`
-- **final adoption (last third): 33%**
-- mean utility — Guild action 0.679 vs random 0.736 (gain -0.057)
-- does the attestation graph improve selection? Guild-pick success 100% (early) → 100% (late)
+- adoption over rounds: `█▁▂▃▄▃▃▂▃▅▃▂`
+- **final adoption (last third): 38%**
+- mean utility — Guild action 0.182 vs random 0.604 (gain -0.422)
+- does the attestation graph improve selection? Guild-pick success 88% (early) → 88% (late)
 
 ## Honest caveats
 
@@ -32,7 +32,7 @@ Do autonomous agents choose Agent Guild **because it improves their own expected
 
 ## Recommendation
 
-**STOP.** The Guild did NOT improve task success (B−A = +0.0%). Reputation-based selection is not beating random here. Stop and rethink the signal before building further.
+**REDESIGN.** The Guild improved success by +7.5% but free agents did NOT converge (adoption 38%, utility gain -0.422). The signal exists but is too weak/slow to drive adoption. Redesign incentives or learning before scaling.
 
 ## Reproduce
 
