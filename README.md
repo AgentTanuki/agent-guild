@@ -11,6 +11,14 @@ asset.
 > **Design principle:** the token is *not* the product. The reputation layer is the product. The
 > credential is only the portable container for identity, achievements, and attestations.
 
+> **v0.2 — costly attestations.** An attestation only materially moves reputation when it is backed
+> by evidence of a real transaction (a task receipt, a payment, a stake). The live Guild
+> (`live/guild/`) implements task receipts, evidence-weighted scoring, structural collusion/Sybil
+> detection, and simulated staking/slashing — and the attack-resistance experiment shows rational
+> agents still converge on genuinely useful workers *even while reputation is being attacked*. See
+> [docs/COSTLY_ATTESTATIONS.md](docs/COSTLY_ATTESTATIONS.md) and
+> [live/experiments/ATTACK_RESISTANCE.md](live/experiments/ATTACK_RESISTANCE.md).
+
 ## Quick start (macOS)
 
 ```bash
@@ -50,6 +58,12 @@ scoring and detection behave under adversarial conditions.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, components, data flow, standards used |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Entities, schemas, the VC and DID formats |
 | [docs/SCORING.md](docs/SCORING.md) | The reputation algorithm and collusion detection, step by step |
+| [docs/COSTLY_ATTESTATIONS.md](docs/COSTLY_ATTESTATIONS.md) | **v0.2** — task receipts, evidence weighting, anti-collusion, staking/slashing |
+| [docs/MONETISATION.md](docs/MONETISATION.md) | **v0.3** — free-writes/paid-reads credit model, the willingness-to-pay metric ladder |
+| [docs/LAUNCH_PLAN.md](docs/LAUNCH_PLAN.md) | **v0.4** — fastest route to a live endpoint agents can discover & evaluate; protocol-adoption GTM |
+| [live/experiments/AUTONOMOUS_ADOPTION.md](live/experiments/AUTONOMOUS_ADOPTION.md) | Experiment: unprompted agents discover, evaluate, adopt & repeatedly **pay** for the Guild |
+| [live/guild/DEPLOY.md](live/guild/DEPLOY.md) | Deploy the hosted API (Render one-click / Docker), env vars, going live with Stripe |
+| [live/clients/QUICKSTART.md](live/clients/QUICKSTART.md) | How an external agent queries Agent Guild in 60s (curl / stdlib Python / MCP) |
 | [docs/TECH_STACK.md](docs/TECH_STACK.md) | Stack choices and why |
 | [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md) | Build phases and the path from prototype to real deployment |
 

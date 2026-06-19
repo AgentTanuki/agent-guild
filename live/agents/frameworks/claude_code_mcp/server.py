@@ -53,6 +53,20 @@ def guild_search(capability: str, min_trust: float = 0.0) -> str:
 
 
 @mcp.tool()
+def guild_best_agent(capability: str, min_trust: float = 0.0) -> str:
+    """Return the single best-ranked agent for a capability — the one-shot
+    'who should I delegate this to?' lookup. Returns null if none qualify."""
+    return json.dumps(GUILD.best_agent(capability, min_trust=min_trust), indent=2)
+
+
+@mcp.tool()
+def guild_risk_score(agent_id: str) -> str:
+    """One-number risk read before delegating: risk 0 (safe)..100 (risky) plus a
+    hire/caution/avoid recommendation, trust, confidence and collusion suspicion."""
+    return json.dumps(GUILD.risk_score(agent_id), indent=2)
+
+
+@mcp.tool()
 def guild_reputation(agent_id: str) -> str:
     """Read the full reputation breakdown for an agent id."""
     return json.dumps(GUILD.reputation(agent_id), indent=2)

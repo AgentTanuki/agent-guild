@@ -48,8 +48,11 @@ class GuildClient:
         )
 
     # --- discovery ----------------------------------------------------------
-    def search(self, capability: str, limit: int = 20, min_trust: float = 0.0) -> list[dict[str, Any]]:
-        r = self._http.get("/search", params={
+    def search(self, capability: str, limit: int = 20, min_trust: float = 0.0,
+               api_key: Optional[str] = None) -> list[dict[str, Any]]:
+        # search is a metered read; pass a billing key when enforcement is on.
+        headers = {"X-API-Key": api_key} if api_key else {}
+        r = self._http.get("/search", headers=headers, params={
             "capability": capability, "limit": limit, "min_trust": min_trust,
         })
         r.raise_for_status()
@@ -65,6 +68,61 @@ class GuildClient:
         r.raise_for_status()
         return r.json()
 
+    def best_agent(self, capability: str, min_trust: float = 0.0) -> Optional[dict[str, Any]]:
+        results = self.search(capability, limit=1, min_trust=min_trust)
+        return results[0] if results else None
+
+    def risk_score(self, agent_id: str) -> dict[str, Any]:
+        r = self._http.get(f"/agents/{agent_id}/risk-score")
+        r.raise_for_status()
+        return r.json()
+
+    # --- tasks / receipts (v0.2) -------------------------------------------
+    def create_task(
+        self,
+        requester: GuildIdentity,
+        worker_id: str,
+        task_type: str,
+        payment: float = 0.0,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        r = self._http.post(
+            "/tasks",
+            headers={"X-API-Key": requester.api_key or ""},
+            json={"requester_id": requester.id, "worker_id": worker_id,
+                  "task_type": task_type, "payment": payment,
+                  "metadata": metadata or {}},
+        )
+        r.raise_for_status()
+        return r.json()
+
+    def submit_receipt(
+        self,
+        worker: GuildIdentity,
+        task_id: str,
+        deliverable_hash: str,
+        deliverable_url: Optional[str] = None,
+        outcome: str = "delivered",
+    ) -> dict[str, Any]:
+        r = self._http.post(
+            f"/tasks/{task_id}/receipt",
+            headers={"X-API-Key": worker.api_key or ""},
+            json={"deliverable_hash": deliverable_hash,
+                  "deliverable_url": deliverable_url, "outcome": outcome},
+        )
+        r.raise_for_status()
+        return r.json()
+
+    def evidence(self, agent_id: str) -> dict[str, Any]:
+        r = self._http.get(f"/agents/{agent_id}/evidence")
+        r.raise_for_status()
+        return r.json()
+
+    def flags(self, min_suspicion: float = 0.4) -> list[dict[str, Any]]:
+        r = self._http.get("/flags", params={"min_suspicion": min_suspicion})
+        r.raise_for_status()
+        return r.json()["flagged"]
+
     # --- attestation --------------------------------------------------------
     def attest(
         self,
@@ -74,13 +132,14 @@ class GuildClient:
         rating: float,
         task_id: str = "n/a",
         comment: str = "",
+        stake: float = 0.0,
     ) -> dict[str, Any]:
         r = self._http.post(
             "/attestations",
             headers={"X-API-Key": issuer.api_key or ""},
             json={"issuer_id": issuer.id, "subject_id": subject_id,
                   "capability": capability, "rating": rating,
-                  "task_id": task_id, "comment": comment},
+                  "task_id": task_id, "comment": comment, "stake": stake},
         )
         r.raise_for_status()
         return r.json()

@@ -1,29 +1,39 @@
-"""Agent Guild — live public API (FastAPI).
+"""Agent Guild — live public API (FastAPI), v0.2 "costly attestations".
 
-A neutral trust layer for autonomous agents: register an identity (DID), issue
-signed attestations about other agents, and read reputation computed from the
-attestation graph. No blockchain, no payments, no tokens. Usable entirely via
-HTTP.
+A neutral trust layer for autonomous agents. The v0.2 thesis: an attestation
+only materially moves reputation when it is backed by evidence of a real
+transaction. The flow is therefore:
+
+    register → create task → submit deliverable receipt → attest (against the
+    receipt, optionally staking reputation) → read evidence-based reputation.
+
+No blockchain, no real money, no tokens. Payment and stake are simulated values
+that drive evidence weighting. Usable entirely over HTTP.
 """
 from __future__ import annotations
 
 import os
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header, Query
+from fastapi import FastAPI, HTTPException, Header, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import (
     RegisterRequest, RegisterResponse, AgentProfile,
     AttestationRequest, AttestationResponse,
     ReputationResponse, SearchResponse, SearchResultItem,
+    CreateTaskRequest, TaskResponse, ReceiptRequest,
+    EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
+    AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
 )
 from .store import Store
+from . import billing
+from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 
 app = FastAPI(
     title="Agent Guild",
-    version="1.0.0",
-    description="Portable, cryptographic reputation for autonomous AI agents.",
+    version="2.0.0",
+    description="Costly, evidence-backed reputation for autonomous AI agents.",
 )
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
@@ -44,26 +54,94 @@ def _profile(rec: dict) -> AgentProfile:
     )
 
 
+def _task_response(t: dict) -> TaskResponse:
+    return TaskResponse(**{k: t[k] for k in (
+        "id", "requester_agent_id", "worker_agent_id", "task_type", "payment",
+        "deliverable_hash", "deliverable_url", "outcome", "created_at", "delivered_at",
+    )})
+
+
+def _require_key(agent: dict, x_api_key: Optional[str], role: str) -> None:
+    """Custodial agents must authenticate; self-sovereign agents are trusted to
+    drive their own keys elsewhere (and cannot be impersonated for attestations,
+    which still require a valid signature)."""
+    if agent.get("custodial"):
+        if not x_api_key or x_api_key != agent.get("api_key"):
+            raise HTTPException(401, f"invalid or missing X-API-Key for {role}")
+
+
+def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
+    """Charge a paid read. Behaviour:
+
+      * a billing key is presented  -> charge it (402 if out of credits).
+      * no key, enforcement OFF      -> free (soft launch / local dev).
+      * no key, enforcement ON        -> 402 (a funded key is required).
+
+    Cost and remaining balance are returned in X-Guild-* response headers.
+    """
+    cost = PRICING[endpoint]
+    response.headers["X-Guild-Cost"] = str(cost)
+    # machine-readable description of how an agent acquires credits, no human.
+    acquire = {
+        "trial": {"method": "POST", "path": "/billing/trial", "human_free": True},
+        "topup": {"method": "POST", "path": "/billing/topup"},
+        "x402": "see /.well-known/agent-guild.json economics.x402 (roadmap)",
+        "credit_usd": CREDIT_USD,
+    }
+    if x_api_key:
+        try:
+            acct = store.charge(x_api_key, cost, endpoint)
+        except UnknownAccount:
+            if billing.billing_enforced():
+                raise HTTPException(401, "unknown billing key (POST /billing/trial for a free starter)")
+            store.record_event(x_api_key, "query", endpoint=endpoint, paid=False)
+            return  # unrecognised key on a soft-launch service: let it through free
+        except InsufficientCredits as e:
+            raise HTTPException(402, {
+                "error": "insufficient_credits", "balance": e.balance, "cost": e.cost,
+                "acquire": acquire,
+            })
+        response.headers["X-Guild-Balance"] = str(acct["balance"])
+        store.record_event(x_api_key, "query", endpoint=endpoint, paid=True)
+        return
+    if billing.billing_enforced():
+        raise HTTPException(402, {
+            "error": "payment_required",
+            "detail": "present a funded X-API-Key", "cost": cost, "acquire": acquire,
+        })
+    store.record_event(None, "query", endpoint=endpoint, paid=False)
+
+
 @app.get("/")
 def root():
     return {
         "service": "Agent Guild",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "thesis": "attestations only count when backed by evidence of a real transaction",
         "endpoints": [
             "POST /agents/register", "GET /agents", "GET /agents/{id}",
-            "GET /agents/{id}/reputation", "POST /attestations",
-            "GET /agents/{id}/attestations", "GET /search?capability=x",
+            "POST /tasks", "GET /tasks/{id}", "POST /tasks/{id}/receipt",
+            "POST /attestations", "GET /agents/{id}/attestations",
+            "GET /agents/{id}/reputation", "GET /agents/{id}/evidence",
+            "GET /agents/{id}/flags", "GET /flags", "GET /search?capability=x",
+            "GET /agents/{id}/risk-score", "POST /billing/account",
+            "GET /billing/account", "POST /billing/topup",
         ],
+        "pricing_credits": PRICING,
+        "credit_usd": CREDIT_USD,
         "agents": len(store.agents),
+        "tasks": len(store.tasks),
         "attestations": len(store.attestations),
     }
 
 
 @app.get("/health")
 def health():
-    return {"ok": True, "agents": len(store.agents), "attestations": len(store.attestations)}
+    return {"ok": True, "agents": len(store.agents),
+            "tasks": len(store.tasks), "attestations": len(store.attestations)}
 
 
+# --- identity ---------------------------------------------------------------
 @app.post("/agents/register", response_model=RegisterResponse)
 def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None)):
     seed = req.seed
@@ -97,24 +175,50 @@ def get_agent(agent_id: str):
     return _profile(rec)
 
 
-@app.get("/agents/{agent_id}/reputation", response_model=ReputationResponse)
-def get_reputation(agent_id: str):
-    rec = store.get_agent(agent_id)
-    if not rec:
-        raise HTTPException(404, "agent not found")
-    scores = store.reputation()
-    s = scores.get(agent_id)
-    if s is None:
-        raise HTTPException(404, "no reputation computed")
-    return ReputationResponse(
-        agent_id=agent_id, did=rec["did"], trust=s.trust, rank=s.rank,
-        total_agents=len(scores), eigen_trust=s.eigen_trust,
-        weighted_quality=s.weighted_quality, endorsement_accuracy=s.endorsement_accuracy,
-        confidence=s.confidence, distinct_reviewers=s.distinct_reviewers,
-        attestations_received=s.attestations_received,
-    )
+# --- tasks / receipts -------------------------------------------------------
+@app.post("/tasks", response_model=TaskResponse)
+def create_task(req: CreateTaskRequest, x_api_key: Optional[str] = Header(None)):
+    requester = store.get_agent(req.requester_id)
+    worker = store.get_agent(req.worker_id)
+    if not requester:
+        raise HTTPException(404, "requester not found")
+    if not worker:
+        raise HTTPException(404, "worker not found")
+    if req.requester_id == req.worker_id:
+        raise HTTPException(400, "an agent cannot commission a task from itself")
+    _require_key(requester, x_api_key, "requester")
+    t = store.create_task(req.requester_id, req.worker_id, req.task_type,
+                          req.payment, req.metadata)
+    # instrument: was this hire a delegation following a Guild recommendation?
+    key = x_api_key or store.account_for_agent(req.requester_id)
+    followed = store.followed_recommendation(key, req.worker_id)
+    store.record_event(key, "delegation", worker_id=req.worker_id, followed=followed)
+    return _task_response(t)
 
 
+@app.get("/tasks/{task_id}", response_model=TaskResponse)
+def get_task(task_id: str):
+    t = store.get_task(task_id)
+    if not t:
+        raise HTTPException(404, "task not found")
+    return _task_response(t)
+
+
+@app.post("/tasks/{task_id}/receipt", response_model=TaskResponse)
+def submit_receipt(task_id: str, req: ReceiptRequest, x_api_key: Optional[str] = Header(None)):
+    t = store.get_task(task_id)
+    if not t:
+        raise HTTPException(404, "task not found")
+    worker = store.get_agent(t["worker_agent_id"])
+    if worker:
+        _require_key(worker, x_api_key, "worker")
+    if req.outcome not in ("delivered", "accepted", "disputed", "rejected"):
+        raise HTTPException(400, "invalid outcome")
+    t = store.submit_receipt(task_id, req.deliverable_hash, req.deliverable_url, req.outcome)
+    return _task_response(t)
+
+
+# --- attestations -----------------------------------------------------------
 @app.get("/agents/{agent_id}/attestations")
 def get_attestations(agent_id: str):
     rec = store.get_agent(agent_id)
@@ -128,7 +232,7 @@ def post_attestation(req: AttestationRequest, x_api_key: Optional[str] = Header(
     # Self-sovereign path: a pre-signed Verifiable Credential.
     if req.credential is not None:
         try:
-            rec = store.add_signed_attestation(req.credential)
+            rec = store.add_signed_attestation(req.credential, stake=req.stake)
         except ValueError as e:
             raise HTTPException(400, str(e))
         return AttestationResponse(id=rec["id"], credential=rec["credential"], verified=rec["verified"])
@@ -150,16 +254,121 @@ def post_attestation(req: AttestationRequest, x_api_key: Optional[str] = Header(
         raise HTTPException(400, "an agent cannot attest to itself")
     rec = store.add_custodial_attestation(
         issuer, subject, req.capability, req.rating, req.task_id, req.comment,
+        stake=req.stake,
     )
     return AttestationResponse(id=rec["id"], credential=rec["credential"], verified=rec["verified"])
 
 
+# --- reputation / evidence / flags ------------------------------------------
+@app.get("/agents/{agent_id}/reputation", response_model=ReputationResponse)
+def get_reputation(agent_id: str, response: Response, x_api_key: Optional[str] = Header(None)):
+    rec = store.get_agent(agent_id)
+    if not rec:
+        raise HTTPException(404, "agent not found")
+    meter("reputation", x_api_key, response)
+    scores = store.reputation()
+    s = scores.get(agent_id)
+    if s is None:
+        raise HTTPException(404, "no reputation computed")
+    return ReputationResponse(
+        agent_id=agent_id, did=rec["did"], trust=s.trust, rank=s.rank,
+        total_agents=len(scores), eigen_trust=s.eigen_trust,
+        weighted_quality=s.weighted_quality, endorsement_accuracy=s.endorsement_accuracy,
+        confidence=s.confidence, distinct_reviewers=s.distinct_reviewers,
+        attestations_received=s.attestations_received,
+        raw_rating=s.raw_rating, verified_task_count=s.verified_task_count,
+        trusted_attestations=s.trusted_attestations,
+        suspicious_attestations=s.suspicious_attestations,
+        backed_attestations=s.backed_attestations,
+        collusion_suspicion=s.collusion_suspicion, slash_penalty=s.slash_penalty,
+        flag_reasons=s.flag_reasons,
+    )
+
+
+@app.get("/agents/{agent_id}/evidence", response_model=EvidenceResponse)
+def get_evidence(agent_id: str, response: Response, x_api_key: Optional[str] = Header(None)):
+    rec = store.get_agent(agent_id)
+    if not rec:
+        raise HTTPException(404, "agent not found")
+    meter("evidence", x_api_key, response)
+    ev = store.evidence(agent_id)
+    s = ev["score"]
+    if s is None:
+        raise HTTPException(404, "no reputation computed")
+    return EvidenceResponse(
+        agent_id=agent_id, trust=s.trust, raw_rating=s.raw_rating,
+        verified_task_count=s.verified_task_count,
+        trusted_attestations=s.trusted_attestations,
+        suspicious_attestations=s.suspicious_attestations,
+        backed_attestations=s.backed_attestations,
+        collusion_suspicion=s.collusion_suspicion, slash_penalty=s.slash_penalty,
+        attestations=[EvidenceAttestation(**a) for a in ev["attestations"]],
+        receipts=[EvidenceReceipt(**r) for r in ev["receipts"]],
+    )
+
+
+@app.get("/agents/{agent_id}/flags", response_model=FlagResponse)
+def get_flag(agent_id: str, response: Response, x_api_key: Optional[str] = Header(None)):
+    rec = store.get_agent(agent_id)
+    if not rec:
+        raise HTTPException(404, "agent not found")
+    meter("fraud_check", x_api_key, response)
+    f = store.flags().get(agent_id)
+    if f is None:
+        raise HTTPException(404, "no flag computed")
+    return FlagResponse(agent_id=agent_id, suspicion=f.suspicion,
+                        reasons=f.reasons, cluster_id=f.cluster_id)
+
+
+@app.get("/agents/{agent_id}/risk-score", response_model=RiskScoreResponse)
+def get_risk_score(agent_id: str, response: Response, x_api_key: Optional[str] = Header(None)):
+    """A single 'how risky is hiring this agent' number, 0 (safe) .. 100 (risky).
+    The convenience product an agent calls right before delegating work."""
+    rec = store.get_agent(agent_id)
+    if not rec:
+        raise HTTPException(404, "agent not found")
+    meter("risk_score", x_api_key, response)
+    s = store.reputation().get(agent_id)
+    if s is None:
+        raise HTTPException(404, "no reputation computed")
+    # risk rises with collusion suspicion and low confidence, falls with trust.
+    risk = 100.0 * (0.5 * s.collusion_suspicion
+                    + 0.3 * (1 - s.confidence)
+                    + 0.2 * (1 - s.trust / 100.0))
+    risk = round(max(0.0, min(100.0, risk)), 1)
+    rec_word = "hire" if risk < 33 else ("caution" if risk < 66 else "avoid")
+    return RiskScoreResponse(
+        agent_id=agent_id, name=rec["name"], risk=risk, recommendation=rec_word,
+        trust=s.trust, confidence=round(s.confidence, 3),
+        collusion_suspicion=round(s.collusion_suspicion, 3),
+        verified_task_count=s.verified_task_count,
+        trusted_attestations=s.trusted_attestations,
+    )
+
+
+@app.get("/flags")
+def list_flags(response: Response, min_suspicion: float = Query(0.4, ge=0.0, le=1.0),
+               x_api_key: Optional[str] = Header(None)):
+    meter("fraud_check", x_api_key, response)
+    out = []
+    for aid, f in store.flags().items():
+        if f.suspicion >= min_suspicion:
+            out.append({"agent_id": aid, "name": store.agents[aid]["name"],
+                        "suspicion": round(f.suspicion, 3), "reasons": f.reasons,
+                        "cluster_id": f.cluster_id})
+    out.sort(key=lambda x: x["suspicion"], reverse=True)
+    return {"count": len(out), "flagged": out}
+
+
 @app.get("/search", response_model=SearchResponse)
 def search(
+    response: Response,
     capability: str = Query(..., description="Capability to search for"),
     limit: int = Query(20, ge=1, le=200),
     min_trust: float = Query(0.0, ge=0.0, le=100.0),
+    x_api_key: Optional[str] = Header(None),
 ):
+    meter("best_agent", x_api_key, response)
     scores = store.reputation()
     items: list[SearchResultItem] = []
     for a in store.agents.values():
@@ -176,4 +385,194 @@ def search(
             attestations_received=s.attestations_received if s else 0,
         ))
     items.sort(key=lambda x: x.trust, reverse=True)
-    return SearchResponse(capability=capability, count=len(items), results=items[:limit])
+    top = items[:limit]
+    # remember what we recommended, so a later hire can be attributed to it.
+    if x_api_key:
+        store.note_recommendations(x_api_key, [r.id for r in top])
+    return SearchResponse(capability=capability, count=len(items), results=top)
+
+
+# --- billing ----------------------------------------------------------------
+def _account_response(acct: dict) -> AccountResponse:
+    return AccountResponse(
+        key=acct["key"], balance=acct["balance"], spent=acct["spent"],
+        topped_up=acct["topped_up"], owner_agent_id=acct.get("owner_agent_id"),
+        credit_usd=CREDIT_USD, pricing=PRICING,
+    )
+
+
+@app.post("/billing/account", response_model=AccountResponse)
+def create_billing_account():
+    """Create a standalone billing account (for consumers that aren't registered
+    agents). Returns a key + a free starter credit allowance."""
+    return _account_response(store.create_account())
+
+
+@app.post("/billing/trial", response_model=AccountResponse)
+def grant_trial():
+    """Agent-native, human-free credit acquisition. An agent provisions a capped
+    trial balance to *evaluate* the service before paying — no checkout, no
+    invoice. Returns a key with enough credits to run an evaluation."""
+    return _account_response(store.grant_trial(billing.TRIAL_CREDITS))
+
+
+@app.get("/billing/account", response_model=AccountResponse)
+def get_billing_account(x_api_key: Optional[str] = Header(None)):
+    if not x_api_key:
+        raise HTTPException(401, "X-API-Key required")
+    acct = store.get_account(x_api_key)
+    if not acct:
+        raise HTTPException(404, "account not found")
+    return _account_response(acct)
+
+
+@app.post("/billing/topup", response_model=TopupResponse)
+def topup(req: TopupRequest, x_api_key: Optional[str] = Header(None)):
+    if not x_api_key or not store.get_account(x_api_key):
+        raise HTTPException(401, "valid X-API-Key for an existing account required")
+    # Live path: Stripe configured -> return a Checkout URL; the webhook credits.
+    if billing.stripe_configured() and req.success_url:
+        try:
+            sess = billing.create_checkout_session(
+                x_api_key, req.credits,
+                req.success_url, req.cancel_url or req.success_url)
+        except RuntimeError as e:
+            raise HTTPException(503, str(e))
+        return TopupResponse(mode="stripe", checkout_url=sess["checkout_url"], usd=sess["usd"])
+    # Dev / private-pilot path: mint credits directly (guarded by a dev token).
+    need = billing.dev_topup_token()
+    if need and req.dev_token != need:
+        raise HTTPException(403, "invalid dev_token (or configure Stripe for live top-ups)")
+    acct = store.credit(x_api_key, req.credits, reason="dev_topup")
+    return TopupResponse(mode="dev", balance=acct["balance"])
+
+
+@app.post("/billing/webhook")
+async def stripe_webhook(request: Request, stripe_signature: Optional[str] = Header(None)):
+    """Stripe webhook: credits an account when a Checkout payment completes."""
+    payload = await request.body()
+    try:
+        event = billing.verify_webhook(payload, stripe_signature or "")
+    except RuntimeError as e:
+        raise HTTPException(503, str(e))
+    except Exception:
+        raise HTTPException(400, "invalid webhook signature")
+    if event.get("type") == "checkout.session.completed":
+        meta = event["data"]["object"].get("metadata", {})
+        key, credits = meta.get("account_key"), int(meta.get("credits", 0))
+        if key and store.get_account(key) and credits > 0:
+            store.credit(key, credits, reason="stripe_topup")
+    return {"received": True}
+
+
+# --- agent-native discovery, instrumentation & self-evaluation --------------
+from fastapi.responses import PlainTextResponse  # noqa: E402
+
+
+def _manifest() -> dict:
+    """The native discovery manifest: what an agent needs to decide to adopt."""
+    return {
+        "schema_version": "agent-guild/1",
+        "name": "Agent Guild",
+        "description": "Attack-resistant reputation for autonomous agents. Ask "
+                       "'who is the safest agent for this job?' and attest to work.",
+        "version": "3.0.0",
+        "capabilities_query": "GET /search?capability=<cap> returns agents ranked by "
+                              "attack-resistant trust",
+        "endpoints": {
+            "discover": {"method": "GET", "path": "/search", "cost_credits": PRICING["best_agent"]},
+            "risk_score": {"method": "GET", "path": "/agents/{id}/risk-score", "cost_credits": PRICING["risk_score"]},
+            "reputation": {"method": "GET", "path": "/agents/{id}/reputation", "cost_credits": PRICING["reputation"]},
+            "fraud_check": {"method": "GET", "path": "/agents/{id}/flags", "cost_credits": PRICING["fraud_check"]},
+            "register": {"method": "POST", "path": "/agents/register", "cost_credits": 0},
+            "attest": {"method": "POST", "path": "/attestations", "cost_credits": 0},
+            "task": {"method": "POST", "path": "/tasks", "cost_credits": 0},
+            "receipt": {"method": "POST", "path": "/tasks/{id}/receipt", "cost_credits": 0},
+        },
+        "evaluation_signals": {
+            "reputation_confidence": "ReputationResponse.confidence in [0,1]",
+            "fraud_probability": "RiskScoreResponse.collusion_suspicion / FlagResponse.suspicion in [0,1]",
+            "risk_score": "GET /agents/{id}/risk-score -> risk 0..100 + hire|caution|avoid",
+            "measured_lift": "GET /evaluation -> success-rate lift of recommended vs baseline hires",
+        },
+        "economics": {
+            "model": "free writes, paid reads",
+            "credit_usd": CREDIT_USD,
+            "pricing_credits": PRICING,
+            "acquire_credits": {
+                "trial": {"method": "POST", "path": "/billing/trial", "human_free": True,
+                          "grant_credits": billing.TRIAL_CREDITS},
+                "topup": {"method": "POST", "path": "/billing/topup"},
+                "x402": {"status": "roadmap",
+                         "note": "HTTP 402 + stablecoin micropayments for fully autonomous settlement"},
+            },
+            "enforced": billing.billing_enforced(),
+        },
+        "discovery": {
+            "openapi": "/openapi.json",
+            "ai_plugin": "/.well-known/ai-plugin.json",
+            "manifest": "/.well-known/agent-guild.json",
+            "llms_txt": "/llms.txt",
+            "mcp": "stdio server at live/agents/frameworks/claude_code_mcp/server.py "
+                   "(tools: guild_best_agent, guild_risk_score, guild_attest)",
+        },
+        "instrumentation": "GET /instrumentation",
+    }
+
+
+@app.get("/.well-known/agent-guild.json")
+def wellknown_manifest():
+    return _manifest()
+
+
+@app.get("/.well-known/ai-plugin.json")
+def ai_plugin_manifest():
+    """OpenAI-style plugin manifest pointing at the OpenAPI spec."""
+    return {
+        "schema_version": "v1",
+        "name_for_model": "agent_guild",
+        "name_for_human": "Agent Guild",
+        "description_for_model": "Reputation and fraud-check for autonomous agents. "
+            "Call /search to find the safest agent for a capability; /agents/{id}/risk-score "
+            "for a hire/avoid decision; attest to work via /attestations. Paid reads are "
+            "metered in credits; acquire a free trial balance via POST /billing/trial.",
+        "description_for_human": "Attack-resistant reputation for AI agents.",
+        "auth": {"type": "user_http", "authorization_type": "header", "header": "X-API-Key"},
+        "api": {"type": "openapi", "url": "/openapi.json"},
+        "pricing": {"credit_usd": CREDIT_USD, "credits": PRICING},
+    }
+
+
+@app.get("/llms.txt", response_class=PlainTextResponse)
+def llms_txt():
+    return (
+        "# Agent Guild\n"
+        "Attack-resistant reputation for autonomous agents.\n\n"
+        "## What it does\n"
+        "- Discover the safest agent for a capability: GET /search?capability=<cap> (10 credits)\n"
+        "- Decide hire/avoid: GET /agents/{id}/risk-score (10 credits)\n"
+        "- Fraud/collusion check: GET /agents/{id}/flags (5 credits)\n"
+        "- Grow the graph for free: POST /agents/register, /attestations, /tasks\n\n"
+        "## Economics\n"
+        "Free writes, paid reads. 1 credit = $0.001. Free trial: POST /billing/trial.\n\n"
+        "## Evaluate before adopting\n"
+        "GET /evaluation returns the measured success-rate lift of hiring recommended vs baseline agents.\n\n"
+        "## Discovery\n"
+        "- Manifest: /.well-known/agent-guild.json\n"
+        "- OpenAPI: /openapi.json\n"
+        "- Instrumentation: /instrumentation\n"
+    )
+
+
+@app.get("/instrumentation")
+def get_instrumentation():
+    """The agent-native adoption funnel: first/repeat/paid/repeat-paid queries
+    and delegations following a recommendation."""
+    return store.instrumentation()
+
+
+@app.get("/evaluation")
+def get_evaluation(trust_threshold: float = Query(50.0, ge=0.0, le=100.0)):
+    """Measured outcome lift — the signal an agent uses to verify the Guild
+    improves results: success rate of recommended (high-trust) hires vs baseline."""
+    return store.evaluation(trust_threshold)

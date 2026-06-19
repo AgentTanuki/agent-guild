@@ -1,0 +1,30 @@
+# Agent Guild — one-click deploy blueprint for Render (render.com).
+# Push this repo to GitHub, then in Render: New + > Blueprint > pick this repo.
+# Render builds the Docker image and mounts a 1 GB persistent disk at /data so
+# the reputation graph, accounts and credit ledger survive restarts.
+services:
+  - type: web
+    name: agent-guild
+    runtime: docker
+    dockerfilePath: ./live/guild/Dockerfile
+    dockerContext: ./live/guild
+    plan: starter            # smallest paid plan supports a persistent disk
+    healthCheckPath: /health
+    envVars:
+      - key: GUILD_DATA
+        value: /data/guild.json
+      - key: GUILD_ADMIN_TOKEN          # protects seed-agent registration
+        generateValue: true
+      - key: GUILD_BILLING_DEV_TOKEN    # mint credits without Stripe (pilot)
+        generateValue: true
+      - key: GUILD_BILLING_ENFORCED     # "1" to require a funded key on reads
+        value: "0"
+      # --- set these only when you go live with real card payments -----------
+      # - key: STRIPE_SECRET_KEY
+      #   sync: false
+      # - key: STRIPE_WEBHOOK_SECRET
+      #   sync: false
+    disk:
+      name: guild-data
+      mountPath: /data
+      sizeGB: 1
