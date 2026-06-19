@@ -74,3 +74,31 @@ def test_evaluation_endpoint_returns_lift_shape():
     # keys present even before enough graded data exists
     for k in ("recommended_success_rate", "baseline_success_rate", "lift", "n_recommended"):
         assert k in e
+
+
+def test_external_vs_first_party_segmentation():
+    inst0 = client.get("/instrumentation").json()
+    ext0 = inst0["external"]["paid_query"]
+    fp0 = inst0["first_party"]["paid_query"]
+
+    # an EXTERNAL agent: trial + paid lookup, no source header
+    ext = client.post("/billing/trial").json()
+    client.get("/search", params={"capability": "research"}, headers={"X-API-Key": ext["key"]})
+
+    # a FIRST-PARTY agent (our own tooling): same, but marks itself
+    src = {"X-Guild-Source": "first-party"}
+    fpa = client.post("/billing/trial", headers=src).json()
+    client.get("/search", params={"capability": "research"},
+               headers={"X-API-Key": fpa["key"], **src})
+
+    inst1 = client.get("/instrumentation").json()
+    assert inst1["external"]["paid_query"] == ext0 + 1       # external isolated
+    assert inst1["first_party"]["paid_query"] == fp0 + 1     # ours isolated
+
+
+def test_recent_activity_feed_shows_caller():
+    ext = client.post("/billing/trial").json()
+    client.get("/search", params={"capability": "research"}, headers={"X-API-Key": ext["key"]})
+    feed = client.get("/instrumentation/recent", params={"limit": 5}).json()["events"]
+    assert feed
+    assert "user_agent" in feed[0] and "first_party" in feed[0] and "endpoint" in feed[0]

@@ -13,6 +13,7 @@ that drive evidence weighting. Usable entirely over HTTP.
 from __future__ import annotations
 
 import os
+import contextvars
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Header, Query, Request, Response
@@ -38,6 +39,17 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
+
+# Capture the caller's User-Agent per request so the activity feed can show who
+# is calling (a framework UA like "python-httpx" / "langchain" vs a browser).
+_ua: contextvars.ContextVar[str] = contextvars.ContextVar("ua", default="")
+
+
+@app.middleware("http")
+async def _capture_ua(request: Request, call_next):
+    _ua.set(request.headers.get("user-agent", ""))
+    return await call_next(request)
+
 
 store = Store()
 ADMIN_TOKEN = os.environ.get("GUILD_ADMIN_TOKEN", "")
@@ -94,7 +106,7 @@ def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
         except UnknownAccount:
             if billing.billing_enforced():
                 raise HTTPException(401, "unknown billing key (POST /billing/trial for a free starter)")
-            store.record_event(x_api_key, "query", endpoint=endpoint, paid=False)
+            store.record_event(x_api_key, "query", ua=_ua.get(), endpoint=endpoint, paid=False)
             return  # unrecognised key on a soft-launch service: let it through free
         except InsufficientCredits as e:
             raise HTTPException(402, {
@@ -102,14 +114,14 @@ def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
                 "acquire": acquire,
             })
         response.headers["X-Guild-Balance"] = str(acct["balance"])
-        store.record_event(x_api_key, "query", endpoint=endpoint, paid=True)
+        store.record_event(x_api_key, "query", ua=_ua.get(), endpoint=endpoint, paid=True)
         return
     if billing.billing_enforced():
         raise HTTPException(402, {
             "error": "payment_required",
             "detail": "present a funded X-API-Key", "cost": cost, "acquire": acquire,
         })
-    store.record_event(None, "query", endpoint=endpoint, paid=False)
+    store.record_event(None, "query", ua=_ua.get(), endpoint=endpoint, paid=False)
 
 
 @app.get("/")
@@ -143,13 +155,15 @@ def health():
 
 # --- identity ---------------------------------------------------------------
 @app.post("/agents/register", response_model=RegisterResponse)
-def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None)):
+def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
+             x_guild_source: Optional[str] = Header(None)):
     seed = req.seed
     if seed and ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
         raise HTTPException(403, "seed status requires a valid X-Admin-Token")
     rec = store.register_agent(
         name=req.name, capabilities=req.capabilities, metadata=req.metadata,
         public_key=req.public_key, seed=seed,
+        first_party=bool(x_guild_source),  # our own seed/test tools set this header
     )
     return RegisterResponse(
         id=rec["id"], did=rec["did"], public_key=rec["public_key"],
@@ -192,7 +206,7 @@ def create_task(req: CreateTaskRequest, x_api_key: Optional[str] = Header(None))
     # instrument: was this hire a delegation following a Guild recommendation?
     key = x_api_key or store.account_for_agent(req.requester_id)
     followed = store.followed_recommendation(key, req.worker_id)
-    store.record_event(key, "delegation", worker_id=req.worker_id, followed=followed)
+    store.record_event(key, "delegation", ua=_ua.get(), worker_id=req.worker_id, followed=followed)
     return _task_response(t)
 
 
@@ -402,18 +416,19 @@ def _account_response(acct: dict) -> AccountResponse:
 
 
 @app.post("/billing/account", response_model=AccountResponse)
-def create_billing_account():
+def create_billing_account(x_guild_source: Optional[str] = Header(None)):
     """Create a standalone billing account (for consumers that aren't registered
     agents). Returns a key + a free starter credit allowance."""
-    return _account_response(store.create_account())
+    return _account_response(store.create_account(first_party=bool(x_guild_source)))
 
 
 @app.post("/billing/trial", response_model=AccountResponse)
-def grant_trial():
+def grant_trial(x_guild_source: Optional[str] = Header(None)):
     """Agent-native, human-free credit acquisition. An agent provisions a capped
     trial balance to *evaluate* the service before paying — no checkout, no
     invoice. Returns a key with enough credits to run an evaluation."""
-    return _account_response(store.grant_trial(billing.TRIAL_CREDITS))
+    return _account_response(store.grant_trial(billing.TRIAL_CREDITS,
+                                               first_party=bool(x_guild_source)))
 
 
 @app.get("/billing/account", response_model=AccountResponse)
@@ -566,9 +581,17 @@ def llms_txt():
 
 @app.get("/instrumentation")
 def get_instrumentation():
-    """The agent-native adoption funnel: first/repeat/paid/repeat-paid queries
-    and delegations following a recommendation."""
+    """The agent-native adoption funnel, split into `external` (third-party
+    agents we didn't create — the signal that matters) vs `first_party` (our own
+    seed/test traffic). Top-level keys are the combined totals."""
     return store.instrumentation()
+
+
+@app.get("/instrumentation/recent")
+def get_recent_activity(limit: int = Query(50, ge=1, le=500), external_only: bool = False):
+    """A live feed of recent calls — actor, endpoint, paid?, and User-Agent — so
+    you can see who is actually using the service."""
+    return {"events": store.recent_events(limit, external_only)}
 
 
 @app.get("/evaluation")

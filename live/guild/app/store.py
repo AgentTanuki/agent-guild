@@ -82,9 +82,12 @@ class Store:
         metadata: dict[str, Any],
         public_key: Optional[str] = None,
         seed: bool = False,
+        first_party: bool = False,
     ) -> dict[str, Any]:
         with self.lock:
             agent_id = "agent_" + secrets.token_hex(6)
+            # our own seed/test agents are first-party; everyone else is external
+            fp = bool(first_party or metadata.get("first_party") or metadata.get("seed_supply"))
             if public_key:  # self-sovereign: agent holds its own key
                 priv = None
                 pub = public_key
@@ -106,13 +109,14 @@ class Store:
                 "api_key": api_key,    # secret; custodial only
                 "custodial": custodial,
                 "seed": bool(seed),
+                "first_party": fp,
                 "created_at": _now(),
             }
             self.agents[agent_id] = rec
             # Custodial agents get a billing account keyed by their api_key, so
             # they can pay for lookups with the same secret they already hold.
             if api_key:
-                self._new_account(key=api_key, owner_agent_id=agent_id)
+                self._new_account(key=api_key, owner_agent_id=agent_id, first_party=fp)
             self._rep_cache = None
             self._save()
             return rec
@@ -131,7 +135,8 @@ class Store:
 
     # --- billing accounts / credit ledger -----------------------------------
     def _new_account(self, key: Optional[str] = None,
-                     owner_agent_id: Optional[str] = None) -> dict[str, Any]:
+                     owner_agent_id: Optional[str] = None,
+                     first_party: bool = False) -> dict[str, Any]:
         key = key or ("ak_" + secrets.token_hex(20))
         acct = {
             "key": key,
@@ -139,14 +144,18 @@ class Store:
             "spent": 0,
             "topped_up": 0,
             "owner_agent_id": owner_agent_id,
+            # first_party = our own seed/test traffic, so we can subtract it from
+            # the "is anyone external actually using this?" signal.
+            "first_party": bool(first_party),
             "created_at": _now(),
         }
         self.accounts[key] = acct
         return acct
 
-    def create_account(self, owner_agent_id: Optional[str] = None) -> dict[str, Any]:
+    def create_account(self, owner_agent_id: Optional[str] = None,
+                       first_party: bool = False) -> dict[str, Any]:
         with self.lock:
-            acct = self._new_account(owner_agent_id=owner_agent_id)
+            acct = self._new_account(owner_agent_id=owner_agent_id, first_party=first_party)
             self._save()
             return acct
 
@@ -185,12 +194,12 @@ class Store:
             self._save()
             return acct
 
-    def grant_trial(self, trial_credits: int) -> dict[str, Any]:
+    def grant_trial(self, trial_credits: int, first_party: bool = False) -> dict[str, Any]:
         """Programmatic, human-free credit acquisition: an agent provisions a
         capped trial balance to evaluate the service. Play credits until real
         money is enabled — enough to run an evaluation, capped to limit abuse."""
         with self.lock:
-            acct = self._new_account()
+            acct = self._new_account(first_party=first_party)
             acct["balance"] += trial_credits
             acct["topped_up"] += trial_credits
             acct["trial"] = True
@@ -202,10 +211,15 @@ class Store:
             return acct
 
     # --- agent-native instrumentation ---------------------------------------
-    def record_event(self, key: Optional[str], etype: str, **meta) -> None:
+    def record_event(self, key: Optional[str], etype: str, ua: str = "", **meta) -> None:
         """Record a funnel event (query / delegation). `key` is the billing key
-        (the agent's identity for instrumentation purposes)."""
-        self.events.append({"key": key or "anon", "type": etype, "at": _now(), **meta})
+        (the agent's identity for instrumentation purposes). `fp` marks whether
+        the actor is first-party (our own seed/test traffic) so external,
+        third-party usage can be isolated."""
+        acct = self.accounts.get(key or "")
+        fp = bool(acct and acct.get("first_party"))
+        self.events.append({"key": key or "anon", "type": etype, "ua": ua or "",
+                            "fp": fp, "at": _now(), **meta})
         # keep the persisted log bounded
         if len(self.events) > 50000:
             self.events = self.events[-25000:]
@@ -233,13 +247,12 @@ class Store:
                 return k
         return None
 
-    def instrumentation(self) -> dict[str, Any]:
-        """The funnel: first query, repeat query, paid query, repeat paid query,
-        and delegations following a recommendation."""
+    @staticmethod
+    def _funnel(events: list[dict[str, Any]]) -> dict[str, Any]:
         q_by_key: dict[str, int] = {}
         paid_by_key: dict[str, int] = {}
         deleg = deleg_followed = 0
-        for e in self.events:
+        for e in events:
             if e["type"] == "query":
                 q_by_key[e["key"]] = q_by_key.get(e["key"], 0) + 1
                 if e.get("paid"):
@@ -257,8 +270,35 @@ class Store:
             "repeat_paid_query_agents": len([k for k, n in paid_by_key.items() if n >= 2]),
             "delegations": deleg,
             "delegations_following_recommendation": deleg_followed,
-            "total_events": len(self.events),
+            "total_events": len(events),
         }
+
+    def instrumentation(self) -> dict[str, Any]:
+        """The adoption funnel, split so genuine third-party usage is isolated
+        from our own seed/test traffic. Top-level keys are the COMBINED totals
+        (backwards-compatible); `external` is the number that matters — agents we
+        didn't create — and `first_party` is our own."""
+        ext = [e for e in self.events if not e.get("fp")]
+        fp = [e for e in self.events if e.get("fp")]
+        combined = self._funnel(self.events)
+        combined["external"] = self._funnel(ext)
+        combined["first_party"] = self._funnel(fp)
+        return combined
+
+    def recent_events(self, limit: int = 50, external_only: bool = False) -> list[dict[str, Any]]:
+        """Most-recent activity, newest first — a live feed of who is calling."""
+        evs = [e for e in self.events if (not external_only or not e.get("fp"))]
+        out = []
+        for e in reversed(evs[-limit:]):
+            k = e["key"]
+            out.append({
+                "at": e["at"], "type": e["type"], "endpoint": e.get("endpoint"),
+                "paid": e.get("paid"), "followed": e.get("followed"),
+                "first_party": bool(e.get("fp")),
+                "user_agent": (e.get("ua") or "")[:80],
+                "actor": (k[:10] + "…") if k != "anon" else "anon",
+            })
+        return out
 
     def evaluation(self, trust_threshold: float = 50.0) -> dict[str, Any]:
         """Measured outcome lift: success rate of hires of *recommended* (high-
