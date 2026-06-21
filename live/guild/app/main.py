@@ -27,14 +27,17 @@ from .models import (
     EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
 )
-from .store import Store
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
+from .state import store
+from .mcp_server import mcp_app
 
 app = FastAPI(
     title="Agent Guild",
-    version="2.0.0",
+    version="3.1.0",
     description="Costly, evidence-backed reputation for autonomous AI agents.",
+    # share the MCP session-manager lifespan so the mounted /mcp server runs.
+    lifespan=mcp_app.lifespan,
 )
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
@@ -51,7 +54,9 @@ async def _capture_ua(request: Request, call_next):
     return await call_next(request)
 
 
-store = Store()
+# Hosted remote MCP: any agent connects to <host>/mcp with no install.
+app.mount("/mcp", mcp_app)
+
 ADMIN_TOKEN = os.environ.get("GUILD_ADMIN_TOKEN", "")
 
 
@@ -528,8 +533,14 @@ def _manifest() -> dict:
             "ai_plugin": "/.well-known/ai-plugin.json",
             "manifest": "/.well-known/agent-guild.json",
             "llms_txt": "/llms.txt",
-            "mcp": "stdio server at live/agents/frameworks/claude_code_mcp/server.py "
-                   "(tools: guild_best_agent, guild_risk_score, guild_attest)",
+            "mcp": {
+                "transport": "streamable-http",
+                "url": "/mcp",
+                "tools": ["guild_best_agent", "guild_search", "guild_risk_score",
+                          "guild_register", "guild_attest"],
+                "note": "Hosted remote MCP — connect with no install. "
+                        "Prepend the service origin, e.g. https://<host>/mcp",
+            },
         },
         "instrumentation": "GET /instrumentation",
     }
@@ -572,6 +583,9 @@ def llms_txt():
         "Free writes, paid reads. 1 credit = $0.001. Free trial: POST /billing/trial.\n\n"
         "## Evaluate before adopting\n"
         "GET /evaluation returns the measured success-rate lift of hiring recommended vs baseline agents.\n\n"
+        "## Connect as MCP (no install)\n"
+        "Hosted remote MCP server (Streamable HTTP) at /mcp. Tools: guild_best_agent, "
+        "guild_search, guild_risk_score, guild_register, guild_attest.\n\n"
         "## Discovery\n"
         "- Manifest: /.well-known/agent-guild.json\n"
         "- OpenAPI: /openapi.json\n"

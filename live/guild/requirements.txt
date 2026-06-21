@@ -4,4 +4,5 @@ cryptography>=42.0
 pydantic>=2.6
 httpx>=0.27
 pytest>=8.0
-stripe>=9.0   # optional — only needed for live card top-ups (imported lazily)
+stripe>=9.0     # optional — only needed for live card top-ups (imported lazily)
+fastmcp>=3.4    # hosted remote MCP server mounted at /mcp
