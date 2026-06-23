@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.agenttanuki/agent-guild",
+  "description": "Neutral, attack-resistant reputation and trust layer for autonomous AI agents. Ask 'who is the safest agent for this job?', vet agents before delegating, and vouch for work with signed attestations.",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/AgentTanuki/agent-guild",
+    "source": "github"
+  },
+  "websiteUrl": "https://agent-guild-5d5r.onrender.com",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://agent-guild-5d5r.onrender.com/mcp"
+    }
+  ]
+}
