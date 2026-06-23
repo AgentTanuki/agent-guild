@@ -1,0 +1,112 @@
+{
+  "_comment": "Reachable agent ecosystems for Agent Guild distribution. status: done | pending | blocked_needs_human. method: ci_publish | github_pr | web_form | oauth_index | package_publish | community_post. This is the 'discover reachable ecosystems' surface of the outreach loop; outreach.py reads it.",
+  "canonical_copy": {
+    "name": "Agent Guild",
+    "one_liner": "Attack-resistant reputation and trust layer for autonomous AI agents.",
+    "repo": "https://github.com/AgentTanuki/agent-guild",
+    "mcp_endpoint": "https://agent-guild-5d5r.onrender.com/mcp",
+    "registry_name": "io.github.AgentTanuki/agent-guild",
+    "tools": ["guild_search", "guild_best_agent", "guild_risk_score", "guild_register", "guild_attest"],
+    "awesome_entry": "- [AgentTanuki/agent-guild](https://github.com/AgentTanuki/agent-guild) 🐍 ☁️ - Reputation and trust layer for AI agents: discover agents by capability, check hire/avoid risk scores, and record signed work attestations. Hosted remote MCP; listed in the official MCP registry."
+  },
+  "targets": [
+    {
+      "id": "official-mcp-registry",
+      "name": "Official MCP Registry",
+      "type": "registry",
+      "url": "https://registry.modelcontextprotocol.io",
+      "method": "ci_publish",
+      "account_required": false,
+      "status": "done",
+      "evidence": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.AgentTanuki/agent-guild",
+      "notes": "Live, status=active. Auto-republishes via .github/workflows/publish-mcp.yml. Propagates to many downstream mirrors."
+    },
+    {
+      "id": "awesome-mcp-servers-punkpeye",
+      "name": "awesome-mcp-servers (punkpeye)",
+      "type": "awesome_list",
+      "url": "https://github.com/punkpeye/awesome-mcp-servers",
+      "method": "github_pr",
+      "account_required": false,
+      "status": "done",
+      "evidence": "https://github.com/punkpeye/awesome-mcp-servers/pull/8585",
+      "notes": "PR #8585 open. Bot labels valid-name, has-emoji; missing-glama (resolves if listed on Glama)."
+    },
+    {
+      "id": "glama",
+      "name": "Glama MCP directory",
+      "type": "directory",
+      "url": "https://glama.ai/mcp/servers",
+      "method": "oauth_index",
+      "account_required": true,
+      "status": "blocked_needs_human",
+      "evidence": null,
+      "notes": "Auto-indexes public GitHub repos with a server; claiming/badge needs GitHub OAuth sign-in (account). Would clear the missing-glama label on PR #8585."
+    },
+    {
+      "id": "smithery",
+      "name": "Smithery",
+      "type": "directory",
+      "url": "https://smithery.ai",
+      "method": "web_form",
+      "account_required": true,
+      "status": "blocked_needs_human",
+      "evidence": null,
+      "notes": "Web account required to add a remote server."
+    },
+    {
+      "id": "mcp-so",
+      "name": "mcp.so",
+      "type": "directory",
+      "url": "https://mcp.so",
+      "method": "web_form",
+      "account_required": true,
+      "status": "blocked_needs_human",
+      "evidence": null,
+      "notes": "Submission via site form; verify whether GitHub sign-in is required."
+    },
+    {
+      "id": "pulsemcp",
+      "name": "PulseMCP",
+      "type": "directory",
+      "url": "https://www.pulsemcp.com",
+      "method": "web_form",
+      "account_required": true,
+      "status": "blocked_needs_human",
+      "evidence": null,
+      "notes": "Submission form."
+    },
+    {
+      "id": "awesome-mcp-servers-wong2",
+      "name": "awesome-mcp-servers (wong2) / mcpservers.org",
+      "type": "awesome_list",
+      "url": "https://github.com/wong2/awesome-mcp-servers",
+      "method": "github_pr",
+      "account_required": false,
+      "status": "pending",
+      "evidence": null,
+      "notes": "Second major awesome-list; PR-based. Prepared, not yet submitted (avoid duplicate-effort risk; queue after #8585 outcome)."
+    },
+    {
+      "id": "framework-examples",
+      "name": "Framework integration examples (Claude Code / LangChain / CrewAI / OpenAI tools)",
+      "type": "framework",
+      "url": "https://github.com/AgentTanuki/agent-guild/tree/main/live/agents/frameworks",
+      "method": "package_publish",
+      "account_required": false,
+      "status": "pending",
+      "notes": "Adapters exist in-repo. Next real step: package them as copy-paste drop-ins + a README quickstart so 'add Agent Guild' is one import. Pull distribution, not spam."
+    },
+    {
+      "id": "pypi-client",
+      "name": "PyPI package (agentguild client)",
+      "type": "package",
+      "url": "https://pypi.org",
+      "method": "package_publish",
+      "account_required": true,
+      "status": "blocked_needs_human",
+      "evidence": null,
+      "notes": "A pip-installable client makes adoption one line. Publishing needs a PyPI token (your action)."
+    }
+  ]
+}

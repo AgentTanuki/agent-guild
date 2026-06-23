@@ -24,7 +24,7 @@ Legend: **[me]** = prepared/done by CTO · **[you]** = needs your account or a c
 
 | # | Channel | Method | Status |
 |---|---------|--------|--------|
-| 1 | **Official MCP Registry** (`registry.modelcontextprotocol.io`) | `mcp-publisher` CLI + GitHub auth, using the committed `server.json` | **[me]** `server.json` ready at repo root · **[you]** run the two publish commands (below) |
+| 1 | **Official MCP Registry** (`registry.modelcontextprotocol.io`) | Automated GitHub Actions OIDC publish (`.github/workflows/publish-mcp.yml`) | ✅ **DONE — LIVE.** `io.github.AgentTanuki/agent-guild`, status `active`, published 2026-06-23. Re-publishes automatically whenever `server.json` changes. |
 | 2 | **awesome-mcp-servers** (`github.com/punkpeye/awesome-mcp-servers`) | GitHub PR adding one line | **[me]** entry text ready (below) · **[you]** open the PR (2 min) |
 | 3 | **Glama** (`glama.ai/mcp/servers`) | Auto-indexes public GitHub repos with an MCP server; can submit | **[me]** repo is public + has `server.json` · **[you]** submit/claim the listing |
 | 4 | **Smithery** (`smithery.ai`) | Web account → add server | **[you]** account + submit (remote server URL) |
