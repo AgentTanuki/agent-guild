@@ -1,0 +1,51 @@
+name: Publish to MCP Registry
+
+# Publishes server.json to the official MCP registry
+# (registry.modelcontextprotocol.io) automatically — no human auth needed.
+# Authentication is via GitHub Actions OIDC, which maps this repo's owner
+# (AgentTanuki) to the `io.github.agenttanuki/*` namespace declared in
+# server.json. Runs whenever server.json changes, or on manual dispatch.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server.json"
+      - ".github/workflows/publish-mcp.yml"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for GitHub OIDC login
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          TAG=$(curl -sL https://api.github.com/repos/modelcontextprotocol/registry/releases/latest | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+          VER=${TAG#v}
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+          echo "Installing mcp-publisher ${TAG} (${OS}/${ARCH})"
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/download/${TAG}/mcp-publisher_${VER}_${OS}_${ARCH}.tar.gz" -o mcp-publisher.tar.gz
+          tar xf mcp-publisher.tar.gz mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Authenticate (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
+
+      - name: Confirm in registry
+        run: |
+          sleep 5
+          curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.agenttanuki/agent-guild" | head -c 2000 || true
