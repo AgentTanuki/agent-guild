@@ -77,7 +77,10 @@ def main() -> None:
     args = ap.parse_args()
 
     rng = random.Random(args.seed)
-    g = GuildClient(args.url)
+    # Tag all of this script's traffic as FIRST-PARTY so seeded supply is never
+    # counted as organic external usage (matches the server's
+    # GUILD_FIRST_PARTY_TOKEN when set; harmless marker otherwise).
+    g = GuildClient(args.url, source=os.environ.get("GUILD_FIRST_PARTY_TOKEN", "agent-guild-internal"))
     print(f"Seeding supply into {args.url}")
     if not args.admin_token:
         print("  (no GUILD_ADMIN_TOKEN — employers will register as ordinary agents; "

@@ -43,6 +43,22 @@ class ScoringParams:
     per_issuer_eigen_cap: float = 0.5  # max single C[i][j] (caps eigen pumping)
     slash_threshold: float = 0.30   # rating-vs-consensus gap that triggers slashing
     slash_coeff: float = 1.6        # converts staked deviation into a score penalty
+    # --- absolute trust floor (hardening) ----------------------------------
+    # A reviewer's vote only counts as "trusted" if its standing clears BOTH a
+    # relative bar (trusted_eigen_frac × max) AND an absolute floor — and, when
+    # the graph has seeds, the reviewer must be reachable from a seed along the
+    # trust graph. This closes the documented hole where "trusted" was purely
+    # relative to the network max and could be cleared cheaply in a near-empty
+    # graph: a clique with no seed-anchored inflow now contributes ~no trusted
+    # reviewers no matter how loudly it praises itself.
+    abs_eigen_floor: float = 1e-4   # absolute minimum eigen to be a trusted reviewer
+    require_seed_path: bool = True  # trusted reviewers must be seed-reachable (if seeds exist)
+    # An agent with NO seed-anchored trusted support cannot bootstrap meaningful
+    # trust: its score is hard-capped here (×100 = trust points) no matter how
+    # much unanchored praise it accumulates. This is the absolute reputation
+    # floor — unknown/island agents stay near zero instead of resting at the
+    # prior, so reputation must be *earned* from seed-traceable evidence.
+    unknown_trust_ceiling: float = 0.05
 
 
 @dataclass
@@ -179,6 +195,22 @@ def score(
     eigen = t
     max_eigen = max(eigen.values(), default=1e-12) or 1e-12
 
+    # --- Seed reachability: which agents are reachable from a seed along the ---
+    # trust graph (seed trusts X, X trusts Y, …). Trust in EigenTrust only has
+    # standing if it traces back to a pre-trusted seed; an island clique is not
+    # seed-reachable and therefore cannot host a "trusted" reviewer.
+    seed_reachable: set[str] = set(seeds)
+    if seeds:
+        frontier = list(seeds)
+        while frontier:
+            a = frontier.pop()
+            for sub, w in C.get(a, {}).items():
+                if w > 0 and sub not in seed_reachable:
+                    seed_reachable.add(sub)
+                    frontier.append(sub)
+    else:
+        seed_reachable = set(ids)  # no seeds: fall back to old behaviour
+
     # --- Collusion / Sybil flags --------------------------------------------
     flags = detect_collusion(ids, out, inc, eigen, seeds, high=0.7)
     cluster_of: dict[str, Optional[int]] = {a: flags[a].cluster_id for a in ids}
@@ -234,8 +266,19 @@ def score(
     slash_penalty = {a: min(0.9, p.slash_coeff * slash[a]) for a in ids}
 
     # --- Trusted reviewer predicate -----------------------------------------
+    # A reviewer is trusted only if it clears the relative bar AND an absolute
+    # floor AND (when seeds exist) is reachable from a seed. All three must hold,
+    # so an island clique with no seed inflow earns no confidence for its targets
+    # however much it inflates them.
     def trusted(rv: str) -> bool:
-        return eigen.get(rv, 0.0) >= p.trusted_eigen_frac * max_eigen
+        e = eigen.get(rv, 0.0)
+        if e < p.abs_eigen_floor:
+            return False
+        if e < p.trusted_eigen_frac * max_eigen:
+            return False
+        if p.require_seed_path and seeds and rv not in seed_reachable:
+            return False
+        return True
 
     # --- Compose final score ------------------------------------------------
     raw: dict[str, float] = {}
@@ -253,6 +296,12 @@ def score(
         trusted_reviewers_of[a] = tr
         confidence = 1 - math.exp(-tr / p.confidence_k)
         raw[a] = confidence * base + (1 - confidence) * p.prior
+        # Absolute floor: an agent with no seed-anchored trusted support (and, if
+        # seeds exist, not seed-reachable) cannot bootstrap trust above the
+        # unknown ceiling — unanchored reputation is pinned near zero.
+        anchored = (a in seeds) or tr > 0 or (bool(seeds) and a in seed_reachable)
+        if not anchored:
+            raw[a] = min(raw[a], p.unknown_trust_ceiling)
 
     ordered = sorted(ids, key=lambda a: raw[a], reverse=True)
     rank_of = {a: i + 1 for i, a in enumerate(ordered)}

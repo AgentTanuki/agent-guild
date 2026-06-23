@@ -32,10 +32,15 @@ class GuildError(Exception):
 
 class Guild:
     def __init__(self, base_url: str = "http://127.0.0.1:8000",
-                 api_key: Optional[str] = None, timeout: float = 30.0):
+                 api_key: Optional[str] = None, timeout: float = 30.0,
+                 source: Optional[str] = None):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key          # billing key (agent sk_ key or ak_ key)
         self.timeout = timeout
+        # First-party tag: set to mark this traffic as OUR seed/test traffic so
+        # it is excluded from organic external usage. Genuine third-party agents
+        # leave it None.
+        self.source = source
 
     # --- transport ----------------------------------------------------------
     def _req(self, method: str, path: str, body: Optional[dict] = None,
@@ -46,6 +51,8 @@ class Guild:
         k = key or self.api_key
         if k:
             req.add_header("X-API-Key", k)
+        if self.source:
+            req.add_header("X-Guild-Source", self.source)
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
                 return json.loads(r.read().decode())

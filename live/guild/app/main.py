@@ -60,6 +60,21 @@ async def _capture_ua(request: Request, call_next):
 app.mount("/mcp", mcp_app)
 
 ADMIN_TOKEN = os.environ.get("GUILD_ADMIN_TOKEN", "")
+# Strict first-party tagging: our own seed/test tools mark their traffic with the
+# X-Guild-Source header so it is never counted as organic external usage. When
+# GUILD_FIRST_PARTY_TOKEN is set, the header must MATCH it — so a third party
+# cannot accidentally (or deliberately) tag itself, and, more importantly, our
+# own traffic is reliably tagged. When unset, any non-empty header marks
+# first-party (convenient for local dev).
+FIRST_PARTY_TOKEN = os.environ.get("GUILD_FIRST_PARTY_TOKEN", "")
+
+
+def _is_first_party(x_guild_source: Optional[str]) -> bool:
+    if not x_guild_source:
+        return False
+    if FIRST_PARTY_TOKEN:
+        return x_guild_source == FIRST_PARTY_TOKEN
+    return True
 
 
 def _profile(rec: dict) -> AgentProfile:
@@ -206,7 +221,7 @@ def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
     rec = store.register_agent(
         name=req.name, capabilities=req.capabilities, metadata=req.metadata,
         public_key=req.public_key, seed=seed,
-        first_party=bool(x_guild_source),  # our own seed/test tools set this header
+        first_party=_is_first_party(x_guild_source),  # token-gated; seeds are also tagged
         referred_by=req.referred_by,
     )
     return RegisterResponse(
@@ -463,7 +478,7 @@ def _account_response(acct: dict) -> AccountResponse:
 def create_billing_account(x_guild_source: Optional[str] = Header(None)):
     """Create a standalone billing account (for consumers that aren't registered
     agents). Returns a key + a free starter credit allowance."""
-    return _account_response(store.create_account(first_party=bool(x_guild_source)))
+    return _account_response(store.create_account(first_party=_is_first_party(x_guild_source)))
 
 
 @app.post("/billing/trial", response_model=AccountResponse)
@@ -472,7 +487,7 @@ def grant_trial(x_guild_source: Optional[str] = Header(None)):
     trial balance to *evaluate* the service before paying — no checkout, no
     invoice. Returns a key with enough credits to run an evaluation."""
     return _account_response(store.grant_trial(billing.TRIAL_CREDITS,
-                                               first_party=bool(x_guild_source)))
+                                               first_party=_is_first_party(x_guild_source)))
 
 
 @app.get("/billing/account", response_model=AccountResponse)
@@ -678,11 +693,10 @@ def run_self_eval(x_admin_token: Optional[str] = Header(None)):
 
 @app.get("/self-eval", response_model=HealthSnapshot)
 def get_self_eval():
-    """The most recent health snapshot (read-only). Computes a live one if no
-    snapshot has been recorded yet."""
-    hist = store.health_history(1)
-    snap = hist[-1] if hist else store.record_health_snapshot()
-    return HealthSnapshot(**snap)
+    """A FRESH, read-only health snapshot computed on every call (with trend
+    deltas vs the last recorded one). This is the single source of truth the
+    monitoring tick consumes, so external reporting and the server agree."""
+    return HealthSnapshot(**store.compute_health(persist=False))
 
 
 @app.get("/self-eval/history", response_model=HealthHistoryResponse)

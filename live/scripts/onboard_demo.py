@@ -35,7 +35,10 @@ def main() -> None:
     ap.add_argument("--dev-token", default=os.environ.get("GUILD_BILLING_DEV_TOKEN", ""))
     args = ap.parse_args()
 
-    guild = Guild(args.url)
+    # This is OUR demo, so it tags itself FIRST-PARTY — running it against the
+    # production service must never inflate organic external usage. (It still
+    # demonstrates the full external lifecycle; it's just correctly attributed.)
+    guild = Guild(args.url, source=os.environ.get("GUILD_FIRST_PARTY_TOKEN", "agent-guild-internal"))
 
     # 1. register as an outside consumer agent (also gives us a billing account)
     me = guild.register("Outsider-Consumer", ["research"],

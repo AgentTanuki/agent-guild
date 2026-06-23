@@ -23,6 +23,7 @@ from .reputation import score, AttRecord, AgentScore, ScoringResult
 from .billing import (
     FREE_CREDITS, InsufficientCredits, UnknownAccount,
     REFERRAL_REWARD_CREDITS, REFERRAL_REWARD_CAP, CREDIT_USD,
+    REFERRAL_MIN_ACCEPTED_RECEIPTS, REFERRAL_MIN_PAID_READS,
 )
 
 
@@ -95,11 +96,18 @@ class Store:
     ) -> dict[str, Any]:
         with self.lock:
             agent_id = "agent_" + secrets.token_hex(6)
-            # A referral only counts if it names a real, different agent.
+            # A referral only counts if it names a real, different agent. Edges
+            # always point from a newer agent to an already-existing one, so the
+            # referral graph is a DAG by construction — reciprocal/self loops
+            # cannot form. (Self-referral is additionally impossible: the new id
+            # does not exist yet, so referred_by can never equal it.)
             if referred_by and (referred_by == agent_id or referred_by not in self.agents):
                 referred_by = None
-            # our own seed/test agents are first-party; everyone else is external
-            fp = bool(first_party or metadata.get("first_party") or metadata.get("seed_supply"))
+            # our own seed/test agents are first-party; everyone else is external.
+            # Pre-trusted SEEDS are governed supply, not organic demand, so they
+            # are always first-party and never counted as external usage.
+            fp = bool(first_party or seed
+                      or metadata.get("first_party") or metadata.get("seed_supply"))
             if public_key:  # self-sovereign: agent holds its own key
                 priv = None
                 pub = public_key
@@ -149,23 +157,46 @@ class Store:
             return rec
 
     # --- referrals (agents as the growth engine) ----------------------------
-    def activate_referral(self, agent_id: str) -> None:
-        """Called when an agent does something real (delivers a receipt or pays
-        for a read). If this agent was referred, pay the referrer once — capped,
-        and never for self-referral or first-party traffic. Paying on activation
-        rather than registration is what makes the incentive value-aligned and
-        starves referral-spam Sybils."""
+    def _referred_agent_usage(self, agent_id: str) -> tuple[int, int]:
+        """(accepted_receipts_as_worker, paid_reads) for a referred agent — the
+        real-use signals that gate a referral reward."""
+        accepted = sum(1 for t in self.tasks.values()
+                       if t.get("worker_agent_id") == agent_id
+                       and t.get("outcome") == "accepted")
+        key = self.account_for_agent(agent_id)
+        paid_reads = 0
+        if key:
+            paid_reads = sum(1 for e in self.events
+                             if e.get("key") == key and e.get("type") == "query"
+                             and e.get("paid"))
+        return accepted, paid_reads
+
+    def maybe_reward_referral(self, agent_id: str) -> None:
+        """Pay a referrer ONLY when the referred agent crosses a real-use bar —
+        not on its first action. Anti-gaming layers, each covering the others:
+
+          * activation threshold — needs several accepted receipts or paid reads,
+            so a single throwaway event cannot trigger a payout;
+          * first-party referrals never pay — our own traffic is not growth;
+          * per-referrer cap — bounds farm payouts;
+          * DAG-by-construction — no self-referral or reciprocal loops possible.
+        """
         with self.lock:
             edge = next((r for r in self.referrals
                          if r["referred_id"] == agent_id and not r["activated"]), None)
             if edge is None:
                 return
+            accepted, paid_reads = self._referred_agent_usage(agent_id)
+            if not (accepted >= REFERRAL_MIN_ACCEPTED_RECEIPTS
+                    or paid_reads >= REFERRAL_MIN_PAID_READS):
+                return  # real-use threshold not met yet — do not reward
             edge["activated"] = True
             edge["activated_at"] = _now()
+            edge["activation_evidence"] = {"accepted_receipts": accepted, "paid_reads": paid_reads}
             referrer = edge["referrer_id"]
-            # Don't pay for first-party (our own) traffic — that's not real growth.
             already = sum(1 for r in self.referrals
                           if r["referrer_id"] == referrer and r["rewarded"] > 0)
+            # Never pay for first-party (our own) traffic, and respect the cap.
             if not edge.get("first_party") and already < REFERRAL_REWARD_CAP:
                 key = self.account_for_agent(referrer)
                 if key:
@@ -175,6 +206,10 @@ class Store:
                                       referrer_id=referrer, referred_id=agent_id,
                                       reward=REFERRAL_REWARD_CREDITS)
             self._save()
+
+    # Backwards-compatible alias (the activation hooks call this name).
+    def activate_referral(self, agent_id: str) -> None:
+        self.maybe_reward_referral(agent_id)
 
     def referral_stats(self) -> dict[str, Any]:
         total = len(self.referrals)
@@ -452,10 +487,12 @@ class Store:
                 if growing else
                 "PAID BUT FLAT — agents pay, but growth/referrals stalled this period; investigate acquisition.")
 
-    def record_health_snapshot(self) -> dict[str, Any]:
-        """Compute, persist, and return the health snapshot with trend deltas vs
-        the previous one. This is the unit the self-evaluation loop appends on a
-        schedule so the Guild assesses itself continuously, without a prompt."""
+    def compute_health(self, persist: bool = False) -> dict[str, Any]:
+        """Compute the health snapshot (vector + trend deltas vs the last
+        recorded one + verdict). This is the SINGLE SOURCE OF TRUTH for health:
+        the read-only `/self-eval` endpoint and the scheduled monitoring tick
+        both consume exactly this, so server-side and external reporting can
+        never diverge. `persist=True` also appends it to the durable series."""
         with self.lock:
             v = self._health_vector()
             prev = self.health_log[-1] if self.health_log else None
@@ -466,11 +503,16 @@ class Store:
                         deltas[k] = round(val - prev[k], 4)
             snap = {"at": _now(), **v, "deltas": deltas}
             snap["verdict"] = self._verdict(v, deltas)
-            self.health_log.append(snap)
-            if len(self.health_log) > 5000:
-                self.health_log = self.health_log[-2500:]
-            self._save()
+            if persist:
+                self.health_log.append(snap)
+                if len(self.health_log) > 5000:
+                    self.health_log = self.health_log[-2500:]
+                self._save()
             return snap
+
+    def record_health_snapshot(self) -> dict[str, Any]:
+        """Compute and persist a snapshot (admin/scheduled path)."""
+        return self.compute_health(persist=True)
 
     def health_history(self, limit: int = 90) -> list[dict[str, Any]]:
         return self.health_log[-limit:]

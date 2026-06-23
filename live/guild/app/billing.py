@@ -33,6 +33,14 @@ TRIAL_CREDITS = 500         # human-free trial grant: $0.50 of lookups to evalua
 # activate. The reward is capped per referrer to bound abuse.
 REFERRAL_REWARD_CREDITS = 200   # $0.20 of lookups, paid on the referred agent's activation
 REFERRAL_REWARD_CAP = 50        # max distinct activated referrals a referrer is paid for
+# Activation threshold (anti-gaming): a referral pays out only once the referred
+# agent crosses a REAL-USE bar, not on its first action. This defeats the Sybil
+# farm where an operator registers one referrer + many shells and "activates"
+# each with a single throwaway event. The referred agent must either deliver
+# several accepted task receipts OR make several paid reads before the referrer
+# earns anything.
+REFERRAL_MIN_ACCEPTED_RECEIPTS = 2   # accepted deliverables as worker, or…
+REFERRAL_MIN_PAID_READS = 3          # …paid discovery reads, before reward
 
 # Per-endpoint price in credits. Writes are absent here = free.
 PRICING: dict[str, int] = {

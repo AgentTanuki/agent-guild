@@ -21,9 +21,21 @@ class GuildIdentity:
 
 
 class GuildClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:8000", timeout: float = 30.0):
+    def __init__(self, base_url: str = "http://127.0.0.1:8000", timeout: float = 30.0,
+                 source: Optional[str] = None):
+        """`source` tags traffic as FIRST-PARTY (our own seed/test tooling) via
+        the X-Guild-Source header, so it is never mistaken for organic external
+        usage. When the server sets GUILD_FIRST_PARTY_TOKEN, `source` must equal
+        that token to be honoured. Leave it None for genuine third-party agents."""
         self.base_url = base_url.rstrip("/")
+        self.source = source
         self._http = httpx.Client(base_url=self.base_url, timeout=timeout)
+
+    def _h(self, headers: Optional[dict[str, str]] = None) -> dict[str, str]:
+        h = dict(headers or {})
+        if self.source:
+            h.setdefault("X-Guild-Source", self.source)
+        return h
 
     # --- identity -----------------------------------------------------------
     def register(
@@ -36,7 +48,7 @@ class GuildClient:
         admin_token: Optional[str] = None,
     ) -> GuildIdentity:
         headers = {"X-Admin-Token": admin_token} if admin_token else {}
-        r = self._http.post("/agents/register", headers=headers, json={
+        r = self._http.post("/agents/register", headers=self._h(headers), json={
             "name": name, "capabilities": capabilities,
             "metadata": metadata or {}, "public_key": public_key, "seed": seed,
         })
@@ -52,7 +64,7 @@ class GuildClient:
                api_key: Optional[str] = None) -> list[dict[str, Any]]:
         # search is a metered read; pass a billing key when enforcement is on.
         headers = {"X-API-Key": api_key} if api_key else {}
-        r = self._http.get("/search", headers=headers, params={
+        r = self._http.get("/search", headers=self._h(headers), params={
             "capability": capability, "limit": limit, "min_trust": min_trust,
         })
         r.raise_for_status()
