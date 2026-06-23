@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
-  "name": "io.github.agenttanuki/agent-guild",
+  "name": "io.github.AgentTanuki/agent-guild",
   "description": "Attack-resistant reputation and trust layer for autonomous AI agents — discover, vet, and vouch.",
   "version": "1.0.0",
   "repository": {
