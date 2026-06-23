@@ -27,6 +27,7 @@ from .models import (
     CreateTaskRequest, TaskResponse, ReceiptRequest,
     EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
+    ReferralsResponse, HealthSnapshot, HealthHistoryResponse,
 )
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
@@ -121,6 +122,11 @@ def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
             })
         response.headers["X-Guild-Balance"] = str(acct["balance"])
         store.record_event(x_api_key, "query", ua=_ua.get(), endpoint=endpoint, paid=True)
+        # Paying for a read is an activation event — if this agent was referred,
+        # its referrer earns the reward now.
+        owner = acct.get("owner_agent_id")
+        if owner:
+            store.activate_referral(owner)
         return
     if billing.billing_enforced():
         raise HTTPException(402, {
@@ -201,11 +207,12 @@ def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
         name=req.name, capabilities=req.capabilities, metadata=req.metadata,
         public_key=req.public_key, seed=seed,
         first_party=bool(x_guild_source),  # our own seed/test tools set this header
+        referred_by=req.referred_by,
     )
     return RegisterResponse(
         id=rec["id"], did=rec["did"], public_key=rec["public_key"],
         capabilities=rec["capabilities"], api_key=rec.get("api_key"),
-        custodial=rec["custodial"],
+        custodial=rec["custodial"], referred_by=rec.get("referred_by"),
     )
 
 
@@ -645,3 +652,42 @@ def get_evaluation(trust_threshold: float = Query(50.0, ge=0.0, le=100.0)):
     """Measured outcome lift — the signal an agent uses to verify the Guild
     improves results: success rate of recommended (high-trust) hires vs baseline."""
     return store.evaluation(trust_threshold)
+
+
+# --- referrals (Outcome 1: agents as the growth engine) ---------------------
+@app.get("/referrals", response_model=ReferralsResponse)
+def get_referrals():
+    """The agent-to-agent referral graph: how many agents were referred, how many
+    activated (did real work / paid), and which referrers drove the most growth.
+    Referrers are rewarded in credits only on activation — so this measures real
+    growth, not registration spam."""
+    return ReferralsResponse(**store.referral_stats())
+
+
+# --- continuous self-evaluation (Outcome 4) ---------------------------------
+@app.post("/self-eval/run", response_model=HealthSnapshot)
+def run_self_eval(x_admin_token: Optional[str] = Header(None)):
+    """Record one health snapshot across all five objectives (utility, growth,
+    retention, revenue, referrals) with trend deltas vs the previous snapshot.
+    Meant to be called on a schedule so the Guild assesses itself continuously
+    with no human prompt. Admin-gated in production to keep the series clean."""
+    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(403, "self-eval recording requires a valid X-Admin-Token")
+    return HealthSnapshot(**store.record_health_snapshot())
+
+
+@app.get("/self-eval", response_model=HealthSnapshot)
+def get_self_eval():
+    """The most recent health snapshot (read-only). Computes a live one if no
+    snapshot has been recorded yet."""
+    hist = store.health_history(1)
+    snap = hist[-1] if hist else store.record_health_snapshot()
+    return HealthSnapshot(**snap)
+
+
+@app.get("/self-eval/history", response_model=HealthHistoryResponse)
+def get_self_eval_history(limit: int = Query(90, ge=1, le=1000)):
+    """The health time-series — the trend, not a point-in-time number."""
+    snaps = store.health_history(limit)
+    return HealthHistoryResponse(count=len(snaps),
+                                 snapshots=[HealthSnapshot(**s) for s in snaps])

@@ -25,6 +25,15 @@ CREDIT_USD = 0.001          # 1 credit = one tenth of a cent
 FREE_CREDITS = 100          # new account starts with $0.10 of free lookups
 TRIAL_CREDITS = 500         # human-free trial grant: $0.50 of lookups to evaluate
 
+# Referral incentive (Outcome 1 — agents as the growth engine). A referral is
+# recorded for free at registration, but the referrer is only *paid* once the
+# referred agent does something real (an activation event: a delivered task
+# receipt or a paid read). This aligns the growth incentive with genuine utility
+# and starves referral-spam Sybils, who can register infinitely but never
+# activate. The reward is capped per referrer to bound abuse.
+REFERRAL_REWARD_CREDITS = 200   # $0.20 of lookups, paid on the referred agent's activation
+REFERRAL_REWARD_CAP = 50        # max distinct activated referrals a referrer is paid for
+
 # Per-endpoint price in credits. Writes are absent here = free.
 PRICING: dict[str, int] = {
     "best_agent": 10,       # GET /search   — discovery, the headline product

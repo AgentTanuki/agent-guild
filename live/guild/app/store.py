@@ -20,7 +20,10 @@ from typing import Any, Optional
 from .crypto import generate_keypair, did_from_public_key
 from .vc import issue_credential, verify_credential
 from .reputation import score, AttRecord, AgentScore, ScoringResult
-from .billing import FREE_CREDITS, InsufficientCredits, UnknownAccount
+from .billing import (
+    FREE_CREDITS, InsufficientCredits, UnknownAccount,
+    REFERRAL_REWARD_CREDITS, REFERRAL_REWARD_CAP, CREDIT_USD,
+)
 
 
 def _now() -> str:
@@ -47,6 +50,8 @@ class Store:
         self.accounts: dict[str, dict[str, Any]] = {}     # billing key -> account
         self.billing_log: list[dict[str, Any]] = []       # usage + top-up ledger
         self.events: list[dict[str, Any]] = []            # agent-native instrumentation
+        self.referrals: list[dict[str, Any]] = []         # agent-to-agent referral edges
+        self.health_log: list[dict[str, Any]] = []        # self-evaluation snapshots
         self._rep_cache: Optional[ScoringResult] = None
         self._load()
 
@@ -61,6 +66,8 @@ class Store:
             self.accounts = data.get("accounts", {})
             self.billing_log = data.get("billing_log", [])
             self.events = data.get("events", [])
+            self.referrals = data.get("referrals", [])
+            self.health_log = data.get("health_log", [])
 
     def _save(self) -> None:
         if not self.path:
@@ -71,7 +78,8 @@ class Store:
             json.dump({"agents": self.agents, "tasks": self.tasks,
                        "attestations": self.attestations,
                        "accounts": self.accounts, "billing_log": self.billing_log,
-                       "events": self.events}, f, indent=2)
+                       "events": self.events, "referrals": self.referrals,
+                       "health_log": self.health_log}, f, indent=2)
         os.replace(tmp, self.path)
 
     # --- agents -------------------------------------------------------------
@@ -83,9 +91,13 @@ class Store:
         public_key: Optional[str] = None,
         seed: bool = False,
         first_party: bool = False,
+        referred_by: Optional[str] = None,
     ) -> dict[str, Any]:
         with self.lock:
             agent_id = "agent_" + secrets.token_hex(6)
+            # A referral only counts if it names a real, different agent.
+            if referred_by and (referred_by == agent_id or referred_by not in self.agents):
+                referred_by = None
             # our own seed/test agents are first-party; everyone else is external
             fp = bool(first_party or metadata.get("first_party") or metadata.get("seed_supply"))
             if public_key:  # self-sovereign: agent holds its own key
@@ -110,6 +122,7 @@ class Store:
                 "custodial": custodial,
                 "seed": bool(seed),
                 "first_party": fp,
+                "referred_by": referred_by,
                 "created_at": _now(),
             }
             self.agents[agent_id] = rec
@@ -117,9 +130,78 @@ class Store:
             # they can pay for lookups with the same secret they already hold.
             if api_key:
                 self._new_account(key=api_key, owner_agent_id=agent_id, first_party=fp)
+            # Record the referral edge (pending: the referrer is paid only once
+            # this agent activates — see activate_referral).
+            if referred_by:
+                self.referrals.append({
+                    "referrer_id": referred_by,
+                    "referred_id": agent_id,
+                    "first_party": fp,
+                    "activated": False,
+                    "rewarded": 0,
+                    "created_at": _now(),
+                    "activated_at": None,
+                })
+                self.record_event(self.account_for_agent(referred_by), "referral",
+                                  referrer_id=referred_by, referred_id=agent_id)
             self._rep_cache = None
             self._save()
             return rec
+
+    # --- referrals (agents as the growth engine) ----------------------------
+    def activate_referral(self, agent_id: str) -> None:
+        """Called when an agent does something real (delivers a receipt or pays
+        for a read). If this agent was referred, pay the referrer once — capped,
+        and never for self-referral or first-party traffic. Paying on activation
+        rather than registration is what makes the incentive value-aligned and
+        starves referral-spam Sybils."""
+        with self.lock:
+            edge = next((r for r in self.referrals
+                         if r["referred_id"] == agent_id and not r["activated"]), None)
+            if edge is None:
+                return
+            edge["activated"] = True
+            edge["activated_at"] = _now()
+            referrer = edge["referrer_id"]
+            # Don't pay for first-party (our own) traffic — that's not real growth.
+            already = sum(1 for r in self.referrals
+                          if r["referrer_id"] == referrer and r["rewarded"] > 0)
+            if not edge.get("first_party") and already < REFERRAL_REWARD_CAP:
+                key = self.account_for_agent(referrer)
+                if key:
+                    edge["rewarded"] = REFERRAL_REWARD_CREDITS
+                    self.credit(key, REFERRAL_REWARD_CREDITS, reason="referral_reward")
+                    self.record_event(key, "referral_activated",
+                                      referrer_id=referrer, referred_id=agent_id,
+                                      reward=REFERRAL_REWARD_CREDITS)
+            self._save()
+
+    def referral_stats(self) -> dict[str, Any]:
+        total = len(self.referrals)
+        activated = sum(1 for r in self.referrals if r["activated"])
+        rewarded_total = sum(r["rewarded"] for r in self.referrals)
+        by_ref: dict[str, dict[str, int]] = {}
+        for r in self.referrals:
+            d = by_ref.setdefault(r["referrer_id"],
+                                  {"referred": 0, "activated": 0, "rewarded": 0})
+            d["referred"] += 1
+            d["activated"] += 1 if r["activated"] else 0
+            d["rewarded"] += r["rewarded"]
+        top = sorted(by_ref.items(),
+                     key=lambda kv: (kv[1]["activated"], kv[1]["referred"]), reverse=True)
+        top_referrers = [
+            {"referrer_id": rid, "name": (self.agents.get(rid) or {}).get("name"),
+             "referred": d["referred"], "activated": d["activated"],
+             "rewarded_credits": d["rewarded"]}
+            for rid, d in top[:20]
+        ]
+        return {
+            "total_referrals": total,
+            "activated_referrals": activated,
+            "activation_rate": (activated / total) if total else None,
+            "rewarded_credits_total": rewarded_total,
+            "top_referrers": top_referrers,
+        }
 
     def get_agent(self, agent_id: str) -> Optional[dict[str, Any]]:
         return self.agents.get(agent_id)
@@ -326,6 +408,73 @@ class Store:
             "lift": lift, "trust_threshold": trust_threshold,
         }
 
+    # --- continuous self-evaluation (Outcome 4) -----------------------------
+    def _health_vector(self) -> dict[str, Any]:
+        """Compute the current health vector across the five objectives, from
+        durable state only. No side effects — record_health_snapshot persists it."""
+        instr = self.instrumentation()
+        ext = instr.get("external", {})
+        ev = self.evaluation()
+        ref = self.referral_stats()
+        agents_external = sum(1 for a in self.agents.values() if not a.get("first_party"))
+        credits_spent_ext = sum(a.get("spent", 0) for a in self.accounts.values()
+                                if not a.get("first_party"))
+        return {
+            "measured_lift": ev.get("lift"),
+            "recommended_success_rate": ev.get("recommended_success_rate"),
+            "agents_total": len(self.agents),
+            "agents_external": agents_external,
+            "external_querying_agents": ext.get("unique_agents", 0),
+            "external_repeat_query_agents": ext.get("repeat_query", 0),
+            "external_repeat_paid_agents": ext.get("repeat_paid_query_agents", 0),
+            "external_paid_queries": ext.get("paid_query", 0),
+            "credits_spent_external": credits_spent_ext,
+            "revenue_usd_external": round(credits_spent_ext * CREDIT_USD, 4),
+            "total_referrals": ref["total_referrals"],
+            "activated_referrals": ref["activated_referrals"],
+        }
+
+    @staticmethod
+    def _verdict(v: dict[str, Any], deltas: dict[str, float]) -> str:
+        """A blunt, honest read of whether the autonomous flywheel is turning.
+        The load-bearing signal is *external* agents climbing the value ladder —
+        not totals we can inflate ourselves."""
+        if v["agents_external"] == 0:
+            return "NO EXTERNAL AGENTS YET — deploy and seed discovery; every metric is self-traffic until one outside agent calls."
+        if v.get("external_querying_agents", 0) == 0:
+            return "REGISTRATIONS BUT NO DISCOVERY — external agents exist but none have queried the trust layer yet; the core product is untested in the wild."
+        if v["external_repeat_query_agents"] == 0:
+            return "REACH BUT NO RETENTION — outside agents have queried but none came back; usefulness unproven."
+        if v["external_paid_queries"] == 0:
+            return "RETENTION BUT NO WILLINGNESS-TO-PAY — agents return for free reads but none spend their own budget yet."
+        growing = deltas.get("agents_external", 0) > 0 or deltas.get("activated_referrals", 0) > 0
+        return ("FLYWHEEL TURNING — external agents pay and the network is growing."
+                if growing else
+                "PAID BUT FLAT — agents pay, but growth/referrals stalled this period; investigate acquisition.")
+
+    def record_health_snapshot(self) -> dict[str, Any]:
+        """Compute, persist, and return the health snapshot with trend deltas vs
+        the previous one. This is the unit the self-evaluation loop appends on a
+        schedule so the Guild assesses itself continuously, without a prompt."""
+        with self.lock:
+            v = self._health_vector()
+            prev = self.health_log[-1] if self.health_log else None
+            deltas: dict[str, float] = {}
+            if prev:
+                for k, val in v.items():
+                    if isinstance(val, (int, float)) and isinstance(prev.get(k), (int, float)):
+                        deltas[k] = round(val - prev[k], 4)
+            snap = {"at": _now(), **v, "deltas": deltas}
+            snap["verdict"] = self._verdict(v, deltas)
+            self.health_log.append(snap)
+            if len(self.health_log) > 5000:
+                self.health_log = self.health_log[-2500:]
+            self._save()
+            return snap
+
+    def health_history(self, limit: int = 90) -> list[dict[str, Any]]:
+        return self.health_log[-limit:]
+
     # --- tasks / receipts ---------------------------------------------------
     def create_task(
         self,
@@ -371,6 +520,9 @@ class Store:
             task["delivered_at"] = _now()
             self._rep_cache = None
             self._save()
+            # Delivering real work is an activation event for the worker — if it
+            # was referred, the referrer earns its reward now.
+            self.activate_referral(task["worker_agent_id"])
             return task
 
     def get_task(self, task_id: str) -> Optional[dict[str, Any]]:

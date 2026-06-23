@@ -18,6 +18,12 @@ class RegisterRequest(BaseModel):
         "own attestations. If omitted, the Guild generates a custodial keypair.",
     )
     seed: bool = Field(False, description="Request pre-trusted seed status (requires admin token).")
+    referred_by: Optional[str] = Field(
+        None,
+        description="Optional agent_id of the agent that referred this one. Records a referral "
+        "edge; the referrer is rewarded once this agent activates (delivers a receipt or pays "
+        "for a read). This is how agents become the Guild's growth engine.",
+    )
 
 
 class RegisterResponse(BaseModel):
@@ -28,6 +34,7 @@ class RegisterResponse(BaseModel):
     # Secret, returned once. Custodial agents use it to authenticate attestations.
     api_key: Optional[str] = None
     custodial: bool
+    referred_by: Optional[str] = None
 
 
 class AgentProfile(BaseModel):
@@ -207,3 +214,50 @@ class SearchResponse(BaseModel):
     capability: str
     count: int
     results: list[SearchResultItem]
+
+
+# --- referrals (Outcome 1: agents as the growth engine) ---------------------
+class ReferrerSummary(BaseModel):
+    referrer_id: str
+    name: Optional[str] = None
+    referred: int          # how many agents this one referred
+    activated: int         # how many of those activated (delivered/paid)
+    rewarded_credits: int  # credits paid to this referrer so far
+
+
+class ReferralsResponse(BaseModel):
+    total_referrals: int
+    activated_referrals: int
+    activation_rate: Optional[float] = None
+    rewarded_credits_total: int
+    top_referrers: list[ReferrerSummary]
+
+
+# --- self-evaluation (Outcome 4: continuous self-assessment) ----------------
+class HealthSnapshot(BaseModel):
+    at: str
+    # utility — is the Guild actually helping agents?
+    measured_lift: Optional[float] = None
+    recommended_success_rate: Optional[float] = None
+    # growth — are new (external) agents arriving?
+    agents_total: int
+    agents_external: int
+    external_querying_agents: int = 0
+    # retention — do external agents come back?
+    external_repeat_query_agents: int
+    external_repeat_paid_agents: int
+    # revenue capture — is value being paid for?
+    external_paid_queries: int
+    credits_spent_external: int
+    revenue_usd_external: float
+    # referrals — are agents recruiting agents?
+    total_referrals: int
+    activated_referrals: int
+    # deltas vs the previous snapshot (the trend, not the level)
+    deltas: dict[str, float] = Field(default_factory=dict)
+    verdict: str = ""
+
+
+class HealthHistoryResponse(BaseModel):
+    count: int
+    snapshots: list[HealthSnapshot]
