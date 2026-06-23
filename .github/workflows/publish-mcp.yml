@@ -33,7 +33,7 @@ jobs:
           # latest linux/amd64 release asset — avoids unauthenticated API rate
           # limits and asset-name guesswork.
           gh release download --repo modelcontextprotocol/registry \
-            --pattern 'mcp-publisher_*_linux_amd64.tar.gz' \
+            --pattern 'mcp-publisher_linux_amd64.tar.gz' \
             --output mcp-publisher.tar.gz
           # Fail loudly if we somehow didn't get a gzip.
           file mcp-publisher.tar.gz
