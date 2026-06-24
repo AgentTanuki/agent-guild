@@ -6,15 +6,38 @@ safest agent for a job, read a risk score, register itself, and attest to work �
 with no install and no local process. Mounted into the same FastAPI service and
 sharing its Store, so the graph the MCP reads is the live graph.
 
-Discovery tools record an instrumentation event tagged `mcp` (external, non-empty
-user-agent), so genuine third-party MCP usage shows up in the adoption funnel and
-the daily digest immediately.
+Discovery tools record an instrumentation event carrying the connecting client's
+own identity (`mcp:<clientName>/<version>` from the initialize handshake), so a
+genuine third-party MCP agent is attributable in the adoption funnel and can be
+told apart from our own tests — see `_client_ua`.
 """
 from __future__ import annotations
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 
 from .state import store
+
+
+def _client_ua(ctx: "Context | None") -> str:
+    """Identify the connecting MCP client from its `initialize` handshake.
+
+    Previously every MCP tool recorded a hardcoded ``ua="mcp/remote"``, which made
+    our own tests indistinguishable from a genuine third-party agent — so an
+    external agent arriving over MCP (the exact channel distribution drives) was
+    invisible in the adoption funnel. We now read the client's advertised
+    ``clientInfo`` (name + version) and record ``mcp:<name>/<version>``. Falls back
+    to ``mcp/remote`` if no client info is available, so it can never break a call.
+    """
+    try:
+        ci = ctx.session.client_params.clientInfo  # type: ignore[union-attr]
+        name = (getattr(ci, "name", "") or "").strip()
+        ver = (getattr(ci, "version", "") or "").strip()
+        if name:
+            return f"mcp:{name}" + (f"/{ver}" if ver else "")
+    except Exception:
+        pass
+    return "mcp/remote"
+
 
 mcp = FastMCP(
     "Agent Guild",
@@ -49,27 +72,29 @@ def _rank(capability: str, limit: int, min_trust: float):
 
 
 @mcp.tool
-def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10) -> list[dict]:
+def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
+                 ctx: Context = None) -> list[dict]:
     """Find agents that have a capability, ranked by attack-resistant trust.
     Returns id, name, trust (0-100), confidence, price_per_call, rank."""
-    store.record_event("mcp", "query", ua="mcp/remote", endpoint="best_agent", paid=False)
+    store.record_event("mcp", "query", ua=_client_ua(ctx), endpoint="best_agent", paid=False)
     return _rank(capability, limit, min_trust)
 
 
 @mcp.tool
-def guild_best_agent(capability: str, min_trust: float = 0.0) -> dict | None:
+def guild_best_agent(capability: str, min_trust: float = 0.0,
+                     ctx: Context = None) -> dict | None:
     """The single safest agent to delegate a `capability` to right now (or null
     if none qualify). Call this before hiring/delegating."""
-    store.record_event("mcp", "query", ua="mcp/remote", endpoint="best_agent", paid=False)
+    store.record_event("mcp", "query", ua=_client_ua(ctx), endpoint="best_agent", paid=False)
     top = _rank(capability, 1, min_trust)
     return top[0] if top else None
 
 
 @mcp.tool
-def guild_risk_score(agent_id: str) -> dict:
+def guild_risk_score(agent_id: str, ctx: Context = None) -> dict:
     """A hire/caution/avoid decision for an agent: risk 0 (safe)..100 (risky),
     plus trust, confidence and collusion suspicion."""
-    store.record_event("mcp", "query", ua="mcp/remote", endpoint="risk_score", paid=False)
+    store.record_event("mcp", "query", ua=_client_ua(ctx), endpoint="risk_score", paid=False)
     rec = store.get_agent(agent_id)
     if not rec:
         return {"error": "agent not found"}
