@@ -42,6 +42,25 @@ OURS_NAME_RE = re.compile(
     r"(Seed-Reviewer|FirstContact|Outsider-Consumer|^Ace$|^Pro$|^Solid$|^Meh$|^Weak$|"
     r"Verified-Employer)", re.I)
 
+# MCP clients we operate ourselves — excluded from the "genuine external" signal.
+# The hosted MCP server now records the connecting client's own identity from the
+# initialize handshake as `mcp:<clientName>/<version>` (see mcp_server._client_ua),
+# so any mcp: client name NOT in this set is an agent we do not operate.
+OURS_MCP_CLIENTS = {
+    "verify",        # scripts/verify_mcp.py smoke test
+    "healthcheck",   # ad-hoc liveness probes
+    "fastmcp", "fastmcp-client", "mcp", "client",  # default/library client names we use
+    "agent-guild", "agentguild",                    # our own first-party tooling
+}
+
+
+def _mcp_client(ua: str) -> str | None:
+    """Return the connecting MCP client's name if `ua` is the attributable
+    `mcp:<name>/<version>` form, else None. Legacy `mcp/remote` returns None."""
+    if not ua.startswith("mcp:"):
+        return None
+    return ua[4:].split("/", 1)[0].strip().lower() or None
+
 
 def _get(url, timeout=25.0):
     try:
@@ -85,24 +104,36 @@ def main() -> int:
     feed = _get(f"{base}/instrumentation/recent?limit=500&external_only=true") or {}
     events = feed.get("events", []) if isinstance(feed, dict) else []
     direct_hits = []
-    mcp_calls = 0
+    mcp_external = []          # attributable mcp:<client> calls from clients not ours
+    mcp_calls = 0             # legacy/unattributable mcp/remote volume (never counted)
     for e in events:
         if e.get("first_party"):
             continue
         ua = (e.get("user_agent") or "").strip()
+        client = _mcp_client(ua)
+        if client is not None:
+            # An MCP client that names itself in the handshake. If it isn't one of
+            # ours, it's an agent we don't operate arriving over MCP — the signal
+            # distribution drives, finally attributable.
+            if client not in OURS_MCP_CLIENTS:
+                mcp_external.append(e)
+            continue
         if ua == "mcp/remote":
             mcp_calls += 1
             continue
         if ua and not OURS_UA_RE.search(ua) and FRAMEWORK_RE.search(ua):
             direct_hits.append(e)
 
-    detected = bool(new_agents or direct_hits)
+    detected = bool(new_agents or direct_hits or mcp_external)
     state = {
         "detected": detected,
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "new_nonours_agents": [{"id": a["id"], "name": a["name"],
                                 "capabilities": a.get("capabilities")} for a in new_agents],
         "direct_framework_calls": direct_hits[:10],
+        "external_mcp_calls": [{"client": _mcp_client(e.get("user_agent", "")),
+                                "endpoint": e.get("endpoint"), "paid": e.get("paid")}
+                               for e in mcp_external[:10]],
         "mcp_remote_calls_unattributable": mcp_calls,
     }
     os.makedirs(results, exist_ok=True)
@@ -114,6 +145,8 @@ def main() -> int:
             print(f"   NEW AGENT  {a['name']} ({a['id']}) caps={a.get('capabilities')}")
         for e in direct_hits[:5]:
             print(f"   DIRECT CALL  ua={e.get('user_agent')!r} endpoint={e.get('endpoint')} paid={e.get('paid')}")
+        for e in mcp_external[:5]:
+            print(f"   MCP CLIENT   {e.get('user_agent')!r} endpoint={e.get('endpoint')} paid={e.get('paid')}")
         return 0
 
     print("⏳ No attributable genuine external agent yet.")
