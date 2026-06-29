@@ -605,6 +605,17 @@ def wellknown_manifest():
     return _manifest()
 
 
+@app.get("/.well-known/glama.json")
+def wellknown_glama():
+    """Ownership-verification file for claiming the Glama connector listing.
+    The maintainer email must match the email on the Glama account claiming it;
+    Glama auto-detects this file at https://<host>/.well-known/glama.json."""
+    return {
+        "$schema": "https://glama.ai/mcp/schemas/connector.json",
+        "maintainers": [{"email": "rwdburley@gmail.com"}],
+    }
+
+
 @app.get("/.well-known/ai-plugin.json")
 def ai_plugin_manifest():
     """OpenAI-style plugin manifest pointing at the OpenAPI spec."""
