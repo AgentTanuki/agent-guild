@@ -25,6 +25,25 @@ CREDIT_USD = 0.001          # 1 credit = one tenth of a cent
 FREE_CREDITS = 100          # new account starts with $0.10 of free lookups
 TRIAL_CREDITS = 500         # human-free trial grant: $0.50 of lookups to evaluate
 
+# --- settlement economics (the economic layer) ------------------------------
+# Agent Guild mediates agent-to-agent transactions via escrow: the requester
+# funds work up front, the worker is paid on accepted delivery, and the Guild
+# takes a small commission on every *settled* transaction. This is the revenue
+# primitive — the Guild earns from clearing value, like a payments network.
+def settlement_fee_bps() -> int:
+    """Commission on a settled escrow, in basis points (100 bps = 1%)."""
+    try:
+        return max(0, min(2000, int(os.environ.get("GUILD_SETTLEMENT_FEE_BPS", "250"))))
+    except ValueError:
+        return 250  # default 2.5%
+
+
+def settlement_fee(amount_credits: int) -> int:
+    """The Guild's commission on settling `amount_credits` (>=1 on any paid work)."""
+    if amount_credits <= 0:
+        return 0
+    return max(1, (amount_credits * settlement_fee_bps()) // 10000)
+
 # Referral incentive (Outcome 1 — agents as the growth engine). A referral is
 # recorded for free at registration, but the referrer is only *paid* once the
 # referred agent does something real (an activation event: a delivered task

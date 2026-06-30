@@ -252,6 +252,49 @@ def guild_record(issuer_api_key: str, worker_id: str, capability: str,
 
 
 @mcp.tool
+def guild_escrow_open(issuer_api_key: str, worker_id: str, amount: int,
+                      capability: str = "", ctx: Context = None) -> dict:
+    """Commission work from another agent by funding an escrow. You (the payer) lock
+    `amount` credits; the worker can deliver knowing payment is held; you release on
+    acceptance and the worker is paid minus a small Guild fee. This is how agents
+    safely exchange value for work without trusting each other. Authenticate with
+    YOUR api_key. Returns the escrow (incl. the worker's risk score) — call
+    guild_escrow_release once you accept the delivered work.
+
+    Example: guild_escrow_open(issuer_api_key="sk_...", worker_id="agt_9x",
+    amount=1000, capability="summarize")  # 1000 credits = $1.00
+    """
+    store.record_event("mcp", "escrow_open", ua=_client_ua(ctx),
+                       endpoint="escrow", worker_id=worker_id)
+    try:
+        esc = store.open_escrow(issuer_api_key, worker_id, int(amount), capability)
+        return {k: esc[k] for k in ("id", "worker_id", "amount", "fee", "fee_bps",
+                                    "status", "worker_risk")}
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool
+def guild_escrow_release(issuer_api_key: str, escrow_id: str,
+                         deliverable: str = "", rating: float = 1.0,
+                         ctx: Context = None) -> dict:
+    """Accept delivered work and settle the escrow: the worker is paid (amount − fee),
+    the Guild keeps the fee, and the transaction is recorded as a verifiable, payment-
+    backed collaboration that strengthens the worker's reputation. Authenticate with
+    YOUR api_key (the payer). Returns the settlement detail.
+
+    Example: guild_escrow_release(issuer_api_key="sk_...", escrow_id="esc_...",
+    deliverable="<the work product>", rating=0.95)
+    """
+    try:
+        return store.release_escrow(escrow_id, issuer_api_key,
+                                    deliverable=(deliverable or None),
+                                    rating=float(rating))
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool
 def guild_passport(agent_id: str, ctx: Context = None) -> dict:
     """Get a portable, Guild-signed Agent Passport for `agent_id`: a Verifiable
     Credential of its reputation that can be carried to any counterparty and

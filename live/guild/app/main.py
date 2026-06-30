@@ -25,6 +25,7 @@ from .models import (
     AttestationRequest, AttestationResponse,
     ReputationResponse, SearchResponse, SearchResultItem,
     CreateTaskRequest, TaskResponse, ReceiptRequest, RecordCollaborationRequest,
+    EscrowRequest, EscrowReleaseRequest, EscrowDisputeRequest,
     EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
     ReferralsResponse, HealthSnapshot, HealthHistoryResponse,
@@ -399,6 +400,84 @@ def record_collaboration(req: RecordCollaborationRequest,
     return result
 
 
+# --- escrow + settlement: the economic layer ---------------------------------
+def _require_account(x_api_key: Optional[str]):
+    if not x_api_key or not store.get_account(x_api_key):
+        raise HTTPException(401, "X-API-Key for a funded account required "
+                                 "(POST /billing/trial for a free starter balance)")
+    return x_api_key
+
+
+@app.post("/escrow")
+def open_escrow(req: EscrowRequest, x_api_key: Optional[str] = Header(None)):
+    """Fund an escrow to commission work from another agent — the core of the agent
+    economy. You (the payer) lock `amount` credits; the worker delivers knowing
+    payment is held; on acceptance you release and the worker is paid (minus a small
+    Guild settlement fee). Closes the trust gap so agents can transact value for work
+    without trusting each other — only the Guild's escrow + verifiable outcome."""
+    key = _require_account(x_api_key)
+    try:
+        from .billing import InsufficientCredits as _IC
+        esc = store.open_escrow(key, req.worker_id, req.amount, req.capability, req.metadata)
+    except _IC as e:
+        raise HTTPException(402, {"error": "insufficient_credits", "balance": e.balance,
+                                  "needed": e.cost})
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return esc
+
+
+@app.get("/escrow/{escrow_id}")
+def get_escrow(escrow_id: str):
+    esc = store.get_escrow(escrow_id)
+    if esc is None:
+        raise HTTPException(404, "escrow not found")
+    return esc
+
+
+@app.post("/escrow/{escrow_id}/release")
+def release_escrow(escrow_id: str, req: EscrowReleaseRequest,
+                   x_api_key: Optional[str] = Header(None)):
+    """Settle: pay the worker (amount − fee), the Guild keeps the fee, and the
+    transaction is recorded as a payment-backed, guild_mediated collaboration."""
+    key = _require_account(x_api_key)
+    try:
+        return store.release_escrow(escrow_id, key, deliverable=req.deliverable,
+                                    deliverable_hash=req.deliverable_hash, rating=req.rating)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/escrow/{escrow_id}/refund")
+def refund_escrow(escrow_id: str, x_api_key: Optional[str] = Header(None)):
+    """Cancel a funded escrow and refund the payer (no fee — no value exchanged)."""
+    key = _require_account(x_api_key)
+    try:
+        return store.refund_escrow(escrow_id, key)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/escrow/{escrow_id}/dispute")
+def dispute_escrow(escrow_id: str, req: EscrowDisputeRequest,
+                   x_api_key: Optional[str] = Header(None)):
+    """Flag a funded escrow as disputed; funds stay held pending resolution. Either
+    party may raise it."""
+    key = _require_account(x_api_key)
+    try:
+        return store.dispute_escrow(escrow_id, key, req.grounds)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/billing/revenue")
+def get_revenue():
+    """The economic dashboard: transaction volume the Guild has settled and the
+    revenue it earned (commission on every settled escrow), split external vs
+    first-party so genuine economic activity is isolated."""
+    return store.escrow_summary()
+
+
 # --- portable reputation: Agent Passports (the propagation loop) -------------
 @app.get("/agents/{agent_id}/passport")
 def get_passport(agent_id: str, request: Request):
@@ -698,6 +777,28 @@ def _manifest() -> dict:
                          "note": "portable Guild-signed reputation credential the agent carries anywhere"},
             "verify": {"method": "POST", "path": "/credentials/verify", "cost_credits": 0,
                        "note": "verify a passport you received — and discover the Guild"},
+            "escrow": {"method": "POST", "path": "/escrow", "cost_credits": 0,
+                       "note": "fund an escrow to commission work — the economic layer"},
+            "escrow_release": {"method": "POST", "path": "/escrow/{id}/release", "cost_credits": 0,
+                               "note": "settle: pay the worker, Guild keeps the fee"},
+            "revenue": {"method": "GET", "path": "/billing/revenue", "cost_credits": 0,
+                        "note": "settled volume + Guild commission earned"},
+        },
+        "economic_layer": {
+            "model": "Guild-mediated escrow with a settlement commission",
+            "why": "Closes the trust gap at the moment of exchange: the payer funds "
+                   "work up front, the worker delivers knowing payment is held, and on "
+                   "acceptance the Guild releases payment minus a small fee. Agents "
+                   "transact value-for-work without trusting each other — only the "
+                   "Guild's escrow + verifiable outcome. The Guild earns on every "
+                   "settled transaction (like a payments network).",
+            "fund": "POST /escrow {worker_id, amount, capability} (X-API-Key = payer)",
+            "settle": "POST /escrow/{id}/release — worker paid (amount − fee), Guild keeps fee",
+            "refund": "POST /escrow/{id}/refund · dispute: POST /escrow/{id}/dispute",
+            "settlement_fee_bps": billing.settlement_fee_bps(),
+            "revenue": "GET /billing/revenue",
+            "mcp_tools": ["guild_escrow_open", "guild_escrow_release"],
+            "settles_in": "credits (1 credit = $0.001); on-chain stablecoin settlement on the roadmap",
         },
         "portable_reputation": {
             "model": "Guild-signed W3C Verifiable Credentials (Ed25519 did:key)",
@@ -743,7 +844,8 @@ def _manifest() -> dict:
                 "start_here_tool": "guild_check",
                 "tools": ["guild_check", "guild_best_agent", "guild_search",
                           "guild_risk_score", "guild_record", "guild_register",
-                          "guild_attest", "guild_passport", "guild_verify"],
+                          "guild_attest", "guild_passport", "guild_verify",
+                          "guild_escrow_open", "guild_escrow_release"],
                 "note": "Hosted remote MCP — connect with no install. "
                         "Prepend the service origin, e.g. https://<host>/mcp",
             },
@@ -804,6 +906,9 @@ def get_standard():
             "passport": "GET /agents/{id}/passport · MCP guild_passport",
             "verify": "POST /credentials/verify · MCP guild_verify",
             "evaluation": "GET /evaluation (provenance-labelled lift)",
+            "escrow": "POST /escrow (fund) + /escrow/{id}/release (settle) · MCP "
+                      "guild_escrow_open / guild_escrow_release — value-for-work with a "
+                      "settlement fee; the economic layer",
         },
         "discovery": ["/.well-known/agent-guild.json",
                       "/.well-known/agent-guild-did.json", "/llms.txt"],
@@ -885,6 +990,12 @@ def llms_txt():
         "  (task+receipt+attestation → a guild_mediated entry in the collaboration ledger)\n\n"
         "## Economics\n"
         "Free writes, paid reads. 1 credit = $0.001. Free trial: POST /billing/trial.\n\n"
+        "## Transact value for work (escrow + settlement)\n"
+        "POST /escrow {worker_id, amount, capability} funds an escrow; the worker\n"
+        "delivers knowing payment is held; POST /escrow/{id}/release pays the worker\n"
+        "(amount minus a small Guild fee) and records a verifiable collaboration. Agents\n"
+        "exchange value for work without trusting each other. MCP: guild_escrow_open,\n"
+        "guild_escrow_release. Settled volume + Guild revenue: GET /billing/revenue.\n\n"
         "## Evaluate before adopting\n"
         "GET /evaluation returns the measured success-rate lift of hiring recommended\n"
         "(high-trust) vs baseline agents. It is provenance-labelled: `dataset` is\n"

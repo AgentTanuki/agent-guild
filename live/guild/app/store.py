@@ -26,6 +26,7 @@ from .billing import (
     FREE_CREDITS, InsufficientCredits, UnknownAccount,
     REFERRAL_REWARD_CREDITS, REFERRAL_REWARD_CAP, CREDIT_USD,
     REFERRAL_MIN_ACCEPTED_RECEIPTS, REFERRAL_MIN_PAID_READS,
+    settlement_fee, settlement_fee_bps,
 )
 
 
@@ -57,6 +58,8 @@ class Store:
         self.health_log: list[dict[str, Any]] = []        # self-evaluation snapshots
         self.identity: dict[str, Any] = {}                 # the Guild's own signing DID
         self.ledger_records: list[dict[str, Any]] = []     # durable, hash-chained VCRs
+        self.escrows: dict[str, dict[str, Any]] = {}       # agent-to-agent escrows
+        self.guild_revenue: int = 0                        # settlement fees earned (credits)
         self._rep_cache: Optional[ScoringResult] = None
         self._load()
 
@@ -75,6 +78,8 @@ class Store:
             self.health_log = data.get("health_log", [])
             self.identity = data.get("identity", {})
             self.ledger_records = data.get("ledger_records", [])
+            self.escrows = data.get("escrows", {})
+            self.guild_revenue = data.get("guild_revenue", 0)
 
     def _save(self) -> None:
         if not self.path:
@@ -88,7 +93,9 @@ class Store:
                        "events": self.events, "referrals": self.referrals,
                        "health_log": self.health_log,
                        "identity": self.identity,
-                       "ledger_records": self.ledger_records}, f, indent=2)
+                       "ledger_records": self.ledger_records,
+                       "escrows": self.escrows,
+                       "guild_revenue": self.guild_revenue}, f, indent=2)
         os.replace(tmp, self.path)
 
     # --- agents -------------------------------------------------------------
@@ -723,6 +730,177 @@ class Store:
         from .ledger import Ledger
         self.ensure_ledger_backfilled()
         return Ledger.from_records(self.ledger_records)
+
+    # --- escrow + settlement (the economic layer) ---------------------------
+    def open_escrow(self, requester_key: str, worker_id: str, amount: int,
+                    capability: str = "", metadata: Optional[dict[str, Any]] = None
+                    ) -> dict[str, Any]:
+        """Fund an escrow: the requester locks `amount` credits for work by
+        `worker_id`. Closes the trust gap — the worker can deliver knowing payment
+        is held; the requester pays only on acceptance. The Guild takes a small
+        settlement fee on release (its revenue on every transaction)."""
+        with self.lock:
+            amount = int(amount)
+            if amount <= 0:
+                raise ValueError("amount must be a positive integer (credits)")
+            acct = self.accounts.get(requester_key)
+            if acct is None:
+                raise UnknownAccount(requester_key)
+            worker = self.get_agent(worker_id)
+            if worker is None:
+                raise ValueError("worker not found")
+            if acct.get("owner_agent_id") == worker_id:
+                raise ValueError("cannot escrow to yourself")
+            if acct["balance"] < amount:
+                raise InsufficientCredits(acct["balance"], amount)
+            # hold the funds
+            acct["balance"] -= amount
+            self.billing_log.append({"key": requester_key, "type": "escrow_hold",
+                                     "amount": -amount, "balance_after": acct["balance"],
+                                     "at": _now()})
+            esc_id = "esc_" + secrets.token_hex(8)
+            esc = {
+                "id": esc_id,
+                "requester_key": requester_key,
+                "requester_id": acct.get("owner_agent_id"),
+                "worker_id": worker_id,
+                "capability": capability,
+                "amount": amount,
+                "fee": settlement_fee(amount),
+                "fee_bps": settlement_fee_bps(),
+                "status": "funded",            # funded -> released | refunded | disputed
+                "task_id": None,
+                "metadata": metadata or {},
+                "created_at": _now(),
+                "settled_at": None,
+            }
+            self.escrows[esc_id] = esc
+            self.record_event(requester_key, "escrow_open", endpoint="escrow",
+                              worker_id=worker_id, amount=amount)
+            self._save()
+            # reputation-informed: surface how risky this counterparty is
+            esc = dict(esc)
+            esc["worker_risk"] = self.risk_for(worker_id)
+            return esc
+
+    def release_escrow(self, escrow_id: str, requester_key: str, *,
+                       deliverable: Optional[str] = None,
+                       deliverable_hash: Optional[str] = None,
+                       rating: float = 1.0) -> dict[str, Any]:
+        """Accept delivery and settle: the worker is paid (amount − fee), the Guild
+        keeps the fee, and the transaction is recorded as a payment-backed,
+        guild_mediated collaboration (deepening the reputation moat). Only the payer
+        may release."""
+        with self.lock:
+            esc = self.escrows.get(escrow_id)
+            if esc is None:
+                raise ValueError("escrow not found")
+            if esc["requester_key"] != requester_key:
+                raise ValueError("only the funding party may release this escrow")
+            if esc["status"] != "funded":
+                raise ValueError(f"escrow is {esc['status']}, not funded")
+            amount, fee = esc["amount"], esc["fee"]
+            payout = amount - fee
+            worker_key = self.account_for_agent(esc["worker_id"])
+            if worker_key:
+                self.credit(worker_key, payout, reason="escrow_payout")
+            self.guild_revenue += fee
+            self.billing_log.append({"key": "guild", "type": "settlement_fee",
+                                     "amount": fee, "balance_after": self.guild_revenue,
+                                     "at": _now(), "escrow_id": escrow_id})
+            esc["status"] = "released"
+            esc["settled_at"] = _now()
+            # record the payment-backed collaboration so the ledger + reputation
+            # reflect a real, settled, economically-staked interaction.
+            requester = self.get_agent(esc["requester_id"]) if esc["requester_id"] else None
+            if requester:
+                try:
+                    res = self.record_collaboration(
+                        requester, esc["worker_id"], esc["capability"] or "work",
+                        "accepted", float(rating),
+                        deliverable=deliverable,
+                        deliverable_hash=deliverable_hash or ("0x" + hashlib.sha256(
+                            escrow_id.encode()).hexdigest()),
+                        payment=float(amount))
+                    esc["task_id"] = res.get("task_id")
+                except ValueError:
+                    pass
+            self._save()
+            return {"escrow_id": escrow_id, "status": "released", "amount": amount,
+                    "fee": fee, "payout": payout, "worker_id": esc["worker_id"],
+                    "guild_revenue": self.guild_revenue, "task_id": esc["task_id"]}
+
+    def refund_escrow(self, escrow_id: str, requester_key: str) -> dict[str, Any]:
+        """Cancel and refund a funded escrow back to the requester (no fee, since no
+        value was exchanged). Only the payer may refund, and only before release."""
+        with self.lock:
+            esc = self.escrows.get(escrow_id)
+            if esc is None:
+                raise ValueError("escrow not found")
+            if esc["requester_key"] != requester_key:
+                raise ValueError("only the funding party may refund this escrow")
+            if esc["status"] != "funded":
+                raise ValueError(f"escrow is {esc['status']}, not funded")
+            self.credit(requester_key, esc["amount"], reason="escrow_refund")
+            esc["status"] = "refunded"
+            esc["settled_at"] = _now()
+            self._save()
+            return {"escrow_id": escrow_id, "status": "refunded", "amount": esc["amount"]}
+
+    def dispute_escrow(self, escrow_id: str, actor_key: str, grounds: str = ""
+                       ) -> dict[str, Any]:
+        """Flag a funded escrow as disputed; funds stay held pending resolution.
+        Either party (payer or worker) may raise it."""
+        with self.lock:
+            esc = self.escrows.get(escrow_id)
+            if esc is None:
+                raise ValueError("escrow not found")
+            actor = self.accounts.get(actor_key)
+            actor_agent = actor.get("owner_agent_id") if actor else None
+            if esc["requester_key"] != actor_key and actor_agent != esc["worker_id"]:
+                raise ValueError("only a party to this escrow may dispute it")
+            if esc["status"] != "funded":
+                raise ValueError(f"escrow is {esc['status']}, not funded")
+            esc["status"] = "disputed"
+            esc["dispute"] = {"by": actor_agent or actor_key, "grounds": grounds, "at": _now()}
+            self._save()
+            return {"escrow_id": escrow_id, "status": "disputed"}
+
+    def get_escrow(self, escrow_id: str) -> Optional[dict[str, Any]]:
+        return self.escrows.get(escrow_id)
+
+    def escrow_summary(self) -> dict[str, Any]:
+        """The economic dashboard: volume settled and revenue earned, split so
+        genuine third-party economic activity is isolated from first-party tests."""
+        def _external(esc: dict) -> bool:
+            req = self.agents.get(esc.get("requester_id")) or {}
+            wrk = self.agents.get(esc.get("worker_id")) or {}
+            return not (req.get("first_party") or wrk.get("first_party"))
+        released = [e for e in self.escrows.values() if e["status"] == "released"]
+        ext = [e for e in released if _external(e)]
+        vol = sum(e["amount"] for e in released)
+        rev = sum(e["fee"] for e in released)
+        ext_vol = sum(e["amount"] for e in ext)
+        ext_rev = sum(e["fee"] for e in ext)
+        by_status: dict[str, int] = {}
+        for e in self.escrows.values():
+            by_status[e["status"]] = by_status.get(e["status"], 0) + 1
+        return {
+            "fee_bps": settlement_fee_bps(),
+            "escrows": len(self.escrows),
+            "by_status": by_status,
+            "settled_count": len(released),
+            "settled_volume_credits": vol,
+            "settled_volume_usd": round(vol * CREDIT_USD, 4),
+            "guild_revenue_credits": rev,
+            "guild_revenue_usd": round(rev * CREDIT_USD, 4),
+            "external": {
+                "settled_count": len(ext),
+                "settled_volume_credits": ext_vol,
+                "guild_revenue_credits": ext_rev,
+                "guild_revenue_usd": round(ext_rev * CREDIT_USD, 4),
+            },
+        }
 
     # --- the Guild's own signing identity + portable passports --------------
     def guild_identity(self) -> dict[str, Any]:

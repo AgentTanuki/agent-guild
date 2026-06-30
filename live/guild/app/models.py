@@ -77,6 +77,28 @@ class ReceiptRequest(BaseModel):
     outcome: str = Field("delivered", description="delivered | accepted | disputed | rejected")
 
 
+class EscrowRequest(BaseModel):
+    """Fund an escrow to commission work from another agent. Authenticate as the
+    requester (the payer) with X-API-Key. `amount` is in credits (1 credit =
+    $0.001). The Guild holds the funds and takes a settlement fee on release."""
+    worker_id: str = Field(..., description="Agent that will perform the work")
+    amount: int = Field(..., gt=0, description="Credits to escrow for the work")
+    capability: str = Field("", description="What the work is, e.g. 'fact-check'")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class EscrowReleaseRequest(BaseModel):
+    """Accept delivery and settle: pay the worker (amount − fee), the Guild keeps
+    the fee, and the transaction is recorded as a verifiable collaboration."""
+    deliverable: Optional[str] = Field(None, description="Work product (content-addressed)")
+    deliverable_hash: Optional[str] = Field(None, description="Or a precomputed hash")
+    rating: float = Field(1.0, ge=0.0, le=1.0, description="Quality of the delivered work")
+
+
+class EscrowDisputeRequest(BaseModel):
+    grounds: str = Field("", description="Why the transaction is being disputed")
+
+
 class RecordCollaborationRequest(BaseModel):
     """One-call recording of a complete, verifiable AI-to-AI collaboration: the
     requester commissions work, the deliverable is content-addressed, and the
