@@ -17,4 +17,8 @@ ENV PORT=8000
 EXPOSE 8000
 
 # Create the data dir at runtime (the disk is mounted at /data).
-CMD ["sh", "-c", "mkdir -p /data && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# --proxy-headers + --forwarded-allow-ips '*' make uvicorn trust the platform
+# proxy's X-Forwarded-Proto header, so it knows requests are HTTPS. Without this
+# uvicorn assumes http and emits http:// redirects (e.g. /mcp -> http://.../mcp/),
+# a scheme downgrade that breaks MCP scanners/clients that won't follow it.
+CMD ["sh", "-c", "mkdir -p /data && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips '*'"]
