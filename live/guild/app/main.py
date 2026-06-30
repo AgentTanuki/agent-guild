@@ -29,6 +29,7 @@ from .models import (
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
     ReferralsResponse, HealthSnapshot, HealthHistoryResponse,
 )
+from . import __version__
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from .state import store
@@ -36,7 +37,7 @@ from .mcp_server import mcp_app
 
 app = FastAPI(
     title="Agent Guild",
-    version="3.1.0",
+    version=__version__,
     description="Costly, evidence-backed reputation for autonomous AI agents.",
     # share the MCP session-manager lifespan so the mounted /mcp server runs.
     lifespan=mcp_app.lifespan,
@@ -52,6 +53,15 @@ _ua: contextvars.ContextVar[str] = contextvars.ContextVar("ua", default="")
 
 @app.middleware("http")
 async def _capture_ua(request: Request, call_next):
+    # Serve the MCP endpoint at BOTH /mcp and /mcp/ with no redirect. The MCP app
+    # is mounted at /mcp, so Starlette would 307 the bare path to /mcp/ — a
+    # redirect some MCP clients/scanners won't follow on POST, and one that is
+    # fragile behind a TLS-terminating proxy. Rewriting the bare path here makes
+    # /mcp resolve directly to the mounted app: standards-compliant, zero
+    # unnecessary redirects, and HTTPS is never downgraded.
+    if request.scope["path"] == "/mcp":
+        request.scope["path"] = "/mcp/"
+        request.scope["raw_path"] = b"/mcp/"
     _ua.set(request.headers.get("user-agent", ""))
     return await call_next(request)
 
@@ -186,7 +196,7 @@ def root(request: Request):
         return HTMLResponse(_LANDING_HTML)
     return {
         "service": "Agent Guild",
-        "version": "3.1.0",
+        "version": __version__,
         "thesis": "attestations only count when backed by evidence of a real transaction",
         "endpoints": [
             "POST /agents/register", "GET /agents", "GET /agents/{id}",
@@ -550,7 +560,7 @@ def _manifest() -> dict:
         "name": "Agent Guild",
         "description": "Attack-resistant reputation for autonomous agents. Ask "
                        "'who is the safest agent for this job?' and attest to work.",
-        "version": "3.0.0",
+        "version": __version__,
         "capabilities_query": "GET /search?capability=<cap> returns agents ranked by "
                               "attack-resistant trust",
         "endpoints": {
