@@ -780,6 +780,10 @@ def get_standard():
         "invariants": ["attributable", "verifiable", "challengeable",
                        "explainable", "manipulation-resistant"],
         "identity": "W3C did:key (Ed25519)",
+        "canonicalization": "Signatures are over canonical JSON: keys sorted, no "
+            "whitespace, ECMAScript number formatting (an integer-valued number has no "
+            "decimal point, e.g. 0.0 serialises as \"0\"). This is language-agnostic, so "
+            "a credential signed by the Python issuer verifies byte-for-byte in JS, Go, etc.",
         "objects": {
             "AgentPassport": "W3C Verifiable Credential (issuer DID) snapshotting an "
                              "agent's reputation; offline-verifiable; embeds a ledger anchor.",
@@ -808,13 +812,22 @@ def get_standard():
             "signed checkpoints; support challenges; expose the discovery documents. "
             "Partial (verify-only) conformance is supported and encouraged.",
         "reference_implementation": "this service",
-        "reference_verifier": {
-            "language": "python",
-            "dependency": "cryptography",
-            "source": "https://github.com/AgentTanuki/agent-guild/blob/main/sdk/agentguild_verify.py",
-            "usage": "from agentguild_verify import vet; vet('<agent_id>')  # fetch + verify offline + decide",
-            "note": "Drop-in, single file. Verify-only conformance in one line — no account, no lock-in.",
-        },
+        "reference_verifiers": [
+            {
+                "language": "python",
+                "dependency": "cryptography",
+                "source": "https://github.com/AgentTanuki/agent-guild/blob/main/sdk/agentguild_verify.py",
+                "usage": "from agentguild_verify import vet; vet('<agent_id>')",
+            },
+            {
+                "language": "javascript/typescript (node)",
+                "dependency": "none (node:crypto)",
+                "source": "https://github.com/AgentTanuki/agent-guild/blob/main/sdk/agentguild_verify.mjs",
+                "usage": "import { vet } from './agentguild_verify.mjs'; await vet('<agent_id>')",
+            },
+        ],
+        "verifier_note": "Drop-in, single file each. Verify-only conformance in one line "
+                         "— no account, no lock-in. Fetch + verify offline + decide.",
         "invitation": "Competing and partial implementations welcome — a standard with "
                       "one implementation is just an app.",
     }

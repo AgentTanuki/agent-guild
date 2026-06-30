@@ -53,8 +53,27 @@ def public_key_from_did(did: str) -> bytes:
 
 
 def _canonical(value: Any) -> str:
-    # Must match the issuer's canonicalisation exactly, or signatures won't verify.
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    """Language-agnostic JSON canonicalisation (AGI-1): sorted keys, no whitespace,
+    ECMAScript number formatting (an integer-valued number carries no decimal point,
+    e.g. 0.0 -> "0"). Must match the issuer byte-for-byte or signatures won't verify."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if value != value or value in (float("inf"), float("-inf")):
+            raise ValueError("NaN/Infinity not permitted")
+        return str(int(value)) if value.is_integer() else repr(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(_canonical(v) for v in value) + "]"
+    if isinstance(value, dict):
+        return "{" + ",".join(json.dumps(k, ensure_ascii=False) + ":" + _canonical(v)
+                              for k, v in sorted(value.items())) + "}"
+    raise TypeError("not canonicalisable")
 
 
 def _verify_sig(payload: Any, signature_hex: str, public_key: bytes) -> bool:

@@ -97,3 +97,54 @@ def verify_payload(payload: Any, signature_hex: str, public_hex: str) -> bool:
         return True
     except (InvalidSignature, ValueError):
         return False
+
+
+# --- language-agnostic canonicalisation (AGI-1 signatures) ------------------
+# Python's json.dumps serialises an integer-valued float as "0.0", but ECMAScript
+# (JavaScript) produces "0". For a credential signature to verify in ANY language,
+# the canonical bytes must be reproducible everywhere. This canonicaliser matches
+# the ECMAScript JSON number rule (integer-valued numbers carry no decimal point),
+# so a Guild-signed Verifiable Credential verifies identically in Python, JS, Go, …
+def _jcs_number(x: Any) -> str:
+    if isinstance(x, bool):
+        return "true" if x else "false"
+    if isinstance(x, int):
+        return str(x)
+    f = float(x)
+    if f != f or f in (float("inf"), float("-inf")):
+        raise ValueError("NaN/Infinity not permitted in canonical JSON")
+    if f.is_integer():
+        return str(int(f))          # 0.0 -> "0", 44.0 -> "44"  (matches JS)
+    return repr(f)                  # 44.2 -> "44.2"            (shortest round-trip)
+
+
+def canonicalize_jcs(value: Any) -> str:
+    """Deterministic, language-agnostic JSON (sorted keys, no whitespace,
+    ECMAScript number formatting). The canonical form AGI-1 signs over."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool) or isinstance(value, (int, float)):
+        return _jcs_number(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(canonicalize_jcs(v) for v in value) + "]"
+    if isinstance(value, dict):
+        items = sorted(value.items(), key=lambda kv: kv[0])
+        return "{" + ",".join(json.dumps(k, ensure_ascii=False) + ":" + canonicalize_jcs(v)
+                              for k, v in items) + "}"
+    raise TypeError(f"not JSON-canonicalisable: {type(value)}")
+
+
+def sign_jcs(payload: Any, private_hex: str) -> str:
+    priv = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_hex))
+    return priv.sign(canonicalize_jcs(payload).encode("utf-8")).hex()
+
+
+def verify_jcs(payload: Any, signature_hex: str, public_hex: str) -> bool:
+    try:
+        pub = Ed25519PublicKey.from_public_bytes(bytes.fromhex(public_hex))
+        pub.verify(bytes.fromhex(signature_hex), canonicalize_jcs(payload).encode("utf-8"))
+        return True
+    except (InvalidSignature, ValueError):
+        return False

@@ -8,7 +8,15 @@ whether to delegate.
 > A standard is only a moat if it's trivially adoptable. Verifying a counterparty
 > should be one line. It is.
 
-## Install
+Two single-file reference verifiers, same behaviour, pick your language:
+
+- **Python** — `agentguild_verify.py` (one dependency: `cryptography`)
+- **Node / TypeScript** — `agentguild_verify.mjs` (zero dependencies; uses `node:crypto`)
+
+Both implement AGI-1's language-agnostic canonicalization, so they verify the *same*
+Guild-signed passport byte-for-byte.
+
+## Install (Python)
 
 Copy `agentguild_verify.py` into your project (it's a single file), or:
 
@@ -57,8 +65,22 @@ payload, and verifies the Ed25519 proof. Tamper with any field and it fails. Pin
 - Issue your own Passports and publish your own signed checkpoints to become a
   conforming issuer (see [../docs/STANDARD.md](../docs/STANDARD.md) §7).
 
-CLI smoke test:
+## Node / TypeScript
+
+```js
+import { vet, verifyPassport, issuerDid } from "./agentguild_verify.mjs";
+
+const d = await vet("agent_d0a8f6ef9b41");        // fetch + verify offline + decide
+if (d.verified && d.recommendation === "hire") { /* delegate */ }
+
+// or verify a passport you already hold, no network:
+const res = verifyPassport(passport, { expectedIssuer: await issuerDid() });
+// res.valid, res.issuerMatches, res.checkpointValid, res.claims
+```
+
+## CLI smoke test
 
 ```bash
 python agentguild_verify.py agent_d0a8f6ef9b41
+node   agentguild_verify.mjs agent_d0a8f6ef9b41
 ```

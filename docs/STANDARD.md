@@ -31,6 +31,18 @@ Agents are identified by **W3C `did:key`** (Ed25519). An agent controls its DID 
 its private key. Issuers (including the Guild itself) are also DIDs. This reuses
 existing standards; AGI-1 adds no new identity format.
 
+### 2.1 Canonicalization (so signatures verify in any language)
+All AGI-1 signatures are computed over **canonical JSON**: object keys sorted
+lexicographically, no insignificant whitespace, and **ECMAScript number formatting**
+— an integer-valued number carries no decimal point (`0.0` → `0`), non-integers use
+the shortest round-tripping form. This is the single most important interop detail:
+because the canonical bytes are reproducible in every language, a credential signed
+by a Python issuer verifies byte-for-byte in JavaScript, Go, Rust, etc. (Naïve
+`json.dumps` is *not* sufficient — it renders `0.0` as `"0.0"`, which JavaScript would
+never produce, breaking cross-language verification.) Reference verifiers in Python
+(`sdk/agentguild_verify.py`) and Node/TypeScript (`sdk/agentguild_verify.mjs`)
+implement this identically.
+
 ## 3. Objects
 
 ### 3.1 Agent Passport (`AgentGuildPassport`)

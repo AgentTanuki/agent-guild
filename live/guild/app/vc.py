@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .crypto import sign_payload, verify_payload, public_key_from_did
+from .crypto import sign_jcs, verify_jcs, public_key_from_did
 
 VC_CONTEXT = [
     "https://www.w3.org/ns/credentials/v2",
@@ -55,7 +55,7 @@ def issue_credential(
             "proofPurpose": "assertionMethod",
         },
     }
-    proof_value = sign_payload(unsigned, issuer_private_hex)
+    proof_value = sign_jcs(unsigned, issuer_private_hex)
     cred = dict(unsigned)
     cred["proof"] = {**unsigned["proof"], "proofValue": proof_value}
     return cred
@@ -94,7 +94,7 @@ def issue_passport(
         "verificationMethod": f"{issuer_did}#{issuer_did.split(':')[-1]}",
         "proofPurpose": "assertionMethod",
     }
-    proof_value = sign_payload(unsigned, issuer_private_hex)
+    proof_value = sign_jcs(unsigned, issuer_private_hex)
     cred = dict(unsigned)
     cred["proof"] = {**unsigned["proof"], "proofValue": proof_value}
     return cred
@@ -111,6 +111,6 @@ def verify_credential(vc: dict[str, Any]) -> bool:
         payload = {k: v for k, v in vc.items() if k != "proof"}
         payload["proof"] = proof_without_value
         issuer_pub = public_key_from_did(vc["issuer"])
-        return verify_payload(payload, proof_value, issuer_pub)
+        return verify_jcs(payload, proof_value, issuer_pub)
     except (KeyError, ValueError):
         return False

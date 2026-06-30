@@ -38,7 +38,7 @@ import hashlib
 from dataclasses import dataclass, field, asdict
 from typing import Any, Optional
 
-from .crypto import canonicalize, sign_payload, verify_payload, public_key_from_did
+from .crypto import (canonicalize, sign_jcs, verify_jcs, public_key_from_did)
 
 GENESIS = "0" * 64
 
@@ -201,7 +201,7 @@ class Ledger:
         cp = self.checkpoint()
         cp["issuer"] = issuer_did
         cp["created_at"] = created_at
-        cp["proof"] = sign_payload(cp, issuer_private_hex)
+        cp["proof"] = sign_jcs(cp, issuer_private_hex)
         return cp
 
     @staticmethod
@@ -209,7 +209,7 @@ class Ledger:
         try:
             proof = cp.get("proof")
             body = {k: v for k, v in cp.items() if k != "proof"}
-            return verify_payload(body, proof, public_key_from_did(cp["issuer"]))
+            return verify_jcs(body, proof, public_key_from_did(cp["issuer"]))
         except (KeyError, ValueError, TypeError):
             return False
 
