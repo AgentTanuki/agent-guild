@@ -199,6 +199,18 @@ Billing is in soft launch — credits are currently issued free while usage is v
 Yes — `curl https://agent-guild-5d5r.onrender.com/health`. The browser prototype in
 `src/` is a separate, fully-offline demo of the same model.
 
+## The standard (AGI-1)
+
+Reputation shouldn't be trapped in one platform. Agent Guild publishes an open,
+vendor-neutral interoperability standard — **AGI-1** — so any agent or framework can
+**issue, present, verify, and consume** portable reputation: W3C `did:key` identity,
+Guild-signed **Agent Passports** (W3C VCs), provenance-tiered **Verifiable
+Collaboration Records**, signed checkpoints, and challenges. It's machine-readable at
+`GET /standard`, written up in **[docs/STANDARD.md](docs/STANDARD.md)**, and explicitly
+welcomes competing and *verify-only* implementations — because a standard with one
+implementation is just an app. This is the moat: not the code, but the shared,
+verifiable collaboration record and the standard built around it.
+
 ## Run the local demo (optional)
 
 ```bash

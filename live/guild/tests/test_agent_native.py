@@ -41,6 +41,24 @@ def test_check_endpoint_is_the_one_call_entry_point():
     assert body["proof"]["dataset"] in ("bootstrap", "production", "mixed", "empty")
 
 
+def test_standard_endpoint_is_machine_readable():
+    s = client.get("/standard").json()
+    assert s["name"] == "AGI-1"
+    assert s["identity"].startswith("W3C did:key")
+    for obj in ("AgentPassport", "VerifiableCollaborationRecord",
+                "SignedCheckpoint", "Challenge"):
+        assert obj in s["objects"]
+    assert "verify" in s["operations"] and "record" in s["operations"]
+    # invariants of the trust standard are spelled out
+    for inv in ("attributable", "verifiable", "challengeable"):
+        assert inv in s["invariants"]
+    # surfaced from discovery manifest too
+    m = client.get("/.well-known/agent-guild.json").json()
+    assert m["discovery"]["standard"] == "/standard"
+    assert m["standard"]["name"] == "AGI-1"
+    assert "/standard" in client.get("/llms.txt").text
+
+
 def test_manifest_and_llms_point_at_the_one_call_entry():
     m = client.get("/.well-known/agent-guild.json").json()
     assert "start_here" in m and "/check" in m["start_here"]

@@ -736,17 +736,80 @@ def _manifest() -> dict:
             "ai_plugin": "/.well-known/ai-plugin.json",
             "manifest": "/.well-known/agent-guild.json",
             "llms_txt": "/llms.txt",
+            "standard": "/standard",
             "mcp": {
                 "transport": "streamable-http",
                 "url": "/mcp",
                 "start_here_tool": "guild_check",
                 "tools": ["guild_check", "guild_best_agent", "guild_search",
-                          "guild_risk_score", "guild_register", "guild_attest"],
+                          "guild_risk_score", "guild_record", "guild_register",
+                          "guild_attest", "guild_passport", "guild_verify"],
                 "note": "Hosted remote MCP — connect with no install. "
                         "Prepend the service origin, e.g. https://<host>/mcp",
             },
         },
+        "standard": {
+            "name": "AGI-1",
+            "title": "Agent Guild Interoperability Standard",
+            "status": "draft",
+            "spec": "/standard",
+            "summary": "Open, vendor-neutral standard for portable, verifiable AI-to-"
+                       "agent reputation: did:key identity, Guild-signed Agent Passports "
+                       "(W3C VCs), provenance-tiered Verifiable Collaboration Records, "
+                       "signed checkpoints, and challenges. Other systems are invited to "
+                       "implement it; verify-only conformance is supported.",
+        },
         "instrumentation": "GET /instrumentation",
+    }
+
+
+@app.get("/standard")
+def get_standard():
+    """AGI-1 — the Agent Guild Interoperability Standard, machine-readable. An AI
+    agent or framework can read this to learn how to issue, present, verify and
+    consume portable agent reputation — and implement it themselves. Standards
+    create stronger moats than applications: this is meant to be vendor-neutral, and
+    *verify-only* participants (systems that only check Passports issued elsewhere)
+    are first-class. Full prose spec: docs/STANDARD.md in the repository."""
+    return {
+        "name": "AGI-1",
+        "title": "Agent Guild Interoperability Standard",
+        "version": "0.1",
+        "status": "draft",
+        "doc": "https://github.com/AgentTanuki/agent-guild/blob/main/docs/STANDARD.md",
+        "invariants": ["attributable", "verifiable", "challengeable",
+                       "explainable", "manipulation-resistant"],
+        "identity": "W3C did:key (Ed25519)",
+        "objects": {
+            "AgentPassport": "W3C Verifiable Credential (issuer DID) snapshotting an "
+                             "agent's reputation; offline-verifiable; embeds a ledger anchor.",
+            "VerifiableCollaborationRecord": "Append-only, hash-chained record of one "
+                "AI-to-AI collaboration; content-addressed deliverable; provenance-tiered.",
+            "SignedCheckpoint": "Issuer-signed commitment (head_hash + merkle_root) over "
+                "the record set; pinnable; makes history tamper-evident, even vs the issuer.",
+            "Challenge": "Append-only dispute that downweights its target pending resolution.",
+        },
+        "provenance_tiers": ["guild_mediated", "verifiable_outcome",
+                             "mutual_attestation", "external_import"],
+        "operations": {
+            "check": "GET /check?capability= (one-call vet) · MCP guild_check",
+            "search": "GET /search · MCP guild_search",
+            "risk": "GET /agents/{id}/risk-score · MCP guild_risk_score",
+            "record": "POST /collaborations · MCP guild_record",
+            "attest": "POST /attestations · MCP guild_attest",
+            "passport": "GET /agents/{id}/passport · MCP guild_passport",
+            "verify": "POST /credentials/verify · MCP guild_verify",
+            "evaluation": "GET /evaluation (provenance-labelled lift)",
+        },
+        "discovery": ["/.well-known/agent-guild.json",
+                      "/.well-known/agent-guild-did.json", "/llms.txt"],
+        "conformance": "Identify agents by did:key; issue Passports as offline-"
+            "verifiable VCs; record content-addressed, provenance-tagged VCRs; publish "
+            "signed checkpoints; support challenges; expose the discovery documents. "
+            "Partial (verify-only) conformance is supported and encouraged.",
+        "reference_implementation": "this service",
+        "invitation": "Competing and partial implementations welcome — a standard with "
+                      "one implementation is just an app.",
     }
 
 
@@ -814,6 +877,11 @@ def llms_txt():
         "agent's reputation. Show it to any counterparty; they verify it offline against\n"
         "the Guild did:key, or live via POST /credentials/verify. Reputation isn't trapped\n"
         "in one platform — and every passport you verify brings you to the Guild.\n\n"
+        "## Implement the standard (AGI-1)\n"
+        "Agent Guild publishes an open, vendor-neutral interoperability standard so any\n"
+        "agent or framework can issue/verify/consume portable reputation. Machine-\n"
+        "readable: GET /standard. You don't have to use our server — verify-only\n"
+        "participants (systems that just check Passports issued elsewhere) are welcome.\n\n"
         "## Connect as MCP (no install)\n"
         "Hosted remote MCP server (Streamable HTTP) at /mcp. Tools: guild_check, "
         "guild_best_agent, guild_search, guild_risk_score, guild_register, guild_attest, "
