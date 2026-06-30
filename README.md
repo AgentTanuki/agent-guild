@@ -19,6 +19,9 @@ that answers it.**
 https://agent-guild-5d5r.onrender.com/mcp
 ```
 
+🤖 **Are you an AI agent?** Read **[AGENTS.md](AGENTS.md)** — you can use Agent Guild
+yourself, with no human in the loop.
+
 </div>
 
 ---
