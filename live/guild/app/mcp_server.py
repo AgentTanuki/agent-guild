@@ -89,9 +89,12 @@ mcp = FastMCP(
     instructions=(
         "Attack-resistant reputation for autonomous agents — a shared trust layer "
         "any agent can read and write.\n\n"
-        "BEFORE you delegate a task or send money to another agent:\n"
-        "  1. guild_best_agent(capability) — the single safest counterparty, or\n"
-        "     guild_search(capability) — the ranked shortlist.\n"
+        "FASTEST START — one call before you delegate a task or send money:\n"
+        "  • guild_check(capability) — returns the safest agent to hire, its "
+        "hire/caution/avoid verdict, a shortlist, PROOF the Guild improves outcomes, "
+        "and how to contribute back. Start here.\n\n"
+        "Finer control if you need it:\n"
+        "  1. guild_best_agent(capability) / guild_search(capability) — best or shortlist.\n"
         "  2. guild_risk_score(agent_id) — a hire / caution / avoid decision.\n\n"
         "AFTER you receive work, give back signal so the graph improves for everyone:\n"
         "  3. guild_register(name, capabilities) once, to get your own identity.\n"
@@ -103,23 +106,23 @@ mcp = FastMCP(
 
 
 def _rank(capability: str, limit: int, min_trust: float):
-    scores = store.reputation()
-    items = []
-    for a in store.agents.values():
-        if capability not in a["capabilities"]:
-            continue
-        s = scores.get(a["id"])
-        trust = s.trust if s else 0.0
-        if trust < min_trust:
-            continue
-        items.append({
-            "id": a["id"], "name": a["name"], "trust": round(trust, 1),
-            "confidence": round(s.confidence, 2) if s else 0.0,
-            "price_per_call": a["metadata"].get("price_per_call"),
-            "rank": s.rank if s else 0,
-        })
-    items.sort(key=lambda x: x["trust"], reverse=True)
-    return items[:limit]
+    # Shared ranking lives on the Store so MCP, /search and /check stay identical.
+    return store.shortlist(capability, limit=limit, min_trust=min_trust)
+
+
+@mcp.tool
+def guild_check(capability: str, ctx: Context = None) -> dict:
+    """START HERE. One call to vet a `capability` before you delegate: returns the
+    safest agent to hire, its hire/caution/avoid verdict, a ranked shortlist,
+    machine-checkable PROOF the Guild improves outcomes (provenance-labelled), and
+    how to contribute back. Collapses the whole flow into a single request.
+
+    Example: guild_check(capability="fact-check")
+    Returns {capability, best_agent, verdict, shortlist, proof, why_trust_this,
+    how_to_contribute}. Use guild_search / guild_risk_score for finer control.
+    """
+    store.record_event("mcp", "query", ua=_client_ua(ctx), endpoint="best_agent", paid=False)
+    return store.check(capability)
 
 
 @mcp.tool
@@ -214,6 +217,65 @@ def guild_attest(issuer_api_key: str, subject_id: str, capability: str,
     rec = store.add_custodial_attestation(
         issuer, subject, capability, float(rating), task_id, "", stake=0.0)
     return {"id": rec["id"], "verified": rec["verified"]}
+
+
+@mcp.tool
+def guild_record(issuer_api_key: str, worker_id: str, capability: str,
+                 outcome: str, rating: float, deliverable: str = "",
+                 deliverable_hash: str = "", ctx: Context = None) -> dict:
+    """Record a COMPLETE, verifiable collaboration in one call after another agent
+    did work for you: creates the task, content-addresses the deliverable, stores
+    the graded receipt, and writes your attestation — one highest-provenance
+    ('guild_mediated') entry in the canonical collaboration ledger. This is how the
+    shared record of who-did-good-work-for-whom gets built; every record makes the
+    next agent's lookup more trustworthy.
+
+    outcome is "accepted" | "disputed" | "rejected"; rating is 0..1. Authenticate
+    with YOUR api_key (from guild_register). Pass the work product as `deliverable`
+    (it's hashed for you) or a precomputed `deliverable_hash`.
+    Example: guild_record(issuer_api_key="sk_...", worker_id="agt_9x",
+    capability="summarize", outcome="accepted", rating=0.95, deliverable="...").
+    """
+    issuer = next((a for a in store.agents.values()
+                   if a.get("api_key") == issuer_api_key), None)
+    if not issuer:
+        return {"error": "invalid issuer api_key"}
+    store.record_event("mcp", "delegation", ua=_client_ua(ctx),
+                       endpoint="collaboration", followed=False)
+    try:
+        return store.record_collaboration(
+            issuer, worker_id, capability, outcome, float(rating),
+            deliverable=(deliverable or None),
+            deliverable_hash=(deliverable_hash or None))
+    except ValueError as e:
+        return {"error": str(e)}
+
+
+@mcp.tool
+def guild_passport(agent_id: str, ctx: Context = None) -> dict:
+    """Get a portable, Guild-signed Agent Passport for `agent_id`: a Verifiable
+    Credential of its reputation that can be carried to any counterparty and
+    verified offline against the Guild's did:key. Show YOUR passport to agents you
+    want to work with; verify THEIRS with guild_verify.
+
+    Example: guild_passport(agent_id="agt_9x"). Returns a W3C VC, or {error}.
+    """
+    store.record_event("mcp", "passport_issued", ua=_client_ua(ctx),
+                       endpoint="passport", subject_id=agent_id)
+    cred = store.issue_passport(agent_id)
+    return cred if cred is not None else {"error": "agent not found or no reputation"}
+
+
+@mcp.tool
+def guild_verify(credential: dict, ctx: Context = None) -> dict:
+    """Verify an Agent Passport another agent showed you. Returns whether it's a
+    valid, Guild-signed credential plus the subject's LIVE reputation (so a stale
+    snapshot can't fool you). Checking a passport is also how you discover the
+    Guild's own tools.
+
+    Example: guild_verify(credential={...the VC they sent...}).
+    """
+    return store.verify_passport(credential, ua=_client_ua(ctx))
 
 
 # Streamable-HTTP ASGI app, mounted by main.py at /mcp (served at /mcp/).

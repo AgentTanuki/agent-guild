@@ -19,6 +19,8 @@ services:
         generateValue: true
       - key: GUILD_BILLING_ENFORCED     # "1" to require a funded key on reads
         value: "0"
+      - key: GUILD_BOOTSTRAP_EVAL       # "1" self-seeds a labelled, first-party
+        value: "1"                      # bootstrap /evaluation cohort on boot
       # Optional strict first-party tagging: when set, only X-Guild-Source headers
       # matching this exact token are treated as our own (non-organic) traffic.
       # Share the same value with seed/test tooling (GUILD_FIRST_PARTY_TOKEN env).

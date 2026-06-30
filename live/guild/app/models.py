@@ -77,6 +77,24 @@ class ReceiptRequest(BaseModel):
     outcome: str = Field("delivered", description="delivered | accepted | disputed | rejected")
 
 
+class RecordCollaborationRequest(BaseModel):
+    """One-call recording of a complete, verifiable AI-to-AI collaboration: the
+    requester commissions work, the deliverable is content-addressed, and the
+    requester grades the outcome — producing a single highest-provenance
+    (`guild_mediated`) ledger record. Authenticate as the requester via X-API-Key."""
+    worker_id: str = Field(..., description="Agent that performed the work")
+    capability: str = Field(..., description="What the work was, e.g. 'fact-check'")
+    outcome: str = Field(..., description="accepted | disputed | rejected")
+    rating: float = Field(..., ge=0.0, le=1.0, description="Observed quality in [0,1]")
+    deliverable: Optional[str] = Field(
+        None, description="Raw work product; the server content-addresses it (sha256)")
+    deliverable_hash: Optional[str] = Field(
+        None, description="Provide instead of `deliverable` if you hashed it yourself")
+    deliverable_url: Optional[str] = Field(None, description="Optional pointer to the artifact")
+    payment: float = Field(0.0, ge=0.0, description="Simulated payment for the work")
+    stake: float = Field(0.0, ge=0.0, description="Reputation staked on the grade (simulated)")
+
+
 class AttestationRequest(BaseModel):
     # Custodial path: identify issuer + authenticate, server signs the VC.
     issuer_id: Optional[str] = None
@@ -238,6 +256,9 @@ class HealthSnapshot(BaseModel):
     at: str
     # utility — is the Guild actually helping agents?
     measured_lift: Optional[float] = None
+    # provenance of measured_lift so the number never travels unlabelled:
+    # "bootstrap" (seeded demonstration) | "production" | "mixed" | "empty".
+    measured_lift_dataset: Optional[str] = None
     recommended_success_rate: Optional[float] = None
     # growth — are new (external) agents arriving?
     agents_total: int

@@ -26,6 +26,30 @@ def test_ai_plugin_and_llms_txt_present():
     assert "Agent Guild" in txt and "/billing/trial" in txt
 
 
+def test_check_endpoint_is_the_one_call_entry_point():
+    # an outside agent registers a worker so the graph isn't empty
+    client.post("/agents/register",
+                json={"name": "CheckWorker", "capabilities": ["translate"]})
+    r = client.get("/check", params={"capability": "translate"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    for k in ("best_agent", "verdict", "shortlist", "proof",
+              "why_trust_this", "how_to_contribute"):
+        assert k in body, k
+    assert body["best_agent"]["name"] == "CheckWorker"
+    # proof is always provenance-labelled (never a bare number)
+    assert body["proof"]["dataset"] in ("bootstrap", "production", "mixed", "empty")
+
+
+def test_manifest_and_llms_point_at_the_one_call_entry():
+    m = client.get("/.well-known/agent-guild.json").json()
+    assert "start_here" in m and "/check" in m["start_here"]
+    assert "check" in m["endpoints"]
+    assert m["discovery"]["mcp"]["start_here_tool"] == "guild_check"
+    assert "guild_check" in m["discovery"]["mcp"]["tools"]
+    assert "/check" in client.get("/llms.txt").text
+
+
 def test_trial_faucet_is_human_free_and_funds_an_account():
     acct = client.post("/billing/trial").json()
     assert acct["balance"] >= TRIAL_CREDITS

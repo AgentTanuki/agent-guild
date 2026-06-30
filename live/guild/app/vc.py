@@ -61,6 +61,45 @@ def issue_credential(
     return cred
 
 
+def issue_passport(
+    *,
+    cred_id: str,
+    issuer_did: str,
+    issuer_private_hex: str,
+    subject_did: str,
+    subject_claims: dict[str, Any],
+    valid_from: str | None = None,
+    valid_until: str | None = None,
+) -> dict[str, Any]:
+    """Issue a Guild-signed **Agent Passport** — a portable Verifiable Credential
+    summarising an agent's reputation. Unlike an attestation (one agent vouching
+    for another), a passport is signed by the *Guild's* DID, so any agent or
+    platform that receives it can verify it offline against the Guild's public key
+    and trust that the snapshot came from the Guild. This is the portable,
+    cross-platform 'machine CV'."""
+    created = valid_from or _now_iso()
+    unsigned: dict[str, Any] = {
+        "@context": VC_CONTEXT,
+        "id": cred_id,
+        "type": ["VerifiableCredential", "AgentGuildPassport"],
+        "issuer": issuer_did,
+        "validFrom": created,
+    }
+    if valid_until:
+        unsigned["validUntil"] = valid_until
+    unsigned["credentialSubject"] = {"id": subject_did, **subject_claims}
+    unsigned["proof"] = {
+        "type": "Ed25519Signature2020",
+        "created": created,
+        "verificationMethod": f"{issuer_did}#{issuer_did.split(':')[-1]}",
+        "proofPurpose": "assertionMethod",
+    }
+    proof_value = sign_payload(unsigned, issuer_private_hex)
+    cred = dict(unsigned)
+    cred["proof"] = {**unsigned["proof"], "proofValue": proof_value}
+    return cred
+
+
 def verify_credential(vc: dict[str, Any]) -> bool:
     """Recompute the signed payload and verify against the issuer's did:key."""
     try:

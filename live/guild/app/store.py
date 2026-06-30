@@ -10,15 +10,17 @@ simulated values that drive the weighting.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import secrets
+import statistics
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
 from .crypto import generate_keypair, did_from_public_key
-from .vc import issue_credential, verify_credential
+from .vc import issue_credential, verify_credential, issue_passport
 from .reputation import score, AttRecord, AgentScore, ScoringResult
 from .billing import (
     FREE_CREDITS, InsufficientCredits, UnknownAccount,
@@ -53,6 +55,8 @@ class Store:
         self.events: list[dict[str, Any]] = []            # agent-native instrumentation
         self.referrals: list[dict[str, Any]] = []         # agent-to-agent referral edges
         self.health_log: list[dict[str, Any]] = []        # self-evaluation snapshots
+        self.identity: dict[str, Any] = {}                 # the Guild's own signing DID
+        self.ledger_records: list[dict[str, Any]] = []     # durable, hash-chained VCRs
         self._rep_cache: Optional[ScoringResult] = None
         self._load()
 
@@ -69,6 +73,8 @@ class Store:
             self.events = data.get("events", [])
             self.referrals = data.get("referrals", [])
             self.health_log = data.get("health_log", [])
+            self.identity = data.get("identity", {})
+            self.ledger_records = data.get("ledger_records", [])
 
     def _save(self) -> None:
         if not self.path:
@@ -80,7 +86,9 @@ class Store:
                        "attestations": self.attestations,
                        "accounts": self.accounts, "billing_log": self.billing_log,
                        "events": self.events, "referrals": self.referrals,
-                       "health_log": self.health_log}, f, indent=2)
+                       "health_log": self.health_log,
+                       "identity": self.identity,
+                       "ledger_records": self.ledger_records}, f, indent=2)
         os.replace(tmp, self.path)
 
     # --- agents -------------------------------------------------------------
@@ -369,6 +377,7 @@ class Store:
         q_by_key: dict[str, int] = {}
         paid_by_key: dict[str, int] = {}
         deleg = deleg_followed = 0
+        passports_issued = passports_verified = 0
         for e in events:
             if e["type"] == "query":
                 q_by_key[e["key"]] = q_by_key.get(e["key"], 0) + 1
@@ -378,6 +387,10 @@ class Store:
                 deleg += 1
                 if e.get("followed"):
                     deleg_followed += 1
+            elif e["type"] == "passport_issued":
+                passports_issued += 1
+            elif e["type"] == "passport_verified":
+                passports_verified += 1
         return {
             "unique_agents": len(q_by_key),
             "first_query": len([k for k, n in q_by_key.items() if n >= 1]),
@@ -387,6 +400,10 @@ class Store:
             "repeat_paid_query_agents": len([k for k, n in paid_by_key.items() if n >= 2]),
             "delegations": deleg,
             "delegations_following_recommendation": deleg_followed,
+            # passport propagation = the autonomous-distribution KPIs: a verified
+            # passport means the credential reached a new party who checked it.
+            "passports_issued": passports_issued,
+            "passports_verified": passports_verified,
             "total_events": len(events),
         }
 
@@ -417,19 +434,27 @@ class Store:
             })
         return out
 
-    def evaluation(self, trust_threshold: float = 50.0) -> dict[str, Any]:
-        """Measured outcome lift: success rate of hires of *recommended* (high-
-        trust) workers vs everyone else, from graded task receipts. This is the
-        signal an agent uses to verify the Guild improves outcomes."""
-        scores = self.reputation()
+    def _is_bootstrap_task(self, t: dict[str, Any]) -> bool:
+        """A graded task is `bootstrap` (a seeded demonstration) — not
+        `production` (organic third-party evidence) — if it is explicitly tagged
+        or if either party is first-party (our own seed/test traffic). Only tasks
+        between two genuine outside agents count toward the production lift."""
+        m = t.get("metadata") or {}
+        if m.get("bootstrap_eval") or m.get("seed_supply") or m.get("first_party"):
+            return True
+        req = self.agents.get(t.get("requester_agent_id")) or {}
+        wrk = self.agents.get(t.get("worker_agent_id")) or {}
+        return bool(req.get("first_party") or wrk.get("first_party"))
+
+    @staticmethod
+    def _lift_stats(graded_tasks, scores, trust_threshold) -> dict[str, Any]:
+        """Success-rate lift of high-trust (recommended) vs baseline hires over a
+        set of already-graded tasks."""
         rec_succ = rec_tot = base_succ = base_tot = 0
-        for t in self.tasks.values():
-            outcome = t.get("outcome")
-            if outcome not in ("accepted", "disputed", "rejected"):
-                continue  # only graded tasks count
+        for t in graded_tasks:
+            success = 1 if t.get("outcome") == "accepted" else 0
             s = scores.get(t["worker_agent_id"])
             trust = s.trust if s else 0.0
-            success = 1 if outcome == "accepted" else 0
             if trust >= trust_threshold:
                 rec_tot += 1; rec_succ += success
             else:
@@ -438,9 +463,392 @@ class Store:
         base_rate = (base_succ / base_tot) if base_tot else None
         lift = (rec_rate - base_rate) if (rec_rate is not None and base_rate is not None) else None
         return {
+            "lift": lift,
             "recommended_success_rate": rec_rate, "n_recommended": rec_tot,
             "baseline_success_rate": base_rate, "n_baseline": base_tot,
-            "lift": lift, "trust_threshold": trust_threshold,
+        }
+
+    def evaluation(self, trust_threshold: Optional[float] = None) -> dict[str, Any]:
+        """Measured outcome lift: success rate of hiring *recommended* (high-trust)
+        workers vs everyone else, from graded task receipts. This is the signal an
+        agent uses to verify the Guild improves outcomes.
+
+        `recommended` means "an agent the Guild ranks above the rest." Because the
+        absolute trust scale is arbitrary, the split point defaults to the MEDIAN
+        trust of the workers who have graded tasks — a neutral, non-tuned, scale-
+        free definition of "the better half the Guild would steer you toward."
+        Pass an explicit `trust_threshold` to override. The effective value and
+        mode are returned for full transparency.
+
+        The result is **provenance-labelled** so the number can never be read
+        without its source: `dataset` is one of `bootstrap` (a reproducible,
+        clearly-labelled seeded demonstration), `production` (live third-party
+        traffic), `mixed`, or `empty`. The `bootstrap` and `production` sub-blocks
+        give the lift for each cohort separately; top-level keys cover all graded
+        tasks (back-compatible)."""
+        scores = self.reputation()
+        graded = [t for t in self.tasks.values()
+                  if t.get("outcome") in ("accepted", "disputed", "rejected")]
+        boot = [t for t in graded if self._is_bootstrap_task(t)]
+        prod = [t for t in graded if not self._is_bootstrap_task(t)]
+
+        if trust_threshold is None:
+            worker_trust = [scores[t["worker_agent_id"]].trust
+                            for t in graded if t["worker_agent_id"] in scores]
+            eff_threshold = statistics.median(worker_trust) if worker_trust else 50.0
+            threshold_mode = "median"
+        else:
+            eff_threshold = float(trust_threshold)
+            threshold_mode = "fixed"
+
+        overall = self._lift_stats(graded, scores, eff_threshold)
+        boot_stats = self._lift_stats(boot, scores, eff_threshold)
+        prod_stats = self._lift_stats(prod, scores, eff_threshold)
+
+        if prod and boot:
+            dataset = "mixed"
+        elif prod:
+            dataset = "production"
+        elif boot:
+            dataset = "bootstrap"
+        else:
+            dataset = "empty"
+
+        disclaimers = {
+            "bootstrap": (
+                "Lift is computed from a reproducible, clearly-labelled BOOTSTRAP "
+                "cohort: first-party seed agents whose task outcomes are sampled "
+                "from each worker's ground-truth quality, independently of the "
+                "Guild's trust score. It demonstrates that hiring high-trust agents "
+                "beats baseline; it is NOT yet evidence from live third-party "
+                "traffic. The `production` block populates once external agents "
+                "record graded outcomes."
+            ),
+            "production": (
+                "Lift is computed from live third-party graded task outcomes."
+            ),
+            "mixed": (
+                "`lift` combines seeded bootstrap and live production data. See the "
+                "`production` block for the live-traffic-only figure and `bootstrap` "
+                "for the seeded demonstration."
+            ),
+            "empty": "No graded task outcomes recorded yet.",
+        }
+
+        return {
+            "trust_threshold": round(eff_threshold, 2),
+            "threshold_mode": threshold_mode,
+            "dataset": dataset,
+            # back-compatible top-level keys (all graded tasks)
+            "lift": overall["lift"],
+            "recommended_success_rate": overall["recommended_success_rate"],
+            "n_recommended": overall["n_recommended"],
+            "baseline_success_rate": overall["baseline_success_rate"],
+            "n_baseline": overall["n_baseline"],
+            # provenance breakdown
+            "bootstrap": boot_stats,
+            "production": prod_stats,
+            "disclaimer": disclaimers[dataset],
+        }
+
+    # --- one-call first contact (conversion) --------------------------------
+    def shortlist(self, capability: str, limit: int = 3,
+                  min_trust: float = 0.0) -> list[dict[str, Any]]:
+        """Agents with `capability`, ranked by attack-resistant trust. The shared
+        ranking used by /search, the MCP tools, and the one-call /check."""
+        scores = self.reputation()
+        items = []
+        for a in self.agents.values():
+            if capability not in a["capabilities"]:
+                continue
+            s = scores.get(a["id"])
+            trust = s.trust if s else 0.0
+            if trust < min_trust:
+                continue
+            items.append({
+                "id": a["id"], "name": a["name"], "trust": round(trust, 1),
+                "confidence": round(s.confidence, 2) if s else 0.0,
+                "price_per_call": a["metadata"].get("price_per_call"),
+                "rank": s.rank if s else 0,
+            })
+        items.sort(key=lambda x: x["trust"], reverse=True)
+        return items[:limit]
+
+    def risk_for(self, agent_id: str) -> Optional[dict[str, Any]]:
+        """The hire/caution/avoid verdict for one agent (shared by /risk-score,
+        the MCP tool, and /check). None if the agent has no computed reputation."""
+        s = self.reputation().get(agent_id)
+        if s is None:
+            return None
+        risk = 100.0 * (0.5 * s.collusion_suspicion + 0.3 * (1 - s.confidence)
+                        + 0.2 * (1 - s.trust / 100.0))
+        risk = round(max(0.0, min(100.0, risk)), 1)
+        return {
+            "agent_id": agent_id, "risk": risk,
+            "recommendation": "hire" if risk < 33 else ("caution" if risk < 66 else "avoid"),
+            "trust": s.trust, "confidence": round(s.confidence, 3),
+            "collusion_suspicion": round(s.collusion_suspicion, 3),
+        }
+
+    def check(self, capability: str) -> dict[str, Any]:
+        """One-call first contact: everything a brand-new agent needs to go from
+        'never heard of the Guild' to a confident delegation decision *and* a
+        reason to contribute back — in a single request. Collapses
+        search → risk-score → proof → how-to-give-back so time-to-value is one
+        call. This is the recommended entry point; the granular tools remain for
+        fine-grained use."""
+        short = self.shortlist(capability, limit=3)
+        best = short[0] if short else None
+        verdict = self.risk_for(best["id"]) if best else None
+        ev = self.evaluation()
+        proof = {
+            "dataset": ev["dataset"],
+            "lift": ev["lift"],
+            "recommended_success_rate": ev["recommended_success_rate"],
+            "baseline_success_rate": ev["baseline_success_rate"],
+            "disclaimer": ev["disclaimer"],
+        }
+        return {
+            "capability": capability,
+            "best_agent": best,
+            "verdict": verdict,
+            "shortlist": short,
+            "proof": proof,
+            "why_trust_this": (
+                "Trust is EigenTrust seed-anchored and collusion/Sybil-resistant: "
+                "manufactured praise and mutual-praise rings do not move scores. "
+                "Reads are evidence-based; writes are free."
+            ),
+            "how_to_contribute": (
+                "After you delegate and receive work back, vouch for it — "
+                "guild_attest(issuer_api_key, subject_id, capability, rating) over "
+                "MCP, or POST /attestations over HTTP. Honest signal makes the next "
+                "agent's lookup better, which is why writes are free."
+            ),
+        }
+
+    # --- one-call verifiable-collaboration recording (fills the ledger) -----
+    def record_collaboration(
+        self, requester: dict[str, Any], worker_id: str, capability: str,
+        outcome: str, rating: float, *, deliverable: Optional[str] = None,
+        deliverable_hash: Optional[str] = None, deliverable_url: Optional[str] = None,
+        payment: float = 0.0, stake: float = 0.0,
+    ) -> dict[str, Any]:
+        """Record a COMPLETE, verifiable collaboration in one step: create the
+        task, content-address the deliverable, submit the graded receipt, and write
+        the requester's receipt-backed attestation — yielding a single
+        highest-provenance (`guild_mediated`) entry in the collaboration ledger.
+
+        This is the low-friction write path the canonical ledger needs: every real
+        agent-to-agent interaction can land as a verifiable record in one call,
+        instead of the four-call register→task→receipt→attest dance."""
+        worker = self.get_agent(worker_id)
+        if worker is None:
+            raise ValueError("worker not found")
+        if worker_id == requester["id"]:
+            raise ValueError("an agent cannot collaborate with itself")
+        if outcome not in ("accepted", "disputed", "rejected"):
+            raise ValueError("outcome must be accepted | disputed | rejected")
+        if deliverable_hash is None:
+            if deliverable is None:
+                raise ValueError("provide deliverable or deliverable_hash")
+            deliverable_hash = "0x" + hashlib.sha256(deliverable.encode("utf-8")).hexdigest()
+        task = self.create_task(requester["id"], worker_id, capability,
+                                payment=float(payment))
+        self.submit_receipt(task["id"], deliverable_hash, deliverable_url, outcome)
+        att = self.add_custodial_attestation(
+            requester, worker, capability, float(rating), task["id"],
+            comment="collaboration", stake=float(stake))
+        self.record_event(self.account_for_agent(requester["id"]), "delegation",
+                          endpoint="collaboration", followed=False,
+                          worker_id=worker_id)
+        # dual-write: durably append the sealed VCR to the persistent ledger chain.
+        self.ensure_ledger_backfilled()
+        vcr = self.append_task_to_ledger(task["id"])
+        return {
+            "task_id": task["id"],
+            "attestation_id": att["id"],
+            "deliverable_hash": deliverable_hash,
+            "outcome": outcome,
+            "ledger_record": vcr,
+            "provenance": (vcr or {}).get("provenance"),
+        }
+
+    def ledger_record_for_task(self, task_id: str) -> Optional[dict[str, Any]]:
+        """The durable, sealed collaboration-ledger record for a single task, or
+        None if not present in the durable chain."""
+        for d in self.ledger_records:
+            if d.get("task_id") == task_id:
+                return d
+        return None
+
+    # --- durable collaboration ledger (stage-2 dual-write) ------------------
+    def ensure_ledger_backfilled(self) -> None:
+        """One-time capture of pre-existing graded tasks into the durable chain, so
+        the ledger starts from a deterministic snapshot of real history. Idempotent:
+        a no-op once the durable chain is non-empty."""
+        with self.lock:
+            if self.ledger_records:
+                return
+            from dataclasses import asdict
+            from .ledger import Ledger
+            projected = Ledger.from_store(self).records
+            if projected:
+                self.ledger_records = [asdict(r) for r in projected]
+                self._save()
+
+    def append_task_to_ledger(self, task_id: str) -> Optional[dict[str, Any]]:
+        """Seal one task's collaboration record against the durable chain head and
+        persist it (the dual-write). Returns the sealed record dict."""
+        with self.lock:
+            from dataclasses import asdict
+            from .ledger import build_record_for_task
+            task = self.tasks.get(task_id)
+            if task is None or not task.get("deliverable_hash"):
+                return None
+            if any(d.get("task_id") == task_id for d in self.ledger_records):
+                return self.ledger_record_for_task(task_id)
+            head = self.ledger_records[-1]["hash"] if self.ledger_records else ("0" * 64)
+            rec = build_record_for_task(self, task)
+            rec.seq = len(self.ledger_records)
+            rec.prev_hash = head
+            rec.seal()
+            d = asdict(rec)
+            self.ledger_records.append(d)
+            self._save()
+            return d
+
+    def durable_ledger(self):
+        """The persisted, hash-chained ledger as a verifiable Ledger object."""
+        from .ledger import Ledger
+        self.ensure_ledger_backfilled()
+        return Ledger.from_records(self.ledger_records)
+
+    # --- the Guild's own signing identity + portable passports --------------
+    def guild_identity(self) -> dict[str, Any]:
+        """The Guild's persistent ed25519 signing identity. Created once and
+        persisted, so the Guild can issue credentials (Agent Passports) in its own
+        name that anyone can verify offline against this did:key. This is the
+        issuer-of-record position — the credit-bureau anchor for agent reputation."""
+        with self.lock:
+            if not self.identity:
+                priv, pub = generate_keypair()
+                self.identity = {
+                    "did": did_from_public_key(pub),
+                    "public_key": pub,
+                    "private_key": priv,
+                    "name": "Agent Guild",
+                    "created_at": _now(),
+                }
+                self._save()
+            return self.identity
+
+    def guild_did(self) -> str:
+        return self.guild_identity()["did"]
+
+    def issue_passport(self, agent_id: str, *, ttl_days: int = 7,
+                       verify_url: Optional[str] = None,
+                       explore_url: Optional[str] = None) -> Optional[dict[str, Any]]:
+        """Issue a portable, Guild-signed **Agent Passport** for `agent_id`: a
+        Verifiable Credential snapshotting its current reputation that the agent
+        can carry to any counterparty or platform. Each passport embeds a
+        verification URL, so every counterparty who checks it is pulled back to the
+        Guild — the credential is the distribution loop. None if the agent or its
+        reputation is unknown."""
+        rec = self.get_agent(agent_id)
+        if not rec:
+            return None
+        s = self.reputation().get(agent_id)
+        if s is None:
+            return None
+        verdict = self.risk_for(agent_id) or {}
+        gid = self.guild_identity()
+        created = datetime.now(timezone.utc)
+        until = created + timedelta(days=ttl_days)
+        # Anchor the portable credential to the canonical, tamper-evident ledger:
+        # the verifier can confirm the subject's collaborations are committed to a
+        # Guild-signed checkpoint, not just asserted by a score.
+        led = self.durable_ledger()
+        verifiable = sum(1 for d in self.ledger_records if d.get("worker_id") == agent_id)
+        cp = led.signed_checkpoint(gid["did"], gid["private_key"], created_at=created.isoformat())
+        ledger_anchor = {
+            "verifiable_collaborations": verifiable,
+            "checkpoint": cp,  # full signed checkpoint (stripping any field breaks the proof)
+        }
+        claims = {
+            "name": rec["name"],
+            "capabilities": rec["capabilities"],
+            "trust": s.trust,
+            "rank": s.rank,
+            "confidence": round(s.confidence, 3),
+            "verified_task_count": s.verified_task_count,
+            "distinct_reviewers": s.distinct_reviewers,
+            "attestations_received": s.attestations_received,
+            "collusion_suspicion": round(s.collusion_suspicion, 3),
+            "recommendation": verdict.get("recommendation"),
+            "risk": verdict.get("risk"),
+            "ledger_anchor": ledger_anchor,
+            # so a verifier can always re-resolve the live score, not just the snapshot
+            "issuer_name": "Agent Guild",
+            "verify": verify_url or "POST <guild>/credentials/verify",
+            "explore": explore_url or "GET <guild>/agents/{id}/reputation",
+        }
+        cred = issue_passport(
+            cred_id=f"urn:passport:{agent_id}:{int(created.timestamp())}",
+            issuer_did=gid["did"], issuer_private_hex=gid["private_key"],
+            subject_did=rec["did"], subject_claims=claims,
+            valid_from=created.isoformat(), valid_until=until.isoformat(),
+        )
+        self.record_event(self.account_for_agent(agent_id), "passport_issued",
+                          endpoint="passport", subject_id=agent_id)
+        return cred
+
+    def verify_passport(self, vc: dict[str, Any], actor_key: Optional[str] = None,
+                        ua: str = "") -> dict[str, Any]:
+        """Verify any Guild-issued credential. This is the propagation entry point:
+        when an agent receives another's passport and checks it here, it discovers
+        the Guild. We record that touch and, if the subject is known, attach the
+        LIVE reputation so a stale snapshot can't mislead."""
+        valid = verify_credential(vc)
+        issuer = (vc.get("issuer") or "")
+        is_guild = bool(issuer) and issuer == self.guild_did()
+        subj = (vc.get("credentialSubject") or {})
+        subject_did = subj.get("id", "")
+        subject = self.agent_by_did(subject_did) if subject_did else None
+        live = None
+        if subject:
+            live = self.risk_for(subject["id"])
+        # check the ledger anchor: is the embedded checkpoint a valid Guild signature?
+        from .ledger import Ledger
+        anchor = (subj.get("ledger_anchor") or {}) if valid else {}
+        cp = anchor.get("checkpoint") or {}
+        ledger_anchor = None
+        if cp:
+            ledger_anchor = {
+                "verifiable_collaborations": anchor.get("verifiable_collaborations"),
+                "checkpoint_valid": Ledger.verify_checkpoint(cp),
+                "head_hash": cp.get("head_hash"),
+            }
+        # a verification is a genuine discovery touch — the credential reached a
+        # new party who came back to the Guild to check it.
+        self.record_event(actor_key, "passport_verified", ua=ua, endpoint="verify",
+                          subject_id=(subject["id"] if subject else None))
+        return {
+            "valid": valid,
+            "guild_issued": is_guild,
+            "issuer": issuer,
+            "subject_did": subject_did,
+            "subject_known_to_guild": bool(subject),
+            "snapshot": {k: v for k, v in subj.items() if k != "id"} if valid else None,
+            "ledger_anchor": ledger_anchor,
+            "live_reputation": live,
+            "note": (
+                "Valid Agent Guild passport. The snapshot is signed by the Guild; "
+                "`live_reputation` is the current score. New here? "
+                "GET /check?capability=<cap> or connect the MCP server to vet agents yourself."
+            ) if (valid and is_guild) else (
+                "This credential did not verify as a current Agent Guild passport."
+            ),
         }
 
     # --- continuous self-evaluation (Outcome 4) -----------------------------
@@ -456,6 +864,7 @@ class Store:
                                 if not a.get("first_party"))
         return {
             "measured_lift": ev.get("lift"),
+            "measured_lift_dataset": ev.get("dataset"),
             "recommended_success_rate": ev.get("recommended_success_rate"),
             "agents_total": len(self.agents),
             "agents_external": agents_external,

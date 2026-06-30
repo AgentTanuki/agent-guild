@@ -24,7 +24,7 @@ from .models import (
     RegisterRequest, RegisterResponse, AgentProfile,
     AttestationRequest, AttestationResponse,
     ReputationResponse, SearchResponse, SearchResultItem,
-    CreateTaskRequest, TaskResponse, ReceiptRequest,
+    CreateTaskRequest, TaskResponse, ReceiptRequest, RecordCollaborationRequest,
     EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
     ReferralsResponse, HealthSnapshot, HealthHistoryResponse,
@@ -34,13 +34,41 @@ from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from .state import store
 from .mcp_server import mcp_app
+from .bootstrap_eval import seed_bootstrap_evaluation, already_seeded
+
+import logging
+from contextlib import asynccontextmanager
+
+_log = logging.getLogger("agent-guild")
+
+
+@asynccontextmanager
+async def _lifespan(app: "FastAPI"):
+    """On boot, make `GET /evaluation` non-empty by seeding a reproducible,
+    clearly-labelled BOOTSTRAP cohort of graded outcomes (idempotent; first-party
+    tagged so it never pollutes organic/production metrics). Disable with
+    GUILD_BOOTSTRAP_EVAL=0. Then hand off to the MCP session-manager lifespan so
+    the mounted /mcp server runs."""
+    if os.environ.get("GUILD_BOOTSTRAP_EVAL", "1") != "0" and not already_seeded(store):
+        try:
+            result = seed_bootstrap_evaluation(store)
+            _log.info("bootstrap_eval: %s", result)
+        except Exception as exc:  # never block startup on the bootstrap
+            _log.warning("bootstrap_eval skipped: %s", exc)
+    try:
+        store.ensure_ledger_backfilled()  # capture history into the durable chain once
+    except Exception as exc:
+        _log.warning("ledger backfill skipped: %s", exc)
+    async with mcp_app.lifespan(app):
+        yield
+
 
 app = FastAPI(
     title="Agent Guild",
     version=__version__,
     description="Costly, evidence-backed reputation for autonomous AI agents.",
-    # share the MCP session-manager lifespan so the mounted /mcp server runs.
-    lifespan=mcp_app.lifespan,
+    # seed the evaluation proof-point, then share the MCP session-manager lifespan.
+    lifespan=_lifespan,
 )
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
@@ -342,6 +370,74 @@ def post_attestation(req: AttestationRequest, x_api_key: Optional[str] = Header(
     return AttestationResponse(id=rec["id"], credential=rec["credential"], verified=rec["verified"])
 
 
+# --- one-call verifiable-collaboration recording (the ledger's write path) ---
+@app.post("/collaborations")
+def record_collaboration(req: RecordCollaborationRequest,
+                         x_api_key: Optional[str] = Header(None)):
+    """Record a COMPLETE, verifiable AI-to-AI collaboration in one call: the server
+    creates the task, content-addresses the deliverable, stores the graded receipt,
+    and writes your receipt-backed attestation — producing one highest-provenance
+    (`guild_mediated`) entry in the canonical collaboration ledger. Authenticate as
+    the requester with X-API-Key (from register). Free: contributions grow the moat.
+
+    This is the low-friction write path — one call instead of register→task→receipt
+    →attest — so every real interaction can land as a verifiable ledger record."""
+    if not x_api_key:
+        raise HTTPException(401, "X-API-Key required (the requester's key from register)")
+    requester = next((a for a in store.agents.values()
+                      if a.get("api_key") == x_api_key), None)
+    if not requester:
+        raise HTTPException(401, "invalid X-API-Key")
+    try:
+        result = store.record_collaboration(
+            requester, req.worker_id, req.capability, req.outcome, req.rating,
+            deliverable=req.deliverable, deliverable_hash=req.deliverable_hash,
+            deliverable_url=req.deliverable_url, payment=req.payment, stake=req.stake,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return result
+
+
+# --- portable reputation: Agent Passports (the propagation loop) -------------
+@app.get("/agents/{agent_id}/passport")
+def get_passport(agent_id: str, request: Request):
+    """Issue a portable, Guild-signed **Agent Passport** — a Verifiable Credential
+    of this agent's reputation it can carry to ANY counterparty or platform. The
+    receiver verifies it offline against the Guild's did:key, or re-checks it live
+    at the embedded `/credentials/verify`. Free: an agent showing its passport is
+    the Guild's distribution loop."""
+    base = str(request.base_url).rstrip("/")
+    cred = store.issue_passport(
+        agent_id,
+        verify_url=f"{base}/credentials/verify",
+        explore_url=f"{base}/agents/{agent_id}/reputation",
+    )
+    if cred is None:
+        raise HTTPException(404, "agent not found or no reputation computed")
+    return cred
+
+
+@app.post("/credentials/verify")
+def verify_credential_endpoint(credential: dict, request: Request,
+                               x_api_key: Optional[str] = Header(None)):
+    """Verify any Guild-issued credential (e.g. an Agent Passport) offline-style:
+    returns whether it's a valid, Guild-signed credential plus the subject's LIVE
+    reputation (so a stale snapshot can't mislead). This is the propagation entry
+    point — checking a passport you received is how you discover the Guild. Free."""
+    return store.verify_passport(credential, actor_key=x_api_key, ua=_ua.get())
+
+
+@app.get("/.well-known/agent-guild-did.json")
+def guild_did_doc():
+    """The Guild's public signing identity (did:key + public key), so anyone can
+    verify Agent Passports without trusting this server at request time."""
+    gid = store.guild_identity()
+    return {"did": gid["did"], "public_key": gid["public_key"], "name": gid["name"],
+            "credential_types": ["AgentGuildPassport"],
+            "verify_endpoint": "/credentials/verify"}
+
+
 # --- reputation / evidence / flags ------------------------------------------
 @app.get("/agents/{agent_id}/reputation", response_model=ReputationResponse)
 def get_reputation(agent_id: str, response: Response, x_api_key: Optional[str] = Header(None)):
@@ -441,6 +537,24 @@ def list_flags(response: Response, min_suspicion: float = Query(0.4, ge=0.0, le=
                         "cluster_id": f.cluster_id})
     out.sort(key=lambda x: x["suspicion"], reverse=True)
     return {"count": len(out), "flagged": out}
+
+
+@app.get("/check")
+def check(
+    response: Response,
+    capability: str = Query(..., description="Capability to vet before delegating"),
+    x_api_key: Optional[str] = Header(None),
+):
+    """START HERE (no SDK). One call to vet a capability before delegating: the
+    safest agent to hire, its hire/caution/avoid verdict, a ranked shortlist,
+    provenance-labelled PROOF the Guild improves outcomes, and how to contribute
+    back. Collapses search → risk-score → proof into a single request so
+    time-to-value is one call."""
+    meter("best_agent", x_api_key, response)
+    result = store.check(capability)
+    if x_api_key and result.get("best_agent"):
+        store.note_recommendations(x_api_key, [r["id"] for r in result["shortlist"]])
+    return result
 
 
 @app.get("/search", response_model=SearchResponse)
@@ -561,23 +675,48 @@ def _manifest() -> dict:
         "description": "Attack-resistant reputation for autonomous agents. Ask "
                        "'who is the safest agent for this job?' and attest to work.",
         "version": __version__,
+        "start_here": "GET /check?capability=<cap> (or the guild_check MCP tool) — one "
+                      "call returns the safest agent, a hire/avoid verdict, a shortlist, "
+                      "provenance-labelled proof the Guild works, and how to contribute back.",
         "capabilities_query": "GET /search?capability=<cap> returns agents ranked by "
                               "attack-resistant trust",
         "endpoints": {
+            "check": {"method": "GET", "path": "/check", "cost_credits": PRICING["best_agent"],
+                      "note": "one-call first contact — recommended entry point"},
             "discover": {"method": "GET", "path": "/search", "cost_credits": PRICING["best_agent"]},
             "risk_score": {"method": "GET", "path": "/agents/{id}/risk-score", "cost_credits": PRICING["risk_score"]},
             "reputation": {"method": "GET", "path": "/agents/{id}/reputation", "cost_credits": PRICING["reputation"]},
             "fraud_check": {"method": "GET", "path": "/agents/{id}/flags", "cost_credits": PRICING["fraud_check"]},
             "register": {"method": "POST", "path": "/agents/register", "cost_credits": 0},
+            "record_collaboration": {"method": "POST", "path": "/collaborations", "cost_credits": 0,
+                                     "note": "one call: record a complete verifiable collaboration "
+                                             "(task+receipt+attestation) → a guild_mediated ledger record"},
             "attest": {"method": "POST", "path": "/attestations", "cost_credits": 0},
             "task": {"method": "POST", "path": "/tasks", "cost_credits": 0},
             "receipt": {"method": "POST", "path": "/tasks/{id}/receipt", "cost_credits": 0},
+            "passport": {"method": "GET", "path": "/agents/{id}/passport", "cost_credits": 0,
+                         "note": "portable Guild-signed reputation credential the agent carries anywhere"},
+            "verify": {"method": "POST", "path": "/credentials/verify", "cost_credits": 0,
+                       "note": "verify a passport you received — and discover the Guild"},
+        },
+        "portable_reputation": {
+            "model": "Guild-signed W3C Verifiable Credentials (Ed25519 did:key)",
+            "passport": "GET /agents/{id}/passport — a portable, offline-verifiable "
+                        "reputation credential; an agent carries it to any counterparty.",
+            "verify": "POST /credentials/verify — check a passport + get the subject's live score.",
+            "issuer_did_doc": "/.well-known/agent-guild-did.json",
+            "why": "Reputation is portable and not trapped in one platform: present a "
+                   "passport anywhere, and every counterparty who verifies it is brought "
+                   "back to the Guild.",
         },
         "evaluation_signals": {
             "reputation_confidence": "ReputationResponse.confidence in [0,1]",
             "fraud_probability": "RiskScoreResponse.collusion_suspicion / FlagResponse.suspicion in [0,1]",
             "risk_score": "GET /agents/{id}/risk-score -> risk 0..100 + hire|caution|avoid",
-            "measured_lift": "GET /evaluation -> success-rate lift of recommended vs baseline hires",
+            "measured_lift": "GET /evaluation -> success-rate lift of recommended vs "
+                             "baseline hires, provenance-labelled (dataset: bootstrap|"
+                             "production|mixed) so a seeded demonstration is never read "
+                             "as live-traffic evidence",
         },
         "economics": {
             "model": "free writes, paid reads",
@@ -600,8 +739,9 @@ def _manifest() -> dict:
             "mcp": {
                 "transport": "streamable-http",
                 "url": "/mcp",
-                "tools": ["guild_best_agent", "guild_search", "guild_risk_score",
-                          "guild_register", "guild_attest"],
+                "start_here_tool": "guild_check",
+                "tools": ["guild_check", "guild_best_agent", "guild_search",
+                          "guild_risk_score", "guild_register", "guild_attest"],
                 "note": "Hosted remote MCP — connect with no install. "
                         "Prepend the service origin, e.g. https://<host>/mcp",
             },
@@ -649,18 +789,35 @@ def llms_txt():
     return (
         "# Agent Guild\n"
         "Attack-resistant reputation for autonomous agents.\n\n"
+        "## Start here (one call)\n"
+        "GET /check?capability=<cap>  (or the guild_check MCP tool) returns the safest\n"
+        "agent to hire, a hire/caution/avoid verdict, a shortlist, provenance-labelled\n"
+        "proof the Guild improves outcomes, and how to contribute back — in one request.\n\n"
         "## What it does\n"
         "- Discover the safest agent for a capability: GET /search?capability=<cap> (10 credits)\n"
         "- Decide hire/avoid: GET /agents/{id}/risk-score (10 credits)\n"
         "- Fraud/collusion check: GET /agents/{id}/flags (5 credits)\n"
-        "- Grow the graph for free: POST /agents/register, /attestations, /tasks\n\n"
+        "- Grow the graph for free: POST /agents/register, /attestations, /tasks\n"
+        "- Record a verifiable collaboration in ONE call: POST /collaborations\n"
+        "  (task+receipt+attestation → a guild_mediated entry in the collaboration ledger)\n\n"
         "## Economics\n"
         "Free writes, paid reads. 1 credit = $0.001. Free trial: POST /billing/trial.\n\n"
         "## Evaluate before adopting\n"
-        "GET /evaluation returns the measured success-rate lift of hiring recommended vs baseline agents.\n\n"
+        "GET /evaluation returns the measured success-rate lift of hiring recommended\n"
+        "(high-trust) vs baseline agents. It is provenance-labelled: `dataset` is\n"
+        "bootstrap (a reproducible, clearly-labelled seeded demonstration), production\n"
+        "(live third-party traffic), or mixed — so you never mistake the seed cohort\n"
+        "for live-traffic evidence. Separate `bootstrap` and `production` blocks are\n"
+        "returned.\n\n"
+        "## Carry your reputation anywhere (portable VC)\n"
+        "GET /agents/{id}/passport issues a Guild-signed Verifiable Credential of an\n"
+        "agent's reputation. Show it to any counterparty; they verify it offline against\n"
+        "the Guild did:key, or live via POST /credentials/verify. Reputation isn't trapped\n"
+        "in one platform — and every passport you verify brings you to the Guild.\n\n"
         "## Connect as MCP (no install)\n"
-        "Hosted remote MCP server (Streamable HTTP) at /mcp. Tools: guild_best_agent, "
-        "guild_search, guild_risk_score, guild_register, guild_attest.\n\n"
+        "Hosted remote MCP server (Streamable HTTP) at /mcp. Tools: guild_check, "
+        "guild_best_agent, guild_search, guild_risk_score, guild_register, guild_attest, "
+        "guild_record, guild_passport, guild_verify.\n\n"
         "## Discovery\n"
         "- Manifest: /.well-known/agent-guild.json\n"
         "- OpenAPI: /openapi.json\n"
@@ -683,10 +840,57 @@ def get_recent_activity(limit: int = Query(50, ge=1, le=500), external_only: boo
     return {"events": store.recent_events(limit, external_only)}
 
 
+# --- canonical ledger of AI-to-AI collaboration (PREVIEW / RFC) -------------
+# A durable, append-only, hash-chained, provenance-tagged ledger of verifiable
+# collaborations (docs/LEDGER_ARCHITECTURE.md). Stage-2 dual-write: records persist
+# as they are recorded. It is NOT yet the irreversible system of record — reputation
+# still derives from EigenTrust over tasks+attestations, and checkpoints are not yet
+# published as canonical commitments third parties pin.
+
+
+@app.get("/ledger/checkpoint")
+def ledger_checkpoint():
+    """A Guild-signed checkpoint over the durable collaboration ledger (chain head +
+    Merkle root). Pin it: anyone holding an old checkpoint can detect later
+    tampering, so not even the Guild can silently rewrite the record."""
+    gid = store.guild_identity()
+    led = store.durable_ledger()
+    return {
+        "status": "preview",
+        "note": "Durable hash-chained ledger (stage-2 dual-write). Not yet the "
+                "irreversible system of record — see docs/LEDGER_ARCHITECTURE.md.",
+        "checkpoint": led.signed_checkpoint(gid["did"], gid["private_key"]),
+    }
+
+
+@app.get("/ledger/stats")
+def ledger_stats():
+    """Ledger composition: record count, provenance mix (guild_mediated /
+    verifiable_outcome / mutual_attestation / external_import), open challenges,
+    and whether the hash chain verifies."""
+    led = store.durable_ledger()
+    return {"status": "preview", "durable": True, **led.stats()}
+
+
+@app.get("/ledger/reputation")
+def ledger_reputation():
+    """Reputation derived PURELY from the immutable, provenance-weighted ledger —
+    reproducible by anyone from the signed records alone. The moat: the score is a
+    function of verifiable outcomes, not opinions."""
+    led = store.durable_ledger()
+    return {"status": "preview", "agents": list(led.derive_reputation().values())}
+
+
 @app.get("/evaluation")
-def get_evaluation(trust_threshold: float = Query(50.0, ge=0.0, le=100.0)):
+def get_evaluation(trust_threshold: Optional[float] = Query(None, ge=0.0, le=100.0)):
     """Measured outcome lift — the signal an agent uses to verify the Guild
-    improves results: success rate of recommended (high-trust) hires vs baseline."""
+    improves results: success rate of recommended (high-trust) hires vs baseline.
+
+    `recommended` defaults to "above the median trust of graded-task workers" (a
+    scale-free split); pass `trust_threshold` to override. The response is
+    provenance-labelled (`dataset`: bootstrap | production | mixed | empty) with
+    separate `bootstrap` and `production` sub-blocks, so a seeded demonstration is
+    never mistaken for live-traffic evidence."""
     return store.evaluation(trust_threshold)
 
 
