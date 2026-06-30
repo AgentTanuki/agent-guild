@@ -808,6 +808,13 @@ def get_standard():
             "signed checkpoints; support challenges; expose the discovery documents. "
             "Partial (verify-only) conformance is supported and encouraged.",
         "reference_implementation": "this service",
+        "reference_verifier": {
+            "language": "python",
+            "dependency": "cryptography",
+            "source": "https://github.com/AgentTanuki/agent-guild/blob/main/sdk/agentguild_verify.py",
+            "usage": "from agentguild_verify import vet; vet('<agent_id>')  # fetch + verify offline + decide",
+            "note": "Drop-in, single file. Verify-only conformance in one line — no account, no lock-in.",
+        },
         "invitation": "Competing and partial implementations welcome — a standard with "
                       "one implementation is just an app.",
     }
