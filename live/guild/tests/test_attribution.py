@@ -20,9 +20,14 @@ def test_our_own_tooling_traffic_is_not_genuine_external():
         assert is_genuine_external(e) is False, ua
 
 
-def test_attributable_identities_are_genuine_external():
-    # a real registered billing key acting
-    assert is_genuine_external({"fp": False, "ua": "", "key": "ak_realagent123"}) is True
+def test_bare_registered_key_with_no_agent_ua_is_not_genuine():
+    # our own pre-tagging seed/test accounts look exactly like this: a real ak_/sk_
+    # key with an empty UA. A key ALONE is not proof of a third party.
+    assert is_genuine_external({"fp": False, "ua": "", "key": "ak_legacyours"}) is False
+    assert is_genuine_external({"fp": False, "ua": "", "key": "sk_legacyours"}) is False
+
+
+def test_self_identifying_agents_are_genuine_external():
     # an MCP client that named itself and isn't ours
     assert is_genuine_external({"fp": False, "ua": "mcp:acme-orchestrator/2.1", "key": "mcp"}) is True
     # a recognised agent-framework UA
