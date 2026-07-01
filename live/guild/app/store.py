@@ -417,22 +417,43 @@ class Store:
     def instrumentation(self) -> dict[str, Any]:
         """The adoption funnel, split so genuine third-party usage is isolated
         from our own seed/test traffic. Top-level keys are the COMBINED totals
-        (backwards-compatible); `external` is the number that matters — agents we
-        didn't create — and `first_party` is our own."""
+        (backwards-compatible). `external` = not-first-party (but this still
+        includes our own tooling calls, e.g. curl/urllib verification traffic).
+        `genuine_external` = the honest signal: attributable to an agent we do NOT
+        operate (a real registered actor, a non-ours MCP client, or a framework UA
+        — never bare tooling). Use `genuine_external`, not `external`, to answer
+        'has a real third-party agent arrived?'."""
+        from .attribution import is_genuine_external
         ext = [e for e in self.events if not e.get("fp")]
         fp = [e for e in self.events if e.get("fp")]
+        genuine = [e for e in ext if is_genuine_external(e)]
         combined = self._funnel(self.events)
         combined["external"] = self._funnel(ext)
         combined["first_party"] = self._funnel(fp)
+        combined["genuine_external"] = self._funnel(genuine)
+        # the honest headline: has a real, attributable third-party agent used us?
+        actors = sorted({(e.get("key") or "anon") for e in genuine})
+        combined["genuine_external_detected"] = bool(genuine)
+        combined["genuine_external_events"] = len(genuine)
+        combined["genuine_external_actors"] = actors
+        combined["first_genuine_external_at"] = (
+            min(e["at"] for e in genuine) if genuine else None)
+        combined["note"] = ("`external` includes our own tooling (curl/urllib) test "
+                            "traffic; `genuine_external` is the honest third-party signal.")
         return combined
 
     def recent_events(self, limit: int = 50, external_only: bool = False) -> list[dict[str, Any]]:
-        """Most-recent activity, newest first — a live feed of who is calling."""
+        """Most-recent activity, newest first — a live feed of who is calling. Each
+        event is labelled with its attribution so a naive reader can't mistake our
+        own tooling traffic (curl/urllib) for a genuine third-party agent."""
+        from .attribution import is_genuine_external, attribution_class
         evs = [e for e in self.events if (not external_only or not e.get("fp"))]
         out = []
         for e in reversed(evs[-limit:]):
             k = e["key"]
             out.append({
+                "genuine_external": is_genuine_external(e),
+                "attribution": attribution_class(e),
                 "at": e["at"], "type": e["type"], "endpoint": e.get("endpoint"),
                 "paid": e.get("paid"), "followed": e.get("followed"),
                 "first_party": bool(e.get("fp")),
@@ -1034,7 +1055,9 @@ class Store:
         """Compute the current health vector across the five objectives, from
         durable state only. No side effects — record_health_snapshot persists it."""
         instr = self.instrumentation()
-        ext = instr.get("external", {})
+        # Use the HONEST signal (attributable third-party agents), not raw
+        # not-first-party traffic, which still includes our own tooling calls.
+        ext = instr.get("genuine_external", {})
         ev = self.evaluation()
         ref = self.referral_stats()
         agents_external = sum(1 for a in self.agents.values() if not a.get("first_party"))
@@ -1046,6 +1069,7 @@ class Store:
             "recommended_success_rate": ev.get("recommended_success_rate"),
             "agents_total": len(self.agents),
             "agents_external": agents_external,
+            "genuine_external_detected": instr.get("genuine_external_detected", False),
             "external_querying_agents": ext.get("unique_agents", 0),
             "external_repeat_query_agents": ext.get("repeat_query", 0),
             "external_repeat_paid_agents": ext.get("repeat_paid_query_agents", 0),
