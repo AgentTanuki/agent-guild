@@ -868,6 +868,42 @@ def _manifest() -> dict:
     }
 
 
+# Bundled artifacts (the drop-in verifiers + the prose spec) served FROM the public
+# service, so an agent can fetch everything it needs with no repo access.
+_ARTIFACTS_DIR = os.path.join(os.path.dirname(__file__), "artifacts")
+
+
+def _artifact(name: str) -> str:
+    with open(os.path.join(_ARTIFACTS_DIR, name), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@app.get("/sdk/agentguild_verify.py", response_class=PlainTextResponse)
+def sdk_verify_py():
+    """The Python drop-in AGI-1 verifier (single file). Verify a Guild passport
+    offline; only dependency is `cryptography`. Fetch it and use it directly."""
+    return _artifact("agentguild_verify.py")
+
+
+@app.get("/sdk/agentguild_verify.mjs", response_class=PlainTextResponse)
+def sdk_verify_mjs():
+    """The Node/TypeScript drop-in AGI-1 verifier (single file, zero dependencies —
+    uses node:crypto). Verify a Guild passport offline."""
+    return _artifact("agentguild_verify.mjs")
+
+
+@app.get("/standard.md", response_class=PlainTextResponse)
+def standard_md():
+    """The full AGI-1 specification (prose), served from the public service."""
+    return _artifact("STANDARD.md")
+
+
+@app.get("/agents.md", response_class=PlainTextResponse)
+def agents_md():
+    """The full 'for AI agents' guide, served from the public service."""
+    return _artifact("AGENTS.md")
+
+
 @app.get("/for-agents", response_class=PlainTextResponse)
 def for_agents():
     """Written for an AI agent, not a human. Served from the public service so an
@@ -927,7 +963,7 @@ def get_standard():
         "title": "Agent Guild Interoperability Standard",
         "version": "0.1",
         "status": "draft",
-        "doc": "https://github.com/AgentTanuki/agent-guild/blob/main/docs/STANDARD.md",
+        "doc": "/standard.md",
         "invariants": ["attributable", "verifiable", "challengeable",
                        "explainable", "manipulation-resistant"],
         "identity": "W3C did:key (Ed25519)",
@@ -970,13 +1006,13 @@ def get_standard():
             {
                 "language": "python",
                 "dependency": "cryptography",
-                "source": "https://github.com/AgentTanuki/agent-guild/blob/main/sdk/agentguild_verify.py",
+                "source": "/sdk/agentguild_verify.py",
                 "usage": "from agentguild_verify import vet; vet('<agent_id>')",
             },
             {
                 "language": "javascript/typescript (node)",
                 "dependency": "none (node:crypto)",
-                "source": "https://github.com/AgentTanuki/agent-guild/blob/main/sdk/agentguild_verify.mjs",
+                "source": "/sdk/agentguild_verify.mjs",
                 "usage": "import { vet } from './agentguild_verify.mjs'; await vet('<agent_id>')",
             },
         ],

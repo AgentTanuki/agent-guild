@@ -41,6 +41,21 @@ def test_check_endpoint_is_the_one_call_entry_point():
     assert body["proof"]["dataset"] in ("bootstrap", "production", "mixed", "empty")
 
 
+def test_sdk_and_spec_served_from_public_service_not_private_repo():
+    # the drop-in verifiers are fetchable from the public service
+    py = client.get("/sdk/agentguild_verify.py")
+    assert py.status_code == 200 and "def verify_passport" in py.text
+    mjs = client.get("/sdk/agentguild_verify.mjs")
+    assert mjs.status_code == 200 and "verifyPassport" in mjs.text
+    # the prose spec too
+    assert "AGI-1" in client.get("/standard.md").text
+    # /standard points at the live service, not private github URLs
+    s = client.get("/standard").json()
+    assert s["doc"].startswith("/standard")
+    for v in s["reference_verifiers"]:
+        assert v["source"].startswith("/sdk/") and "github.com" not in v["source"]
+
+
 def test_for_agents_is_served_publicly_and_self_contained():
     txt = client.get("/for-agents").text
     # written to the agent, reachable from the public service (not a private repo link)
