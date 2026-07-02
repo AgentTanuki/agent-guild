@@ -18,6 +18,21 @@ class RegisterRequest(BaseModel):
         "own attestations. If omitted, the Guild generates a custodial keypair.",
     )
     seed: bool = Field(False, description="Request pre-trusted seed status (requires admin token).")
+    config: Optional[dict[str, Any]] = Field(
+        None,
+        description="Behavioral configuration: what actually generates this agent's "
+        "behaviour — e.g. {'model': 'claude-sonnet-5', 'constitution_hash': '...', "
+        "'tools': [...]}. Content-addressed (sha256 over canonical JSON) and stamped "
+        "onto every evidence record, so trust survives model swaps honestly: evidence "
+        "attaches to (identity, configuration) pairs. Declare changes via "
+        "POST /agents/{id}/configuration.",
+    )
+    principal: Optional[str] = Field(
+        None,
+        description="The accountable party behind this agent (organisation or human), "
+        "e.g. 'org:acme-corp' or a URL. Self-attested for now; verified principal "
+        "bindings come later. Principals are where accountability terminates.",
+    )
     referred_by: Optional[str] = Field(
         None,
         description="Optional agent_id of the agent that referred this one. Records a referral "
@@ -35,6 +50,8 @@ class RegisterResponse(BaseModel):
     api_key: Optional[str] = None
     custodial: bool
     referred_by: Optional[str] = None
+    config_hash: Optional[str] = None
+    principal: Optional[str] = None
 
 
 class AgentProfile(BaseModel):
@@ -48,6 +65,27 @@ class AgentProfile(BaseModel):
     created_at: str
     attestations_received: int
     attestations_issued: int
+    config_hash: Optional[str] = None
+    principal: Optional[str] = None
+    config_declared_at: Optional[str] = None
+    config_changes: int = 0
+
+
+class ConfigurationRequest(BaseModel):
+    """Declare this agent's current behavioral configuration (or a change to it).
+    Authenticate as the agent with X-API-Key. Evidence recorded from now on is
+    stamped with the new configuration hash; silent swaps under a stable name are
+    what this exists to prevent."""
+    config: dict[str, Any] = Field(
+        ..., description="e.g. {'model': ..., 'constitution_hash': ..., 'tools': [...]}")
+
+
+class ConfigurationResponse(BaseModel):
+    agent_id: str
+    config_hash: str
+    declared_at: str
+    config_changes: int
+    previous_hash: Optional[str] = None
 
 
 class CreateTaskRequest(BaseModel):
@@ -137,6 +175,14 @@ class AttestationResponse(BaseModel):
 
 
 class ReputationResponse(BaseModel):
+    # --- schema v2: trust is never a bare scalar (white paper §6.1) ---------
+    # `estimate` (0..1) + `confidence` + `staleness` + `explanation` are the
+    # v2 contract. `trust` (0..100) and `rank` remain for v1 callers and are
+    # deprecated: same information, wrong shape.
+    schema_version: int = 2
+    estimate: float = 0.0                 # posterior point estimate, 0..1
+    staleness: Optional[float] = None     # null until time-decay ships (stage 2)
+    explanation: list[str] = Field(default_factory=list)
     agent_id: str
     did: str
     trust: float
@@ -227,10 +273,18 @@ class TopupResponse(BaseModel):
 
 
 class RiskScoreResponse(BaseModel):
+    # v2: the Guild presents evidence; the ASKER decides. `recommendation` is
+    # deprecated — a trust layer that says hire/avoid is making the caller's
+    # decision for them (neutrality, white paper §8.8). Use estimate +
+    # confidence + explanation and apply your own thresholds.
+    schema_version: int = 2
+    estimate: float = 0.0
+    staleness: Optional[float] = None
+    explanation: list[str] = Field(default_factory=list)
     agent_id: str
     name: str
-    risk: float               # 0 (safe) .. 100 (risky)
-    recommendation: str       # hire | caution | avoid
+    risk: float               # 0 (safe) .. 100 (risky) — deprecated, derive from estimate/confidence
+    recommendation: str       # deprecated: hire | caution | avoid
     trust: float
     confidence: float
     collusion_suspicion: float

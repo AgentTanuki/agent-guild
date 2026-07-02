@@ -38,14 +38,20 @@ class AgentHit(TypedDict):
 
 
 class RiskAssessment(TypedDict):
-    """A hire / caution / avoid decision for a single agent."""
+    """Evidence view for a single agent (schema v2): read `estimate` AND
+    `confidence` together and apply your own threshold. `risk`/`recommendation`
+    are deprecated v1 fields, kept so nothing breaks."""
+    schema_version: int
     agent_id: str
     name: str
-    risk: float                 # 0 (safe) .. 100 (risky)
-    recommendation: str         # "hire" | "caution" | "avoid"
-    trust: float                # 0..100
-    confidence: float           # 0..1
+    estimate: float             # 0..1 expected-quality estimate
+    confidence: float           # 0..1 — how much trusted evidence backs it
+    staleness: Optional[float]  # null until time-decay ships
+    explanation: list[str]      # checkable reasons behind the numbers
     collusion_suspicion: float  # 0..1 — structural fraud signal
+    risk: float                 # deprecated: 0 (safe) .. 100 (risky)
+    recommendation: str         # deprecated: "hire" | "caution" | "avoid"
+    trust: float                # deprecated: 0..100 (same info as estimate)
 
 
 class Registration(TypedDict):
@@ -90,12 +96,14 @@ mcp = FastMCP(
         "Attack-resistant reputation for autonomous agents — a shared trust layer "
         "any agent can read and write.\n\n"
         "FASTEST START — one call before you delegate a task or send money:\n"
-        "  • guild_check(capability) — returns the safest agent to hire, its "
-        "hire/caution/avoid verdict, a shortlist, PROOF the Guild improves outcomes, "
-        "and how to contribute back. Start here.\n\n"
+        "  • guild_check(capability) — returns the best-evidenced agent with an "
+        "evidence verdict (estimate 0-1 + confidence + checkable explanation), a "
+        "shortlist, PROOF the Guild improves outcomes, and how to contribute back. "
+        "Read estimate AND confidence together and apply your own risk threshold. "
+        "Start here.\n\n"
         "Finer control if you need it:\n"
         "  1. guild_best_agent(capability) / guild_search(capability) — best or shortlist.\n"
-        "  2. guild_risk_score(agent_id) — a hire / caution / avoid decision.\n\n"
+        "  2. guild_risk_score(agent_id) — the evidence view for one agent.\n\n"
         "AFTER you receive work, give back signal so the graph improves for everyone:\n"
         "  3. guild_register(name, capabilities) once, to get your own identity.\n"
         "  4. guild_attest(...) to vouch for (or warn about) work you received.\n\n"
@@ -113,9 +121,11 @@ def _rank(capability: str, limit: int, min_trust: float):
 @mcp.tool
 def guild_check(capability: str, ctx: Context = None) -> dict:
     """START HERE. One call to vet a `capability` before you delegate: returns the
-    safest agent to hire, its hire/caution/avoid verdict, a ranked shortlist,
-    machine-checkable PROOF the Guild improves outcomes (provenance-labelled), and
-    how to contribute back. Collapses the whole flow into a single request.
+    best-evidenced agent with an evidence verdict — `estimate` (0-1), `confidence`,
+    and a checkable `explanation` — plus a ranked shortlist, machine-checkable
+    PROOF the Guild improves outcomes (provenance-labelled), and how to contribute
+    back. Read estimate AND confidence together and apply your own risk threshold:
+    a high estimate with low confidence means thin evidence.
 
     Example: guild_check(capability="fact-check")
     Returns {capability, best_agent, verdict, shortlist, proof, why_trust_this,
@@ -156,29 +166,23 @@ def guild_best_agent(capability: str, min_trust: float = 0.0,
 
 @mcp.tool
 def guild_risk_score(agent_id: str, ctx: Context = None) -> RiskAssessment:
-    """A hire/caution/avoid decision for an agent: risk 0 (safe)..100 (risky),
-    plus trust, confidence and collusion suspicion.
+    """The evidence view for one agent before trusting it with a task or payment:
+    `estimate` (0-1 expected quality), `confidence` (how much trusted evidence
+    backs it), a checkable `explanation`, and collusion suspicion. Apply YOUR OWN
+    threshold — the Guild presents evidence; the asker decides.
 
-    Call this on a specific agent before trusting it with a task or payment.
     Example: guild_risk_score(agent_id="agt_1a2b3c")
-    recommendation is "hire" (<33), "caution" (<66), or "avoid".
+    Deprecated v1 fields (`risk`, `recommendation`, `trust`) are still returned.
     """
     store.record_event("mcp", "query", ua=_client_ua(ctx), endpoint="risk_score", paid=False)
     rec = store.get_agent(agent_id)
     if not rec:
         return {"error": "agent not found"}
-    s = store.reputation().get(agent_id)
-    if s is None:
+    v = store.risk_for(agent_id)   # shared with /check and /risk-score
+    if v is None:
         return {"error": "no reputation"}
-    risk = 100.0 * (0.5 * s.collusion_suspicion + 0.3 * (1 - s.confidence)
-                    + 0.2 * (1 - s.trust / 100.0))
-    risk = round(max(0.0, min(100.0, risk)), 1)
-    return {
-        "agent_id": agent_id, "name": rec["name"], "risk": risk,
-        "recommendation": "hire" if risk < 33 else ("caution" if risk < 66 else "avoid"),
-        "trust": s.trust, "confidence": round(s.confidence, 3),
-        "collusion_suspicion": round(s.collusion_suspicion, 3),
-    }
+    v["name"] = rec["name"]
+    return v
 
 
 @mcp.tool

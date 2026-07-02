@@ -19,7 +19,7 @@ import threading
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
-from .crypto import generate_keypair, did_from_public_key
+from .crypto import generate_keypair, did_from_public_key, canonicalize
 from .vc import issue_credential, verify_credential, issue_passport
 from .reputation import score, AttRecord, AgentScore, ScoringResult
 from .billing import (
@@ -99,6 +99,14 @@ class Store:
         os.replace(tmp, self.path)
 
     # --- agents -------------------------------------------------------------
+    @staticmethod
+    def config_hash_of(config: dict[str, Any]) -> str:
+        """Content-address a behavioral configuration (sha256 over canonical JSON).
+        Evidence attaches to (identity, configuration) pairs — this hash is what
+        lets the interpretation layer notice that the agent behind a name changed
+        (white paper §3.2, §7.3)."""
+        return hashlib.sha256(canonicalize(config).encode("utf-8")).hexdigest()
+
     def register_agent(
         self,
         name: str,
@@ -108,6 +116,8 @@ class Store:
         seed: bool = False,
         first_party: bool = False,
         referred_by: Optional[str] = None,
+        config: Optional[dict[str, Any]] = None,
+        principal: Optional[str] = None,
     ) -> dict[str, Any]:
         with self.lock:
             agent_id = "agent_" + secrets.token_hex(6)
@@ -133,6 +143,12 @@ class Store:
                 api_key = "sk_" + secrets.token_hex(24)
                 custodial = True
             did = did_from_public_key(pub)
+            # Behavioral configuration: content-addressed at registration, and
+            # every subsequent evidence record is stamped with the hash current
+            # at write time. `None` (undeclared) is itself information — the
+            # interpretation layer can weigh declared vs undeclared configs.
+            now = _now()
+            cfg_hash = self.config_hash_of(config) if config else None
             rec = {
                 "id": agent_id,
                 "did": did,
@@ -146,7 +162,13 @@ class Store:
                 "seed": bool(seed),
                 "first_party": fp,
                 "referred_by": referred_by,
-                "created_at": _now(),
+                "created_at": now,
+                # --- identity primitives (stage 0; white paper §3.2) ---------
+                "principal": principal,          # self-attested binding, for now
+                "config": config,                # current declared configuration
+                "config_hash": cfg_hash,
+                "config_history": ([{"hash": cfg_hash, "config": config,
+                                     "declared_at": now}] if config else []),
             }
             self.agents[agent_id] = rec
             # Custodial agents get a billing account keyed by their api_key, so
@@ -170,6 +192,35 @@ class Store:
             self._rep_cache = None
             self._save()
             return rec
+
+    def declare_configuration(self, agent_id: str, config: dict[str, Any]) -> dict[str, Any]:
+        """Declare the agent's current behavioral configuration (or a change).
+        Appends to the agent's config history; evidence written from now on is
+        stamped with the new hash. Declared changes are cheap for the honest —
+        this exists so silent swaps under a stable name become detectable
+        (white paper §7.3)."""
+        with self.lock:
+            agent = self.agents.get(agent_id)
+            if agent is None:
+                raise ValueError("agent not found")
+            prev = agent.get("config_hash")
+            cfg_hash = self.config_hash_of(config)
+            now = _now()
+            agent["config"] = config
+            agent["config_hash"] = cfg_hash
+            agent.setdefault("config_history", []).append(
+                {"hash": cfg_hash, "config": config, "declared_at": now})
+            self.record_event(self.account_for_agent(agent_id), "config_change",
+                              agent_id=agent_id, config_hash=cfg_hash)
+            self._save()
+            return {"agent_id": agent_id, "config_hash": cfg_hash,
+                    "declared_at": now,
+                    "config_changes": max(0, len(agent["config_history"]) - 1),
+                    "previous_hash": prev}
+
+    def _config_stamp(self, agent_id: str) -> Optional[str]:
+        """The agent's current config hash, for stamping onto evidence records."""
+        return (self.agents.get(agent_id) or {}).get("config_hash")
 
     # --- referrals (agents as the growth engine) ----------------------------
     def _referred_agent_usage(self, agent_id: str) -> tuple[int, int]:
@@ -658,9 +709,46 @@ class Store:
             row["last_lookup"] = e.get("at")
         return summary
 
+    @staticmethod
+    def explain_score(s: AgentScore) -> list[str]:
+        """Human/agent-readable derivation of a score — trust is never a bare
+        number (white paper §10). Each line names evidence the asker can check
+        via /agents/{id}/evidence."""
+        lines: list[str] = []
+        lines.append(
+            f"{s.verified_task_count} verified task receipt(s) as worker; "
+            f"{s.attestations_received} attestation(s) received from "
+            f"{s.distinct_reviewers} distinct reviewer(s).")
+        lines.append(
+            f"{s.trusted_attestations} reviewer(s) are seed-anchored/trusted; "
+            f"{s.backed_attestations} attestation(s) are receipt-backed; "
+            f"{s.suspicious_attestations} came from flagged issuers.")
+        if s.collusion_suspicion > 0.05:
+            lines.append(
+                f"Collusion suspicion {s.collusion_suspicion:.2f}"
+                + (f" — {'; '.join(s.flag_reasons)}" if s.flag_reasons else "")
+                + "; the score is already discounted for it.")
+        if s.slash_penalty > 0:
+            lines.append(
+                f"Slashing penalty {s.slash_penalty:.2f} applied: the agent staked "
+                "on claims that trusted consensus contradicted.")
+        if s.confidence < 0.4:
+            lines.append(
+                "Low confidence: thin trusted evidence — the estimate leans on the "
+                "prior. More receipt-backed attestations from established "
+                "counterparties would raise it.")
+        lines.append(
+            "Staleness not yet computed (time-decay ships in a later stage); "
+            "verify recency via the timestamps in /agents/{id}/evidence.")
+        return lines
+
     def risk_for(self, agent_id: str) -> Optional[dict[str, Any]]:
-        """The hire/caution/avoid verdict for one agent (shared by /risk-score,
-        the MCP tool, and /check). None if the agent has no computed reputation."""
+        """Evidence view for one agent (shared by /risk-score, the MCP tool, and
+        /check). None if the agent has no computed reputation.
+
+        Schema v2: `estimate` + `confidence` + `staleness` + `explanation` are
+        the contract — the Guild presents evidence, the ASKER decides. `risk`
+        and `recommendation` are retained for v1 callers and deprecated."""
         s = self.reputation().get(agent_id)
         if s is None:
             return None
@@ -668,10 +756,18 @@ class Store:
                         + 0.2 * (1 - s.trust / 100.0))
         risk = round(max(0.0, min(100.0, risk)), 1)
         return {
-            "agent_id": agent_id, "risk": risk,
-            "recommendation": "hire" if risk < 33 else ("caution" if risk < 66 else "avoid"),
-            "trust": s.trust, "confidence": round(s.confidence, 3),
+            "schema_version": 2,
+            "agent_id": agent_id,
+            "estimate": round(s.trust / 100.0, 4),
+            "confidence": round(s.confidence, 3),
+            "staleness": None,
+            "explanation": self.explain_score(s),
             "collusion_suspicion": round(s.collusion_suspicion, 3),
+            # --- deprecated v1 fields (kept so nothing breaks) ---------------
+            "risk": risk,
+            "recommendation": "hire" if risk < 33 else ("caution" if risk < 66 else "avoid"),
+            "trust": s.trust,
+            "deprecated": ["risk", "recommendation", "trust"],
         }
 
     def check(self, capability: str) -> dict[str, Any]:
@@ -698,6 +794,7 @@ class Store:
             "disclaimer": ev["disclaimer"],
         }
         out: dict[str, Any] = {
+            "schema_version": 2,
             "capability": capability,
             "status": "supply" if best else "no_supply_yet",
             "best_agent": best,
@@ -1238,6 +1335,12 @@ class Store:
                 "outcome": "open",             # open -> delivered -> accepted/disputed
                 "created_at": _now(),
                 "delivered_at": None,
+                # Config hashes current at write time: evidence attaches to
+                # (identity, configuration) pairs, so a later model swap cannot
+                # silently inherit this record's weight (stage 2 applies the
+                # discontinuity discount; stage 0 just never loses the data).
+                "worker_config_hash": self._config_stamp(worker_id),
+                "requester_config_hash": self._config_stamp(requester_id),
             }
             self.tasks[task_id] = rec
             self._save()
@@ -1369,6 +1472,9 @@ class Store:
             "verified": verified,
             "credential": cred,
             "created_at": _now(),
+            # (identity, configuration) stamping — see create_task.
+            "issuer_config_hash": self._config_stamp(issuer_id),
+            "subject_config_hash": self._config_stamp(subject_id),
         }
         self.attestations.append(rec)
         self._rep_cache = None

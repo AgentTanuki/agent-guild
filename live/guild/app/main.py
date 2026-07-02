@@ -29,6 +29,7 @@ from .models import (
     EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
     ReferralsResponse, HealthSnapshot, HealthHistoryResponse,
+    ConfigurationRequest, ConfigurationResponse,
 )
 from . import __version__
 from . import billing
@@ -126,6 +127,9 @@ def _profile(rec: dict) -> AgentProfile:
         created_at=rec["created_at"],
         attestations_received=len(store.attestations_for(rec["id"])),
         attestations_issued=store.count_issued(rec["id"]),
+        config_hash=rec.get("config_hash"), principal=rec.get("principal"),
+        config_declared_at=(rec.get("config_history") or [{}])[-1].get("declared_at"),
+        config_changes=max(0, len(rec.get("config_history") or []) - 1),
     )
 
 
@@ -264,12 +268,29 @@ def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
         public_key=req.public_key, seed=seed,
         first_party=_is_first_party(x_guild_source),  # token-gated; seeds are also tagged
         referred_by=req.referred_by,
+        config=req.config, principal=req.principal,
     )
     return RegisterResponse(
         id=rec["id"], did=rec["did"], public_key=rec["public_key"],
         capabilities=rec["capabilities"], api_key=rec.get("api_key"),
         custodial=rec["custodial"], referred_by=rec.get("referred_by"),
+        config_hash=rec.get("config_hash"), principal=rec.get("principal"),
     )
+
+
+@app.post("/agents/{agent_id}/configuration", response_model=ConfigurationResponse)
+def declare_configuration(agent_id: str, req: ConfigurationRequest,
+                          x_api_key: Optional[str] = Header(None)):
+    """Declare this agent's behavioral configuration (model, constitution, tools)
+    or a change to it. Free. Evidence recorded from now on is stamped with the new
+    config hash, so trust survives model swaps honestly instead of silently:
+    declared changes are cheap for the honest; undeclared swaps under a stable
+    name are what this endpoint exists to make detectable."""
+    agent = store.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(404, "agent not found")
+    _require_key(agent, x_api_key, "agent")
+    return ConfigurationResponse(**store.declare_configuration(agent_id, req.config))
 
 
 @app.get("/agents")
@@ -531,6 +552,10 @@ def get_reputation(agent_id: str, response: Response, x_api_key: Optional[str] =
     if s is None:
         raise HTTPException(404, "no reputation computed")
     return ReputationResponse(
+        schema_version=2,
+        estimate=round(s.trust / 100.0, 4),
+        staleness=None,
+        explanation=store.explain_score(s),
         agent_id=agent_id, did=rec["did"], trust=s.trust, rank=s.rank,
         total_agents=len(scores), eigen_trust=s.eigen_trust,
         weighted_quality=s.weighted_quality, endorsement_accuracy=s.endorsement_accuracy,
@@ -582,25 +607,25 @@ def get_flag(agent_id: str, response: Response, x_api_key: Optional[str] = Heade
 
 @app.get("/agents/{agent_id}/risk-score", response_model=RiskScoreResponse)
 def get_risk_score(agent_id: str, response: Response, x_api_key: Optional[str] = Header(None)):
-    """A single 'how risky is hiring this agent' number, 0 (safe) .. 100 (risky).
-    The convenience product an agent calls right before delegating work."""
+    """Evidence check an agent calls right before delegating work. Schema v2:
+    read `estimate` + `confidence` + `explanation` and apply YOUR thresholds —
+    the Guild presents evidence; the asker decides. The single `risk` number and
+    `recommendation` verdict remain for v1 callers and are deprecated."""
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
     meter("risk_score", x_api_key, response)
     s = store.reputation().get(agent_id)
-    if s is None:
+    v = store.risk_for(agent_id)
+    if s is None or v is None:
         raise HTTPException(404, "no reputation computed")
-    # risk rises with collusion suspicion and low confidence, falls with trust.
-    risk = 100.0 * (0.5 * s.collusion_suspicion
-                    + 0.3 * (1 - s.confidence)
-                    + 0.2 * (1 - s.trust / 100.0))
-    risk = round(max(0.0, min(100.0, risk)), 1)
-    rec_word = "hire" if risk < 33 else ("caution" if risk < 66 else "avoid")
     return RiskScoreResponse(
-        agent_id=agent_id, name=rec["name"], risk=risk, recommendation=rec_word,
-        trust=s.trust, confidence=round(s.confidence, 3),
-        collusion_suspicion=round(s.collusion_suspicion, 3),
+        schema_version=2, estimate=v["estimate"], staleness=None,
+        explanation=v["explanation"],
+        agent_id=agent_id, name=rec["name"],
+        risk=v["risk"], recommendation=v["recommendation"],   # deprecated v1
+        trust=s.trust, confidence=v["confidence"],
+        collusion_suspicion=v["collusion_suspicion"],
         verified_task_count=s.verified_task_count,
         trusted_attestations=s.trusted_attestations,
     )

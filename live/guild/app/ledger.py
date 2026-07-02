@@ -51,8 +51,13 @@ PROVENANCE_WEIGHT = {
     "mutual_attestation": 0.6,
     "external_import": 0.2,
 }
-# A live/open challenge downweights; an upheld challenge zeroes the signal.
-CHALLENGE_MULTIPLIER = {"none": 1.0, "open": 0.3, "rejected": 1.0, "upheld": 0.0}
+# A live/open challenge downweights the signal pending resolution. An UPHELD
+# challenge does NOT zero the record — that would let adjudicated fraud vanish
+# from reputation (a whitewashing subsidy). Instead the record keeps its full
+# provenance weight and its outcome is treated as a failure (see success()):
+# an upheld challenge is the highest-grade *negative* evidence in the system
+# (white paper §6.4). A rejected challenge restores full weight.
+CHALLENGE_MULTIPLIER = {"none": 1.0, "open": 0.3, "rejected": 1.0, "upheld": 1.0}
 
 
 def _sha(s: str) -> str:
@@ -98,6 +103,11 @@ class CollaborationRecord:
         return _sha(canonicalize(self._body()))
 
     def success(self) -> int:
+        # An upheld challenge converts the record into negative evidence: it
+        # counts as a failure at full provenance weight, whatever the original
+        # outcome claimed. Adjudicated fault must never be erasable (§6.4).
+        if self.challenge_status == "upheld":
+            return 0
         return 1 if self.outcome == "accepted" else 0
 
     def weight(self) -> float:
