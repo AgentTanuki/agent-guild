@@ -156,3 +156,32 @@ so it proceeds only with explicit approval.
   existed; confirm no sensitive payload is ever required on-ledger.
 - **Checkpoint publication** — cadence and where pins live (a `.well-known`, a
   third-party notary, or both).
+
+## 10. Stage 1 (2026-07-02): the chain carries all evidence events, typed
+
+Per `docs/trust-graph-whitepaper.md` §15 and `docs/TRUST_GRAPH_GAP_ANALYSIS.md`,
+the durable chain is no longer collaborations-only. Every evidence-bearing
+mutation dual-writes a typed entry onto the SAME hash chain — `register`,
+`config_change`, `receipt`, `attestation`, `escrow_event` — alongside the
+existing collaboration records (whose historical hashes are untouched: legacy
+entries carry no `type` key and re-verify byte-for-byte; the chain does not
+restart).
+
+Properties added:
+- **One chain, mixed entries.** `GenericEntry` (ledger.py) seals typed events
+  with the same commit discipline; `verify_chain`, Merkle root and signed
+  checkpoints cover the full mixed sequence.
+- **Raw events, not frozen verdicts.** A `receipt` entry does not freeze a
+  provenance class — a later `attestation` entry can still upgrade the
+  interpretation. Collab records remain the settled summaries.
+- **Healing backfill.** `ensure_ledger_backfilled` is now dedup-based and
+  additive: any graded, content-addressed task missing from the chain is
+  appended at startup, so plain-flow tasks (graded outside `/collaborations`)
+  become durable too.
+- **No secrets on-chain.** Entry bodies carry public fields and content hashes
+  only (attestations commit to the credential's sha256; the signed VC stays in
+  the store). Locked by test.
+
+The store dicts remain the serving views. The cutover — views rebuilt from
+replay, chain as sole system of record — is the remaining Stage 1 step and
+needs its own go/no-go.

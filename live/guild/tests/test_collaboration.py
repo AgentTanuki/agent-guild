@@ -46,12 +46,16 @@ def test_one_call_records_guild_mediated_ledger_record():
 def test_collaboration_shows_up_in_the_ledger():
     req = _register("Hirer2", ["hiring"])
     wkr = _register("Doer2", ["research"])
-    before = client.get("/ledger/stats").json()["records"]
+    before = client.get("/ledger/stats").json()["collaborations"]
     client.post("/collaborations", headers={"X-API-Key": req["api_key"]},
                 json={"worker_id": wkr["id"], "capability": "research",
                       "outcome": "accepted", "rating": 0.9, "deliverable": "findings"})
     after = client.get("/ledger/stats").json()
-    assert after["records"] == before + 1
+    # stage-1: the one call lands the collab PLUS its raw typed events
+    # (receipt, attestation) on the same chain
+    assert after["collaborations"] == before + 1
+    assert after["by_type"].get("receipt", 0) >= 1
+    assert after["by_type"].get("attestation", 0) >= 1
     assert after["chain_valid"] is True
     assert after["by_provenance"].get("guild_mediated", 0) >= 1
 

@@ -115,6 +115,57 @@ class CollaborationRecord:
                 * CHALLENGE_MULTIPLIER.get(self.challenge_status, 1.0))
 
 
+# Typed, non-collaboration events the durable chain also carries (stage-1 prep:
+# the ledger becomes the write path for ALL evidence, not just settled collabs).
+# Legacy collab records carry no "type" key and their hashes are untouched — the
+# chain does NOT restart. New event kinds are added here, never removed.
+GENERIC_ENTRY_TYPES = (
+    "register",        # an identity joined (public fields only — never keys)
+    "config_change",   # a declared behavioral-configuration change (§7.3)
+    "receipt",         # a task receipt landed (raw event; provenance composed later)
+    "attestation",     # an attestation was recorded (body carries credential hash)
+    "escrow_event",    # escrow opened / released / refunded / disputed
+)
+
+
+@dataclass
+class GenericEntry:
+    """One typed, hash-chained event. Same sealing discipline as
+    CollaborationRecord: the hash commits to everything except hash/id, and each
+    entry commits to the previous entry's hash."""
+    seq: int
+    type: str                      # one of GENERIC_ENTRY_TYPES
+    body: dict[str, Any]           # event payload — public data only
+    actor_did: str                 # who caused it ("" if unattributed)
+    created_at: str
+    prev_hash: str
+    hash: str = ""
+    id: str = ""
+
+    def _body(self) -> dict[str, Any]:
+        b = asdict(self)
+        b.pop("hash", None)
+        b.pop("id", None)
+        return b
+
+    def seal(self) -> "GenericEntry":
+        self.hash = _sha(canonicalize(self._body()))
+        self.id = "evt_" + self.hash[:12]
+        return self
+
+    def recompute_hash(self) -> str:
+        return _sha(canonicalize(self._body()))
+
+
+def entry_from_dict(d: dict[str, Any]):
+    """Rehydrate a persisted chain entry: typed dicts become GenericEntry,
+    everything else is a legacy/collab CollaborationRecord (no `type` key —
+    their historical hashes must remain reproducible byte-for-byte)."""
+    if d.get("type") in GENERIC_ENTRY_TYPES:
+        return GenericEntry(**d)
+    return CollaborationRecord(**d)
+
+
 @dataclass
 class Challenge:
     """An immutable dispute against a record — itself part of the ledger."""
@@ -142,10 +193,11 @@ class Challenge:
 
 
 class Ledger:
-    """Append-only, hash-chained sequence of collaboration records + challenges."""
+    """Append-only, hash-chained sequence of chain entries (collaboration
+    records + typed events) and challenges."""
 
     def __init__(self) -> None:
-        self.records: list[CollaborationRecord] = []
+        self.records: list[Any] = []  # CollaborationRecord | GenericEntry, in chain order
         self.challenges: list[Challenge] = []
         self._head: str = GENESIS
 
@@ -157,6 +209,23 @@ class Ledger:
         self.records.append(rec)
         self._head = rec.hash
         return rec
+
+    def append_entry(self, type: str, body: dict[str, Any], actor_did: str = "",
+                     created_at: str = "") -> GenericEntry:
+        """Append a typed, non-collaboration event to the same chain."""
+        if type not in GENERIC_ENTRY_TYPES:
+            raise ValueError(f"unknown entry type: {type}")
+        e = GenericEntry(seq=len(self.records), type=type, body=body,
+                         actor_did=actor_did, created_at=created_at,
+                         prev_hash=self._head).seal()
+        self.records.append(e)
+        self._head = e.hash
+        return e
+
+    def collabs(self) -> list[CollaborationRecord]:
+        """Only the collaboration records (reputation derives from these; typed
+        events are raw evidence composed at interpretation time)."""
+        return [r for r in self.records if isinstance(r, CollaborationRecord)]
 
     def challenge(self, target_id: str, challenger_did: str, grounds: str,
                   stake: float = 0.0, created_at: str = "") -> Challenge:
@@ -228,7 +297,7 @@ class Ledger:
         """Per-worker reputation computed ONLY from immutable, provenance-weighted,
         non-upheld-challenged records. Reproducible by anyone from the ledger."""
         agg: dict[str, dict[str, Any]] = {}
-        for r in self.records:
+        for r in self.collabs():
             w = r.weight()
             if w <= 0:
                 continue
@@ -250,13 +319,20 @@ class Ledger:
 
     def stats(self) -> dict[str, Any]:
         by_prov: dict[str, int] = {}
+        by_type: dict[str, int] = {}
         for r in self.records:
-            by_prov[r.provenance] = by_prov.get(r.provenance, 0) + 1
+            if isinstance(r, CollaborationRecord):
+                by_prov[r.provenance] = by_prov.get(r.provenance, 0) + 1
+                by_type["collab"] = by_type.get("collab", 0) + 1
+            else:
+                by_type[r.type] = by_type.get(r.type, 0) + 1
         return {
             "records": len(self.records),
+            "collaborations": by_type.get("collab", 0),
             "challenges": len(self.challenges),
             "open_challenges": sum(1 for c in self.challenges if c.status == "open"),
             "by_provenance": by_prov,
+            "by_type": by_type,
             "chain_valid": self.verify_chain(),
             "head_hash": self._head,
         }
@@ -268,7 +344,7 @@ class Ledger:
         durable chain). Hashes are preserved, so verify_chain re-checks them."""
         led = cls()
         for d in dicts:
-            led.records.append(CollaborationRecord(**d))
+            led.records.append(entry_from_dict(d))
         led._head = led.records[-1].hash if led.records else GENESIS
         return led
 

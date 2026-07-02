@@ -191,6 +191,15 @@ class Store:
                                   referrer_id=referred_by, referred_id=agent_id)
             self._rep_cache = None
             self._save()
+            # dual-write: identity creation is chain evidence (public fields ONLY —
+            # private_key/api_key must never touch the ledger).
+            self.append_ledger_event("register", {
+                "agent_id": agent_id, "did": did, "name": name,
+                "capabilities": capabilities, "custodial": custodial,
+                "seed": bool(seed), "first_party": fp,
+                "referred_by": referred_by, "principal": principal,
+                "config_hash": cfg_hash,
+            }, actor_did=did)
             return rec
 
     def declare_configuration(self, agent_id: str, config: dict[str, Any]) -> dict[str, Any]:
@@ -213,6 +222,12 @@ class Store:
             self.record_event(self.account_for_agent(agent_id), "config_change",
                               agent_id=agent_id, config_hash=cfg_hash)
             self._save()
+            # dual-write: declared configuration changes are exactly the events
+            # the §7.3 discontinuity discount needs — they must be tamper-evident.
+            self.append_ledger_event("config_change", {
+                "agent_id": agent_id, "config_hash": cfg_hash,
+                "previous_hash": prev,
+            }, actor_did=agent.get("did", ""))
             return {"agent_id": agent_id, "config_hash": cfg_hash,
                     "declared_at": now,
                     "config_changes": max(0, len(agent["config_history"]) - 1),
@@ -896,18 +911,19 @@ class Store:
 
     # --- durable collaboration ledger (stage-2 dual-write) ------------------
     def ensure_ledger_backfilled(self) -> None:
-        """One-time capture of pre-existing graded tasks into the durable chain, so
-        the ledger starts from a deterministic snapshot of real history. Idempotent:
-        a no-op once the durable chain is non-empty."""
+        """Capture any graded, content-addressed task that is not yet on the
+        durable chain as a collaboration record. Idempotent (dedup by task_id) and
+        purely additive: it appends missing history against the current head, never
+        replaces existing entries. Runs at startup, so legacy stores (tasks graded
+        before dual-write existed) are healed on the next boot."""
         with self.lock:
-            if self.ledger_records:
-                return
-            from dataclasses import asdict
-            from .ledger import Ledger
-            projected = Ledger.from_store(self).records
-            if projected:
-                self.ledger_records = [asdict(r) for r in projected]
-                self._save()
+            have = {d.get("task_id") for d in self.ledger_records if d.get("task_id")}
+            graded = [t for t in self.tasks.values()
+                      if t.get("outcome") in ("accepted", "disputed", "rejected", "delivered")
+                      and t.get("deliverable_hash") and t["id"] not in have]
+            graded.sort(key=lambda t: t.get("delivered_at") or t.get("created_at") or "")
+            for t in graded:
+                self.append_task_to_ledger(t["id"])
 
     def append_task_to_ledger(self, task_id: str) -> Optional[dict[str, Any]]:
         """Seal one task's collaboration record against the durable chain head and
@@ -926,6 +942,26 @@ class Store:
             rec.prev_hash = head
             rec.seal()
             d = asdict(rec)
+            self.ledger_records.append(d)
+            self._save()
+            return d
+
+    def append_ledger_event(self, type: str, body: dict[str, Any],
+                            actor_did: str = "") -> dict[str, Any]:
+        """Seal one typed event against the durable chain head and persist it
+        (stage-1 dual-write: EVERY evidence-bearing mutation also lands on the
+        chain; the store dicts remain the serving views until cutover).
+        Bodies must contain public data only — never keys or secrets."""
+        with self.lock:
+            from dataclasses import asdict
+            from .ledger import GenericEntry, GENERIC_ENTRY_TYPES
+            if type not in GENERIC_ENTRY_TYPES:
+                raise ValueError(f"unknown ledger event type: {type}")
+            head = self.ledger_records[-1]["hash"] if self.ledger_records else ("0" * 64)
+            e = GenericEntry(seq=len(self.ledger_records), type=type, body=body,
+                             actor_did=actor_did, created_at=_now(),
+                             prev_hash=head).seal()
+            d = asdict(e)
             self.ledger_records.append(d)
             self._save()
             return d
@@ -983,6 +1019,13 @@ class Store:
             self.record_event(requester_key, "escrow_open", endpoint="escrow",
                               worker_id=worker_id, amount=amount)
             self._save()
+            # dual-write: escrow lifecycle is settlement-layer evidence (§15:
+            # the economic layer is an evidence organ, not just revenue).
+            self.append_ledger_event("escrow_event", {
+                "event": "opened", "escrow_id": esc_id,
+                "requester_id": esc["requester_id"], "worker_id": worker_id,
+                "capability": capability, "amount": amount, "fee": esc["fee"],
+            }, actor_did=(self.agents.get(esc["requester_id"]) or {}).get("did", ""))
             # reputation-informed: surface how risky this counterparty is
             esc = dict(esc)
             esc["worker_risk"] = self.risk_for(worker_id)
@@ -1031,6 +1074,12 @@ class Store:
                 except ValueError:
                     pass
             self._save()
+            self.append_ledger_event("escrow_event", {
+                "event": "released", "escrow_id": escrow_id,
+                "requester_id": esc["requester_id"], "worker_id": esc["worker_id"],
+                "capability": esc.get("capability", ""), "amount": amount,
+                "fee": fee, "payout": payout, "task_id": esc["task_id"],
+            }, actor_did=(self.agents.get(esc["requester_id"]) or {}).get("did", ""))
             return {"escrow_id": escrow_id, "status": "released", "amount": amount,
                     "fee": fee, "payout": payout, "worker_id": esc["worker_id"],
                     "guild_revenue": self.guild_revenue, "task_id": esc["task_id"]}
@@ -1050,6 +1099,11 @@ class Store:
             esc["status"] = "refunded"
             esc["settled_at"] = _now()
             self._save()
+            self.append_ledger_event("escrow_event", {
+                "event": "refunded", "escrow_id": escrow_id,
+                "requester_id": esc["requester_id"], "worker_id": esc["worker_id"],
+                "amount": esc["amount"],
+            }, actor_did=(self.agents.get(esc["requester_id"]) or {}).get("did", ""))
             return {"escrow_id": escrow_id, "status": "refunded", "amount": esc["amount"]}
 
     def dispute_escrow(self, escrow_id: str, actor_key: str, grounds: str = ""
@@ -1069,6 +1123,14 @@ class Store:
             esc["status"] = "disputed"
             esc["dispute"] = {"by": actor_agent or actor_key, "grounds": grounds, "at": _now()}
             self._save()
+            # dual-write: disputes are the chain's highest-information events —
+            # they must be as tamper-evident as the successes they contest.
+            self.append_ledger_event("escrow_event", {
+                "event": "disputed", "escrow_id": escrow_id,
+                "requester_id": esc["requester_id"], "worker_id": esc["worker_id"],
+                "amount": esc["amount"], "by": actor_agent or "requester",
+                "grounds": grounds,
+            }, actor_did=(self.agents.get(actor_agent) or {}).get("did", ""))
             return {"escrow_id": escrow_id, "status": "disputed"}
 
     def get_escrow(self, escrow_id: str) -> Optional[dict[str, Any]]:
@@ -1363,6 +1425,21 @@ class Store:
             task["delivered_at"] = _now()
             self._rep_cache = None
             self._save()
+            # dual-write: the raw receipt event. Unlike a sealed collaboration
+            # record, this does NOT freeze a provenance class — a later attestation
+            # entry can still upgrade the interpretation (append-only composition).
+            worker = self.agents.get(task["worker_agent_id"]) or {}
+            self.append_ledger_event("receipt", {
+                "task_id": task_id,
+                "requester_id": task["requester_agent_id"],
+                "worker_id": task["worker_agent_id"],
+                "task_type": task.get("task_type", ""),
+                "outcome": outcome,
+                "deliverable_hash": deliverable_hash,
+                "payment": float(task.get("payment", 0.0) or 0.0),
+                "worker_config_hash": task.get("worker_config_hash"),
+                "requester_config_hash": task.get("requester_config_hash"),
+            }, actor_did=worker.get("did", ""))
             # Delivering real work is an activation event for the worker — if it
             # was referred, the referrer earns its reward now.
             self.activate_referral(task["worker_agent_id"])
@@ -1479,6 +1556,20 @@ class Store:
         self.attestations.append(rec)
         self._rep_cache = None
         self._save()
+        # dual-write: the attestation EVENT goes on the chain with the credential's
+        # content hash (the full signed VC stays in the store — chain entries stay
+        # compact and carry no more than the public proof commitment).
+        issuer_did = (self.agents.get(issuer_id) or {}).get("did", "")
+        self.append_ledger_event("attestation", {
+            "attestation_id": att_id, "issuer_id": issuer_id,
+            "subject_id": subject_id, "capability": capability,
+            "rating": float(rating), "task_id": task_id,
+            "stake": float(stake or 0.0), "verified": verified,
+            "credential_sha256": hashlib.sha256(
+                canonicalize(cred).encode("utf-8")).hexdigest(),
+            "issuer_config_hash": rec["issuer_config_hash"],
+            "subject_config_hash": rec["subject_config_hash"],
+        }, actor_did=issuer_did)
         return rec
 
     def attestations_for(self, subject_id: str) -> list[dict[str, Any]]:
