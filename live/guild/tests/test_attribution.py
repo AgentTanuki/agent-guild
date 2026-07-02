@@ -70,3 +70,24 @@ def test_recent_feed_labels_each_event():
     ev = s.recent_events(limit=5, external_only=True)[0]
     assert ev["genuine_external"] is False
     assert ev["attribution"] == "tooling_or_ours"
+
+
+def test_known_first_party_incident_excluded_inside_window_only():
+    # The 2026-07-02 incident: our own crewAI-tool verification call that
+    # omitted the X-Guild-Source header. Inside the window: NOT genuine.
+    incident = {"fp": False, "key": "anon",
+                "ua": "crewai-tools-agentguild/1.0",
+                "at": "2026-07-02T08:16:07.119496+00:00"}
+    assert is_genuine_external(incident) is False
+    assert attribution_class(incident) == "first_party_incident"
+
+    # The SAME UA outside the window (a real crewAI-tools user) still counts.
+    real_user = dict(incident, at="2026-07-03T12:00:00+00:00")
+    assert is_genuine_external(real_user) is True
+    assert attribution_class(real_user) == "genuine_external"
+
+    # And the public feed shape is honoured too.
+    feed_shape = {"first_party": False, "actor": "anon",
+                  "user_agent": "crewai-tools-agentguild/1.0",
+                  "at": "2026-07-02T08:16:07.119496+00:00"}
+    assert is_genuine_external(feed_shape) is False
