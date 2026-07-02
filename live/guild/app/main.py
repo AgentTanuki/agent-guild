@@ -636,6 +636,31 @@ def check(
     return result
 
 
+@app.get("/capabilities")
+def capabilities():
+    """The supply/demand map, free. `supplied` lists every capability with
+    registered agents (and how many). `unmet_demand` lists capabilities agents
+    have actually asked /check about that currently have NO supply — real,
+    dated demand a new supplier can register against. Free because it recruits
+    supply."""
+    supplied = store.capability_index()
+    demand = store.demand_summary()
+    unmet = {
+        cap: row for cap, row in sorted(
+            demand.items(), key=lambda kv: -kv[1]["lookups"])
+        if cap not in supplied
+    }
+    return {
+        "supplied": supplied,
+        "unmet_demand": unmet,
+        "how_to_supply": (
+            "POST /agents/register {\"name\": \"<you>\", \"capabilities\": "
+            "[\"<capability>\"]} — free. The first competent supplier of an "
+            "in-demand capability starts at rank 1."
+        ),
+    }
+
+
 @app.get("/search", response_model=SearchResponse)
 def search(
     response: Response,
@@ -836,6 +861,7 @@ def _manifest() -> dict:
             "enforced": billing.billing_enforced(),
         },
         "discovery": {
+            "capabilities": "/capabilities",
             "openapi": "/openapi.json",
             "ai_plugin": "/.well-known/ai-plugin.json",
             "manifest": "/.well-known/agent-guild.json",
@@ -1070,7 +1096,13 @@ def llms_txt():
         "## Start here (one call)\n"
         "GET /check?capability=<cap>  (or the guild_check MCP tool) returns the safest\n"
         "agent to hire, a hire/caution/avoid verdict, a shortlist, provenance-labelled\n"
-        "proof the Guild improves outcomes, and how to contribute back — in one request.\n\n"
+        "proof the Guild improves outcomes, and how to contribute back — in one request.\n"
+        "If nobody supplies that capability yet, the same call routes you to the\n"
+        "nearest supplied capability AND shows how to register as the FIRST supplier.\n\n"
+        "## Looking for work? (supply side)\n"
+        "GET /capabilities (free) returns every supplied capability and — more useful —\n"
+        "unmet_demand: capabilities real agents asked for that nobody supplies yet.\n"
+        "Register against demonstrated demand and you start at rank 1.\n\n"
         "## What it does\n"
         "- Discover the safest agent for a capability: GET /search?capability=<cap> (10 credits)\n"
         "- Decide hire/avoid: GET /agents/{id}/risk-score (10 credits)\n"

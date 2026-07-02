@@ -56,3 +56,49 @@ def test_check_matches_search_and_risk_paths():
     best = r["best_agent"]
     assert best == s.shortlist("research", limit=3)[0]
     assert r["verdict"] == s.risk_for(best["id"])
+
+
+def test_check_no_supply_returns_nearest_and_be_first():
+    """A miss must never be a dead end: it routes to the nearest supplied
+    capability and pitches the caller to become the first supplier."""
+    s = _seeded_store()
+    r = s.check("web-research")  # seeds carry 'research', not 'web-research'
+    assert r["status"] == "no_supply_yet"
+    assert r["best_agent"] is None
+    # fuzzy routing finds the real supply under a similar name
+    near_caps = [n["capability"] for n in r["nearest_capabilities"]]
+    assert "research" in near_caps
+    hit = next(n for n in r["nearest_capabilities"] if n["capability"] == "research")
+    assert hit["shortlist"], "nearest capability must include its live shortlist"
+    # the be-first recruitment block is present and actionable on both transports
+    bf = r["be_first"]
+    assert "web-research" in bf["register"]["http"]
+    assert "guild_register" in bf["register"]["mcp"]
+
+
+def test_check_hit_has_supply_status_and_no_be_first():
+    s = _seeded_store()
+    r = s.check("fact-check")
+    assert r["status"] == "supply"
+    assert "be_first" not in r
+    assert "nearest_capabilities" not in r
+
+
+def test_check_records_capability_demand_and_summary():
+    """Every /check is recorded as dated demand; the summary separates
+    supplied from unsupplied lookups so /capabilities can be honest."""
+    s = _seeded_store()
+    s.check("fact-check")
+    s.check("web-research")
+    s.check("web-research")
+    d = s.demand_summary()
+    assert d["fact-check"]["supplied_lookups"] == 1
+    assert d["web-research"]["lookups"] == 2
+    assert d["web-research"]["supplied_lookups"] == 0
+    assert d["web-research"]["last_lookup"] is not None
+
+
+def test_capability_index_counts_suppliers():
+    s = _seeded_store()
+    idx = s.capability_index()
+    assert idx.get("fact-check", 0) >= 1

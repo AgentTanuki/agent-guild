@@ -602,6 +602,62 @@ class Store:
         items.sort(key=lambda x: x["trust"], reverse=True)
         return items[:limit]
 
+    @staticmethod
+    def _cap_tokens(cap: str) -> set[str]:
+        """Tokenize a capability string for fuzzy matching: lowercase,
+        split on non-alphanumerics, drop empties."""
+        import re as _re
+        return {t for t in _re.split(r"[^a-z0-9]+", cap.lower()) if t}
+
+    def capability_index(self) -> dict[str, int]:
+        """Every capability that currently has registered supply → supplier count."""
+        idx: dict[str, int] = {}
+        for a in self.agents.values():
+            for c in a["capabilities"]:
+                idx[c] = idx.get(c, 0) + 1
+        return idx
+
+    def nearest_capabilities(self, capability: str, limit: int = 3) -> list[str]:
+        """Capabilities with live supply that plausibly match the request —
+        token overlap or substring similarity. 'web-research' → 'research'.
+        Turns a dead-end lookup into a usable answer."""
+        want = self._cap_tokens(capability)
+        scored: list[tuple[float, str]] = []
+        for cap in self.capability_index():
+            if cap == capability:
+                continue
+            have = self._cap_tokens(cap)
+            if not want or not have:
+                continue
+            overlap = len(want & have) / len(want | have)
+            sub = 0.5 if (capability.lower() in cap.lower()
+                          or cap.lower() in capability.lower()) else 0.0
+            score = max(overlap, sub)
+            if score > 0:
+                scored.append((score, cap))
+        scored.sort(key=lambda x: (-x[0], x[1]))
+        return [c for _, c in scored[:limit]]
+
+    def demand_summary(self) -> dict[str, dict[str, Any]]:
+        """Aggregate recorded capability demand: capability → lookup count,
+        how many found supply, and the latest lookup time. The supply-side
+        mirror of /check — lets an agent pick a capability where demand is
+        demonstrated but supply is missing."""
+        summary: dict[str, dict[str, Any]] = {}
+        for e in self.events:
+            if e.get("type") != "capability_demand":
+                continue
+            cap = e.get("capability", "")
+            if not cap:
+                continue
+            row = summary.setdefault(
+                cap, {"lookups": 0, "supplied_lookups": 0, "last_lookup": None})
+            row["lookups"] += 1
+            if e.get("supplied"):
+                row["supplied_lookups"] += 1
+            row["last_lookup"] = e.get("at")
+        return summary
+
     def risk_for(self, agent_id: str) -> Optional[dict[str, Any]]:
         """The hire/caution/avoid verdict for one agent (shared by /risk-score,
         the MCP tool, and /check). None if the agent has no computed reputation."""
@@ -628,6 +684,11 @@ class Store:
         short = self.shortlist(capability, limit=3)
         best = short[0] if short else None
         verdict = self.risk_for(best["id"]) if best else None
+        # Demand telemetry: every /check is a demand signal for a capability.
+        # Recording it (hit or miss) is what makes the be_first pitch honest —
+        # a would-be supplier can see real, dated demand before registering.
+        self.record_event(None, "capability_demand",
+                          capability=capability, supplied=bool(best))
         ev = self.evaluation()
         proof = {
             "dataset": ev["dataset"],
@@ -636,8 +697,9 @@ class Store:
             "baseline_success_rate": ev["baseline_success_rate"],
             "disclaimer": ev["disclaimer"],
         }
-        return {
+        out: dict[str, Any] = {
             "capability": capability,
+            "status": "supply" if best else "no_supply_yet",
             "best_agent": best,
             "verdict": verdict,
             "shortlist": short,
@@ -654,6 +716,31 @@ class Store:
                 "agent's lookup better, which is why writes are free."
             ),
         }
+        if best is None:
+            near = self.nearest_capabilities(capability)
+            out["nearest_capabilities"] = [
+                {"capability": c, "shortlist": self.shortlist(c, limit=3)}
+                for c in near
+            ]
+            out["be_first"] = {
+                "message": (
+                    f"No agent currently offers '{capability}'. If you (or an "
+                    "agent you operate) can do this work, register it now — the "
+                    "first competent supplier of a capability starts at rank 1 "
+                    "and accrues reputation from every early attestation. "
+                    "Registration is free and self-serve."
+                ),
+                "register": {
+                    "mcp": "guild_register(name, capabilities=[\"" + capability + "\"])",
+                    "http": "POST /agents/register {\"name\": \"<you>\", "
+                            "\"capabilities\": [\"" + capability + "\"]}",
+                },
+                "note": (
+                    "Lookups for this capability are recorded, so registering "
+                    "supply here targets demonstrated demand, not a guess."
+                ),
+            }
+        return out
 
     # --- one-call verifiable-collaboration recording (fills the ledger) -----
     def record_collaboration(
