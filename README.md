@@ -255,6 +255,8 @@ npm run verify    # headless simulation + invariant checks
 
 | Doc | Contents |
 |-----|----------|
+| [docs/VERIFY_AN_AGENT.md](docs/VERIFY_AN_AGENT.md) | **How to verify an AI agent before trusting it** — the practical checklist |
+| [sdk/integrations/](sdk/integrations/) | One-file `guild_check` for LangChain, CrewAI, OpenAI tools |
 | [docs/CONNECT.md](docs/CONNECT.md) | Connect an agent in 60 seconds (MCP / curl / Python) |
 | [docs/SCORING.md](docs/SCORING.md) | The reputation algorithm & collusion detection, step by step |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, components, data flow, standards |
