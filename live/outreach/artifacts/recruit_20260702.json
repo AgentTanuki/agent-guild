@@ -1,0 +1,92 @@
+[
+  {
+    "name": "GRACE Orchestrator MCP",
+    "description": "MCP server orchestrating local multi-agent workflows with gated lifecycle, handoff events, and host-level continuation.",
+    "url": "https://github.com/Artemyx-DataScientist/GRACE_MCP",
+    "source": "glama",
+    "score": 13,
+    "angle": "orchestrator \u2014 vet workers before dispatch",
+    "reason": "it dispatches work to agents whose reliability it can't observe upfront"
+  },
+  {
+    "name": "AgentPrism Workflows",
+    "description": "Run dynamic, multi-agent workflow scripts \u2014 agent(), parallel(), pipeline() \u2014 over real coding agents (Claude Code and OpenAI Codex), with deterministic journaling, resume, token budgets, and git-worktree isolation.",
+    "url": "https://github.com/VikashLoomba/agentprism-workflows",
+    "source": "glama",
+    "score": 9,
+    "angle": "orchestrator \u2014 vet workers before dispatch",
+    "reason": "it dispatches work to agents whose reliability it can't observe upfront"
+  },
+  {
+    "name": "UI Debugger MCP",
+    "description": "Enables AI agents to autonomously debug UIs by delegating high-level stories to a small agent that drives browsers or desktop apps and reports structured pass/fail findings with evidence.",
+    "url": "https://github.com/developerz-ai/ui-debugger-mcp",
+    "source": "glama",
+    "score": 9,
+    "angle": "orchestrator \u2014 vet workers before dispatch",
+    "reason": "it dispatches work to agents whose reliability it can't observe upfront"
+  },
+  {
+    "name": "actionproof",
+    "description": "Gives AI agents verifiable, tamper-evident receipts for their actions \u2014 attest_action signs a cryptographic receipt for what the agent did (email sent, payment made, form filed), verify_receipt checks it offline, get_identity returns the agent's did:key. Sign locally, verify anywhere, zero backend.",
+    "url": "https://github.com/Burakfenerci5/actionproof",
+    "source": "glama",
+    "score": 8,
+    "angle": "marketplace/payments \u2014 settlement + reputation rails",
+    "reason": "its transactions need neutral trust + escrow between strangers"
+  },
+  {
+    "name": "Your Echo Agent",
+    "description": "Hire autonomous PR outreach agents from any MCP-compatible LLM. All-in-one AI outreach: find verified leads, draft hyper-personalized emails, discover conferences/webinars/communities in your niche, and triage replies \u2014 all from any MCP client.",
+    "url": "https://github.com/Browncabinet/yourechoagent-mcp",
+    "source": "glama",
+    "score": 8,
+    "angle": "marketplace/payments \u2014 settlement + reputation rails",
+    "reason": "its transactions need neutral trust + escrow between strangers"
+  },
+  {
+    "name": "Multi-MCP Agent System with Google Calendar & Google Tasks",
+    "description": "A system integrating two independent MCP servers for Google Calendar and Google Tasks APIs, orchestrated by an LLM agent loop with a web dashboard.",
+    "url": "https://github.com/RimeetMavani/multiple_mcp_demo",
+    "source": "glama",
+    "score": 7,
+    "angle": "orchestrator \u2014 vet workers before dispatch",
+    "reason": "it dispatches work to agents whose reliability it can't observe upfront"
+  },
+  {
+    "name": "pi-subagent",
+    "description": "Enables MCP hosts to delegate coding tasks to Pi CLI as a programmable sub-agent with session tracking and process management.",
+    "url": "https://github.com/guyiicn/pi-subagent",
+    "source": "glama",
+    "score": 7,
+    "angle": "orchestrator \u2014 vet workers before dispatch",
+    "reason": "it dispatches work to agents whose reliability it can't observe upfront"
+  },
+  {
+    "name": "Multi-Agent MCP Server",
+    "description": "Provides 7 tools for weather (geocoding, current conditions) and country data (capital, currency, population, dial code, flag) via Open-Meteo and CountriesNow APIs, designed for multi-agent AI systems.",
+    "url": "https://github.com/jamalla/multi-agent-mcp",
+    "source": "glama",
+    "score": 7,
+    "angle": "orchestrator \u2014 vet workers before dispatch",
+    "reason": "it dispatches work to agents whose reliability it can't observe upfront"
+  },
+  {
+    "name": "hermes-bridge",
+    "description": "Relay MCP server enabling synchronous multi-turn communication between Hermes agents, allowing one agent to delegate tasks and await replies without third-party dependencies.",
+    "url": "https://github.com/aidalinfo/hermes-bridge",
+    "source": "glama",
+    "score": 7,
+    "angle": "orchestrator \u2014 vet workers before dispatch",
+    "reason": "it dispatches work to agents whose reliability it can't observe upfront"
+  },
+  {
+    "name": "SnackMachine",
+    "description": "Modular snack registry, scheduler, spool, and MCP knowledge conduit that enables AI-ranked search, multi-agent shared memory, and FTS5 indexing across vault layers.",
+    "url": "https://github.com/uDosGo/snackmachine",
+    "source": "glama",
+    "score": 7,
+    "angle": "orchestrator \u2014 vet workers before dispatch",
+    "reason": "it dispatches work to agents whose reliability it can't observe upfront"
+  }
+]
