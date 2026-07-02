@@ -45,6 +45,31 @@ OURS_MCP_CLIENTS = {
     "agent-guild", "agentguild", "python", "node",
 }
 
+# Known first-party incidents: OUR OWN traffic that slipped past first-party
+# tagging (e.g. a maintainer test that forgot the X-Guild-Source header) and
+# would otherwise read as genuine external. Each entry is deliberately narrow —
+# an exact UA within a bounded time window — and documents why, so this can
+# never silently hide a real agent. The same UA OUTSIDE the window still counts.
+KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
+    {
+        "ua": "crewai-tools-agentguild/1.0",
+        "from": "2026-07-02T08:00:00+00:00",
+        "to": "2026-07-02T09:00:00+00:00",
+        "reason": "Maintainer verification of the crewAI PR #6429 review fixes "
+                  "(run from our own sandbox against prod); the X-Guild-Source "
+                  "first-party header was omitted by mistake.",
+    },
+]
+
+
+def _is_known_first_party_incident(event: dict[str, Any]) -> bool:
+    ua = (event.get("ua", event.get("user_agent")) or "").strip()
+    at = event.get("at") or ""
+    for inc in KNOWN_FIRST_PARTY_INCIDENTS:
+        if ua == inc["ua"] and inc["from"] <= at <= inc["to"]:
+            return True
+    return False
+
 
 def _mcp_client(ua: str) -> str | None:
     if not ua.startswith("mcp:"):
@@ -59,6 +84,8 @@ def is_genuine_external(event: dict[str, Any]) -> bool:
     feed shape (keys `first_party`, `user_agent`, `actor`)."""
     first_party = event.get("fp", event.get("first_party"))
     if first_party:
+        return False
+    if _is_known_first_party_incident(event):
         return False
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
 
@@ -78,6 +105,8 @@ def attribution_class(event: dict[str, Any]) -> str:
     """A human/agent-readable label for why an event is (not) genuine external."""
     if event.get("fp", event.get("first_party")):
         return "first_party"
+    if _is_known_first_party_incident(event):
+        return "first_party_incident"
     if is_genuine_external(event):
         return "genuine_external"
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
