@@ -152,7 +152,14 @@ async def a2a_endpoint(request: Request):
     if not text:
         return _rpc_error(id_, -32602, "Invalid params: send one text part")
 
-    store.record_event("a2a", "query", ua="a2a/json-rpc", endpoint="a2a_message")
+    # Record the REAL client User-Agent (plus transport tag) so external A2A
+    # callers are attributable — the same honesty fix MCP attribution got.
+    # A hardcoded UA here would make every A2A caller invisible to the
+    # first-external-agent detector.
+    real_ua = request.headers.get("user-agent", "")
+    store.record_event("a2a", "query",
+                       ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
+                       endpoint="a2a_message")
 
     import json as _json
     lowered = text.lower().strip()

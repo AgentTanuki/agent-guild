@@ -38,6 +38,14 @@ FRAMEWORK_RE = re.compile(
     r"semantic-kernel|node-fetch|undici|axios|okhttp|go-http-client|reqwest|"
     r"cursor|cline|continue|windsurf|cody|dify|n8n|flowise)", re.I)
 OURS_UA_RE = re.compile(r"^\s*$|curl|wget|python-urllib|Python-urllib", re.I)
+
+# External automated MONITORS — real third-party traffic, but health checkers
+# and registry conformance scanners, not agents making trust decisions. They
+# are reported separately and NEVER counted as the first genuine external
+# agent: a poll every 30 minutes is distribution working, not adoption.
+MONITOR_RE = re.compile(
+    r"(a2a[-_ ]?registry|a2aregistry|glama|smithery|pulsemcp|mcp[-_ ]?scan|"
+    r"uptime|health[-_ ]?check|statuscake|pingdom|monitor)", re.I)
 OURS_NAME_RE = re.compile(
     r"(Seed-Reviewer|FirstContact|Outsider-Consumer|^Ace$|^Pro$|^Solid$|^Meh$|^Weak$|"
     r"Verified-Employer)", re.I)
@@ -106,10 +114,18 @@ def main() -> int:
     direct_hits = []
     mcp_external = []          # attributable mcp:<client> calls from clients not ours
     mcp_calls = 0             # legacy/unattributable mcp/remote volume (never counted)
+    monitor_hits = []          # third-party monitors/health-checkers (INFO only)
     for e in events:
         if e.get("first_party"):
             continue
         ua = (e.get("user_agent") or "").strip()
+        # A2A transport prefixes the real client UA as "a2a:<ua>" — unwrap it
+        # so the same framework/monitor classification applies.
+        if ua.startswith("a2a:"):
+            ua = ua[4:].strip()
+        if ua and MONITOR_RE.search(ua):
+            monitor_hits.append(e)
+            continue
         client = _mcp_client(ua)
         if client is not None:
             # An MCP client that names itself in the handshake. If it isn't one of
@@ -135,6 +151,10 @@ def main() -> int:
                                 "endpoint": e.get("endpoint"), "paid": e.get("paid")}
                                for e in mcp_external[:10]],
         "mcp_remote_calls_unattributable": mcp_calls,
+        "external_monitor_calls": len(monitor_hits),
+        "external_monitor_samples": [{"ua": (e.get("user_agent") or "")[:80],
+                                      "endpoint": e.get("endpoint")}
+                                     for e in monitor_hits[:5]],
     }
     os.makedirs(results, exist_ok=True)
     json.dump(state, open(args.marker, "w"), indent=2)
@@ -153,6 +173,8 @@ def main() -> int:
     print(f"   registered agents: {len(agents)} (all match our baseline/known scripts)")
     print(f"   unattributable MCP calls (ua=mcp/remote — INCLUDES our own tests, "
           f"not counted): {mcp_calls}")
+    print(f"   external monitor/health-checker calls (real third-party traffic, "
+          f"not adoption — never counted): {len(monitor_hits)}")
     print("   Distribution has not yet produced a third-party agent we can attribute. "
           "Keep listing; re-check on schedule.")
     return 1
