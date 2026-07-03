@@ -262,6 +262,17 @@ nothing in a later phase blocks on more than the phase before it.
 
 ### Phase 1 — The journey engine (week 1–2)
 
+> **STATUS: SHIPPED 2026-07-03** — `app/journey.py`: `next_actions(store, agent)`
+> ranked from evidence state; operational stage predicates (1 registered,
+> 2 engaged, 3 standing = verdict ≥ caution ∧ ≥ k distinct trusted reviewers,
+> 4 citizen = standing ∧ issued receipt-backed attestation) emitting
+> `journey_stage_change` events; counterfactuals from the live score
+> decomposition; `GET /agents/{id}/journey` free to self; ONE primary action
+> embedded in register / configuration / endpoint / attestation / receipt /
+> escrow-release responses; passport carries `X-Guild-Next` + `X-Guild-Journey`
+> headers (signed body untouched). Bespoke stanzas replaced by the engine.
+> Locked by `tests/test_phase1_journey.py`; suite 161 green.
+
 6. **`journey.py`** (G17, G12, G11): evidence-state → ranked next actions with
    counterfactuals from the existing score decomposition. Exposed as
    `GET /agents/{id}/journey` (free to self), embedded top-1 in every authenticated write

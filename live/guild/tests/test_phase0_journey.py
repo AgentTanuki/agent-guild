@@ -104,10 +104,16 @@ def test_register_response_has_one_primary_next_action():
     assert "citizenship" in gn["path_to_citizenship"]
 
 
-def test_register_with_endpoint_gets_engagement_action():
+def test_register_with_endpoint_gets_next_rung():
+    # With an endpoint already declared, the engine moves to the next rung
+    # (config declaration), and with both declared, to the first engagement.
     out = _register(name="reachable",
                     metadata={"endpoint": "https://me.example/a2a"})
-    assert out["guild_next"]["primary"]["action"] == "earn_first_engagement"
+    assert out["guild_next"]["primary"]["action"] == "declare_configuration"
+    out2 = _register(name="reachable-configured",
+                     metadata={"endpoint": "https://me2.example/a2a"},
+                     config={"model": "test-model"})
+    assert out2["guild_next"]["primary"]["action"] == "earn_first_engagement"
 
 
 # --- 3. free self-reads ---------------------------------------------------------

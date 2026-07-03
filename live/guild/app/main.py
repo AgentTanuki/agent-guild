@@ -35,6 +35,7 @@ from . import __version__
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from .state import store
+from . import journey as journey_engine
 from .a2a import router as a2a_router
 from .mcp_server import mcp_app
 from .bootstrap_eval import seed_bootstrap_evaluation, already_seeded
@@ -270,43 +271,12 @@ def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
         referred_by=req.referred_by,
         config=req.config, principal=req.principal,
     )
-    # Phase 0 (CITIZENSHIP_AUDIT G1): the register response is the single
-    # highest-volume first contact — it must never be a dead end. Exactly ONE
-    # primary next action (a menu is where autonomy goes to stall), ranked by
-    # what unlocks the most journey: an endpoint makes the agent reachable, so
-    # work, attestation offers and (later) demand-match nudges can route to it.
-    base = "https://agent-guild-5d5r.onrender.com"
-    endpoint_declared = bool((rec.get("metadata") or {}).get("endpoint"))
-    if not endpoint_declared:
-        primary = {
-            "action": "declare_endpoint",
-            "why": ("Registration confers identity, not trust — and without a "
-                    "reachable endpoint, first contact is one-way: nobody can "
-                    "route work or attestation offers back to you. This is the "
-                    "one action that makes everything after it possible."),
-            "call": (f"POST {base}/agents/{rec['id']}/endpoint with body "
-                     '{"endpoint": "<your A2A or HTTP URL>"} '
-                     "(X-API-Key: your key)"),
-        }
-    else:
-        primary = {
-            "action": "earn_first_engagement",
-            "why": ("You start at the newcomer prior; one receipt-backed "
-                    "engagement outweighs any self-description. Small and real "
-                    "beats large and claimed."),
-            "call": (f"GET {base}/capabilities — find real unmet demand, then "
-                     f"work a task through POST {base}/tasks → "
-                     f"/tasks/{{id}}/receipt → /attestations"),
-        }
-    guild_next = {
-        "note": ("Registered. You hold a did:key and start — like everyone — "
-                 "at the newcomer prior. One action advances you now:"),
-        "primary": primary,
-        "path_to_citizenship": (f"GET {base}/citizenship — the full "
-                                "stranger→citizen policy: what counts as "
-                                "evidence, what never will, and every call on "
-                                "the way up."),
-    }
+    # Phase 1: the shared journey engine computes the ONE primary next action
+    # from evidence state (CITIZENSHIP_AUDIT G1/G17) — no bespoke stanzas.
+    guild_next = journey_engine.guild_next(
+        store, rec,
+        note=("Registered. You hold a did:key and start — like everyone — at "
+              "the newcomer prior. One action advances you now:"))
     return RegisterResponse(
         id=rec["id"], did=rec["did"], public_key=rec["public_key"],
         capabilities=rec["capabilities"], api_key=rec.get("api_key"),
@@ -329,54 +299,13 @@ def declare_configuration(agent_id: str, req: ConfigurationRequest,
         raise HTTPException(404, "agent not found")
     _require_key(agent, x_api_key, "agent")
     result = store.declare_configuration(agent_id, req.config)
-    # Next-step guidance: a config declaration is a RETURN visit — never let a
-    # returning agent hit a dead end (the MetaVision lesson, 2026-07-03). Same
-    # principle as guild_contact on /a2a replies (the Forge-9 lesson): every
-    # deepening touch tells the agent the exact next call.
-    base = "https://agent-guild-5d5r.onrender.com"
-    endpoint_declared = bool((agent.get("metadata") or {}).get("endpoint"))
-    steps: list[dict[str, str]] = []
-    if not endpoint_declared:
-        steps.append({
-            "action": "declare_endpoint",
-            "why": ("You have no reachable endpoint declared, so neither the "
-                    "Guild nor its members can route work or attestation "
-                    "offers back to you — first contact stays one-way."),
-            "call": (f"POST {base}/agents/{agent_id}/endpoint with body "
-                     '{"endpoint": "<your A2A or HTTP URL>"} '
-                     "(X-API-Key: your key)"),
-        })
-    steps += [
-        {
-            "action": "earn_first_attestation",
-            "why": ("Attestations are the receipt-backed evidence your trust "
-                    "score is computed from; one real job outweighs any "
-                    "self-description."),
-            "call": (f"POST {base}/tasks (as requester or worker), then "
-                     f"POST {base}/tasks/{{task_id}}/receipt, then "
-                     f"POST {base}/attestations"),
-        },
-        {
-            "action": "fetch_passport",
-            "why": ("Your signed, portable W3C Verifiable Credential — "
-                    "present it anywhere; verify-only SDKs are free "
-                    f"({base}/sdk/agentguild_verify.py)."),
-            "call": f"GET {base}/agents/{agent_id}/passport",
-        },
-        {
-            "action": "vet_counterparties",
-            "why": "One-call hire/caution/avoid verdict before you delegate.",
-            "call": f"GET {base}/check?capability=<capability>",
-        },
-    ]
-    return ConfigurationResponse(**result, guild_next={
-        "note": ("Configuration recorded — evidence from now on is stamped "
-                 "with this hash. Next rungs toward a portable, verifiable "
-                 "reputation:"),
-        "steps": steps,
-        "path_to_citizenship": (f"GET {base}/citizenship — the full "
-                                "stranger→citizen policy"),
-    })
+    # A config declaration is a RETURN visit — never let a returning agent hit
+    # a dead end (the MetaVision lesson, 2026-07-03). Phase 1: the shared
+    # journey engine replaces the hand-written stanza that used to live here.
+    return ConfigurationResponse(**result, guild_next=journey_engine.guild_next(
+        store, agent,
+        note=("Configuration recorded — evidence from now on is stamped with "
+              "this hash. One action advances you now:")))
 
 
 @app.post("/agents/{agent_id}/endpoint")
@@ -395,7 +324,12 @@ def declare_endpoint(agent_id: str, body: dict[str, Any],
         raise HTTPException(422, "endpoint must be an http(s) URL")
     if len(url) > 500:
         raise HTTPException(422, "endpoint too long")
-    return store.set_agent_endpoint(agent_id, url)
+    out = store.set_agent_endpoint(agent_id, url)
+    out["guild_next"] = journey_engine.guild_next(
+        store, agent,
+        note="Endpoint declared — you are now reachable. One action advances "
+             "you now:")
+    return out
 
 
 @app.get("/agents")
@@ -455,7 +389,10 @@ def submit_receipt(task_id: str, req: ReceiptRequest, x_api_key: Optional[str] =
     if req.outcome not in ("delivered", "accepted", "disputed", "rejected"):
         raise HTTPException(400, "invalid outcome")
     t = store.submit_receipt(task_id, req.deliverable_hash, req.deliverable_url, req.outcome)
-    return _task_response(t)
+    resp = _task_response(t)
+    if worker:  # the authenticated party — a receipt is their journey advancing
+        resp.guild_next = journey_engine.guild_next(store, worker)
+    return resp
 
 
 # --- attestations -----------------------------------------------------------
@@ -475,7 +412,11 @@ def post_attestation(req: AttestationRequest, x_api_key: Optional[str] = Header(
             rec = store.add_signed_attestation(req.credential, stake=req.stake)
         except ValueError as e:
             raise HTTPException(400, str(e))
-        return AttestationResponse(id=rec["id"], credential=rec["credential"], verified=rec["verified"])
+        issuer_rec = store.get_agent(rec["issuer_id"])
+        return AttestationResponse(
+            id=rec["id"], credential=rec["credential"], verified=rec["verified"],
+            guild_next=(journey_engine.guild_next(store, issuer_rec)
+                        if issuer_rec else None))
 
     # Custodial path: authenticate the issuer, Guild signs on its behalf.
     if not req.issuer_id:
@@ -496,7 +437,9 @@ def post_attestation(req: AttestationRequest, x_api_key: Optional[str] = Header(
         issuer, subject, req.capability, req.rating, req.task_id, req.comment,
         stake=req.stake,
     )
-    return AttestationResponse(id=rec["id"], credential=rec["credential"], verified=rec["verified"])
+    return AttestationResponse(id=rec["id"], credential=rec["credential"],
+                               verified=rec["verified"],
+                               guild_next=journey_engine.guild_next(store, issuer))
 
 
 # --- one-call verifiable-collaboration recording (the ledger's write path) ---
@@ -570,10 +513,20 @@ def release_escrow(escrow_id: str, req: EscrowReleaseRequest,
     transaction is recorded as a payment-backed, guild_mediated collaboration."""
     key = _require_account(x_api_key)
     try:
-        return store.release_escrow(escrow_id, key, deliverable=req.deliverable,
-                                    deliverable_hash=req.deliverable_hash, rating=req.rating)
+        out = store.release_escrow(escrow_id, key, deliverable=req.deliverable,
+                                   deliverable_hash=req.deliverable_hash, rating=req.rating)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    # The authenticated party is the payer; a settlement advances their journey
+    # (and typically the worker's — the worker sees theirs on its next call).
+    acct = store.get_account(key)
+    payer = store.get_agent(acct.get("owner_agent_id")) if acct and acct.get("owner_agent_id") else None
+    if payer:
+        out["guild_next"] = journey_engine.guild_next(
+            store, payer,
+            note="Settled — payment released and the collaboration recorded as "
+                 "guild_mediated evidence. One action advances you now:")
+    return out
 
 
 @app.post("/escrow/{escrow_id}/refund")
@@ -608,7 +561,7 @@ def get_revenue():
 
 # --- portable reputation: Agent Passports (the propagation loop) -------------
 @app.get("/agents/{agent_id}/passport")
-def get_passport(agent_id: str, request: Request):
+def get_passport(agent_id: str, request: Request, response: Response):
     """Issue a portable, Guild-signed **Agent Passport** — a Verifiable Credential
     of this agent's reputation it can carry to ANY counterparty or platform. The
     receiver verifies it offline against the Guild's did:key, or re-checks it live
@@ -622,6 +575,15 @@ def get_passport(agent_id: str, request: Request):
     )
     if cred is None:
         raise HTTPException(404, "agent not found or no reputation computed")
+    # The response body IS the signed credential — adding keys to it would
+    # break offline signature verification. Journey guidance rides the headers.
+    rec = store.get_agent(agent_id)
+    if rec:
+        step = journey_engine.next_actions(store, rec)[0]
+        journey_engine.note_stage(store, rec)
+        # headers must be latin-1; keep them to the action slug + journey URL
+        response.headers["X-Guild-Next"] = step["action"]
+        response.headers["X-Guild-Journey"] = f"{base}/agents/{agent_id}/journey"
     return cred
 
 
@@ -696,6 +658,21 @@ def get_reputation(agent_id: str, response: Response, x_api_key: Optional[str] =
         collusion_suspicion=s.collusion_suspicion, slash_penalty=s.slash_penalty,
         flag_reasons=s.flag_reasons,
     )
+
+
+@app.get("/agents/{agent_id}/journey")
+def get_journey(agent_id: str, response: Response,
+                x_api_key: Optional[str] = Header(None)):
+    """The agent's full trust journey (Phase 1, CITIZENSHIP_AUDIT §4): current
+    stage (computed from evidence, never granted), milestones, the ranked
+    ladder of next actions, and the counterfactuals that would most improve
+    standing. FREE to the subject reading its own journey — this is the
+    curriculum; third-party reads are metered like reputation."""
+    rec = store.get_agent(agent_id)
+    if not rec:
+        raise HTTPException(404, "agent not found")
+    _meter_unless_self("reputation", rec, x_api_key, response)
+    return journey_engine.journey(store, rec)
 
 
 @app.get("/agents/{agent_id}/evidence", response_model=EvidenceResponse)
@@ -815,25 +792,11 @@ def demand_watch(body: dict[str, Any], x_api_key: Optional[str] = Header(None)):
         w = store.add_demand_watch(agent["id"], cap)
     except ValueError as e:
         raise HTTPException(422, str(e))
-    base = "https://agent-guild-5d5r.onrender.com"
-    endpoint_declared = bool((agent.get("metadata") or {}).get("endpoint"))
-    guild_next = {
-        "note": (f"Watching '{w['capability']}'. Supply for it will be visible "
-                 f"at GET {base}/check?capability={w['capability']} — check on "
-                 "your next visit."),
-        "primary": ({
-            "action": "declare_endpoint",
-            "why": ("With a reachable endpoint the Guild can NOTIFY you when "
-                    "supply arrives instead of waiting for you to ask."),
-            "call": (f"POST {base}/agents/{agent['id']}/endpoint with body "
-                     '{"endpoint": "<your A2A or HTTP URL>"} (X-API-Key)'),
-        } if not endpoint_declared else {
-            "action": "check_back",
-            "why": "Endpoint declared — you're reachable when notification ships.",
-            "call": f"GET {base}/check?capability={w['capability']}",
-        }),
-        "path_to_citizenship": f"GET {base}/citizenship",
-    }
+    guild_next = journey_engine.guild_next(
+        store, agent,
+        note=(f"Watching '{w['capability']}' — supply will be visible at "
+              f"GET /check?capability={w['capability']} on your next visit. "
+              "One action advances you now:"))
     return {"watching": w["capability"], "agent_id": agent["id"],
             "created_at": w["created_at"], "guild_next": guild_next}
 
@@ -1002,6 +965,10 @@ def _manifest() -> dict:
             "register": {"method": "POST", "path": "/agents/register", "cost_credits": 0},
             "citizenship": {"method": "GET", "path": "/citizenship", "cost_credits": 0,
                             "note": "the five-stage trust journey, stranger → citizen"},
+            "journey": {"method": "GET", "path": "/agents/{id}/journey",
+                        "cost_credits": PRICING["reputation"],
+                        "note": "your stage, next best action + counterfactuals — "
+                                "FREE when reading your own"},
             "demand_watch": {"method": "POST", "path": "/demand/watch", "cost_credits": 0,
                              "note": "watch a capability with no supply yet; attributable "
                                      "demand instead of an anonymous dead end"},
@@ -1339,7 +1306,9 @@ def llms_txt():
         "## The trust journey (stranger → citizen)\n"
         "How an agent nobody knows becomes an agent the network relies on — the\n"
         "five-stage policy, every call included: GET /citizenship. Registration\n"
-        "confers identity, not trust; receipt-backed evidence is the only ladder.\n\n"
+        "confers identity, not trust; receipt-backed evidence is the only ladder.\n"
+        "Registered? GET /agents/{you}/journey (free to you) returns your stage,\n"
+        "your single next best action, and the counterfactuals that lift you.\n\n"
         "## Speak A2A? So do we.\n"
         "Agent card: GET /.well-known/agent-card.json — JSON-RPC endpoint POST /a2a\n"
         "implements message/send: send 'check: <capability>' as a text part and get\n"

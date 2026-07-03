@@ -111,6 +111,8 @@ class TaskResponse(BaseModel):
     outcome: str
     created_at: str
     delivered_at: Optional[str] = None
+    # Phase 1: journey guidance for the authenticated party (worker on receipt).
+    guild_next: Optional[dict[str, Any]] = None
 
 
 class ReceiptRequest(BaseModel):
@@ -176,6 +178,8 @@ class AttestationResponse(BaseModel):
     id: str
     credential: dict[str, Any]
     verified: bool
+    # Phase 1: journey guidance for the issuer (the authenticated party).
+    guild_next: Optional[dict[str, Any]] = None
 
 
 class ReputationResponse(BaseModel):

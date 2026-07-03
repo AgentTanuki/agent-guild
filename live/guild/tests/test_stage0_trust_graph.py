@@ -79,20 +79,18 @@ def test_declare_configuration_requires_agent_key_and_records_history():
     assert prof["config_hash"] == body["config_hash"]
     assert prof["config_changes"] == 1
     # a config declaration is a return visit — the response must carry
-    # next-step guidance, and (no endpoint declared) the first step must be
-    # declare_endpoint (MetaVision lesson, 2026-07-03)
+    # next-step guidance from the journey engine (Phase 1: exactly ONE primary
+    # action), and with no endpoint declared, that action is declare_endpoint
+    # (MetaVision lesson, 2026-07-03)
     gn = body["guild_next"]
-    actions = [s["action"] for s in gn["steps"]]
-    assert actions[0] == "declare_endpoint"
-    assert "earn_first_attestation" in actions and "fetch_passport" in actions
+    assert gn["primary"]["action"] == "declare_endpoint"
     # once an endpoint IS declared, the dead-end warning disappears
     client.post(f"/agents/{a['id']}/endpoint",
                 json={"endpoint": "https://example.com/a2a"},
                 headers={"X-API-Key": a["api_key"]})
     r2 = client.post(f"/agents/{a['id']}/configuration",
                      json={"config": CFG_V1}, headers={"X-API-Key": a["api_key"]})
-    acts2 = [s["action"] for s in r2.json()["guild_next"]["steps"]]
-    assert "declare_endpoint" not in acts2
+    assert r2.json()["guild_next"]["primary"]["action"] != "declare_endpoint"
 
 
 def test_evidence_records_are_stamped_with_config_at_write_time():
