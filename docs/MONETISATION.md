@@ -68,6 +68,77 @@ You'll see a billing balance decrement as the consumer agent pays for discovery.
 Swap the consumer for an agent you don't control, and you're running the real
 experiment.
 
+## Revenue lines vs. the neutrality test
+
+The Trust Graph white paper's neutrality constraint (§1.3, §8.8) yields one litmus
+test for any revenue idea: **payment may change how much of the graph you consume,
+never what the graph says.** Charge for reads, flow, and proof; never for writes,
+ranking, or verdicts. Certificate authorities that sold their judgment were
+distrusted out of existence — that is the failure mode every line below is scored
+against.
+
+### Core lines (pass)
+
+- **Reputation queries** — shipped. Free writes / paid reads, prepaid credits.
+  Neutral because every asker pays the same price for the same answer, and the
+  explanation object makes the answer auditable.
+- **Escrow / settlement commission** — shipped. The Visa model: a toll on
+  trust-bearing flow. Doubly virtuous — the commission is revenue *and* the
+  mechanism that prices fake reputation (collusion rings must push real value
+  through escrow to fake evidence; see COSTLY_ATTESTATIONS.md).
+- **Enterprise verification** — strongest medium-term line: SLA'd bulk reads,
+  anomaly-detection feeds, compromise early-warning, private contexts. The white
+  paper flags operator-run adversarial analytics as "a revenue line that deepens
+  the moat" (§8.7). Reads at scale, not influence.
+- **Audit** — neutrality-*positive*: derivation traces, replay proofs,
+  "this decision was reasonable given the evidence at time T" compliance reports.
+  Monetises verifiability itself; paying to *prove* a score changes nothing.
+
+### Conditional (pass only in the right shape)
+
+- **Dispute resolution** — AG must never be the judge: adjudication verdicts are
+  evidence, and selling verdicts is selling trust. Right shape: operate the
+  dispute *rails* plus a marketplace of third-party adjudicators with slashing
+  exposure; take a rake on the arbitration flow.
+- **Insurance** — the long-term prize, but direct underwriting makes the operator
+  both scorer and payer — a structural conflict. Right shape first: license
+  calibrated risk pricing to third-party underwriters (credit-bureau → lender
+  model); the posterior triple (estimate / confidence / staleness) is an actuarial
+  input. Direct underwriting only later, and ring-fenced.
+
+### Never (fail)
+
+- **Paid passport issuance** — issuance is a write; taxing writes throttles the
+  graph, and paid credentials is the CA death pattern. Passports are the
+  distribution loop and the "moat is not lock-in" proof (white paper §12.3) —
+  free forever. Monetise their *verification* at enterprise scale instead.
+- **Premium attestations** — pay-for-score, full stop. The legitimate adjacent
+  version already exists: attestations gain weight by carrying real settlement
+  through escrow — the premium goes to the rails (our commission), never to the
+  score.
+
+### The growth constraint: adoption first, revenue as a by-product of scale
+
+Nothing on this list may slow adoption. The operating principle:
+**free tier scales with exploration; pricing scales with dependence.**
+
+- An agent's first contact never hits a 402. `/check` stays free; starter credits
+  are generous. Metering binds only at volume — by which point the agent depends
+  on the graph and the cost is negligible against one bad hire.
+- Revenue is deliberately superlinear in adoption: paid units are reads and
+  settled transactions. Transactions scale with *pairs* of agents (~n²), not
+  agents (n), and each engagement drives multiple reads. Every new participant
+  raises revenue per existing participant — the same compounding as the moat.
+- Escrow commission is the model native to this: a % of flow, invisible at low
+  volume, growing automatically with it. Flat and uniform — never tiered by who
+  the participant is.
+
+### Sequencing (from current state)
+
+Queries + escrow commission (live) → enterprise verification & monitoring →
+audit / compliance → dispute rails → insurance data licensing. Each later line
+requires the evidence corpus the earlier ones fund.
+
 ## Going live
 
 Set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`, add a webhook to
