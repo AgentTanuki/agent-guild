@@ -237,6 +237,21 @@ class Store:
         """The agent's current config hash, for stamping onto evidence records."""
         return (self.agents.get(agent_id) or {}).get("config_hash")
 
+    def set_agent_endpoint(self, agent_id: str, endpoint: str) -> dict[str, Any]:
+        """Declare a reachable endpoint (A2A or plain HTTP URL) for this agent.
+        Without one, first contact is one-way: the agent can read the Guild but
+        neither the Guild nor its members can route a collaboration invite back
+        (the Forge-9 lesson, 2026-07-03)."""
+        with self.lock:
+            agent = self.agents.get(agent_id)
+            if agent is None:
+                raise ValueError("agent not found")
+            agent.setdefault("metadata", {})["endpoint"] = endpoint
+            self.record_event(self.account_for_agent(agent_id), "endpoint_declared",
+                              agent_id=agent_id, endpoint=endpoint)
+            self._save()
+            return {"agent_id": agent_id, "endpoint": endpoint, "declared_at": _now()}
+
     # --- referrals (agents as the growth engine) ----------------------------
     def _referred_agent_usage(self, agent_id: str) -> tuple[int, int]:
         """(accepted_receipts_as_worker, paid_reads) for a referred agent — the

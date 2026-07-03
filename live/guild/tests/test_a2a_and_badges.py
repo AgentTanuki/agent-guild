@@ -87,3 +87,41 @@ def test_badges_never_break_embeds():
     r = client.get(f"/agents/{some_id}/badge.svg")
     assert r.status_code == 200
     assert ("trust" in r.text) or ("new" in r.text)
+
+
+def test_a2a_reply_carries_route_back_and_logs_text():
+    """Every A2A reply must carry guild_contact (the route back), and the
+    inbound text must be kept on the event — first contact is otherwise
+    unrecoverable (the Forge-9 lesson)."""
+    _seed()
+    r = client.post("/a2a", json={
+        "jsonrpc": "2.0", "id": 7, "method": "message/send",
+        "params": {"message": {"parts": [{"kind": "text", "text": "check: fact-check"}]}},
+    })
+    assert r.status_code == 200
+    payload = json.loads(r.json()["result"]["parts"][0]["text"])
+    assert "guild_contact" in payload
+    assert "declare_endpoint" in payload["guild_contact"]
+    ev = [e for e in store.events if e.get("endpoint") == "a2a_message"][-1]
+    assert ev.get("text") == "check: fact-check"
+
+
+def test_declare_endpoint_route():
+    _seed()
+    reg = client.post("/agents/register", json={
+        "name": "RouteBack Test", "capabilities": ["testing"]}).json()
+    aid, key = reg["id"], reg["api_key"]
+    # bad URL rejected
+    bad = client.post(f"/agents/{aid}/endpoint", json={"endpoint": "not-a-url"},
+                      headers={"X-API-Key": key})
+    assert bad.status_code == 422
+    # custodial agent must authenticate
+    noauth = client.post(f"/agents/{aid}/endpoint",
+                         json={"endpoint": "https://example.com/a2a"})
+    assert noauth.status_code == 401
+    ok = client.post(f"/agents/{aid}/endpoint",
+                     json={"endpoint": "https://example.com/a2a"},
+                     headers={"X-API-Key": key})
+    assert ok.status_code == 200
+    assert client.get(f"/agents/{aid}").json()["metadata"]["endpoint"] == \
+        "https://example.com/a2a"

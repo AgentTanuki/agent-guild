@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 import contextvars
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Header, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -291,6 +291,25 @@ def declare_configuration(agent_id: str, req: ConfigurationRequest,
         raise HTTPException(404, "agent not found")
     _require_key(agent, x_api_key, "agent")
     return ConfigurationResponse(**store.declare_configuration(agent_id, req.config))
+
+
+@app.post("/agents/{agent_id}/endpoint")
+def declare_endpoint(agent_id: str, body: dict[str, Any],
+                     x_api_key: Optional[str] = Header(None)):
+    """Declare a reachable endpoint (A2A or HTTP URL) so the Guild and its
+    members can route collaboration invites back to this agent. Free. Without
+    it, first contact is one-way — you can read our trust data, but nobody can
+    offer you work."""
+    agent = store.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(404, "agent not found")
+    _require_key(agent, x_api_key, "agent")
+    url = str(body.get("endpoint") or "").strip()
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise HTTPException(422, "endpoint must be an http(s) URL")
+    if len(url) > 500:
+        raise HTTPException(422, "endpoint too long")
+    return store.set_agent_endpoint(agent_id, url)
 
 
 @app.get("/agents")
@@ -1087,11 +1106,17 @@ def wellknown_manifest():
 @app.get("/.well-known/glama.json")
 def wellknown_glama():
     """Ownership-verification file for claiming the Glama connector listing.
-    The maintainer email must match the email on the Glama account claiming it;
-    Glama auto-detects this file at https://<host>/.well-known/glama.json."""
+    Glama auto-detects this file at https://<host>/.well-known/glama.json.
+    Ownership was verified 2026-07-02 against the claiming account; the
+    published contact is the project identity (public-identity rule: no
+    personal addresses on any public surface). If Glama re-checks and drops
+    verification, temporarily restore the account email via env var
+    GLAMA_MAINTAINER_EMAIL rather than committing it."""
+    email = os.environ.get("GLAMA_MAINTAINER_EMAIL",
+                           "294486129+AgentTanuki@users.noreply.github.com")
     return {
         "$schema": "https://glama.ai/mcp/schemas/connector.json",
-        "maintainers": [{"email": "rwdburley@gmail.com"}],
+        "maintainers": [{"email": email}],
     }
 
 

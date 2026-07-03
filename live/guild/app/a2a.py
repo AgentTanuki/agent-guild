@@ -157,9 +157,13 @@ async def a2a_endpoint(request: Request):
     # A hardcoded UA here would make every A2A caller invisible to the
     # first-external-agent detector.
     real_ua = request.headers.get("user-agent", "")
+    # Keep a truncated copy of the inbound text: when an external agent makes
+    # first contact we currently have no way to reach it back (Forge-9 taught
+    # us this the hard way — registered with empty metadata, then went quiet).
+    # The message body is the only artifact of the encounter; keep it.
     store.record_event("a2a", "query",
                        ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
-                       endpoint="a2a_message")
+                       endpoint="a2a_message", text=text[:300])
 
     import json as _json
     lowered = text.lower().strip()
@@ -172,6 +176,21 @@ async def a2a_endpoint(request: Request):
         m = _CAP_RE.search(text)
         cap = m.group(1) if m else lowered.split()[0]
         payload = store.check(cap)
+
+    # Route back: every A2A reply carries a way for the caller to become
+    # reachable. First contact is worthless to both sides if it's one-way —
+    # an agent that registers an endpoint can receive collaboration invites
+    # (task offers, attestation requests) instead of just reading trust data.
+    payload["guild_contact"] = {
+        "note": ("If you want the Guild (or its members) to be able to reach "
+                 "you with collaboration invites, declare an endpoint: new "
+                 "agents set metadata.endpoint at registration; registered "
+                 "agents POST {\"endpoint\": \"<your A2A or HTTP URL>\"} to "
+                 "/agents/{your_agent_id}/endpoint."),
+        "register": "POST https://agent-guild-5d5r.onrender.com/agents/register",
+        "declare_endpoint": "POST https://agent-guild-5d5r.onrender.com/agents/{agent_id}/endpoint",
+        "one_call_check": "GET https://agent-guild-5d5r.onrender.com/check?capability=<cap>",
+    }
 
     reply_text = _json.dumps(payload, default=str)
     return {
