@@ -102,3 +102,39 @@ def test_capability_index_counts_suppliers():
     s = _seeded_store()
     idx = s.capability_index()
     assert idx.get("fact-check", 0) >= 1
+
+
+def test_check_leads_with_explanation_object_not_scalar():
+    """§15: the one-call payload must lead with an explanation OBJECT (estimate,
+    confidence, staleness, top evidence), never a bare scalar. The deprecated
+    scalars remain under `verdict` for v1 callers."""
+    s = _seeded_store()
+    r = s.check("fact-check")
+    d = r["decision"]
+    assert d is not None
+    for k in ("agent_id", "estimate", "confidence", "staleness", "top_evidence",
+              "interpretation"):
+        assert k in d, k
+    assert 0.0 <= d["estimate"] <= 1.0
+    assert isinstance(d["top_evidence"], list) and d["top_evidence"]
+    assert d["agent_id"] == r["best_agent"]["id"]
+    # back-compat: the deprecated scalar path is still there
+    assert r["verdict"]["recommendation"] in ("hire", "caution", "avoid")
+    assert "risk" in r["verdict"]["deprecated"]
+
+
+def test_staleness_is_computed_not_null():
+    """§15 required field: staleness must be a real object with an age + label
+    once an agent has dated evidence — not the old hardcoded None."""
+    s = _seeded_store()
+    best = s.shortlist("fact-check", limit=1)[0]
+    st = s.risk_for(best["id"])["staleness"]
+    assert st is not None
+    assert st["label"] in ("fresh", "aging", "stale", "unknown")
+    assert "most_recent_at" in st
+
+
+def test_check_no_supply_has_no_decision():
+    s = _seeded_store()
+    r = s.check("no-such-capability")
+    assert r["decision"] is None

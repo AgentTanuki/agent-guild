@@ -185,3 +185,29 @@ Properties added:
 The store dicts remain the serving views. The cutover — views rebuilt from
 replay, chain as sole system of record — is the remaining Stage 1 step and
 needs its own go/no-go.
+
+## 11. Stage 2 (2026-07-03): published checkpoints + passports cite them
+
+Per §7 the stage-2 delta over stage-1 is publication, not more dual-writing
+(stage-1 already lands every evidence event on the chain). Shipped:
+
+- **Published, pinnable checkpoint feed.** `Store.publish_checkpoint()` seals the
+  current ledger head into a Guild-signed checkpoint and appends it to an
+  append-only feed (`checkpoints`, persisted). Idempotent: if no evidence has
+  landed since the last publication, the existing checkpoint is returned rather
+  than committing a duplicate. `GET /ledger/checkpoints` serves the feed;
+  `POST /ledger/checkpoint/publish` (admin-token gated) is the scheduled
+  publication hook.
+- **Passports cite the published checkpoint.** `issue_passport` anchors to the
+  latest *published* checkpoint (by `checkpoint_index` + `published_at`), not an
+  ephemeral one minted per passport. Every passport issued between two
+  publications cites the same commitment, so a verifier can match a received
+  passport against the public feed a third party has pinned.
+- **Still reversible.** Reputation still derives from EigenTrust over
+  tasks+attestations; the ledger remains a projection. Stage 3 (chain as sole
+  system of record; irreversible) stays gated on the criteria in
+  `docs/DECISION_MEMO_2026-07-03.md`: 4 clean weeks of reconciliation, a decided
+  checkpoint-publication venue, and ≥1 genuine external attestation.
+
+Locked by `tests/test_stage2_checkpoints.py` (feed append, idempotency, feed
+advance on new evidence, passport citation, endpoint + admin gate).

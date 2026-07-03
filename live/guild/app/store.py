@@ -58,6 +58,7 @@ class Store:
         self.health_log: list[dict[str, Any]] = []        # self-evaluation snapshots
         self.identity: dict[str, Any] = {}                 # the Guild's own signing DID
         self.ledger_records: list[dict[str, Any]] = []     # durable, hash-chained VCRs
+        self.checkpoints: list[dict[str, Any]] = []        # published, pinnable checkpoints (stage-2)
         self.escrows: dict[str, dict[str, Any]] = {}       # agent-to-agent escrows
         self.guild_revenue: int = 0                        # settlement fees earned (credits)
         self._rep_cache: Optional[ScoringResult] = None
@@ -78,6 +79,7 @@ class Store:
             self.health_log = data.get("health_log", [])
             self.identity = data.get("identity", {})
             self.ledger_records = data.get("ledger_records", [])
+            self.checkpoints = data.get("checkpoints", [])
             self.escrows = data.get("escrows", {})
             self.guild_revenue = data.get("guild_revenue", 0)
 
@@ -94,6 +96,7 @@ class Store:
                        "health_log": self.health_log,
                        "identity": self.identity,
                        "ledger_records": self.ledger_records,
+                       "checkpoints": self.checkpoints,
                        "escrows": self.escrows,
                        "guild_revenue": self.guild_revenue}, f, indent=2)
         os.replace(tmp, self.path)
@@ -739,8 +742,34 @@ class Store:
             row["last_lookup"] = e.get("at")
         return summary
 
+    def evidence_staleness(self, agent_id: str) -> Optional[dict[str, Any]]:
+        """Staleness of an agent's evidence: age of the most recent attestation
+        it received or receipt it delivered. §15 lists staleness as a required
+        field of the explanation object — a fresh estimate and a two-year-old
+        estimate must not read identically. Returns None when there is no
+        dated evidence at all (the estimate is then pure prior)."""
+        stamps: list[str] = []
+        for a in self.attestations:
+            if a.get("subject_id") == agent_id and a.get("created_at"):
+                stamps.append(a["created_at"])
+        for t in self.tasks.values():
+            if t.get("worker_id") == agent_id:
+                ts = t.get("delivered_at") or t.get("created_at")
+                if ts:
+                    stamps.append(ts)
+        if not stamps:
+            return None
+        latest = max(stamps)
+        try:
+            age = datetime.now(timezone.utc) - datetime.fromisoformat(latest)
+            age_days = round(age.total_seconds() / 86400.0, 2)
+        except Exception:
+            return {"most_recent_at": latest, "age_days": None, "label": "unknown"}
+        label = "fresh" if age_days <= 30 else ("aging" if age_days <= 90 else "stale")
+        return {"most_recent_at": latest, "age_days": age_days, "label": label}
+
     @staticmethod
-    def explain_score(s: AgentScore) -> list[str]:
+    def explain_score(s: AgentScore, staleness: Optional[dict[str, Any]] = None) -> list[str]:
         """Human/agent-readable derivation of a score — trust is never a bare
         number (white paper §10). Each line names evidence the asker can check
         via /agents/{id}/evidence."""
@@ -767,9 +796,16 @@ class Store:
                 "Low confidence: thin trusted evidence — the estimate leans on the "
                 "prior. More receipt-backed attestations from established "
                 "counterparties would raise it.")
-        lines.append(
-            "Staleness not yet computed (time-decay ships in a later stage); "
-            "verify recency via the timestamps in /agents/{id}/evidence.")
+        if staleness and staleness.get("age_days") is not None:
+            lines.append(
+                f"Most recent evidence is {staleness['age_days']} day(s) old "
+                f"({staleness['label']}). Estimates are not yet time-decayed "
+                "(decay ships in a later stage) — weigh staleness yourself; "
+                "full timestamps are in /agents/{id}/evidence.")
+        else:
+            lines.append(
+                "No dated evidence yet — the estimate leans on the prior. "
+                "Verify recency via /agents/{id}/evidence.")
         return lines
 
     def risk_for(self, agent_id: str) -> Optional[dict[str, Any]]:
@@ -790,8 +826,8 @@ class Store:
             "agent_id": agent_id,
             "estimate": round(s.trust / 100.0, 4),
             "confidence": round(s.confidence, 3),
-            "staleness": None,
-            "explanation": self.explain_score(s),
+            "staleness": (_stale := self.evidence_staleness(agent_id)),
+            "explanation": self.explain_score(s, _stale),
             "collusion_suspicion": round(s.collusion_suspicion, 3),
             # --- deprecated v1 fields (kept so nothing breaks) ---------------
             "risk": risk,
@@ -823,10 +859,31 @@ class Store:
             "baseline_success_rate": ev["baseline_success_rate"],
             "disclaimer": ev["disclaimer"],
         }
+        # §15: the one-call payload leads with an explanation OBJECT, never a
+        # scalar. `decision` is the minimal contract — estimate, confidence,
+        # staleness, top evidence lines — so an integrator who reads only the
+        # first field still gets a defensible, non-collapsing answer. The bare
+        # scalars live on under `verdict` (deprecated) for v1 callers.
+        decision: Optional[dict[str, Any]] = None
+        if best and verdict:
+            decision = {
+                "agent_id": best["id"],
+                "estimate": verdict["estimate"],
+                "confidence": verdict["confidence"],
+                "staleness": verdict["staleness"],
+                "top_evidence": verdict["explanation"][:3],
+                "interpretation": (
+                    "This is an evidence estimate, not a guarantee: estimate is "
+                    "the Guild's trust estimate in [0,1], confidence reflects how "
+                    "much trusted evidence backs it, staleness is how old that "
+                    "evidence is. You decide the threshold."
+                ),
+            }
         out: dict[str, Any] = {
             "schema_version": 2,
             "capability": capability,
             "status": "supply" if best else "no_supply_yet",
+            "decision": decision,
             "best_agent": best,
             "verdict": verdict,
             "shortlist": short,
@@ -986,6 +1043,41 @@ class Store:
         from .ledger import Ledger
         self.ensure_ledger_backfilled()
         return Ledger.from_records(self.ledger_records)
+
+    # --- published checkpoints (stage-2: pinnable canonical commitments) -----
+    def publish_checkpoint(self) -> dict[str, Any]:
+        """Seal the current ledger head into a Guild-signed checkpoint and add it
+        to the published, append-only checkpoint feed third parties pin
+        (LEDGER_ARCHITECTURE §7 stage-2). Idempotent: if no evidence has landed
+        since the last published checkpoint, the existing one is returned rather
+        than publishing a duplicate. Meant to be called on a schedule."""
+        with self.lock:
+            gid = self.guild_identity()
+            led = self.durable_ledger()
+            cp = led.signed_checkpoint(gid["did"], gid["private_key"])
+            head = cp.get("head_hash")
+            if self.checkpoints:
+                last = self.checkpoints[-1]
+                if (last["checkpoint"].get("head_hash") == head
+                        and len(self.ledger_records) == last.get("ledger_length")):
+                    return last  # nothing new to commit
+            entry = {
+                "index": len(self.checkpoints),
+                "published_at": _now(),
+                "ledger_length": len(self.ledger_records),
+                "checkpoint": cp,
+            }
+            self.checkpoints.append(entry)
+            self._save()
+            return entry
+
+    def latest_checkpoint(self, *, publish_if_empty: bool = True) -> Optional[dict[str, Any]]:
+        """The most recent published checkpoint (the one passports cite). Lazily
+        publishes a first one so the feed is never empty when a passport needs an
+        anchor."""
+        if not self.checkpoints and publish_if_empty:
+            return self.publish_checkpoint()
+        return self.checkpoints[-1] if self.checkpoints else None
 
     # --- escrow + settlement (the economic layer) ---------------------------
     def open_escrow(self, requester_key: str, worker_id: str, amount: int,
@@ -1228,12 +1320,19 @@ class Store:
         # Anchor the portable credential to the canonical, tamper-evident ledger:
         # the verifier can confirm the subject's collaborations are committed to a
         # Guild-signed checkpoint, not just asserted by a score.
-        led = self.durable_ledger()
+        # Stage-2: cite the latest PUBLISHED checkpoint from the pinnable feed,
+        # not an ephemeral one minted per passport. Every passport issued between
+        # two publications cites the same commitment, so a verifier can match it
+        # against the public /ledger/checkpoints feed a third party has pinned.
+        # (latest_checkpoint -> publish_checkpoint -> durable_ledger also backfills
+        # ledger_records, so compute the collaboration count afterwards.)
+        published = self.latest_checkpoint()
         verifiable = sum(1 for d in self.ledger_records if d.get("worker_id") == agent_id)
-        cp = led.signed_checkpoint(gid["did"], gid["private_key"], created_at=created.isoformat())
         ledger_anchor = {
             "verifiable_collaborations": verifiable,
-            "checkpoint": cp,  # full signed checkpoint (stripping any field breaks the proof)
+            "checkpoint_index": published["index"] if published else None,
+            "checkpoint_published_at": published["published_at"] if published else None,
+            "checkpoint": published["checkpoint"] if published else None,
         }
         claims = {
             "name": rec["name"],

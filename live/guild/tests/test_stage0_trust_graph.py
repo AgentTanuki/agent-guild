@@ -172,7 +172,10 @@ def test_explanation_lines_reference_checkable_evidence():
     text = " ".join(rep["explanation"])
     assert "receipt" in text            # points at verifiable receipts
     assert "reviewer" in text           # points at issuer structure
-    assert "Staleness" in text          # honest about what is NOT computed
+    # staleness is now computed (§15): the explanation must reference evidence
+    # recency in a checkable way, pointing at the evidence endpoint.
+    assert ("evidence is" in text or "dated evidence" in text)
+    assert "/agents/{id}/evidence" in text
 
 
 # --- 3. upheld challenge = negative evidence, never erasure -------------------

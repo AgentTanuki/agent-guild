@@ -1247,6 +1247,34 @@ def ledger_checkpoint():
     }
 
 
+@app.get("/ledger/checkpoints")
+def ledger_checkpoints(limit: int = Query(20, ge=1, le=200)):
+    """The published, append-only checkpoint feed (stage-2). Third parties PIN
+    entries here; a passport's `ledger_anchor.checkpoint_index` points into this
+    feed, so anyone can confirm the passport cites a commitment that was public
+    at issue time and has not been silently rewritten since."""
+    feed = store.checkpoints[-limit:]
+    return {
+        "status": "preview",
+        "count": len(store.checkpoints),
+        "note": "Published checkpoints over the durable ledger. Pin the latest; "
+                "passports cite these by index.",
+        "checkpoints": list(reversed(feed)),
+    }
+
+
+@app.post("/ledger/checkpoint/publish")
+def publish_checkpoint(x_admin_token: Optional[str] = Header(None)):
+    """Seal the current ledger head into the published checkpoint feed. Admin-token
+    gated because publication is a canonical commitment, not a read. Idempotent:
+    returns the existing head checkpoint if no evidence has landed since. Intended
+    to be called on a schedule (see the checkpoint-publication scheduled task)."""
+    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(403, "publication requires a valid X-Admin-Token")
+    entry = store.publish_checkpoint()
+    return {"status": "published", "checkpoint": entry}
+
+
 @app.get("/ledger/stats")
 def ledger_stats():
     """Ledger composition: record count, provenance mix (guild_mediated /
