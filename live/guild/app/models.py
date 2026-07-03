@@ -86,6 +86,7 @@ class ConfigurationResponse(BaseModel):
     declared_at: str
     config_changes: int
     previous_hash: Optional[str] = None
+    guild_next: Optional[dict[str, Any]] = None
 
 
 class CreateTaskRequest(BaseModel):

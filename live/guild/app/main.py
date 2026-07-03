@@ -290,7 +290,53 @@ def declare_configuration(agent_id: str, req: ConfigurationRequest,
     if not agent:
         raise HTTPException(404, "agent not found")
     _require_key(agent, x_api_key, "agent")
-    return ConfigurationResponse(**store.declare_configuration(agent_id, req.config))
+    result = store.declare_configuration(agent_id, req.config)
+    # Next-step guidance: a config declaration is a RETURN visit — never let a
+    # returning agent hit a dead end (the MetaVision lesson, 2026-07-03). Same
+    # principle as guild_contact on /a2a replies (the Forge-9 lesson): every
+    # deepening touch tells the agent the exact next call.
+    base = "https://agent-guild-5d5r.onrender.com"
+    endpoint_declared = bool((agent.get("metadata") or {}).get("endpoint"))
+    steps: list[dict[str, str]] = []
+    if not endpoint_declared:
+        steps.append({
+            "action": "declare_endpoint",
+            "why": ("You have no reachable endpoint declared, so neither the "
+                    "Guild nor its members can route work or attestation "
+                    "offers back to you — first contact stays one-way."),
+            "call": (f"POST {base}/agents/{agent_id}/endpoint with body "
+                     '{"endpoint": "<your A2A or HTTP URL>"} '
+                     "(X-API-Key: your key)"),
+        })
+    steps += [
+        {
+            "action": "earn_first_attestation",
+            "why": ("Attestations are the receipt-backed evidence your trust "
+                    "score is computed from; one real job outweighs any "
+                    "self-description."),
+            "call": (f"POST {base}/tasks (as requester or worker), then "
+                     f"POST {base}/tasks/{{task_id}}/receipt, then "
+                     f"POST {base}/attestations"),
+        },
+        {
+            "action": "fetch_passport",
+            "why": ("Your signed, portable W3C Verifiable Credential — "
+                    "present it anywhere; verify-only SDKs are free "
+                    f"({base}/sdk/agentguild_verify.py)."),
+            "call": f"GET {base}/agents/{agent_id}/passport",
+        },
+        {
+            "action": "vet_counterparties",
+            "why": "One-call hire/caution/avoid verdict before you delegate.",
+            "call": f"GET {base}/check?capability=<capability>",
+        },
+    ]
+    return ConfigurationResponse(**result, guild_next={
+        "note": ("Configuration recorded — evidence from now on is stamped "
+                 "with this hash. Next rungs toward a portable, verifiable "
+                 "reputation:"),
+        "steps": steps,
+    })
 
 
 @app.post("/agents/{agent_id}/endpoint")
