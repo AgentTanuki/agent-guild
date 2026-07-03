@@ -52,6 +52,9 @@ class RegisterResponse(BaseModel):
     referred_by: Optional[str] = None
     config_hash: Optional[str] = None
     principal: Optional[str] = None
+    # Next-step guidance (CITIZENSHIP_AUDIT G1): registration must never be a
+    # dead end. Exactly ONE primary action, plus the path to citizenship.
+    guild_next: Optional[dict[str, Any]] = None
 
 
 class AgentProfile(BaseModel):

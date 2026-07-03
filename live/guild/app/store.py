@@ -61,6 +61,7 @@ class Store:
         self.checkpoints: list[dict[str, Any]] = []        # published, pinnable checkpoints (stage-2)
         self.escrows: dict[str, dict[str, Any]] = {}       # agent-to-agent escrows
         self.guild_revenue: int = 0                        # settlement fees earned (credits)
+        self.demand_watches: list[dict[str, Any]] = []     # attributable demand callbacks (Phase 0, G5)
         self._rep_cache: Optional[ScoringResult] = None
         self._load()
 
@@ -82,6 +83,7 @@ class Store:
             self.checkpoints = data.get("checkpoints", [])
             self.escrows = data.get("escrows", {})
             self.guild_revenue = data.get("guild_revenue", 0)
+            self.demand_watches = data.get("demand_watches", [])
 
     def _save(self) -> None:
         if not self.path:
@@ -98,7 +100,8 @@ class Store:
                        "ledger_records": self.ledger_records,
                        "checkpoints": self.checkpoints,
                        "escrows": self.escrows,
-                       "guild_revenue": self.guild_revenue}, f, indent=2)
+                       "guild_revenue": self.guild_revenue,
+                       "demand_watches": self.demand_watches}, f, indent=2)
         os.replace(tmp, self.path)
 
     # --- agents -------------------------------------------------------------
@@ -172,6 +175,11 @@ class Store:
                 "config_hash": cfg_hash,
                 "config_history": ([{"hash": cfg_hash, "config": config,
                                      "declared_at": now}] if config else []),
+                # --- journey milestones (CITIZENSHIP_AUDIT Phase 0) ----------
+                # Once-per-agent timestamps for stage progression. These are the
+                # one thing that cannot be backfilled: time-to-first-engagement,
+                # -attestation, -passport all start from this dict.
+                "milestones": {"registered": now},
             }
             self.agents[agent_id] = rec
             # Custodial agents get a billing account keyed by their api_key, so
@@ -192,6 +200,12 @@ class Store:
                 })
                 self.record_event(self.account_for_agent(referred_by), "referral",
                                   referrer_id=referred_by, referred_id=agent_id)
+            # The funnel's t0: without this event, no time-to-anything exists
+            # (CITIZENSHIP_AUDIT G2). Recorded against the agent's own key so
+            # first-party traffic stays separable.
+            self.record_event(api_key, "register", agent_id=agent_id,
+                              custodial=custodial, referred=bool(referred_by),
+                              agent_first_party=fp)
             self._rep_cache = None
             self._save()
             # dual-write: identity creation is chain evidence (public fields ONLY —
@@ -239,6 +253,41 @@ class Store:
     def _config_stamp(self, agent_id: str) -> Optional[str]:
         """The agent's current config hash, for stamping onto evidence records."""
         return (self.agents.get(agent_id) or {}).get("config_hash")
+
+    def add_demand_watch(self, agent_id: str, capability: str) -> dict[str, Any]:
+        """Attributable demand-side interest (CITIZENSHIP_AUDIT G5): a registered
+        agent asks to be told when supply for a capability arrives. Phase 0
+        records the watch — so `/check` dead ends stop being anonymous, permanent
+        losses — and gives the watcher a standing reason to return. Notification
+        *delivery* ships with the outbound-nudge phase; until then the watch is
+        visible on the agent's own record and in the demand telemetry."""
+        with self.lock:
+            agent = self.agents.get(agent_id)
+            if agent is None:
+                raise ValueError("agent not found")
+            cap = (capability or "").strip().lower()
+            if not cap:
+                raise ValueError("capability required")
+            existing = next((w for w in self.demand_watches
+                             if w["agent_id"] == agent_id and w["capability"] == cap),
+                            None)
+            if existing:
+                return existing
+            w = {
+                "agent_id": agent_id,
+                "capability": cap,
+                "created_at": _now(),
+                "supplied_at_creation": cap in self.capability_index(),
+                "notified_at": None,   # reserved for the outbound-nudge phase
+            }
+            self.demand_watches.append(w)
+            self.record_event(self.account_for_agent(agent_id), "demand_watch",
+                              agent_id=agent_id, capability=cap)
+            self._save()
+            return w
+
+    def watches_for(self, agent_id: str) -> list[dict[str, Any]]:
+        return [w for w in self.demand_watches if w["agent_id"] == agent_id]
 
     def set_agent_endpoint(self, agent_id: str, endpoint: str) -> dict[str, Any]:
         """Declare a reachable endpoint (A2A or plain HTTP URL) for this agent.
@@ -440,6 +489,28 @@ class Store:
         if len(self.events) > 50000:
             self.events = self.events[-25000:]
 
+    def record_milestone(self, agent_id: str, name: str, **meta) -> bool:
+        """Stamp a once-per-agent journey milestone and emit its stage-transition
+        event (CITIZENSHIP_AUDIT Phase 0). Milestones are the instrument panel of
+        the stranger→citizen journey: `registered`, `first_engagement`,
+        `first_receipt`, `first_attestation_given`, `first_attestation_received`,
+        `first_attestation_pair`, `first_passport`. Self-deduplicating — call it
+        at every candidate site; only the FIRST occurrence stamps and emits.
+        Timestamps cannot be backfilled, which is why this ships before any
+        journey product does. Callers are responsible for locking/_save (same
+        convention as record_event); returns True only on first stamping."""
+        agent = self.agents.get(agent_id)
+        if agent is None:
+            return False
+        ms = agent.setdefault("milestones", {})
+        if name in ms:
+            return False
+        ms[name] = _now()
+        self.record_event(self.account_for_agent(agent_id), name,
+                          agent_id=agent_id,
+                          agent_first_party=bool(agent.get("first_party")), **meta)
+        return True
+
     def note_recommendations(self, key: Optional[str], worker_ids: list[str]) -> None:
         """Remember what we just recommended to `key`, so a later hire of one of
         those workers can be attributed as 'delegation following a recommendation'."""
@@ -498,6 +569,54 @@ class Store:
             "total_events": len(events),
         }
 
+    def journey_funnel(self) -> dict[str, Any]:
+        """The stage-progression funnel (CITIZENSHIP_AUDIT §7, metric 5): how many
+        agents reached each journey milestone, and the median seconds from
+        registration to each. Split external vs first-party because only external
+        agents measure the real newcomer conversion curve (whitepaper §8.6)."""
+        order = ["registered", "first_engagement", "first_receipt",
+                 "first_attestation_received", "first_attestation_given",
+                 "first_attestation_pair", "first_passport"]
+
+        def _parse(ts: Optional[str]) -> Optional[datetime]:
+            if not ts:
+                return None
+            try:
+                return datetime.fromisoformat(ts)
+            except ValueError:
+                return None
+
+        def _summary(agents: list[dict[str, Any]]) -> dict[str, Any]:
+            counts = {m: 0 for m in order}
+            deltas: dict[str, list[float]] = {m: [] for m in order[1:]}
+            for a in agents:
+                ms = a.get("milestones") or {}
+                reg = _parse(ms.get("registered") or a.get("created_at"))
+                if reg is not None:
+                    counts["registered"] += 1
+                for m in order[1:]:
+                    t = _parse(ms.get(m))
+                    if t is None:
+                        continue
+                    counts[m] += 1
+                    if reg is not None:
+                        deltas[m].append(max(0.0, (t - reg).total_seconds()))
+            medians = {m: (round(statistics.median(v), 1) if v else None)
+                       for m, v in deltas.items()}
+            return {"reached": counts,
+                    "median_seconds_from_registration": medians}
+
+        ext = [a for a in self.agents.values() if not a.get("first_party")]
+        fp = [a for a in self.agents.values() if a.get("first_party")]
+        return {
+            "external": _summary(ext),
+            "first_party": _summary(fp),
+            "demand_watches": len(self.demand_watches),
+            "note": ("Per-agent journey milestones, stranger→citizen. The number "
+                     "to bend: external median register→first_receipt (the "
+                     "newcomer conversion curve)."),
+        }
+
     def instrumentation(self) -> dict[str, Any]:
         """The adoption funnel, split so genuine third-party usage is isolated
         from our own seed/test traffic. Top-level keys are the COMBINED totals
@@ -522,6 +641,8 @@ class Store:
         combined["genuine_external_actors"] = actors
         combined["first_genuine_external_at"] = (
             min(e["at"] for e in genuine) if genuine else None)
+        # Journey funnel (Phase 0): stage progression, not just traffic.
+        combined["journey"] = self.journey_funnel()
         combined["note"] = ("`external` includes our own tooling (curl/urllib) test "
                             "traffic; `genuine_external` is the honest third-party signal.")
         return combined
@@ -923,6 +1044,22 @@ class Store:
                     "Lookups for this capability are recorded, so registering "
                     "supply here targets demonstrated demand, not a guess."
                 ),
+            }
+            # Phase 0 (CITIZENSHIP_AUDIT G5): don't let a demand-side dead end
+            # stay anonymous. A stranger who wanted this capability and walks
+            # away unattributed is a permanent loss; a registered watcher is a
+            # stage-1 agent with a standing reason to return.
+            out["callback"] = {
+                "note": ("Not a supplier yourself? Don't walk away unattributed: "
+                         "register (free, one call) and WATCH this capability — "
+                         "your interest is recorded against real demand, and "
+                         "you'll see supply the moment it exists."),
+                "register": "POST /agents/register {\"name\": \"<you>\", "
+                            "\"capabilities\": []} — free, returns your key",
+                "watch": "POST /demand/watch {\"capability\": \"" + capability +
+                         "\"} with X-API-Key — free",
+                "then": "GET /check?capability=" + capability +
+                        " on your next visit shows current supply",
             }
         return out
 
@@ -1360,6 +1497,8 @@ class Store:
         )
         self.record_event(self.account_for_agent(agent_id), "passport_issued",
                           endpoint="passport", subject_id=agent_id)
+        if self.record_milestone(agent_id, "first_passport"):
+            self._save()  # milestone stamps mutate the agent record; persist it
         return cred
 
     def verify_passport(self, vc: dict[str, Any], actor_key: Optional[str] = None,
@@ -1519,6 +1658,12 @@ class Store:
                 "requester_config_hash": self._config_stamp(requester_id),
             }
             self.tasks[task_id] = rec
+            # First engagement (either role) is the stage-1→2 transition — the
+            # broken-link metric this whole instrument panel exists to bend.
+            self.record_milestone(requester_id, "first_engagement",
+                                  task_id=task_id, role="requester")
+            self.record_milestone(worker_id, "first_engagement",
+                                  task_id=task_id, role="worker")
             self._save()
             return rec
 
@@ -1537,6 +1682,10 @@ class Store:
             task["deliverable_url"] = deliverable_url
             task["outcome"] = outcome
             task["delivered_at"] = _now()
+            if outcome != "rejected":
+                # First delivered work = first-time activation (worker side).
+                self.record_milestone(task["worker_agent_id"], "first_receipt",
+                                      task_id=task_id)
             self._rep_cache = None
             self._save()
             # dual-write: the raw receipt event. Unlike a sealed collaboration
@@ -1668,6 +1817,32 @@ class Store:
             "subject_config_hash": self._config_stamp(subject_id),
         }
         self.attestations.append(rec)
+        # Journey milestones: an attestation advances BOTH parties.
+        self.record_milestone(issuer_id, "first_attestation_given",
+                              attestation_id=att_id)
+        self.record_milestone(subject_id, "first_attestation_received",
+                              attestation_id=att_id)
+        # Matched-pair detection (whitepaper §4.2: matched counterparty pairs are
+        # the strong evidence class). If this is the first attestation in its
+        # direction for a real task and the reverse direction already exists,
+        # the pair just closed.
+        if task_id and task_id in self.tasks:
+            same_dir = sum(1 for a in self.attestations
+                           if a.get("task_id") == task_id
+                           and a["issuer_id"] == issuer_id
+                           and a["subject_id"] == subject_id)
+            reverse = any(a.get("task_id") == task_id
+                          and a["issuer_id"] == subject_id
+                          and a["subject_id"] == issuer_id
+                          for a in self.attestations)
+            if same_dir == 1 and reverse:
+                self.record_event(self.account_for_agent(issuer_id),
+                                  "attestation_pair_closed", task_id=task_id,
+                                  issuer_id=issuer_id, subject_id=subject_id)
+                self.record_milestone(issuer_id, "first_attestation_pair",
+                                      task_id=task_id)
+                self.record_milestone(subject_id, "first_attestation_pair",
+                                      task_id=task_id)
         self._rep_cache = None
         self._save()
         # dual-write: the attestation EVENT goes on the chain with the credential's
