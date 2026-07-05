@@ -1021,6 +1021,53 @@ class Store:
                 "agent's lookup better, which is why writes are free."
             ),
         }
+        # Cold-start conversion. When the top supplier is a REAL agent with no
+        # verified evidence yet (confidence ≈ 0), a rational consumer stalls:
+        # nobody wants to be first to trust an unproven agent, so no attestation
+        # is ever written and the agent stays unproven forever — a deadlock the
+        # `no_supply_yet` branch already breaks for demand, but the supply side
+        # did not. Name the situation honestly (this is a cold-start, not a
+        # hidden flaw) and point at the single action that breaks it: be the
+        # first to delegate + vouch. This is the exact loop that yields the first
+        # genuine external attestation on the canonical ledger, and writes are
+        # free, so the nudge costs the consumer nothing to act on.
+        if best is not None:
+            best_conf = best.get("confidence") or 0.0
+            if best_conf < 0.2:
+                out["guild_next"] = {
+                    "situation": (
+                        f"'{best['name']}' is the top supplier for '{capability}' "
+                        f"but is UNPROVEN — confidence {best_conf:.2f}, no verified "
+                        "task receipts or attestations yet. Honest cold-start, not "
+                        "a hidden flaw: the score is low because evidence is absent, "
+                        "not because anything bad is known."
+                    ),
+                    "high_value_action": (
+                        "Be the first to establish its reputation. Delegate a real "
+                        "task; when you get usable work back, vouch for the outcome. "
+                        "The first honest attestation on an unproven supplier moves "
+                        "the score every later agent will rely on — highest-leverage "
+                        "signal you can contribute."
+                    ),
+                    "one_call": (
+                        "POST /collaborations {\"worker_id\": \"" + best["id"] +
+                        "\", \"capability\": \"" + capability + "\", \"outcome\": "
+                        "\"accepted\", \"rating\": <0..1>, \"deliverable\": \"<what "
+                        "you received>\"} with X-API-Key — records the task, its "
+                        "receipt, and your receipt-backed attestation as one "
+                        "verifiable ledger entry."
+                    ),
+                    "or_attest": (
+                        "Already delegated elsewhere? guild_attest(issuer_api_key, "
+                        "\"" + best["id"] + "\", \"" + capability + "\", rating) over "
+                        "MCP, or POST /attestations over HTTP."
+                    ),
+                    "why_free": (
+                        "Writes are free and Sybil-resistant: honest signal is the "
+                        "product, so contributing never costs and manufactured "
+                        "praise never pays."
+                    ),
+                }
         if best is None:
             near = self.nearest_capabilities(capability)
             out["nearest_capabilities"] = [

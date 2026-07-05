@@ -84,6 +84,35 @@ def test_check_hit_has_supply_status_and_no_be_first():
     assert "nearest_capabilities" not in r
 
 
+def test_check_cold_start_supplier_gets_guild_next():
+    """A supplier that exists but has no evidence yet (confidence ≈ 0) is a
+    cold-start deadlock: nobody vouches first, so it stays unproven forever. The
+    payload must name the situation honestly and hand the caller the exact
+    first-attestation call — the loop that yields the first real attestation."""
+    s = _seeded_store()
+    rec = s.register_agent("ColdStartCo", ["widget-forging"], {})
+    r = s.check("widget-forging")
+    assert r["status"] == "supply"
+    assert r["best_agent"]["confidence"] < 0.2
+    gn = r["guild_next"]
+    for k in ("situation", "high_value_action", "one_call", "or_attest", "why_free"):
+        assert k in gn, k
+    # honest framing: unproven, not flawed
+    assert "unproven" in gn["situation"].lower()
+    # actionable: the exact worker + capability the caller would attest
+    assert rec["id"] in gn["one_call"] and "widget-forging" in gn["one_call"]
+    assert rec["id"] in gn["or_attest"]
+
+
+def test_check_proven_supplier_has_no_guild_next():
+    """The cold-start nudge must NOT fire for an evidence-backed supplier —
+    otherwise it would nag on every lookup and stop meaning anything."""
+    s = _seeded_store()
+    r = s.check("fact-check")  # seed supply carries real attestations
+    assert r["best_agent"]["confidence"] >= 0.2
+    assert "guild_next" not in r
+
+
 def test_check_records_capability_demand_and_summary():
     """Every /check is recorded as dated demand; the summary separates
     supplied from unsupplied lookups so /capabilities can be honest."""
