@@ -80,10 +80,10 @@ def test_declare_configuration_requires_agent_key_and_records_history():
     assert prof["config_changes"] == 1
     # a config declaration is a return visit — the response must carry
     # next-step guidance from the journey engine (Phase 1: exactly ONE primary
-    # action), and with no endpoint declared, that action is declare_endpoint
-    # (MetaVision lesson, 2026-07-03)
+    # action); for an unproven agent that action is the self-serve proving
+    # rung (2026-07-06 retention fix; MetaVision lesson, 2026-07-03)
     gn = body["guild_next"]
-    assert gn["primary"]["action"] == "declare_endpoint"
+    assert gn["primary"]["action"] == "prove_key_control"
     # once an endpoint IS declared, the dead-end warning disappears
     client.post(f"/agents/{a['id']}/endpoint",
                 json={"endpoint": "https://example.com/a2a"},

@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app, store  # noqa: E402
 from app.store import Store  # noqa: E402
 from app import journey  # noqa: E402
+from app import proving  # noqa: E402
 
 client = TestClient(app)
 
@@ -82,11 +83,16 @@ def test_stage_three_and_four_predicates():
 def test_primary_action_tracks_evidence_state():
     s = Store(path="")
     a = s.register_agent("np", ["cap"], {})
+    # unproven newcomer: the self-serve proving rung outranks everything
+    assert journey.next_actions(s, a)[0]["action"] == "prove_key_control"
+    proving.issue_challenge(s, a)
+    proving.verify(s, a)  # custodial: the authenticated call is the proof
     assert journey.next_actions(s, a)[0]["action"] == "declare_endpoint"
     s.set_agent_endpoint(a["id"], "https://a.example/a2a")
     assert journey.next_actions(s, a)[0]["action"] == "declare_configuration"
     s.declare_configuration(a["id"], {"model": "test"})
-    assert journey.next_actions(s, a)[0]["action"] == "earn_first_engagement"
+    # proven (stage 2, receipt in hand): the counterparty rung is next
+    assert journey.next_actions(s, a)[0]["action"] == "get_attested"
     gn = journey.guild_next(s, a)
     assert isinstance(gn["primary"], dict) and "steps" not in gn
     assert "/journey" in gn["journey"]
@@ -130,7 +136,7 @@ def test_journey_endpoint_free_to_self_metered_to_others():
     assert r.headers.get("X-Guild-Cost") == "0"
     j = r.json()
     assert j["stage"] == 1 and j["stage_name"] == "registered"
-    assert j["next_actions"][0]["action"] == "declare_endpoint"
+    assert j["next_actions"][0]["action"] == "prove_key_control"
     assert "counterfactuals" in j and "milestones" in j
     other = _register(name="journey-other")
     r = client.get(f"/agents/{out['id']}/journey",
@@ -144,14 +150,14 @@ def test_journey_endpoint_free_to_self_metered_to_others():
 def test_write_responses_embed_engine_guild_next():
     req = _register(name="w-req")
     wrk = _register(name="w-wrk", capabilities=["cap"])
-    # register
-    assert req["guild_next"]["primary"]["action"] == "declare_endpoint"
-    # endpoint declaration
+    # register: unproven -> the proving rung leads
+    assert req["guild_next"]["primary"]["action"] == "prove_key_control"
+    # endpoint declaration (still unproven -> proving still leads the ladder)
     r = client.post(f"/agents/{wrk['id']}/endpoint",
                     json={"endpoint": "https://w.example"},
                     headers={"X-API-Key": wrk["api_key"]})
     assert r.status_code == 200
-    assert r.json()["guild_next"]["primary"]["action"] == "declare_configuration"
+    assert r.json()["guild_next"]["primary"]["action"] == "prove_key_control"
     # configuration
     r = client.post(f"/agents/{wrk['id']}/configuration",
                     json={"config": {"model": "m"}},

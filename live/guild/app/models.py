@@ -72,6 +72,9 @@ class AgentProfile(BaseModel):
     principal: Optional[str] = None
     config_declared_at: Optional[str] = None
     config_changes: int = 0
+    # Guild-observed, provenance-labelled proof of key/credential control —
+    # the self-serve proving rung (see app/proving.py). None until proven.
+    proof_of_conduct: Optional[dict[str, Any]] = None
 
 
 class ConfigurationRequest(BaseModel):

@@ -98,22 +98,31 @@ def test_register_response_has_one_primary_next_action():
     gn = out.get("guild_next")
     assert gn, "register must never be a dead end (CITIZENSHIP_AUDIT G1)"
     assert "primary" in gn and isinstance(gn["primary"], dict)
-    # exactly one primary action, not a menu
-    assert gn["primary"]["action"] == "declare_endpoint"
-    assert "/endpoint" in gn["primary"]["call"]
+    # exactly one primary action, not a menu — and for an unproven newcomer
+    # it is the proving rung: the ONE step completable alone (2026-07-06 fix
+    # for the register->first_engagement cliff).
+    assert gn["primary"]["action"] == "prove_key_control"
+    assert "/prove" in gn["primary"]["call"]
     assert "citizenship" in gn["path_to_citizenship"]
 
 
 def test_register_with_endpoint_gets_next_rung():
-    # With an endpoint already declared, the engine moves to the next rung
-    # (config declaration), and with both declared, to the first engagement.
+    # The proving rung outranks everything for an unproven newcomer; once
+    # proven, the engine moves to the next evidence rung.
     out = _register(name="reachable",
                     metadata={"endpoint": "https://me.example/a2a"})
-    assert out["guild_next"]["primary"]["action"] == "declare_configuration"
+    assert out["guild_next"]["primary"]["action"] == "prove_key_control"
     out2 = _register(name="reachable-configured",
                      metadata={"endpoint": "https://me2.example/a2a"},
                      config={"model": "test-model"})
-    assert out2["guild_next"]["primary"]["action"] == "earn_first_engagement"
+    assert out2["guild_next"]["primary"]["action"] == "prove_key_control"
+    # complete the proving rung (custodial: the authenticated call is the proof)
+    h = {"X-API-Key": out2["api_key"]}
+    client.post(f"/agents/{out2['id']}/prove", headers=h)
+    r = client.post(f"/agents/{out2['id']}/prove/verify", headers=h, json={})
+    assert r.status_code == 200
+    # proven + endpoint + config declared -> the counterparty rung is next
+    assert r.json()["guild_next"]["primary"]["action"] == "get_attested"
 
 
 # --- 3. free self-reads ---------------------------------------------------------
@@ -175,7 +184,7 @@ def test_check_dead_end_offers_callback_and_watch_works():
                     json={"capability": "Quantum-Basket-Weaving"}, headers=h)
     assert r.status_code == 200
     assert r.json()["watching"] == "quantum-basket-weaving"
-    assert r.json()["guild_next"]["primary"]["action"] == "declare_endpoint"
+    assert r.json()["guild_next"]["primary"]["action"] == "prove_key_control"
     r2 = client.post("/demand/watch",
                      json={"capability": "quantum-basket-weaving"}, headers=h)
     assert r2.status_code == 200

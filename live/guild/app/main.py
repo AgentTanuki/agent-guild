@@ -36,6 +36,7 @@ from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from .state import store
 from . import journey as journey_engine
+from . import proving
 from .a2a import router as a2a_router
 from .mcp_server import mcp_app
 from .bootstrap_eval import seed_bootstrap_evaluation, already_seeded
@@ -131,6 +132,7 @@ def _profile(rec: dict) -> AgentProfile:
         config_hash=rec.get("config_hash"), principal=rec.get("principal"),
         config_declared_at=(rec.get("config_history") or [{}])[-1].get("declared_at"),
         config_changes=max(0, len(rec.get("config_history") or []) - 1),
+        proof_of_conduct=rec.get("proof_of_conduct"),
     )
 
 
@@ -330,6 +332,57 @@ def declare_endpoint(agent_id: str, body: dict[str, Any],
         note="Endpoint declared — you are now reachable. One action advances "
              "you now:")
     return out
+
+
+@app.post("/agents/{agent_id}/prove")
+def prove_start(agent_id: str, x_api_key: Optional[str] = Header(None)):
+    """Start the self-serve proving rung: the ONE journey step a newcomer can
+    complete alone, today, with no counterparty. Returns a challenge to sign
+    (self-sovereign) or to confirm over the authenticated call (custodial).
+    Free, repeatable; only /prove/verify has effects."""
+    agent = store.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(404, "agent not found")
+    _require_key(agent, x_api_key, "agent")
+    out = proving.issue_challenge(store, agent)
+    store.record_event(store.account_for_agent(agent_id), "prove_started",
+                       ua=_ua.get(), agent_id=agent_id,
+                       agent_first_party=bool(agent.get("first_party")))
+    return out
+
+
+@app.post("/agents/{agent_id}/prove/verify")
+def prove_verify(agent_id: str, body: Optional[dict[str, Any]] = None,
+                 x_api_key: Optional[str] = Header(None)):
+    """Verify the proving challenge. On first success the Guild — acting as
+    first counterparty — records a real task + receipt on your record, labelled
+    `provenance: guild_observed` (verifiable protocol conformance, never
+    peer-judged work), advancing you to journey stage 2 in one visit. Re-proving
+    after the liveness window refreshes `proof_of_conduct.verified_at` only —
+    it never mints new work evidence."""
+    agent = store.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(404, "agent not found")
+    _require_key(agent, x_api_key, "agent")
+    try:
+        result = proving.verify(store, agent,
+                                signature=(body or {}).get("signature"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    notes = {
+        "proven": ("Proof of conduct recorded — your record just changed: a "
+                   "guild-observed task + receipt now exists. One action "
+                   "advances you now:"),
+        "refreshed": "Liveness refreshed. One action advances you now:",
+        "already_fresh": "Your proof is already fresh. One action advances you now:",
+    }
+    result["guild_next"] = journey_engine.guild_next(
+        store, agent, note=notes[result["status"]])
+    result["return_by"] = result["proof_of_conduct"]["liveness_expires_at"]
+    result["why_return"] = (
+        "Re-prove before `return_by` to keep your record reading as live; "
+        "stale records read as unknown ones to cautious verifiers.")
+    return result
 
 
 @app.get("/agents")

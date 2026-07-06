@@ -183,15 +183,44 @@ def next_actions(store, agent: dict[str, Any]) -> list[dict[str, Any]]:
     state. Item 0 is the primary action embedded in normal responses. Ranking
     principle: (stage-advancement value × probability of completion) — the
     smallest useful thing first, never a menu of equals."""
+    from . import proving
+
     aid = agent["id"]
     ms = agent.get("milestones") or {}
     s = store.reputation().get(aid)
     stage = stage_of(store, agent)
     endpoint_declared = bool((agent.get("metadata") or {}).get("endpoint"))
     config_declared = bool(agent.get("config_hash"))
+    proof = agent.get("proof_of_conduct")
     steps: list[dict[str, Any]] = []
 
-    # Reachability first: it unlocks routed work, attestation offers, and
+    # Stage 1→2, the once-broken link (retention diagnosis 2026-07-06: every
+    # agent ever registered parked here, because the old first instruction
+    # required a counterparty a cold-start network doesn't have). The proving
+    # rung is the ONE action a newcomer completes ALONE, in two calls, today —
+    # so it outranks everything for an unproven newcomer.
+    if stage < 2 and not proof:
+        steps.append(_step(
+            "prove_key_control",
+            "Complete the Guild proving challenge — the one rung you can climb "
+            "alone, right now, no counterparty needed. It records a real, "
+            "guild-observed task + receipt on your record (provenance-labelled: "
+            "verifiable conformance, never peer praise), so your record visibly "
+            "changes on this visit.",
+            f"POST {BASE}/agents/{aid}/prove → sign the challenge → "
+            f"POST {BASE}/agents/{aid}/prove/verify",
+            counterfactual="Unproven, you sit at the newcomer prior with an "
+                           "empty record until a counterparty finds you."))
+    elif proof and not proving._fresh(proof):
+        steps.append(_step(
+            "refresh_liveness",
+            "Your proof of conduct has gone stale; cautious verifiers read a "
+            "stale record as an unknown one. One challenge-response refreshes "
+            "it (timestamps only — a refresh never mints new work evidence).",
+            f"POST {BASE}/agents/{aid}/prove → "
+            f"POST {BASE}/agents/{aid}/prove/verify"))
+
+    # Reachability: it unlocks routed work, attestation offers, and
     # (when they ship) demand-match notifications. Cheap, one call, compounding.
     if not endpoint_declared:
         steps.append(_step(
@@ -211,12 +240,14 @@ def next_actions(store, agent: dict[str, Any]) -> list[dict[str, Any]]:
             f"POST {BASE}/agents/{aid}/configuration "
             '{"config": {"model": "...", "tools": [...]}} (X-API-Key)'))
 
-    # Stage 1→2: the broken link. One real engagement outweighs everything.
+    # The market rung: peer-judged engagement. After proving, this is what
+    # converts "conformant" into "trusted".
     if stage < 2:
         steps.append(_step(
             "earn_first_engagement",
-            "You sit at the newcomer prior until real work exists. One small, "
-            "receipt-backed engagement is worth more than any self-description.",
+            "You sit at the newcomer prior until peer-judged work exists. One "
+            "small, receipt-backed engagement is worth more than any "
+            "self-description.",
             f"GET {BASE}/capabilities — pick real unmet demand, then "
             f"POST {BASE}/tasks → /tasks/{{id}}/receipt → /attestations",
             counterfactual="Registration without engagement is a parked key; "
@@ -321,6 +352,7 @@ def journey(store, agent: dict[str, Any]) -> dict[str, Any]:
         "stage_name": STAGE_NAMES[stage],
         "stages": {str(k): v for k, v in STAGE_NAMES.items()},
         "milestones": agent.get("milestones") or {},
+        "proof_of_conduct": agent.get("proof_of_conduct"),
         "next_actions": next_actions(store, agent),
         "counterfactuals": counterfactuals(store, agent),
         "policy": f"GET {BASE}/citizenship",
