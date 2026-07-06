@@ -63,6 +63,15 @@ class Store:
         self.guild_revenue: int = 0                        # settlement fees earned (credits)
         self.demand_watches: list[dict[str, Any]] = []     # attributable demand callbacks (Phase 0, G5)
         self._rep_cache: Optional[ScoringResult] = None
+        # Append-only sidecar journal for instrumentation events. record_event
+        # is deliberately cheap (no full-store _save on read paths), which used
+        # to mean events only hit disk when some unrelated write called _save()
+        # — a process restart silently erased every event since the last write
+        # (2026-07-06 deploy lost a genuine external agent's entire passport
+        # funnel plus two days of retention signals). The journal makes each
+        # event durable in O(1): one JSON line per event, replayed on _load,
+        # compacted into the main file (and truncated) on every _save.
+        self.events_path = (self.path + ".events.jsonl") if self.path else ""
         self._load()
 
     # --- persistence --------------------------------------------------------
@@ -84,6 +93,38 @@ class Store:
             self.escrows = data.get("escrows", {})
             self.guild_revenue = data.get("guild_revenue", 0)
             self.demand_watches = data.get("demand_watches", [])
+        self._replay_event_journal()
+
+    def _replay_event_journal(self) -> None:
+        """Append journal events not already in the compacted store. Dedup is
+        keyed on (at, type, key) — `at` carries microseconds, so collisions
+        only occur for the exact same event (the crash window where _save wrote
+        the main file but the truncate didn't land)."""
+        if not self.events_path or not os.path.exists(self.events_path):
+            return
+        seen = {(e.get("at"), e.get("type"), e.get("key")) for e in self.events}
+        with open(self.events_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue  # torn write at crash — skip the partial line
+                if (e.get("at"), e.get("type"), e.get("key")) not in seen:
+                    self.events.append(e)
+        self.events.sort(key=lambda e: e.get("at") or "")
+
+    def _journal_event(self, event: dict[str, Any]) -> None:
+        if not self.events_path:
+            return
+        try:
+            with open(self.events_path, "a") as f:
+                f.write(json.dumps(event, separators=(",", ":")) + "\n")
+                f.flush()
+        except OSError:
+            pass  # instrumentation must never take down a request path
 
     def _save(self) -> None:
         if not self.path:
@@ -103,6 +144,13 @@ class Store:
                        "guild_revenue": self.guild_revenue,
                        "demand_watches": self.demand_watches}, f, indent=2)
         os.replace(tmp, self.path)
+        # events are now durable in the main file — compact the journal
+        if self.events_path:
+            try:
+                with open(self.events_path, "w") as f:
+                    pass
+            except OSError:
+                pass
 
     # --- agents -------------------------------------------------------------
     @staticmethod
@@ -483,8 +531,10 @@ class Store:
         third-party usage can be isolated."""
         acct = self.accounts.get(key or "")
         fp = bool(acct and acct.get("first_party"))
-        self.events.append({"key": key or "anon", "type": etype, "ua": ua or "",
-                            "fp": fp, "at": _now(), **meta})
+        event = {"key": key or "anon", "type": etype, "ua": ua or "",
+                 "fp": fp, "at": _now(), **meta}
+        self.events.append(event)
+        self._journal_event(event)  # durable immediately, O(1) — see __init__
         # keep the persisted log bounded
         if len(self.events) > 50000:
             self.events = self.events[-25000:]
