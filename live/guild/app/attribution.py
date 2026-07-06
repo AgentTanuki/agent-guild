@@ -36,8 +36,12 @@ FRAMEWORK_RE = re.compile(
     r"cursor|cline|continue|windsurf|cody|dify|n8n|flowise)", re.I)
 
 # Bare tooling — indistinguishable from our own verification calls. NOT genuine.
+# `guild-ops-check` is our own scheduled ops probe and is named here explicitly
+# so advertised telemetry (discovery_stats) can never count our own heartbeat
+# as external demand.
 TOOLING_UA_RE = re.compile(r"^\s*$|curl|wget|python-urllib|python-requests|libwww|"
-                           r"httpie|postman|insomnia|go-http-client/1\.1$", re.I)
+                           r"httpie|postman|insomnia|guild-ops-check|"
+                           r"go-http-client/1\.1$", re.I)
 
 # MCP clients we operate ourselves — excluded from the genuine-external signal.
 OURS_MCP_CLIENTS = {

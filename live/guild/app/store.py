@@ -732,6 +732,7 @@ class Store:
         often those answer surfaces were queried recently and by how many distinct
         clients — the concrete, same-session-verifiable reward of registering.
         Numbers only; the caller prices them."""
+        from .attribution import attribution_class
         now = datetime.now(timezone.utc)
         surfaces = {"a2a_message", "best_agent", "reputation", "risk_score"}
         q24 = q7d = 0
@@ -741,6 +742,13 @@ class Store:
             if e.get("fp") or e.get("type") != "query":
                 continue
             if e.get("endpoint") not in surfaces:
+                continue
+            # Advertised numbers must be honest: exclude our own tooling and
+            # ops traffic, keep real third parties (named crawlers, frameworks,
+            # anonymous externals). An agent pricing the register decision on
+            # these counts must be able to trust them.
+            if attribution_class(e) in ("first_party", "first_party_incident",
+                                        "tooling_or_ours"):
                 continue
             try:
                 age = (now - datetime.fromisoformat(e["at"])).total_seconds()
