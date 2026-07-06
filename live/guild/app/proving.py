@@ -229,6 +229,10 @@ def verify(store, agent: dict[str, Any],
         store._save()
     store.record_milestone(agent["id"], "key_proof", proof_class=proof_class,
                            task_id=task["id"])
+    # Explicit funnel terminal (machine-economics audit R2): named to match the
+    # measured funnel prove_offered → prove_started → prove_completed.
+    store.record_milestone(agent["id"], "prove_completed", proof_class=proof_class,
+                           task_id=task["id"])
     store.record_event(store.account_for_agent(agent["id"]), "proof_of_conduct",
                        agent_id=agent["id"], proof_class=proof_class,
                        agent_first_party=bool(agent.get("first_party")))

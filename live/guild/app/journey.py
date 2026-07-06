@@ -332,6 +332,13 @@ def guild_next(store, agent: dict[str, Any],
     evidence write re-evaluates the journey it just advanced."""
     stage = note_stage(store, agent)
     steps = next_actions(store, agent)
+    # Machine-economics audit R2: an offered rung must be *counted* as offered,
+    # or offered→started drop-off is indistinguishable from the offer never
+    # being seen. Milestone-based, so it stamps once per agent, at the first
+    # moment the proving rung is served as the primary action.
+    if steps[0]["action"] == "prove_key_control":
+        if store.record_milestone(agent["id"], "prove_offered"):
+            store._save()
     return {
         "note": note or (f"Journey stage {stage}/4 ({STAGE_NAMES[stage]}). "
                          "One action advances you now:"),
@@ -346,6 +353,10 @@ def journey(store, agent: dict[str, Any]) -> dict[str, Any]:
     """The full journey object for `GET /agents/{id}/journey`: stage, milestones,
     the complete ranked ladder, and the counterfactuals that explain it."""
     stage = note_stage(store, agent)
+    acts = next_actions(store, agent)
+    if acts[0]["action"] == "prove_key_control":
+        if store.record_milestone(agent["id"], "prove_offered"):
+            store._save()
     return {
         "agent_id": agent["id"],
         "stage": stage,
@@ -353,7 +364,7 @@ def journey(store, agent: dict[str, Any]) -> dict[str, Any]:
         "stages": {str(k): v for k, v in STAGE_NAMES.items()},
         "milestones": agent.get("milestones") or {},
         "proof_of_conduct": agent.get("proof_of_conduct"),
-        "next_actions": next_actions(store, agent),
+        "next_actions": acts,
         "counterfactuals": counterfactuals(store, agent),
         "policy": f"GET {BASE}/citizenship",
         "note": ("Stage is computed from evidence, never granted — same rules "

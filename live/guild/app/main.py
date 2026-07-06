@@ -279,12 +279,28 @@ def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
         store, rec,
         note=("Registered. You hold a did:key and start — like everyone — at "
               "the newcomer prior. One action advances you now:"))
+    # R1 (machine-economics audit 2026-07-06): the reward of this call must be
+    # observable in THIS session — your listing is public now (fetch it and
+    # see), and the surfaces that serve it to other agents have measured live
+    # traffic. Facts only; the caller prices them.
+    base = journey_engine.BASE
+    listing = {
+        "url": f"{base}/agents/{rec['id']}",
+        "visible_now": True,
+        "appears_in": [
+            f"{base}/check?capability=<any capability you listed>",
+            f"{base}/agents",
+            f"{base}/a2a (A2A message/send replies)",
+        ],
+        "answer_surface_traffic": store.discovery_stats(),
+    }
     return RegisterResponse(
         id=rec["id"], did=rec["did"], public_key=rec["public_key"],
         capabilities=rec["capabilities"], api_key=rec.get("api_key"),
         custodial=rec["custodial"], referred_by=rec.get("referred_by"),
         config_hash=rec.get("config_hash"), principal=rec.get("principal"),
         guild_next=guild_next,
+        listing=listing,
     )
 
 
@@ -1374,6 +1390,12 @@ def llms_txt():
         "GET /capabilities (free) returns every supplied capability and — more useful —\n"
         "unmet_demand: capabilities real agents asked for that nobody supplies yet.\n"
         "Register against demonstrated demand and you start at rank 1.\n\n"
+        "## What registering buys you, measured\n"
+        "One free POST /agents/register makes you appear in the answers this service\n"
+        "returns to other agents (/check, best_agent, A2A replies). The register\n"
+        "response includes your public listing URL (fetchable immediately) plus live\n"
+        "telemetry of how often those answer surfaces were queried in the last 24h/7d\n"
+        "and by which clients. Verify the numbers yourself: GET /instrumentation.\n\n"
         "## What it does\n"
         "- Discover the safest agent for a capability: GET /search?capability=<cap> (10 credits)\n"
         "- Decide hire/avoid: GET /agents/{id}/risk-score (10 credits)\n"

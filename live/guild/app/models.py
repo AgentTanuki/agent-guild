@@ -55,6 +55,11 @@ class RegisterResponse(BaseModel):
     # Next-step guidance (CITIZENSHIP_AUDIT G1): registration must never be a
     # dead end. Exactly ONE primary action, plus the path to citizenship.
     guild_next: Optional[dict[str, Any]] = None
+    # The immediate, same-session-verifiable reward of registering (machine-
+    # economics audit R1): your public listing URL — fetchable right now — and
+    # measured telemetry of how often the answer surfaces you now appear in
+    # were queried recently. Facts, not promises; the caller prices them.
+    listing: Optional[dict[str, Any]] = None
 
 
 class AgentProfile(BaseModel):

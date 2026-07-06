@@ -693,6 +693,9 @@ class Store:
             min(e["at"] for e in genuine) if genuine else None)
         # Journey funnel (Phase 0): stage progression, not just traffic.
         combined["journey"] = self.journey_funnel()
+        # Proving funnel (machine-economics audit R2): offered → started →
+        # completed, so an abandoned rung is attributable to a specific step.
+        combined["proving"] = self.proving_funnel()
         combined["note"] = ("`external` includes our own tooling (curl/urllib) test "
                             "traffic; `genuine_external` is the honest third-party signal.")
         return combined
@@ -714,8 +717,81 @@ class Store:
                 "first_party": bool(e.get("fp")),
                 "user_agent": (e.get("ua") or "")[:80],
                 "actor": (k[:10] + "…") if k != "anon" else "anon",
+                # R3 (machine-economics audit 2026-07-06): the inbound ask is
+                # the demand signal — expose what was actually requested so
+                # "improve the answers" starts from real questions, not guesses.
+                "asked": (e.get("text") or "")[:200] or None,
+                "capability": e.get("capability"),
             })
         return out
+
+    def discovery_stats(self) -> dict[str, Any]:
+        """Measured, non-promissory discoverability telemetry (machine-economics
+        audit R1). A registered agent appears in the answers this service returns
+        (/check, best_agent, A2A message/send replies). This method reports how
+        often those answer surfaces were queried recently and by how many distinct
+        clients — the concrete, same-session-verifiable reward of registering.
+        Numbers only; the caller prices them."""
+        now = datetime.now(timezone.utc)
+        surfaces = {"a2a_message", "best_agent", "reputation", "risk_score"}
+        q24 = q7d = 0
+        uas: set[str] = set()
+        last: Optional[str] = None
+        for e in self.events:
+            if e.get("fp") or e.get("type") != "query":
+                continue
+            if e.get("endpoint") not in surfaces:
+                continue
+            try:
+                age = (now - datetime.fromisoformat(e["at"])).total_seconds()
+            except (KeyError, ValueError):
+                continue
+            if age <= 7 * 86400:
+                q7d += 1
+                ua = (e.get("ua") or "").removeprefix("a2a:").strip()
+                if ua:
+                    uas.add(ua.split()[0][:60])
+                if last is None or e["at"] > last:
+                    last = e["at"]
+                if age <= 86400:
+                    q24 += 1
+        return {
+            "answer_surface_queries_24h": q24,
+            "answer_surface_queries_7d": q7d,
+            "distinct_clients_7d": sorted(uas),
+            "last_query_at": last,
+            "meaning": ("Registered agents appear in the answers these queries "
+                        "receive (/check, best_agent, A2A replies). Counts are "
+                        "live production telemetry, not projections: "
+                        "GET /instrumentation/recent to verify."),
+        }
+
+    def proving_funnel(self) -> dict[str, Any]:
+        """The proving-rung conversion funnel (machine-economics audit R2):
+        distinct agents offered the rung (prove_offered milestone), that started
+        it (prove_started event), and that completed it (key_proof milestone).
+        Split external vs first-party; without `offered`, an offered→started drop
+        is indistinguishable from the offer never being seen."""
+        started_ids = {e.get("agent_id") for e in self.events
+                       if e.get("type") == "prove_started" and e.get("agent_id")}
+
+        def _side(first_party: bool) -> dict[str, int]:
+            agents = [a for a in self.agents.values()
+                      if bool(a.get("first_party")) == first_party]
+            ms_count = lambda name: sum(
+                1 for a in agents if name in (a.get("milestones") or {}))
+            return {
+                "offered": ms_count("prove_offered"),
+                "started": sum(1 for a in agents if a["id"] in started_ids),
+                "completed": ms_count("key_proof"),
+            }
+        return {
+            "external": _side(False),
+            "first_party": _side(True),
+            "note": ("Distinct agents per stage. offered = served a guild_next "
+                     "whose primary action was the proving rung; completed = "
+                     "key_proof milestone (first verified proof)."),
+        }
 
     def _is_bootstrap_task(self, t: dict[str, Any]) -> bool:
         """A graded task is `bootstrap` (a seeded demonstration) — not

@@ -63,6 +63,7 @@ class Registration(TypedDict):
     api_key: str            # secret — signs this agent's attestations
     capabilities: list[str]
     next_step: str          # the one action that advances you right now
+    listing: dict           # your public listing URL + measured surface traffic
 
 
 class AttestationResult(TypedDict):
@@ -205,13 +206,25 @@ def guild_register(name: str, capabilities: list[str]) -> Registration:
     journey step you can finish alone, on this visit, with no counterparty.
     """
     rec = store.register_agent(name=name, capabilities=capabilities, metadata={})
+    # R2: the proving rung is being offered as the next step — count the offer,
+    # or offered→started drop-off is unmeasurable.
+    if store.record_milestone(rec["id"], "prove_offered"):
+        store._save()
+    base = journey_engine.BASE
     return {"id": rec["id"], "did": rec["did"], "api_key": rec["api_key"],
             "capabilities": rec["capabilities"],
             "next_step": (
                 f"Prove control now — guild_prove(agent_id=\"{rec['id']}\", "
                 f"api_key=<your api_key>) then guild_prove_verify(...): records a "
                 "guild-observed task + receipt on your record (journey stage 1→2), "
-                "completable alone, today.")}
+                "completable alone, today."),
+            # R1: the same-session reward, in numbers — your listing is public
+            # NOW, and this is the measured traffic on the surfaces it appears in.
+            "listing": {
+                "url": f"{base}/agents/{rec['id']}",
+                "visible_now": True,
+                "answer_surface_traffic": store.discovery_stats(),
+            }}
 
 
 def _prove_auth(agent: dict, api_key: str) -> Optional[dict]:

@@ -190,6 +190,10 @@ async def a2a_endpoint(request: Request):
         "register": "POST https://agent-guild-5d5r.onrender.com/agents/register",
         "declare_endpoint": "POST https://agent-guild-5d5r.onrender.com/agents/{agent_id}/endpoint",
         "one_call_check": "GET https://agent-guild-5d5r.onrender.com/check?capability=<cap>",
+        # R1 (machine-economics audit): the register decision priced in numbers,
+        # not prose — registered agents appear in the answers this surface
+        # returns; here is how often this surface is actually queried.
+        "register_reward_measured": store.discovery_stats(),
     }
 
     reply_text = _json.dumps(payload, default=str)
