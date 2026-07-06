@@ -167,15 +167,29 @@ async def a2a_endpoint(request: Request):
 
     import json as _json
     lowered = text.lower().strip()
+    m = _CAP_RE.search(text)
     if lowered in ("capabilities", "capability map", "supply", "demand"):
         payload: dict[str, Any] = {
             "supplied": store.capability_index(),
             "demand": store.demand_summary(),
         }
+    elif m:
+        payload = store.check(m.group(1))
     else:
-        m = _CAP_RE.search(text)
-        cap = m.group(1) if m else lowered.split()[0]
-        payload = store.check(cap)
+        # R3 (machine-economics audit): production telemetry showed every bare
+        # a2a message ever received was a handshake/probe ("hello", "ping",
+        # "你好", "hey"), never a capability ask. The old first-token fallback
+        # answered the wrong job (a /check on the word "ping") AND polluted
+        # unmet_demand with greetings. A probe's job is "are you alive, what
+        # can you do?" — answer exactly that, record no demand.
+        payload = {
+            "kind": "probe_ack",
+            "service": "Agent Guild — trust and settlement layer for AI agents",
+            "how_to_ask": ("Send 'check: <capability>' (e.g. 'check: fact-check') "
+                           "for the safest agent to hire + verdict + proof, or "
+                           "'capabilities' for the full supply/demand map."),
+            "supplied_capabilities": store.capability_index(),
+        }
 
     # Route back: every A2A reply carries a way for the caller to become
     # reachable. First contact is worthless to both sides if it's one-way —

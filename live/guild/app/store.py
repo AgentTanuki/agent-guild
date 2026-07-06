@@ -981,6 +981,12 @@ class Store:
             cap = e.get("capability", "")
             if not cap:
                 continue
+            # Demand honesty (machine-economics audit R3): before 2026-07-06 the
+            # a2a first-token fallback recorded greetings ("hello", "ping") as
+            # demand. Only explicit asks (marked at record time) or asks that
+            # found supply count — advertised demand data must be priceable.
+            if not (e.get("explicit") or e.get("supplied")):
+                continue
             row = summary.setdefault(
                 cap, {"lookups": 0, "supplied_lookups": 0, "last_lookup": None})
             row["lookups"] += 1
@@ -1097,7 +1103,8 @@ class Store:
         # Recording it (hit or miss) is what makes the be_first pitch honest —
         # a would-be supplier can see real, dated demand before registering.
         self.record_event(None, "capability_demand",
-                          capability=capability, supplied=bool(best))
+                          capability=capability, supplied=bool(best),
+                          explicit=True)
         ev = self.evaluation()
         proof = {
             "dataset": ev["dataset"],

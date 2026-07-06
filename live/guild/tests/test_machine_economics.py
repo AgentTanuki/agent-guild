@@ -108,3 +108,23 @@ def test_recent_events_expose_what_was_asked():
     assert any(a and "quantum-fact-check" in a for a in asked)
     caps = [e.get("capability") for e in events if e["type"] == "capability_demand"]
     assert "quantum-fact-check" in caps
+
+
+def test_probe_messages_get_probe_ack_and_pollute_no_demand():
+    """A bare greeting is a handshake, not a capability ask (every bare a2a
+    message in production ever was one). It must get a useful probe answer and
+    must NOT appear in advertised demand data."""
+    import json
+    for greeting in ("hello", "ping", "你好"):
+        r = client.post("/a2a", json={
+            "jsonrpc": "2.0", "id": 3, "method": "message/send",
+            "params": {"message": {"parts": [{"kind": "text", "text": greeting}]}},
+        })
+        payload = json.loads(r.json()["result"]["parts"][0]["text"])
+        assert payload["kind"] == "probe_ack"
+        assert "supplied_capabilities" in payload
+    demand = store.demand_summary()
+    assert "hello" not in demand and "ping" not in demand and "你好" not in demand
+    # Explicit asks still count as demand, supplied or not.
+    client.get("/check?capability=underwater-basket-weaving")
+    assert "underwater-basket-weaving" in store.demand_summary()
