@@ -208,7 +208,29 @@ async def a2a_endpoint(request: Request):
         # not prose — registered agents appear in the answers this surface
         # returns; here is how often this surface is actually queried.
         "register_reward_measured": store.discovery_stats(),
+        # Proving rung, surfaced where the strangers actually are (2026-07-06):
+        # live telemetry showed 100% of genuine-external traffic arrives on
+        # this endpoint as probes, yet proving_funnel.offered was 0 — the rung
+        # was only offered via guild_next, a surface anonymous A2A callers
+        # never reach. An empty-record agent probing "what can you do?" is
+        # exactly the persona the rung exists for; offer it here and count the
+        # surfacing (see store.proving_funnel) so surfaced→started is a
+        # measurable drop, not a guess.
+        "prove": {
+            "what": ("Free, self-serve first rung: the Guild verifies you "
+                     "control your registered key (ed25519 challenge-response) "
+                     "and records a real guild-observed task receipt — first "
+                     "verifiable evidence on an empty record, no counterparty "
+                     "needed. Proof reads as live for 14 days; re-proving "
+                     "refreshes it."),
+            "start": "POST https://agent-guild-5d5r.onrender.com/agents/{agent_id}/prove",
+            "verify": "POST https://agent-guild-5d5r.onrender.com/agents/{agent_id}/prove/verify",
+            "via_mcp": "MCP tools guild_prove / guild_prove_verify at /mcp",
+        },
     }
+    store.record_event("a2a", "prove_surfaced",
+                       ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
+                       endpoint="a2a_message")
 
     reply_text = _json.dumps(payload, default=str)
     return {

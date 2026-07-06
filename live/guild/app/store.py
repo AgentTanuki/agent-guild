@@ -793,12 +793,21 @@ class Store:
                 "started": sum(1 for a in agents if a["id"] in started_ids),
                 "completed": ms_count("key_proof"),
             }
+        # Anonymous surfacing (2026-07-06): the A2A reply now carries the prove
+        # offer, but A2A callers are usually unregistered, so no per-agent
+        # `prove_offered` milestone can be stamped. Count the surfacings as
+        # events instead — surfaced→started is the anonymous analogue of
+        # offered→started, and without it the offer's reach is unmeasurable.
+        surfaced = [e for e in self.events if e.get("type") == "prove_surfaced"]
         return {
             "external": _side(False),
             "first_party": _side(True),
+            "a2a_replies_carrying_prove_offer": len(surfaced),
             "note": ("Distinct agents per stage. offered = served a guild_next "
                      "whose primary action was the proving rung; completed = "
-                     "key_proof milestone (first verified proof)."),
+                     "key_proof milestone (first verified proof). "
+                     "a2a_replies_carrying_prove_offer counts A2A replies that "
+                     "surfaced the rung to (typically anonymous) callers."),
         }
 
     def _is_bootstrap_task(self, t: dict[str, Any]) -> bool:

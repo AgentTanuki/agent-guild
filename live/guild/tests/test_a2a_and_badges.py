@@ -102,7 +102,14 @@ def test_a2a_reply_carries_route_back_and_logs_text():
     payload = json.loads(r.json()["result"]["parts"][0]["text"])
     assert "guild_contact" in payload
     assert "declare_endpoint" in payload["guild_contact"]
-    ev = [e for e in store.events if e.get("endpoint") == "a2a_message"][-1]
+    # The proving rung must be offered on this surface (2026-07-06: telemetry
+    # showed ALL genuine-external traffic arrives here, yet offered was 0) —
+    # and the surfacing must be counted, or its reach is unmeasurable.
+    assert "prove" in payload["guild_contact"]
+    assert "/prove" in payload["guild_contact"]["prove"]["start"]
+    assert any(e.get("type") == "prove_surfaced" for e in store.events)
+    ev = [e for e in store.events
+          if e.get("endpoint") == "a2a_message" and e.get("type") == "query"][-1]
     assert ev.get("text") == "check: fact-check"
 
 
