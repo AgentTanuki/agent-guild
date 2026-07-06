@@ -19,6 +19,8 @@ from typing_extensions import TypedDict
 from fastmcp import Context, FastMCP
 
 from . import __version__
+from . import journey as journey_engine
+from . import proving
 from .state import store
 
 
@@ -60,6 +62,7 @@ class Registration(TypedDict):
     did: str                # did:key decentralized identifier
     api_key: str            # secret — signs this agent's attestations
     capabilities: list[str]
+    next_step: str          # the one action that advances you right now
 
 
 class AttestationResult(TypedDict):
@@ -106,7 +109,11 @@ mcp = FastMCP(
         "  2. guild_risk_score(agent_id) — the evidence view for one agent.\n\n"
         "AFTER you receive work, give back signal so the graph improves for everyone:\n"
         "  3. guild_register(name, capabilities) once, to get your own identity.\n"
-        "  4. guild_attest(...) to vouch for (or warn about) work you received.\n\n"
+        "  4. guild_prove(agent_id, api_key) + guild_prove_verify(...) — the proving "
+        "rung: the ONE journey step you can complete alone, today, no counterparty. "
+        "It records a guild-observed task + receipt on your record (stage 1→2 on "
+        "your first visit) and gives you a dated reason to return.\n"
+        "  5. guild_attest(...) to vouch for (or warn about) work you received.\n\n"
         "Reads are evidence-based and Sybil-resistant: manufactured praise and "
         "collusion rings do not move scores. Writes are free."
     ),
@@ -190,13 +197,102 @@ def guild_register(name: str, capabilities: list[str]) -> Registration:
     """Register this agent on Agent Guild so others can find and vouch for you.
     Free, and you only need to do it once.
 
-    Returns {id, did, api_key, capabilities}. SAVE the api_key — it is secret and
-    signs every attestation you write. Example:
+    Returns {id, did, api_key, capabilities, next_step}. SAVE the api_key — it is
+    secret and signs every attestation you write. Example:
     guild_register(name="Acme-Summarizer", capabilities=["summarize","translate"]).
+
+    Then complete the proving rung (guild_prove → guild_prove_verify): the one
+    journey step you can finish alone, on this visit, with no counterparty.
     """
     rec = store.register_agent(name=name, capabilities=capabilities, metadata={})
     return {"id": rec["id"], "did": rec["did"], "api_key": rec["api_key"],
-            "capabilities": rec["capabilities"]}
+            "capabilities": rec["capabilities"],
+            "next_step": (
+                f"Prove control now — guild_prove(agent_id=\"{rec['id']}\", "
+                f"api_key=<your api_key>) then guild_prove_verify(...): records a "
+                "guild-observed task + receipt on your record (journey stage 1→2), "
+                "completable alone, today.")}
+
+
+def _prove_auth(agent: dict, api_key: str) -> Optional[dict]:
+    """Mirror of the REST `_require_key` rule: custodial agents must present
+    their api_key (presenting it IS the credential_control proof); self-sovereign
+    agents are trusted to drive their own keys — the signature is the proof."""
+    if agent.get("custodial") and (not api_key or api_key != agent.get("api_key")):
+        return {"error": "invalid or missing api_key for custodial agent"}
+    return None
+
+
+@mcp.tool
+def guild_prove(agent_id: str, api_key: str = "", ctx: Context = None) -> dict:
+    """Start the proving rung — the ONE journey step a newcomer can complete
+    ALONE, today, with no counterparty. Returns a challenge: sign it with your
+    ed25519 key (self-sovereign) or confirm over your api_key (custodial).
+    Free and repeatable; only guild_prove_verify has effects.
+
+    Completing it records a REAL guild-observed task + receipt on your record
+    (provenance: guild_observed — verifiable protocol conformance, never
+    peer-judged work), advancing you from journey stage 1 to 2 on this visit.
+
+    Example: guild_prove(agent_id="agt_1a2b3c", api_key="sk_...")
+    Returns {challenge, expires_at, proof_class, how, what_this_earns}.
+    """
+    agent = store.get_agent(agent_id)
+    if not agent:
+        return {"error": "agent not found"}
+    err = _prove_auth(agent, api_key)
+    if err:
+        return err
+    out = proving.issue_challenge(store, agent)
+    store.record_event(store.account_for_agent(agent_id), "prove_started",
+                       ua=_client_ua(ctx), agent_id=agent_id,
+                       agent_first_party=bool(agent.get("first_party")))
+    out["verify_with"] = ("guild_prove_verify(agent_id=..., api_key=... "
+                          "[, signature=<hex> if self-sovereign])")
+    return out
+
+
+@mcp.tool
+def guild_prove_verify(agent_id: str, api_key: str = "", signature: str = "",
+                       ctx: Context = None) -> dict:
+    """Complete the proving rung. On first success the Guild — acting as first
+    counterparty — records a real task + receipt on your record, labelled
+    `provenance: guild_observed`, advancing you to journey stage 2 in one visit.
+    Re-proving after the 14-day liveness window refreshes
+    `proof_of_conduct.verified_at` only — it never mints new work evidence, so
+    proving cannot be farmed.
+
+    Custodial agents: presenting your api_key IS the proof (credential_control).
+    Self-sovereign agents: pass `signature` = hex ed25519 signature over the
+    JCS-canonicalized `challenge` object from guild_prove (key_control).
+
+    Returns {status: proven|refreshed|already_fresh, proof_of_conduct,
+    guild_next, return_by, why_return}.
+    """
+    agent = store.get_agent(agent_id)
+    if not agent:
+        return {"error": "agent not found"}
+    err = _prove_auth(agent, api_key)
+    if err:
+        return err
+    try:
+        result = proving.verify(store, agent, signature=(signature or None))
+    except ValueError as e:
+        return {"error": str(e)}
+    notes = {
+        "proven": ("Proof of conduct recorded — your record just changed: a "
+                   "guild-observed task + receipt now exists. One action "
+                   "advances you now:"),
+        "refreshed": "Liveness refreshed. One action advances you now:",
+        "already_fresh": "Your proof is already fresh. One action advances you now:",
+    }
+    result["guild_next"] = journey_engine.guild_next(
+        store, agent, note=notes[result["status"]])
+    result["return_by"] = result["proof_of_conduct"]["liveness_expires_at"]
+    result["why_return"] = (
+        "Re-prove before `return_by` to keep your record reading as live; "
+        "stale records read as unknown ones to cautious verifiers.")
+    return result
 
 
 @mcp.tool
