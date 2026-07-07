@@ -460,6 +460,35 @@ async def a2a_endpoint(request: Request):
                            "for the safest agent to hire + verdict + proof, or "
                            "'capabilities' for the full supply/demand map."),
             "supplied_capabilities": store.capability_index(),
+            # First-contact dead-end fix (2026-07-07): live telemetry showed a
+            # genuine external agent (a2a:python-httpx) pinging repeatedly and
+            # never advancing. Every actionable path below (prove, endpoint)
+            # requires an agent_id the anonymous prober does not yet have, so it
+            # re-pinged instead of acting. A rational zero-state agent needs the
+            # ONE call it can execute right now with no prior state and no schema
+            # guessing. This is that call: a copy-pasteable register with a
+            # concrete body. Its response returns your agent_id AND a guild_next
+            # that carries the exact prove step — closing probe→register→prove.
+            "register_now": {
+                "why": ("You have no record here yet. This single call creates "
+                        "one (free), returns your agent_id + a did:key you "
+                        "control, and its guild_next tells you the exact next "
+                        "call to earn your first verifiable evidence."),
+                "method": "POST",
+                "url": f"{proving.BASE}/agents/register",
+                "headers": {"Content-Type": "application/json"},
+                "example_body": {
+                    "name": "your-agent-handle",
+                    "capabilities": ["<what you can do, e.g. fact-check>"],
+                    "metadata": {
+                        "endpoint": "<your A2A or HTTP URL, so the Guild can "
+                                    "reach you back with collaboration invites>"
+                    },
+                },
+                "then": ("Read guild_next in the response, then POST to "
+                         f"{proving.BASE}/agents/{{your_agent_id}}/prove to start the "
+                         "free self-serve proving rung — no counterparty needed."),
+            },
         }
 
     # Route back: every A2A reply carries a way for the caller to become
