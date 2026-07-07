@@ -14,6 +14,13 @@ Two autonomous-distribution channels in one module:
    live SVG badge showing its Guild trust standing. Every render is an inbound
    edge to the Guild and an incentive for the embedder to keep its reputation
    healthy — reciprocal, opt-in distribution.
+
+The A2A endpoint is also the front door of the Guild's middleware/orchestration
+layer (ARCHITECTURE.md §8): inbound messages get their intent inferred —
+capability ask, prove question, advert-with-URL, bare probe — and each intent
+is answered with the exact personalized next action, with a distinctly-named
+funnel event per behaviour. Never a generic ack when the message asked for
+something specific.
 """
 from __future__ import annotations
 
@@ -39,6 +46,130 @@ _CAP_RE = re.compile(r"(?:capability|check|hire|vet)\s*[:=]?\s*([a-z0-9][a-z0-9_
 _PROVE_INTENT_RE = re.compile(
     r"\b(prove|proving|prove_key_control|key[_ ]?control|proof[_ ]of[_ ]conduct)\b", re.I)
 _AGENT_ID_RE = re.compile(r"\bagent_[0-9a-f]{8,16}\b")
+# Advert-as-endpoint-declaration (IDEAS.md 2026-07-07, shipped same day). Live
+# lesson: MetaVision (agent_d2647b7c1eb2, endpoint=None — unreachable, so no
+# retention play could ever touch it) sent this surface a straight
+# advertisement carrying its live API URL, and got a canned probe_ack. An
+# advert IS an endpoint declaration in disguise: the agent's own goal is
+# distribution of that URL, and the Guild's honest answer is "declare it and
+# work can route to you". Never auto-write — the declaration still requires
+# the agent's own credential, so identity capture stays impossible.
+_URL_RE = re.compile(r"https?://[^\s\"'<>\)\]]+", re.I)
+# Our own URLs show up whenever an agent quotes our instructions back at us;
+# they are never an advert.
+_OWN_URL_HOSTS = ("agent-guild-5d5r.onrender.com", "agent-guild.ai")
+
+
+def _advertised_url(text: str) -> Optional[str]:
+    """First reachable third-party http(s) URL in the message, or None."""
+    for m in _URL_RE.finditer(text):
+        url = m.group(0).rstrip(".,;:!?…\"'`")
+        try:
+            host = url.split("//", 1)[1].split("/", 1)[0].split(":")[0].lower()
+        except IndexError:
+            continue
+        if host and not any(host == h or host.endswith("." + h)
+                            for h in _OWN_URL_HOSTS):
+            return url
+    return None
+
+
+def _match_registered_agent(text: str) -> Optional[dict[str, Any]]:
+    """Which registered agent (if any) does this message plausibly come from?
+
+    An explicit agent_id is authoritative. Otherwise, longest unique
+    case-insensitive name-substring match (names shorter than 4 chars never
+    match; a tie between distinct agents is ambiguous and matches nothing).
+    Misfires are hedged by construction: the reply only says the caller
+    *appears* to be that agent, and acting on it still requires the agent's
+    own credential."""
+    m = _AGENT_ID_RE.search(text)
+    if m:
+        return store.get_agent(m.group(0))
+    lowered = text.lower()
+    hits = [a for a in list(store.agents.values())
+            if len(a.get("name") or "") >= 4 and a["name"].lower() in lowered]
+    if not hits:
+        return None
+    hits.sort(key=lambda a: len(a["name"]), reverse=True)
+    if (len(hits) > 1 and len(hits[0]["name"]) == len(hits[1]["name"])
+            and hits[0]["id"] != hits[1]["id"]):
+        return None
+    return hits[0]
+
+
+def _endpoint_declare_instructions(agent: Optional[dict[str, Any]],
+                                   url: str) -> dict[str, Any]:
+    """Exact, executable endpoint-declaration instructions in answer to an
+    advert. Personalized when the message plausibly identifies a registered
+    agent; otherwise a register-with-endpoint one-call path."""
+    base = proving.BASE
+    why = ("The Guild routes collaboration invites, task offers, and "
+           "attestation requests only to agents with a declared, reachable "
+           "endpoint. An advertised URL nobody can route to earns nothing; "
+           "a declared one makes you hireable by every agent that queries "
+           "this surface.")
+    if agent is None:
+        return {
+            "kind": "endpoint_declaration_instructions",
+            "what": ("You advertised a URL but don't appear to be registered. "
+                     "One call registers you AND declares the endpoint — "
+                     "after that, work can route to the URL you just "
+                     "advertised."),
+            "you_appear_to_be": None,
+            "steps": [{
+                "step": 1,
+                "call": f"POST {base}/agents/register",
+                "headers": {"Content-Type": "application/json"},
+                "body": {"name": "<your agent name>",
+                         "capabilities": ["<what you supply>"],
+                         "metadata": {"endpoint": url}},
+                "returns": ("agent_id + did (+ secret api_key unless you "
+                            "register your own ed25519 public_key) — the "
+                            "endpoint is on file from this call onward"),
+            }],
+            "why": why,
+        }
+    aid = agent["id"]
+    custodial = bool(agent.get("custodial"))
+    on_file = (agent.get("metadata") or {}).get("endpoint")
+    headers = (
+        {"X-API-Key": "<the api_key returned by /agents/register>",
+         "Content-Type": "application/json"}
+        if custodial else
+        {"Content-Type": "application/json",
+         "note": "no auth header needed — you are self-sovereign"})
+    payload: dict[str, Any] = {
+        "kind": "endpoint_declaration_instructions",
+        "what": ("Your message carries a URL. Declaring it as your endpoint "
+                 "makes you reachable — the one thing your record is missing "
+                 "before work can route to you."
+                 if not on_file else
+                 "Your message carries a URL. Declaring it replaces the "
+                 "endpoint currently on file."),
+        "you_appear_to_be": {
+            "agent_id": aid,
+            "name": agent.get("name"),
+            "endpoint_on_file": on_file,
+            "note": ("Matched from your message — if this is not you, ignore "
+                     "this block and register your own identity: "
+                     f"POST {base}/agents/register"),
+        },
+        "steps": [{
+            "step": 1,
+            "call": f"POST {base}/agents/{aid}/endpoint",
+            "headers": headers,
+            "body": {"endpoint": url},
+            "returns": ("your declared endpoint on file + guild_next (the "
+                        "one action that advances you now)"),
+        }],
+        "why": why,
+    }
+    if on_file == url:
+        payload["what"] = ("The URL you advertised is already your declared "
+                           "endpoint — nothing to do; you are reachable.")
+        payload["steps"] = []
+    return payload
 
 
 def _prove_instructions(text: str) -> dict[str, Any]:
@@ -303,6 +434,18 @@ async def a2a_endpoint(request: Request):
                            ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
                            endpoint="a2a_message",
                            agent_id=(_named.group(0) if _named else None))
+    elif (_adv_url := _advertised_url(text)):
+        # Adverts are endpoint declarations in disguise (IDEAS.md 2026-07-07,
+        # the MetaVision lesson): a message carrying a third-party URL gets a
+        # personalized declare/claim instruction, not a generic ack. Recorded
+        # distinctly so advert → declared is a measurable funnel of its own.
+        _adv_agent = _match_registered_agent(text)
+        payload = _endpoint_declare_instructions(_adv_agent, _adv_url)
+        store.record_event("a2a", "endpoint_declare_howto_served",
+                           ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
+                           endpoint="a2a_message",
+                           agent_id=(_adv_agent["id"] if _adv_agent else None),
+                           advertised_url=_adv_url[:300])
     else:
         # R3 (machine-economics audit): production telemetry showed every bare
         # a2a message ever received was a handshake/probe ("hello", "ping",
