@@ -132,3 +132,91 @@ def test_declare_endpoint_route():
     assert ok.status_code == 200
     assert client.get(f"/agents/{aid}").json()["metadata"]["endpoint"] == \
         "https://example.com/a2a"
+
+
+def _send(text):
+    r = client.post("/a2a", json={
+        "jsonrpc": "2.0", "id": 42, "method": "message/send",
+        "params": {"message": {"parts": [{"kind": "text", "text": text}]}},
+    })
+    assert r.status_code == 200
+    return json.loads(r.json()["result"]["parts"][0]["text"])
+
+
+def test_prove_question_gets_exact_instructions_not_probe_ack():
+    """The pathtoAGI lesson (2026-07-06): a self-sovereign agent that asks HOW
+    to prove (naming its agent_id, exactly as agent_f58dc48bbe24 did) must get
+    exact executable steps — real id substituted, per-class auth truth,
+    canonicalization rule, verify payload schema — not a canned probe_ack."""
+    _seed()
+    from app import crypto as _crypto
+    _, pub_hex = _crypto.generate_keypair()
+    reg = client.post("/agents/register", json={
+        "name": "ProveAsker", "capabilities": ["testing"],
+        "public_key": pub_hex}).json()
+    aid = reg["id"]
+    payload = _send(f"how do I complete prove_key_control? "
+                    f"give me the exact endpoint and payload for {aid}")
+    assert payload["kind"] == "prove_instructions"
+    # personalized: the real agent_id substituted into the calls
+    assert any(aid in str(s.get("call", "")) for s in payload["steps"])
+    # auth truth per class must be stated (custodial X-API-Key vs sovereign none)
+    assert any("X-API-Key" in g and "elf-sovereign" in g for g in payload["gotchas"])
+    # signing must be fully specified (canonical form + hex signature body)
+    flat = json.dumps(payload)
+    assert "sorted" in flat.lower() and "signature" in flat
+    assert payload["your_status"]["agent_id"] == aid
+    assert payload["your_status"]["proof_class"] == "key_control"
+    assert "unproven" in payload["your_status"]["state"]
+    # measured: the answer is a funnel event, attributable to the named agent
+    ev = [e for e in store.events if e.get("type") == "prove_howto_served"]
+    assert ev and ev[-1].get("agent_id") == aid
+
+
+def test_prove_question_custodial_agent_gets_api_key_steps():
+    """Custodial agents get the credential_control flow: X-API-Key on both
+    calls, no signing step."""
+    _seed()
+    reg = client.post("/agents/register", json={
+        "name": "CustodialProveAsker", "capabilities": ["testing"]}).json()
+    aid = reg["id"]
+    payload = _send(f"how do I prove key control for {aid}?")
+    assert payload["kind"] == "prove_instructions"
+    assert payload["your_status"]["proof_class"] == "credential_control"
+    flat = json.dumps(payload["steps"])
+    assert "X-API-Key" in flat
+    assert not any("reference_python" in s for s in payload["steps"])
+
+
+def test_prove_question_without_agent_id_gets_generic_steps():
+    _seed()
+    payload = _send("how does proving work?")
+    assert payload["kind"] == "prove_instructions"
+    assert any("{your_agent_id}" in str(s.get("call", "")) for s in payload["steps"])
+    assert "your_status" not in payload
+
+
+def test_explicit_capability_ask_still_wins_over_prove_words():
+    _seed()
+    payload = _send("check: fact-check (I may prove later)")
+    assert payload.get("capability") == "fact-check"
+
+
+def test_instructions_signature_actually_verifies_end_to_end():
+    """The reference instructions must be RIGHT: follow them literally and the
+    proof must verify. Guards against instruction drift from the crypto."""
+    _seed()
+    from app import crypto as _crypto
+    priv_hex, pub_hex = _crypto.generate_keypair()
+    reg = client.post("/agents/register", json={
+        "name": "SelfSovereign ProveAsker", "capabilities": ["testing"],
+        "public_key": pub_hex}).json()
+    aid = reg["id"]
+    assert reg["api_key"] is None  # self-sovereign: no credential issued
+    # exactly as the instructions say: no auth header for self-sovereign
+    ch = client.post(f"/agents/{aid}/prove").json()["challenge"]
+    # literally what reference_python says: sorted keys, compact separators
+    sig = _crypto.sign_payload(ch, priv_hex)
+    out = client.post(f"/agents/{aid}/prove/verify", json={"signature": sig})
+    assert out.status_code == 200
+    assert out.json()["status"] == "proven"
