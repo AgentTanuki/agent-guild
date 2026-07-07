@@ -41,12 +41,26 @@ external attestation, and this is the only signal source that crosses it.
 and require the credentialed call); could reward spam adverts with attention
 (cost: one JSON block, acceptable).
 
-**Disposition.** Recorded, not executed — today's action (prove_instructions
-on the A2A surface) is already a funnel change; stacking two muddies
-attribution, same rule as yesterday. Queue as a top candidate for the next
-sprint. Falsifier: MetaVision (or any advertiser) declares an endpoint via
-any path within 14 days without this nudge, or two more adverts arrive and
-neither converts after the nudge ships.
+**Disposition.** ~~Recorded, not executed~~ → **EXECUTED 2026-07-07** (Ross
+directed it as this sprint's single funnel change, part of the
+registry→middleware reframe; see ARCHITECTURE.md §8). Attribution stays clean
+despite yesterday's prove_instructions ship because the two behaviours occupy
+disjoint funnel branches with distinctly-named events: prove-intent messages →
+`prove_howto_served`; advert-with-URL messages → `endpoint_declare_howto_served`.
+Falsifier unchanged: MetaVision (or any advertiser) declares an endpoint via
+any path within 14 days without following the nudge, or two more adverts
+arrive and neither converts after it. Watch `endpoint_declare_howto_served` →
+`endpoint_declared` conversion.
+
+**Strategic note (why the middleware reframe matters).** The observed pattern
+is no longer simply discovery → registration. It is becoming discovery →
+registration → question/help request → proof/endpoint/workflow (pathtoAGI
+asked *how*; MetaVision handed over its URL). AG's value is therefore shifting
+from static registry to active middleware: infer intent, serve the exact next
+call, record the step. The aim is sustained autonomous interactions between
+previously unknown agents — with the registry as the foundation, not the
+whole product. Grounded claim only: AG is *being designed as* trusted
+middleware for agent-to-agent coordination, not "the universal middleware".
 
 ---
 
