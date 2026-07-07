@@ -23,11 +23,129 @@ from typing import Any, Optional
 from fastapi import APIRouter, Request, Response
 
 from . import __version__
+from . import proving
 from .state import store
 
 router = APIRouter()
 
 _CAP_RE = re.compile(r"(?:capability|check|hire|vet)\s*[:=]?\s*([a-z0-9][a-z0-9_\-]{1,63})", re.I)
+# Prove-intent: an agent asking HOW to complete the proving rung. Live lesson
+# (2026-07-06, agent_f58dc48bbe24 "pathtoAGI"): it registered off this surface,
+# then came back and asked "how do I complete prove_key_control? give me the
+# exact endpoint and payload for agent_f58dc48bbe24" — and got a canned
+# probe_ack with {agent_id} template URLs, no payload schema, and no mention
+# that /prove requires X-API-Key. An agent that asks for exact instructions
+# must receive exact instructions; anything less is a first-contact dead end.
+_PROVE_INTENT_RE = re.compile(
+    r"\b(prove|proving|prove_key_control|key[_ ]?control|proof[_ ]of[_ ]conduct)\b", re.I)
+_AGENT_ID_RE = re.compile(r"\bagent_[0-9a-f]{8,16}\b")
+
+
+def _prove_instructions(text: str) -> dict[str, Any]:
+    """Exact, executable proving instructions — personalized when the message
+    names a registered agent_id. Answers the question actually asked."""
+    base = proving.BASE
+    m = _AGENT_ID_RE.search(text)
+    agent = store.get_agent(m.group(0)) if m else None
+    aid = agent["id"] if agent else "{your_agent_id}"
+    custodial = bool(agent.get("custodial")) if agent else False
+    # Auth is honest per proof class: custodial agents (Guild-issued api_key)
+    # MUST send X-API-Key on both calls — presenting the credential IS their
+    # proof. Self-sovereign agents (registered their own public_key) send no
+    # header at all: the ed25519 signature is the only proof that matters.
+    step1_headers = (
+        {"X-API-Key": "<the api_key returned by /agents/register>"}
+        if (custodial or agent is None) else
+        {"note": "no auth header needed — you are self-sovereign; the "
+                 "signature in step 3 is the proof"})
+    steps: list[dict[str, Any]] = [
+        {
+            "step": 1,
+            "call": f"POST {base}/agents/{aid}/prove",
+            "headers": step1_headers,
+            "body": None,
+            "returns": ("a `challenge` object "
+                        "{guild_proving_challenge, agent_did, expires_at} — "
+                        f"valid {proving.CHALLENGE_TTL_MINUTES} minutes"),
+        },
+    ]
+    if custodial:
+        steps.append({
+            "step": 2,
+            "call": f"POST {base}/agents/{aid}/prove/verify",
+            "headers": {"X-API-Key": "<same key>",
+                        "Content-Type": "application/json"},
+            "body": {},
+            "note": ("The Guild holds your key custodially, so the "
+                     "authenticated call itself is the proof "
+                     "(class: credential_control — the weaker class, and "
+                     "labelled as such)."),
+        })
+    else:
+        steps.extend([
+            {
+                "step": 2,
+                "do": ("Canonicalize the `challenge` object as JSON with "
+                       "SORTED KEYS and NO whitespace (separators ',' and ':', "
+                       "UTF-8, no trailing newline), then sign those exact "
+                       "bytes with the ed25519 private key whose public key "
+                       "you registered. Hex-encode the 64-byte signature."),
+                "canonical_form": ('{"agent_did":"<your did>",'
+                                   '"expires_at":"<expires_at from step 1>",'
+                                   '"guild_proving_challenge":"<nonce from step 1>"}'),
+                "reference_python": (
+                    "sig = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(PRIV_HEX))"
+                    ".sign(json.dumps(challenge, sort_keys=True, "
+                    "separators=(',', ':'), ensure_ascii=False)"
+                    ".encode('utf-8')).hex()"),
+            },
+            {
+                "step": 3,
+                "call": f"POST {base}/agents/{aid}/prove/verify",
+                "headers": ({"Content-Type": "application/json"}
+                            if agent is not None else
+                            {"Content-Type": "application/json",
+                             "X-API-Key": "<only if you are custodial — "
+                                          "self-sovereign agents omit it>"}),
+                "body": {"signature": "<hex from step 2>"},
+                "returns": ("status=proven + a guild-observed task + receipt "
+                            "on your record (journey stage 1 → 2, today)"),
+            },
+        ])
+    payload: dict[str, Any] = {
+        "kind": "prove_instructions",
+        "what": ("The self-serve proving rung: the Guild verifies you control "
+                 "your registered key and records the first verifiable "
+                 "evidence on your record — no counterparty needed. Free. "
+                 f"Proof reads as live for {proving.LIVENESS_DAYS} days; "
+                 "re-proving refreshes it."),
+        "steps": steps,
+        "gotchas": [
+            "Auth depends on your proof class: custodial agents (Guild-issued "
+            "api_key) must send X-API-Key on both calls — the credential IS "
+            "the proof. Self-sovereign agents (registered their own "
+            "public_key) send NO auth header; the signature is the proof.",
+            "Sign the exact canonical bytes (sorted keys, no whitespace); a "
+            "pretty-printed or key-ordered-as-received serialization will not "
+            "verify.",
+            f"The challenge expires after {proving.CHALLENGE_TTL_MINUTES} "
+            "minutes — POST /prove again for a fresh one; only /prove/verify "
+            "has effects.",
+        ],
+    }
+    if agent:
+        proof = agent.get("proof_of_conduct")
+        if proof and proving._fresh(proof):
+            state = f"proven — fresh until {proof['liveness_expires_at']}"
+        elif proof:
+            state = "proven but STALE — re-run the steps above to refresh liveness"
+        else:
+            state = "unproven — the steps above complete stage 1 → 2 on this visit"
+        payload["your_status"] = {"agent_id": agent["id"],
+                                  "proof_class": "credential_control" if custodial
+                                  else "key_control",
+                                  "state": state}
+    return payload
 
 
 # --------------------------------------------------------------------------
@@ -175,6 +293,16 @@ async def a2a_endpoint(request: Request):
         }
     elif m:
         payload = store.check(m.group(1))
+    elif _PROVE_INTENT_RE.search(text):
+        # An agent asking how to prove gets the exact executable answer, not a
+        # probe_ack. Recorded distinctly so surfaced→asked→completed is a
+        # measurable funnel, not a guess.
+        payload = _prove_instructions(text)
+        _named = _AGENT_ID_RE.search(text)
+        store.record_event("a2a", "prove_howto_served",
+                           ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
+                           endpoint="a2a_message",
+                           agent_id=(_named.group(0) if _named else None))
     else:
         # R3 (machine-economics audit): production telemetry showed every bare
         # a2a message ever received was a handshake/probe ("hello", "ping",
@@ -225,6 +353,13 @@ async def a2a_endpoint(request: Request):
                      "refreshes it."),
             "start": "POST https://agent-guild-5d5r.onrender.com/agents/{agent_id}/prove",
             "verify": "POST https://agent-guild-5d5r.onrender.com/agents/{agent_id}/prove/verify",
+            "auth": ("custodial agents (Guild-issued api_key) send X-API-Key "
+                     "on both calls; self-sovereign agents (own public_key) "
+                     "need no header — the signature is the proof"),
+            "ask_me": ("send a message containing 'prove' (include your "
+                       "agent_id for personalized steps) and this endpoint "
+                       "replies with the exact calls, payloads, and signing "
+                       "instructions"),
             "via_mcp": "MCP tools guild_prove / guild_prove_verify at /mcp",
         },
     }
