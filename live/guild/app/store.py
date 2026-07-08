@@ -691,6 +691,41 @@ class Store:
         combined["genuine_external_actors"] = actors
         combined["first_genuine_external_at"] = (
             min(e["at"] for e in genuine) if genuine else None)
+        # Honesty hardening (2026-07-08): `genuine_external` counts any framework/
+        # MCP/agent UA, so an automated poller (uptime monitor, directory crawler)
+        # that hammers /a2a with bare probes and NEVER advances inflates the
+        # headline. Live telemetry proved this — a single a2a:python-httpx caller
+        # produced 74 of 81 genuine events over 5 days in tight identical-second
+        # bursts (escalating 32→40/day), always a bare probe, never a capability
+        # ask, a registration, or a proof. Counting that as "a real agent used us"
+        # fools our own retention read. Split it out WITHOUT hiding it: a "bare
+        # probe" is a query on the a2a_message endpoint carrying no capability and
+        # no payment; an actor is ENGAGED only if it took at least one deciding
+        # action (a capability ask, registration, proof, endpoint/config
+        # declaration, delegation, attestation, or paid read). Retention is
+        # measured against genuine_external_engaged, not the raw traffic count.
+        def _is_bare_probe(e: dict[str, Any]) -> bool:
+            return (e.get("type") == "query"
+                    and e.get("endpoint") == "a2a_message"
+                    and not e.get("paid")
+                    and not e.get("capability"))
+        probe_events = [e for e in genuine if _is_bare_probe(e)]
+        engaged_events = [e for e in genuine if not _is_bare_probe(e)]
+        engaged_actors = sorted({(e.get("key") or "anon") for e in engaged_events})
+        probe_only_actors = sorted(
+            {(e.get("key") or "anon") for e in probe_events} - set(engaged_actors))
+        combined["genuine_external_engaged"] = self._funnel(engaged_events)
+        combined["genuine_external_engaged"]["actors"] = engaged_actors
+        combined["genuine_external_engaged_detected"] = bool(engaged_events)
+        combined["genuine_external_probe_only_actors"] = probe_only_actors
+        combined["genuine_external_probe_only_events"] = len(probe_events)
+        combined["genuine_external_engaged_note"] = (
+            "genuine_external counts ANY framework/MCP/agent UA. An actor that only "
+            "ever sends bare A2A probes (no capability, no registration, no proof) "
+            "with no advancement is likely automation (uptime monitor / directory "
+            "crawler), not a deciding agent — see genuine_external_probe_only_*. "
+            "genuine_external_engaged isolates actors that took at least one deciding "
+            "action. Measure retention against genuine_external_engaged.")
         # Journey funnel (Phase 0): stage progression, not just traffic.
         combined["journey"] = self.journey_funnel()
         # Proving funnel (machine-economics audit R2): offered → started →

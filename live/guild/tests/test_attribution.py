@@ -64,6 +64,35 @@ def test_instrumentation_exposes_honest_signal():
     assert acct["key"] in instr2["genuine_external_actors"]
 
 
+def test_bare_probe_poller_excluded_from_engaged_signal():
+    """A framework-UA caller that only ever sends bare A2A probes (no capability,
+    no registration, no proof) is genuine_external traffic but NOT engagement.
+    Retention must be read off genuine_external_engaged, not the raw count, so an
+    uptime monitor / directory crawler can't masquerade as a returning agent.
+    (2026-07-08: a single a2a:python-httpx poller produced 74/81 genuine events.)"""
+    s = Store(path="")
+    # A poller: many bare a2a_message probes, framework UA, anonymous, no capability.
+    for _ in range(20):
+        s.record_event("a2a", "query", ua="a2a:python-httpx/0.28.1",
+                       endpoint="a2a_message", text="ping")
+    instr = s.instrumentation()
+    # It IS genuine external traffic (honesty — we don't hide it)...
+    assert instr["genuine_external_detected"] is True
+    assert instr["genuine_external_events"] == 20
+    # ...but it is NOT engagement: zero deciding actors, poller isolated.
+    assert instr["genuine_external_engaged_detected"] is False
+    assert instr["genuine_external_engaged"]["unique_agents"] == 0
+    assert "a2a" in instr["genuine_external_probe_only_actors"]
+    assert instr["genuine_external_probe_only_events"] == 20
+
+    # Now a genuinely deciding external agent: a capability ask over a2a.
+    s.record_event("a2a", "query", ua="a2a:langchain/0.2",
+                   endpoint="a2a_message", capability="fact-check")
+    instr2 = s.instrumentation()
+    assert instr2["genuine_external_engaged_detected"] is True
+    assert "a2a" in instr2["genuine_external_engaged"]["actors"]
+
+
 def test_recent_feed_labels_each_event():
     s = Store(path="")
     s.record_event(None, "query", ua="Python-urllib/3.10", endpoint="best_agent")

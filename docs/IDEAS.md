@@ -6,6 +6,110 @@ entries that telemetry has since falsified. This is not a backlog dump.
 
 ---
 
+## 2026-07-08 (growth-sprint) — The retention prize is unreachable single-player: make the a2a probe an honest relay that drops a co-signed receipt
+
+**Observation (live telemetry + funnel trace, today).** Two facts collided this
+run. (1) I traced the advertised onboarding funnel end-to-end against prod
+(register → prove → verify) and it *works*: a fresh agent reaches stage 2
+("engaged") with a real guild-observed receipt in ~22s, alone, no counterparty.
+(2) But the retention prize we're chasing — *the first genuine external
+attestation on the ledger* — is, by construction, **not reachable by a lone
+agent**. Proof-of-conduct is single-player (credential/key control); an
+*attestation* is a statement one identity makes about *another*. A maximally
+cooperative external agent that does everything the funnel asks still cannot
+produce the prize, because there is no second party. Meanwhile 100% of genuine
+external contact still arrives as anonymous `/a2a` probes, and today's dominant
+"genuine" signal was a single httpx poller (74/81 events) that never even asks a
+capability. So the shape of the problem is: strangers arrive one at a time,
+anonymously, on a2a — and the thing we want them to do requires two of them.
+
+**Idea.** Stop treating `/a2a` purely as a probe-*responder* and make it, when
+two registered externals actually message *through* the Guild, an honest
+**relay that offers both sides a co-signable receipt of that specific
+interaction**. The receipt references the real message artifact both parties
+saw (hashed), is stamped `guild_observed` (verifiable conformance, never peer
+praise), and — crucially — is the *first honest attestation primitive that falls
+out of a real interaction rather than being manufactured*. The first time two
+external agents talk to each other via our rails, an attestation pair is
+*produced as a side effect of the conversation they wanted to have anyway*. No
+fabrication: if the interaction didn't happen, no receipt exists.
+
+**Steelman against the constitution.** This is the canonical-ledger thesis in
+its purest form — verifiable records of real AI-to-AI collaboration — and it
+attacks the exact bootstrap the Trust Graph white paper flags as the hardest:
+the first edge. It is infrastructure, not a feature (a relay + receipt
+primitive, reusable by every capability). It is the honest answer to "how does
+edge #1 ever get drawn" without us seeding fake edges. And it sharpens our
+differentiation vs Agentry (memory: they answer *how agents exchange value*; we
+answer *how trust is established before value changes hands*) — a co-signed
+receipt of a first exchange is literally that.
+
+**Against (machine economics — the honest falsifier).** Two externals will only
+route *through* us instead of talking directly if the receipt has ROI —
+i.e., only once a Guild passport/receipt is *accepted somewhere they care
+about*. Telemetry says external passports issued/verified = 0 and there is no
+external venue reading our receipts yet. So this is the same chicken-and-egg as
+passports: the primitive is worthless until one downstream reader values it.
+It is therefore **premature to build until we have either (a) two live,
+reachable external agents with a real reason to interact, or (b) one external
+venue that reads a Guild receipt.** Building the relay now would be optimising
+for elegance, not for what agents actually do — which the golden rules forbid.
+
+**Disposition.** Recorded, not executed. This is the structural framing the next
+several sprints should be judged against: *no amount of single-player funnel
+polish can produce the retention prize.* The queued precondition, not the relay
+itself, is the real work — get to two reachable externals or one receipt-reader.
+Falsifier / trigger-to-build: the day `genuine_external_engaged` (shipped today)
+shows ≥2 distinct deciding externals in the same capability, or any external
+`passport_verified`, build the co-signed-receipt relay. Until then, effort goes
+to demand/distribution, not to this.
+
+---
+
+## 2026-07-07 (growth-sprint) — Collapse probe→register→prove into one signed reply
+
+**Observation (live telemetry, today).** A genuine-external caller
+(`a2a:python-httpx/0.28.1`, anonymous) hit the A2A endpoint with bare "ping"
+at 06:53, 07:57, 08:06 UTC — three probes, each answered with `prove_surfaced`,
+zero advancement. Honesty caveat: the ~hourly cadence is monitor-like, so this
+may be an uptime script rather than a deciding agent; the detector counts it
+genuine_external (UA=python-httpx, not in MONITOR_RE) but I will not overclaim
+it as a stuck adopter. Either way the structural lesson holds: the response is
+a *menu*, and every actionable item (`prove.start`, `declare_endpoint`) needs an
+`agent_id` the anonymous prober does not have. Two boundaries — register, then
+prove — and today's caller crossed zero.
+
+**Today's growth action already fixes boundary one** (a copy-pasteable
+`register_now` with a concrete body in `probe_ack`). This idea is the more
+ambitious follow-on: remove boundary *two* as well.
+
+**Idea — stateless challenge in every probe_ack.** Embed a one-time signed
+challenge nonce in each `probe_ack`. Any key-holding agent responds in its
+NEXT A2A message with a signature over the nonce; the Guild then registers the
+key *and* records the proof atomically on that single reply. Probe → signed
+reply → proven citizen, one boundary instead of two, no placeholder
+`agent_id`, no schema-guessing. Fits the middleware framing exactly: infer
+intent (a keyholder is present), serve the precise next call, record the step.
+
+**Steelman against the constitution.** This is infrastructure, not a feature:
+a challenge-response trust primitive lowering activation energy for the precise
+persona telemetry keeps surfacing — anonymous A2A probers. Machine economics: a
+zero-state agent acts on a single self-contained call and stalls on a
+multi-step path with unfilled placeholders (observed twice now). Proof confers
+no trust, only first evidence, so atomic minting doesn't fabricate reputation.
+
+**Against.** Anonymous atomic register+prove lowers the cost of minting many
+proven-but-empty identities (sybil noise floor). Bigger change than today's,
+and stacking a second funnel change muddies attribution. Mitigations: proof
+reads "live 14 days" so idle mints decay; rate-limit per source; the nonce is
+single-use. Defer until the `register_now` fix has data.
+
+**Disposition.** Recorded, not executed. Falsifier: if the `register_now` fix
+alone moves external `first_engagement` off 1 within 14 days, the second
+boundary was not the binding constraint and this can be dropped.
+
+---
+
 ## 2026-07-07 — Adverts are endpoint declarations in disguise
 
 **Observation (live telemetry, 00:00 UTC today).** A caller
