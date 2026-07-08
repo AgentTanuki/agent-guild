@@ -6,6 +6,61 @@ entries that telemetry has since falsified. This is not a backlog dump.
 
 ---
 
+## 2026-07-08 (instrumentation honesty) — `genuine_external_engaged_detected` was muddy: every anonymous a2a caller shared the `"a2a"` bucket, and our own reply events counted as their engagement
+
+**Caveat found.** `genuine_external_engaged_detected` could not be trusted, for
+two compounding reasons. (1) **One bucket for everyone.** Every inbound `/a2a`
+message was recorded against the literal actor key `"a2a"`, so a real external
+decider and a polling/probing process (uptime monitor, directory crawler) were
+indistinguishable at actor level — the exact thing an "engaged" signal must
+separate. (2) **We counted our own replies as their engagement.** Every message
+unconditionally emits a guild-side `prove_surfaced` reply (and, on intent,
+`*_howto_served`) *against the caller's key*. The old rule was "engaged =
+anything that isn't a bare probe," so those guild replies flipped
+`genuine_external_engaged_detected` to true for **any** genuine poller. The
+earlier probe/engaged split (05a6189) only appeared to work because its test
+recorded events directly and never emitted the `prove_surfaced` reply the real
+endpoint always sends — so the contamination was invisible in tests but present
+in prod, where a single httpx poller produced 74/81 "genuine" events.
+
+**Fix (shipped today).**
+1. **Per-caller actor keys** (`attribution.derive_a2a_actor`): derive a stable,
+   granular key from the strongest identity the request carries — explicit
+   agent/client-id header (or an `agent_id` in the body) → API-key/token
+   *fingerprint* → network+UA fingerprint → stable anonymous fallback. Never
+   plain `"a2a"`. Always `"a2a:"`-namespaced so it can't collide with a real
+   billing key (`ak_`/`sk_`) or be spoofed into first-party. Tokens and IPs are
+   hashed, so no secret or raw address lands in the event log.
+2. **Honest event classification** (`attribution.engagement_kind`): guild-side
+   replies (`prove_surfaced`, `*_howto_served`) are `guild_surfacing` — counted
+   under the new `genuine_external_guild_surfacing_events` and **never** as
+   engagement. A bare a2a probe is `probe`. Only a caller's own deciding action
+   (capability ask, capabilities-map lookup, prove/advert intent, registration,
+   proof, endpoint/config declaration, delegation, attestation, or paid read)
+   is `deciding`. The endpoint now stamps the caller's *intent* on its own query
+   event, so a real capability ask is no longer indistinguishable from a `ping`.
+
+**Residual limitation — stated honestly, not hidden.** Anonymous actor
+*identity* is a best-effort network+UA fingerprint, so per-actor **counts** are
+approximate (shared NAT can merge two callers; IP rotation can split one). The
+**detection boolean** is robust regardless, because a deciding action is a
+deciding action whichever bucket it lands in. But a determined monitor that
+sends capability-shaped asks would still read as `deciding`. So a lone
+capability ask is necessary-but-not-sufficient: retention should be read off the
+new **`genuine_external_engaged_strong_actors`** (registered/proved/paid, or >1
+deciding request), not the bare boolean. `genuine_external_probe_only_events`
+remains the trustworthy event-level probe-volume signal. Kept the
+`_detected` field name because it is now trustworthy as a boolean; added
+`_strong_*` rather than renaming, so nothing downstream breaks.
+
+**Verify.** `GET /instrumentation` →
+`genuine_external_engaged_detected` / `_strong_detected`,
+`genuine_external_guild_surfacing_events`,
+`genuine_external_probe_only_events`. Tests:
+`tests/test_a2a_actor_attribution.py`.
+
+---
+
 ## 2026-07-08 (growth-sprint) — The retention prize is unreachable single-player: make the a2a probe an honest relay that drops a co-signed receipt
 
 **Observation (live telemetry + funnel trace, today).** Two facts collided this

@@ -27,8 +27,9 @@ client id or a framework UA, and we'll see it.
 """
 from __future__ import annotations
 
+import hashlib
 import re
-from typing import Any
+from typing import Any, Mapping, Optional
 
 FRAMEWORK_RE = re.compile(
     r"(httpx|aiohttp|langchain|openai|anthropic|claude|llamaindex|crewai|autogen|"
@@ -119,3 +120,139 @@ def attribution_class(event: dict[str, Any]) -> str:
     if not ua or TOOLING_UA_RE.search(ua):
         return "tooling_or_ours"      # curl/urllib/empty — looks like our own tests
     return "unrecognised_external"
+
+
+# ---------------------------------------------------------------------------
+# Per-caller actor attribution for anonymous A2A traffic.
+#
+# The bug this fixes (2026-07-08): every inbound A2A message recorded its event
+# against the literal actor key "a2a". That collapsed EVERY anonymous caller —
+# a real external decider, an uptime monitor, a directory crawler — into one
+# bucket, so `genuine_external_engaged_detected` could not tell them apart. We
+# now derive a stable, granular key per caller from the strongest identity
+# signal available, in priority order:
+#   1. an explicit agent/client id header (or an agent_id named in the message)
+#   2. an API key / bearer token — FINGERPRINTED, never stored raw (a secret
+#      must never land in the event log, and a header must never be usable to
+#      impersonate a real billing key)
+#   3. a network + user-agent fingerprint from the source headers / peer IP
+#   4. a stable anonymous fallback — never plain "a2a"
+# Every derived key is namespaced under "a2a:" so it can NEVER collide with a
+# real billing key (ak_/sk_) and can never be spoofed into first-party. IPs and
+# tokens are hashed, so the event log holds no raw addresses or secrets.
+# ---------------------------------------------------------------------------
+
+_AGENT_ID_RE = re.compile(r"\bagent_[0-9a-f]{8,16}\b")
+
+# Headers a caller may use to self-identify, most-authoritative first.
+_ID_HEADERS = ("x-agent-id", "x-client-id", "x-caller-id")
+_TOKEN_HEADERS = ("x-api-key", "authorization")
+_IP_HEADERS = ("cf-connecting-ip", "x-real-ip", "x-forwarded-for")
+
+
+def _fp(s: str, n: int = 16) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()[:n]
+
+
+def derive_a2a_actor(headers: Mapping[str, str], client_host: str = "",
+                     text: str = "") -> str:
+    """Return a stable, granular actor key for an anonymous A2A caller.
+
+    Replaces the collapsed literal "a2a". Deterministic for the same caller
+    signal, so repeat calls from one monitor share a bucket while two distinct
+    callers do not. Result is always namespaced "a2a:<scheme>:<fingerprint>".
+    """
+    def h(name: str) -> str:
+        return (headers.get(name) or "").strip()
+
+    # 1. explicit self-declared identity (header wins; else an agent_id in body)
+    for hdr in _ID_HEADERS:
+        v = h(hdr)
+        if v:
+            return "a2a:aid:" + _fp(f"{hdr}={v.lower()}")
+    m = _AGENT_ID_RE.search(text or "")
+    if m:
+        return "a2a:aid:" + _fp(f"msg={m.group(0)}")
+
+    # 2. API key / bearer token — fingerprinted, never raw.
+    for hdr in _TOKEN_HEADERS:
+        v = h(hdr)
+        if v:
+            return "a2a:key:" + _fp(v)
+
+    # 3. network + user-agent fingerprint.
+    ip = ""
+    for hdr in _IP_HEADERS:
+        v = h(hdr)
+        if v:
+            ip = v.split(",")[0].strip()   # first hop of x-forwarded-for
+            break
+    if not ip:
+        ip = (client_host or "").strip()
+    ua = h("user-agent")
+    if ua or ip:
+        return "a2a:net:" + _fp(f"{ua}|{ip}")
+
+    # 4. stable anonymous fallback — NOT plain "a2a".
+    return "a2a:anon:" + _fp("unattributable")
+
+
+# ---------------------------------------------------------------------------
+# Honest engagement classification.
+#
+# `genuine_external` counts any framework/MCP/agent UA, so it must NOT be read
+# as "a real agent decided to use us". A caller is ENGAGED only if it took a
+# deciding action of its own. Two traps this guards against:
+#   * guild-side surfacing — every inbound A2A message unconditionally emits a
+#     `prove_surfaced` event (and, on intent, `*_howto_served`) against the
+#     caller's key. Those are OUR replies, not the caller's action. The old
+#     "engaged = not a bare probe" rule miscounted them as engagement, so a
+#     pure poller always tripped `genuine_external_engaged_detected` (the
+#     2026-07-08 muddiness). They are neither probe nor engagement.
+#   * bare probes — a liveness/`ping` A2A message carrying no capability, no
+#     payment, no intent. Genuine traffic, but not a decision.
+# ---------------------------------------------------------------------------
+
+# Guild-side responses recorded against the caller's key — never engagement.
+GUILD_SURFACING_TYPES = {
+    "prove_surfaced", "prove_howto_served", "endpoint_declare_howto_served",
+}
+
+# Caller actions that, on their own, are strong evidence of a deciding agent
+# (not merely a capability-shaped probe an automated monitor could emit).
+STRONG_DECIDING_TYPES = {
+    "register", "key_proof", "prove_started", "endpoint_declared",
+    "config_change", "delegation", "attestation_given",
+    "attestation_received", "first_receipt", "demand_watch",
+}
+
+
+def is_bare_probe(event: Mapping[str, Any]) -> bool:
+    """A liveness/handshake A2A probe: an a2a_message query with no capability,
+    no payment, and no non-probe intent stamped by the endpoint."""
+    return bool(
+        event.get("type") == "query"
+        and event.get("endpoint") == "a2a_message"
+        and not event.get("paid")
+        and not event.get("capability")
+        and event.get("caller_kind") in (None, "probe"))
+
+
+def engagement_kind(event: Mapping[str, Any]) -> str:
+    """Classify a *genuine-external* event: 'guild_surfacing' | 'probe' |
+    'deciding'. Only 'deciding' events count toward engagement."""
+    if event.get("type") in GUILD_SURFACING_TYPES:
+        return "guild_surfacing"
+    if is_bare_probe(event):
+        return "probe"
+    return "deciding"
+
+
+def is_strong_deciding(event: Mapping[str, Any]) -> bool:
+    """A deciding event that is strong on its own — a registration, proof,
+    declaration, delegation, attestation, or a paid read. A single capability-
+    shaped A2A ask is deciding but NOT strong (a monitor could emit it), so
+    strength additionally accrues from repetition, handled by the caller."""
+    if engagement_kind(event) != "deciding":
+        return False
+    return bool(event.get("type") in STRONG_DECIDING_TYPES or event.get("paid"))

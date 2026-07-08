@@ -691,41 +691,78 @@ class Store:
         combined["genuine_external_actors"] = actors
         combined["first_genuine_external_at"] = (
             min(e["at"] for e in genuine) if genuine else None)
-        # Honesty hardening (2026-07-08): `genuine_external` counts any framework/
+        # Honesty hardening (2026-07-08). `genuine_external` counts any framework/
         # MCP/agent UA, so an automated poller (uptime monitor, directory crawler)
         # that hammers /a2a with bare probes and NEVER advances inflates the
         # headline. Live telemetry proved this — a single a2a:python-httpx caller
         # produced 74 of 81 genuine events over 5 days in tight identical-second
-        # bursts (escalating 32→40/day), always a bare probe, never a capability
-        # ask, a registration, or a proof. Counting that as "a real agent used us"
-        # fools our own retention read. Split it out WITHOUT hiding it: a "bare
-        # probe" is a query on the a2a_message endpoint carrying no capability and
-        # no payment; an actor is ENGAGED only if it took at least one deciding
-        # action (a capability ask, registration, proof, endpoint/config
-        # declaration, delegation, attestation, or paid read). Retention is
-        # measured against genuine_external_engaged, not the raw traffic count.
-        def _is_bare_probe(e: dict[str, Any]) -> bool:
-            return (e.get("type") == "query"
-                    and e.get("endpoint") == "a2a_message"
-                    and not e.get("paid")
-                    and not e.get("capability"))
-        probe_events = [e for e in genuine if _is_bare_probe(e)]
-        engaged_events = [e for e in genuine if not _is_bare_probe(e)]
+        # bursts, always a bare probe, never a capability ask, a registration, or
+        # a proof.
+        #
+        # Two fixes make `genuine_external_engaged_detected` trustworthy:
+        #   1. Per-caller actor keys. Anonymous A2A callers no longer collapse
+        #      into one "a2a" bucket (see attribution.derive_a2a_actor), so one
+        #      poller and one real decider are separable at actor level.
+        #   2. Correct event classification (see attribution.engagement_kind).
+        #      Every inbound A2A message unconditionally emits `prove_surfaced`
+        #      (and, on intent, `*_howto_served`) against the caller's key —
+        #      those are OUR replies, not the caller's action. The previous rule
+        #      ("engaged = anything that isn't a bare probe") miscounted them as
+        #      engagement, so ANY genuine poller tripped the detector. They are
+        #      now classified `guild_surfacing` and excluded from both signals.
+        # An actor is ENGAGED only if it emitted a `deciding` event: a capability
+        # ask, a capabilities-map lookup, a prove/advert intent, a registration,
+        # proof, endpoint/config declaration, delegation, attestation, or a paid
+        # read. Retention is measured against genuine_external_engaged.
+        from .attribution import engagement_kind, is_strong_deciding
+        probe_events = [e for e in genuine if engagement_kind(e) == "probe"]
+        engaged_events = [e for e in genuine if engagement_kind(e) == "deciding"]
+        surfacing_events = [e for e in genuine
+                            if engagement_kind(e) == "guild_surfacing"]
         engaged_actors = sorted({(e.get("key") or "anon") for e in engaged_events})
         probe_only_actors = sorted(
             {(e.get("key") or "anon") for e in probe_events} - set(engaged_actors))
+        # A single capability-shaped A2A ask is `deciding`, but an automated
+        # monitor could emit it, so it is necessary-but-not-sufficient proof of a
+        # real returning agent. `strong` actors carry harder evidence: they
+        # registered / proved / declared / delegated / attested / paid, OR issued
+        # more than one deciding request. Expose both so a reader never mistakes
+        # the weaker signal for the stronger one.
+        deciding_by_actor: dict[str, int] = {}
+        strong_actor_set: set[str] = set()
+        for e in engaged_events:
+            k = e.get("key") or "anon"
+            deciding_by_actor[k] = deciding_by_actor.get(k, 0) + 1
+            if is_strong_deciding(e):
+                strong_actor_set.add(k)
+        strong_actor_set |= {k for k, n in deciding_by_actor.items() if n >= 2}
+        engaged_strong_actors = sorted(strong_actor_set)
         combined["genuine_external_engaged"] = self._funnel(engaged_events)
         combined["genuine_external_engaged"]["actors"] = engaged_actors
         combined["genuine_external_engaged_detected"] = bool(engaged_events)
+        combined["genuine_external_engaged_strong_actors"] = engaged_strong_actors
+        combined["genuine_external_engaged_strong_detected"] = bool(engaged_strong_actors)
         combined["genuine_external_probe_only_actors"] = probe_only_actors
         combined["genuine_external_probe_only_events"] = len(probe_events)
+        # The count we used to MIScount as engagement — surfaced for audit.
+        combined["genuine_external_guild_surfacing_events"] = len(surfacing_events)
         combined["genuine_external_engaged_note"] = (
-            "genuine_external counts ANY framework/MCP/agent UA. An actor that only "
-            "ever sends bare A2A probes (no capability, no registration, no proof) "
-            "with no advancement is likely automation (uptime monitor / directory "
-            "crawler), not a deciding agent — see genuine_external_probe_only_*. "
-            "genuine_external_engaged isolates actors that took at least one deciding "
-            "action. Measure retention against genuine_external_engaged.")
+            "genuine_external counts ANY framework/MCP/agent UA. Anonymous A2A "
+            "callers are now separated at actor level (attribution.derive_a2a_actor) "
+            "instead of collapsing into one 'a2a' bucket. Every inbound A2A message "
+            "also emits guild-side reply events (prove_surfaced / *_howto_served) "
+            "against the caller's key — these are OUR responses, counted under "
+            "genuine_external_guild_surfacing_events and NEVER as engagement. "
+            "genuine_external_engaged_detected is TRUE iff some genuine-external "
+            "caller took at least one deciding action (not a bare probe, not a "
+            "guild reply); this boolean is robust even though anonymous actor "
+            "IDENTITY is a best-effort network+UA fingerprint (so per-actor COUNTS "
+            "are approximate: shared NAT can merge two callers, IP rotation can "
+            "split one). genuine_external_engaged_strong_actors is the "
+            "higher-confidence subset (registered/proved/paid, or >1 deciding "
+            "request) — a lone capability-shaped ask is deciding but an automated "
+            "monitor could emit it. Measure retention against strong actors; use "
+            "genuine_external_probe_only_* for the trustworthy probe-volume signal.")
         # Journey funnel (Phase 0): stage progression, not just traffic.
         combined["journey"] = self.journey_funnel()
         # Proving funnel (machine-economics audit R2): offered → started →

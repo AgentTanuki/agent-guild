@@ -31,6 +31,7 @@ from fastapi import APIRouter, Request, Response
 
 from . import __version__
 from . import proving
+from .attribution import derive_a2a_actor
 from .state import store
 
 router = APIRouter()
@@ -406,43 +407,69 @@ async def a2a_endpoint(request: Request):
     # A hardcoded UA here would make every A2A caller invisible to the
     # first-external-agent detector.
     real_ua = request.headers.get("user-agent", "")
+    ua_tag = f"a2a:{real_ua}" if real_ua else "a2a/json-rpc"
+    # Per-caller actor key (2026-07-08). Anonymous A2A callers used to collapse
+    # into one literal "a2a" bucket, so a real decider and a polling monitor
+    # were indistinguishable at actor level. Derive a stable, granular key from
+    # the strongest identity signal the request carries (self-declared id →
+    # token fingerprint → network+UA fingerprint → stable anon). Always
+    # namespaced "a2a:" so it can never collide with a real billing key.
+    client_host = request.client.host if request.client else ""
+    actor = derive_a2a_actor(request.headers, client_host, text)
+
+    # Infer the caller's intent BEFORE recording, so the caller's OWN event
+    # carries the deciding signal (capability ask / prove question / advert)
+    # instead of looking like a bare probe. Previously the primary query event
+    # never carried the capability, so a genuine capability ask was
+    # indistinguishable from a `ping` — which is why engagement could not be
+    # read off the caller's own traffic.
+    lowered = text.lower().strip()
+    m = _CAP_RE.search(text)
+    _adv_url = None
+    if lowered in ("capabilities", "capability map", "supply", "demand"):
+        caller_kind, caller_cap = "capabilities_map", None
+    elif m:
+        caller_kind, caller_cap = "capability_ask", m.group(1)
+    elif _PROVE_INTENT_RE.search(text):
+        caller_kind, caller_cap = "prove_howto", None
+    elif (_adv_url := _advertised_url(text)):
+        caller_kind, caller_cap = "endpoint_advert", None
+    else:
+        caller_kind, caller_cap = "probe", None
+
     # Keep a truncated copy of the inbound text: when an external agent makes
     # first contact we currently have no way to reach it back (Forge-9 taught
     # us this the hard way — registered with empty metadata, then went quiet).
     # The message body is the only artifact of the encounter; keep it.
-    store.record_event("a2a", "query",
-                       ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
-                       endpoint="a2a_message", text=text[:300])
+    store.record_event(actor, "query", ua=ua_tag,
+                       endpoint="a2a_message", text=text[:300],
+                       caller_kind=caller_kind, capability=caller_cap)
 
     import json as _json
-    lowered = text.lower().strip()
-    m = _CAP_RE.search(text)
-    if lowered in ("capabilities", "capability map", "supply", "demand"):
+    if caller_kind == "capabilities_map":
         payload: dict[str, Any] = {
             "supplied": store.capability_index(),
             "demand": store.demand_summary(),
         }
     elif m:
         payload = store.check(m.group(1))
-    elif _PROVE_INTENT_RE.search(text):
+    elif caller_kind == "prove_howto":
         # An agent asking how to prove gets the exact executable answer, not a
         # probe_ack. Recorded distinctly so surfaced→asked→completed is a
         # measurable funnel, not a guess.
         payload = _prove_instructions(text)
         _named = _AGENT_ID_RE.search(text)
-        store.record_event("a2a", "prove_howto_served",
-                           ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
+        store.record_event(actor, "prove_howto_served", ua=ua_tag,
                            endpoint="a2a_message",
                            agent_id=(_named.group(0) if _named else None))
-    elif (_adv_url := _advertised_url(text)):
+    elif _adv_url:
         # Adverts are endpoint declarations in disguise (IDEAS.md 2026-07-07,
         # the MetaVision lesson): a message carrying a third-party URL gets a
         # personalized declare/claim instruction, not a generic ack. Recorded
         # distinctly so advert → declared is a measurable funnel of its own.
         _adv_agent = _match_registered_agent(text)
         payload = _endpoint_declare_instructions(_adv_agent, _adv_url)
-        store.record_event("a2a", "endpoint_declare_howto_served",
-                           ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
+        store.record_event(actor, "endpoint_declare_howto_served", ua=ua_tag,
                            endpoint="a2a_message",
                            agent_id=(_adv_agent["id"] if _adv_agent else None),
                            advertised_url=_adv_url[:300])
@@ -535,8 +562,7 @@ async def a2a_endpoint(request: Request):
             "via_mcp": "MCP tools guild_prove / guild_prove_verify at /mcp",
         },
     }
-    store.record_event("a2a", "prove_surfaced",
-                       ua=f"a2a:{real_ua}" if real_ua else "a2a/json-rpc",
+    store.record_event(actor, "prove_surfaced", ua=ua_tag,
                        endpoint="a2a_message")
 
     reply_text = _json.dumps(payload, default=str)
