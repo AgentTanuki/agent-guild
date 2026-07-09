@@ -394,6 +394,12 @@ def prove_verify(agent_id: str, body: Optional[dict[str, Any]] = None,
     }
     result["guild_next"] = journey_engine.guild_next(
         store, agent, note=notes[result["status"]])
+    # The proving task is a real receipt the agent can now attest ABOUT — and no
+    # external agent has ever authored a ledger entry. Surface that exact step
+    # here (not just buried in the ladder) so the prize is one honest call away.
+    _author = journey_engine.author_first_attestation_step(store, agent)
+    if _author is not None:
+        result["author_first_attestation"] = _author
     result["return_by"] = result["proof_of_conduct"]["liveness_expires_at"]
     result["why_return"] = (
         "Re-prove before `return_by` to keep your record reading as live; "

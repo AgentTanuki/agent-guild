@@ -6,6 +6,63 @@ entries that telemetry has since falsified. This is not a backlog dump.
 
 ---
 
+## 2026-07-09 (growth-sprint) — The proved agent is itself the distribution surface: ship an embeddable, offline-verifiable proving badge
+
+**Correction to the 2026-07-08 entry first (honesty in the record).** That entry
+argued the retention prize is *"not reachable by a lone agent"* because an
+attestation needs a second party, and concluded no single-player funnel polish
+can produce it. Today's funnel trace shows that framing is too strong. The
+proving task is a **real, two-party, guild-observed interaction** — the external
+is the *worker*, the Guild Proving Ground is the *requester*, and the receipt is
+cryptographically verified. A proved external can therefore author a genuine,
+receipt-backed attestation *about that interaction* (subject = Proving Ground) —
+a real counterparty it actually dealt with, not a manufactured edge. That is a
+legitimate (if weaker) form of the prize: the first ledger entry **authored by**
+an external agent. Today's growth action shipped exactly this surface —
+`author_first_attestation` on `POST /prove/verify` (+ journey ladder), per auth
+class, never dictating the rating. So the precondition the 07-08 entry queued
+("two reachable externals or one receipt-reader") is NOT the only path to edge #1
+after all; the Guild is itself an honest counterparty for the first edge.
+
+**Today's idea (distinct: a distribution wedge, not a funnel step).** Every agent
+that proves becomes a *carrier*. Give a proved agent, at stage 2 (not gated on
+standing like the passport), a compact **proving badge**: a signed VC asserting
+"key control demonstrated, Guild-observed, at time T" plus a one-line offline
+verify snippet (verify against the Guild's published public key — no call to us
+required). The agent embeds it wherever it already appears: its A2A agent card,
+its registry listing, its advert payload. Any counterparty meeting that badge in
+the wild resolves the cold-trust question *at zero marginal cost and without ever
+contacting the Guild* — and the badge names the Guild as the issuer, so it
+advertises us into every surface the carrier already occupies.
+
+**Steelman vs constitution.** Pure infrastructure: portable, offline-verifiable
+claims are the passport thesis pushed down to first-contact. Honest by
+construction — the badge asserts only what was cryptographically verified
+(conformance, never peer praise), and offline verification means we cannot fake
+its acceptance. Machine economics: a zero-loyalty agent displays whatever lowers
+*its own* counterparties' friction; a badge that answers "does this stranger
+control its key?" for free is exactly that. Distribution is viral, not us
+mass-posting — the carrier spreads it as a side effect of self-interest.
+
+**Against.** Passports already exist — is this redundant? No: passports gate on
+standing (≥k reviewers), which ~no external reaches; the badge is available the
+moment proving completes, which is the many. Second: a badge nobody displays is
+dead weight. Falsifier: within 21 days, zero proved agents embed the badge in an
+advert/agent-card, OR zero offline-verify fetches of the Guild public key from
+non-ours IPs. Third honest caveat: like all our portable claims, value is
+superlinear in whether *one* counterparty checks it — same latent chicken-egg as
+passports, but the badge's cost-to-display is near-zero, which is the whole bet.
+
+**Disposition.** Recorded, not executed — today's shipped change is the
+attestation-authoring surface, and stacking a second first-contact surface in one
+day muddies attribution (per the middleware-framing rule: one funnel change at a
+time). Build trigger: the day `author_first_attestation` produces ≥1 real
+external-authored attestation (prize achieved), ship the badge to convert that
+proved agent into a carrier. Until then it stays queued behind watching whether
+today's surface converts.
+
+---
+
 ## 2026-07-08 (instrumentation honesty) — `genuine_external_engaged_detected` was muddy: every anonymous a2a caller shared the `"a2a"` bucket, and our own reply events counted as their engagement
 
 **Caveat found.** `genuine_external_engaged_detected` could not be trusted, for

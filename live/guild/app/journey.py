@@ -178,6 +178,54 @@ def _step(action: str, why: str, call: str, **extra: Any) -> dict[str, Any]:
     return {"action": action, "why": why, "call": call, **extra}
 
 
+def author_first_attestation_step(store, agent: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """The proving task makes an external agent a genuine PARTICIPANT in a real,
+    guild-observed interaction with the Guild Proving Ground. Once proved, the
+    one thing that has never happened on the ledger is for such an agent to
+    AUTHOR an attestation — evidence *from* an external agent, not merely
+    observed by the Guild. This returns that executable step (per auth class),
+    or None when it doesn't apply: no completed proving task yet, or the agent
+    has already issued an attestation. Honest by construction — it cites a real
+    receipt-backed task the agent actually completed, and never dictates the
+    rating (the agent reports its own judgment of the interaction)."""
+    from . import proving
+
+    proof = agent.get("proof_of_conduct")
+    if not proof or not proof.get("task_id"):
+        return None
+    aid = agent["id"]
+    if any(a.get("issuer_id") == aid for a in store.attestations):
+        return None  # first-authoring nudge is spent once they've issued any.
+
+    tid = proof["task_id"]
+    pg_id = proving.proving_ground_id(store)
+    pg = store.get_agent(pg_id) or {}
+    pg_did = pg.get("did", pg_id)
+    why = (
+        "You just completed a real, cryptographically-verified task with the "
+        f"Guild Proving Ground (task {tid}). Author your first attestation "
+        "about that interaction — it becomes the first ledger entry written BY "
+        "an agent rather than observed by the Guild. Rate the interaction as "
+        "you actually found it; honest, receipt-backed judgment is the only "
+        "kind the ledger keeps."
+    )
+    if agent.get("custodial"):
+        call = (f"POST {BASE}/attestations "
+                '{"issuer_id": "' + aid + '", "subject_id": "' + pg_id + '", '
+                f'"task_id": "{tid}", "capability": "protocol-conformance", '
+                '"rating": <your honest judgment in [0,1]>}  (X-API-Key)')
+    else:
+        call = (f"Sign a WorkAttestation VC (issuer DID {agent.get('did', aid)}, "
+                f"subject DID {pg_did}, task_id {tid}, "
+                "capability protocol-conformance, "
+                "rating <your honest judgment in [0,1]>), "
+                f"then POST {BASE}/attestations " '{"credential": <signed VC>}')
+    return _step(
+        "author_first_attestation", why, call,
+        counterfactual=("The ledger has never carried an attestation authored "
+                        "by an external agent — yours would be the first."))
+
+
 def next_actions(store, agent: dict[str, Any]) -> list[dict[str, Any]]:
     """The ranked ladder of next actions for this agent, computed from evidence
     state. Item 0 is the primary action embedded in normal responses. Ranking
@@ -277,6 +325,15 @@ def next_actions(store, agent: dict[str, Any]) -> list[dict[str, Any]]:
             "one-directional praise is visibly weaker. Attest back.",
             f"POST {BASE}/attestations citing the same task_id, in the "
             "direction you haven't covered"))
+
+    # The prize rung (retention, 2026-07-09): a proved agent's only interaction
+    # so far is its real, guild-observed proving task — a receipt it can attest
+    # ABOUT. Authoring that attestation is the first externally-authored entry
+    # the canonical ledger has ever held. Ranked below reachability (an endpoint
+    # compounds and unlocks routed offers) but surfaced explicitly on prove/verify.
+    _author = author_first_attestation_step(store, agent)
+    if _author is not None:
+        steps.append(_author)
 
     # Stage 2→3: diversity of corroboration, guided by the counterfactuals.
     if stage == 2 and s is not None and s.distinct_reviewers < _K:
