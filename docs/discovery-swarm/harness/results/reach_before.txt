@@ -1,0 +1,4 @@
+=== reachability-verifier BEFORE probe 2026-07-10T17:55:11Z ===
+deployed rev: e14e4230f1dadf417d4e49476b3c03bc73ecf2fe
+--- /check fact-check decision reachability fields (pre-merge shape) ---
+status: no_endpoint | evidence_level: (absent) | routing: False
