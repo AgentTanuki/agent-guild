@@ -1,0 +1,7 @@
+=== reachability-verifier AFTER probe 2026-07-10T17:57:56Z ===
+deployed rev: a4acbb34fcb5ab98ddce2ca67d6dd10b97ee1430
+health: {"ok":true,"agents":53,"tasks":203,"attestations":200}
+guest invoke ok: True
+a2a reachability block: supply_has_no_declared_endpoint
+shortlist carries evidence_level: True | routing: False
+menu continuation still live: no_session_context
