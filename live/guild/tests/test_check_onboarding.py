@@ -179,11 +179,11 @@ def test_check_no_supply_has_no_decision():
 def test_check_unreachable_supply_is_named_and_offers_watch():
     s = _seeded_store()
     r = s.check("fact-check")  # bootstrap agents declare no endpoint
-    assert r["best_agent"]["reachable"] is False
+    assert r["best_agent"]["has_declared_endpoint"] is False
     assert r["best_agent"]["contact"] is None
-    assert r["decision"]["reachable"] is False
+    assert r["decision"]["has_declared_endpoint"] is False
     block = r["reachability"]
-    assert block["status"] == "supply_unreachable"
+    assert block["status"] == "supply_has_no_declared_endpoint"
     assert "/demand/watch" in block["watch_now"]["watch"]
     assert "fact-check" in block["watch_now"]["watch"]
     # the honest answer never pretends there is a route
@@ -199,7 +199,7 @@ def test_check_surfaces_best_reachable_when_top_is_not():
     # top-ranked is still an endpoint-less bootstrap agent, but a contactable
     # supplier exists — the payload must point at the actionable one
     block = r["reachability"]
-    assert block["status"] == "top_ranked_unreachable"
+    assert block["status"] == "top_ranked_no_declared_endpoint"
     assert block["best_reachable"]["id"] == a["id"]
     assert block["best_reachable"]["contact"] == "https://example.com/a2a"
 
@@ -212,7 +212,7 @@ def test_check_reachable_top_has_no_reachability_block():
     r = s.check("fact-check")
     assert "reachability" not in r
     assert r["best_agent"]["id"] == a["id"]
-    assert r["best_agent"]["reachable"] is True
+    assert r["best_agent"]["has_declared_endpoint"] is True
 
 
 def test_capability_demand_event_carries_reachable_supply():
@@ -238,9 +238,15 @@ def test_reachability_status_never_overstates_verification():
     r = s.check("fact-check")
     entries = r["shortlist"] + [r["decision"]]
     for e in entries:
-        assert e["reachability_status"] in ("unknown", "declared_endpoint")
+        assert e["reachability_status"] in ("no_endpoint", "declared_unverified")
         assert e["last_verified_at"] is None
-        if e.get("reachable"):
-            assert e["reachability_status"] == "declared_endpoint"
+        assert e["verification_age_seconds"] is None
+        assert e["invocation_supported"] is False
+        # nothing is verified yet, so the Guild must never claim routability
+        assert e["recommended_for_routing"] is False
+        if e.get("has_declared_endpoint"):
+            assert e["reachability_status"] == "declared_unverified"
+            assert e["verification_method"] == "declaration_only"
         else:
-            assert e["reachability_status"] == "unknown"
+            assert e["reachability_status"] == "no_endpoint"
+            assert e["verification_method"] is None

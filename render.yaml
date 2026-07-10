@@ -21,13 +21,17 @@ services:
         value: "0"
       - key: GUILD_BOOTSTRAP_EVAL       # "1" self-seeds a labelled, first-party
         value: "1"                      # bootstrap /evaluation cohort on boot
-      # Optional strict first-party tagging: when set, only X-Guild-Source headers
-      # matching this exact token are treated as our own (non-organic) traffic.
-      # Share the same value with seed/test tooling (GUILD_FIRST_PARTY_TOKEN env).
-      # Without it, any non-empty X-Guild-Source still tags first-party (our tools
-      # send one), so our traffic is excluded from organic metrics either way.
-      # - key: GUILD_FIRST_PARTY_TOKEN
-      #   sync: false
+      # Strict first-party tagging (Pilot A instrumentation audit, 2026-07-10):
+      # when set, ONLY X-Guild-Source headers matching this exact token are
+      # treated as our own traffic — a third party sending a random header can
+      # no longer self-tag as first-party, and our jobs are DETERMINISTICALLY
+      # classified (never by UA/IP/naming). sync:false = set the value in the
+      # Render dashboard, then distribute it to all first-party tooling BEFORE
+      # saving (activation runbook: docs/discovery-swarm/FIRST_PARTY_TOKEN.md —
+      # setting it here without updating tooling makes our own traffic read as
+      # external-unknown).
+      - key: GUILD_FIRST_PARTY_TOKEN
+        sync: false
       # --- set these only when you go live with real card payments -----------
       # - key: STRIPE_SECRET_KEY
       #   sync: false

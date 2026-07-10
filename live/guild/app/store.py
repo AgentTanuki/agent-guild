@@ -20,6 +20,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
 from .crypto import generate_keypair, did_from_public_key, canonicalize
+from .reachability import reachability_fields
 from .vc import issue_credential, verify_credential, issue_passport
 from .reputation import score, AttRecord, AgentScore, ScoringResult
 from .billing import (
@@ -1080,30 +1081,21 @@ class Store:
             # act on. A shortlist entry must say whether the agent can
             # actually be contacted, and where.
             endpoint = a["metadata"].get("endpoint")
+            # Reachability semantics are formalised in
+            # docs/discovery-swarm/REACHABILITY_SEMANTICS.md — status ladder,
+            # entry/expiry rules, verification methods, what a machine may
+            # infer, and when the Guild may recommend vs ROUTE. Producible
+            # today: no_endpoint, declared_unverified, unknown (malformed).
+            # recently_reachable / currently_unreachable / invocation_verified
+            # require the (designed, unbuilt) SSRF-safe declaration-time
+            # verifier — never URL probing from read paths.
             items.append({
                 "id": a["id"], "name": a["name"], "trust": round(trust, 1),
                 "confidence": round(s.confidence, 2) if s else 0.0,
                 "price_per_call": a["metadata"].get("price_per_call"),
                 "rank": s.rank if s else 0,
-                "reachable": bool(endpoint),
                 "contact": endpoint,
-                # `reachable` is a compat Boolean and would otherwise conceal
-                # real uncertainty: an endpoint STRING is a claim, not a route.
-                # `reachability_status` is the honest machine-readable ladder:
-                #   unknown            — no endpoint declared
-                #   declared_endpoint  — agent declared a URL; NEVER verified
-                #   recently_verified / currently_reachable / invocation_verified
-                #                      — reserved for a future verifier that
-                #                        checks liveness AT DECLARATION TIME
-                #                        (opt-in, never by probing arbitrary
-                #                        registered URLs from read paths — that
-                #                        would be an SSRF primitive)
-                #   unreachable        — a verification attempt failed
-                # Today only the first two are producible; last_verified_at is
-                # therefore always null and says so honestly.
-                "reachability_status": ("declared_endpoint" if endpoint
-                                        else "unknown"),
-                "last_verified_at": None,
+                **reachability_fields(endpoint),
             })
         items.sort(key=lambda x: x["trust"], reverse=True)
         return items[:limit]
@@ -1278,7 +1270,7 @@ class Store:
         # a reachable rank-9 agent is a better answer than an uncontactable
         # rank-1, and "no route at all" must mean no route anywhere.
         _all = self.shortlist(capability, limit=10_000)
-        _reachable = [e for e in _all if e.get("reachable")]
+        _reachable = [e for e in _all if e.get("has_declared_endpoint")]
         any_reachable = bool(_reachable)
         # Demand telemetry: every /check is a demand signal for a capability.
         # Recording it (hit or miss) is what makes the be_first pitch honest —
@@ -1320,10 +1312,14 @@ class Store:
                 # The minimal contract must carry reachability: an integrator
                 # who reads only `decision` should never conclude "hire this
                 # agent" without learning whether it can be contacted at all.
-                "reachable": best.get("reachable", False),
                 "contact": best.get("contact"),
-                "reachability_status": best.get("reachability_status", "unknown"),
+                "has_declared_endpoint": best.get("has_declared_endpoint", False),
+                "reachability_status": best.get("reachability_status", "no_endpoint"),
+                "verification_method": best.get("verification_method"),
                 "last_verified_at": best.get("last_verified_at"),
+                "verification_age_seconds": best.get("verification_age_seconds"),
+                "invocation_supported": best.get("invocation_supported", False),
+                "recommended_for_routing": best.get("recommended_for_routing", False),
             }
         out: dict[str, Any] = {
             "schema_version": 2,
@@ -1357,24 +1353,27 @@ class Store:
         # scope: the watch makes demand attributable and visible to would-be
         # suppliers NOW; outbound endpoint notification is not yet shipped, so
         # we promise re-check visibility, not callbacks.
-        if best is not None and any_reachable and not best.get("reachable"):
+        if best is not None and any_reachable and not best.get("has_declared_endpoint"):
             # Evidence ranks an uncontactable agent first, but a reachable
             # supplier exists further down: surface it as the actionable
             # answer rather than leaving the caller to poll.
             _br = _reachable[0]
             out["reachability"] = {
-                "status": "top_ranked_unreachable",
+                "status": "top_ranked_no_declared_endpoint",
                 "honest_answer": (
                     f"'{best['name']}' ranks first on evidence but has no "
                     "declared endpoint — the Guild cannot route work to it. "
-                    f"The best CONTACTABLE supplier is '{_br['name']}' "
-                    f"(trust {_br['trust']}, contact {_br['contact']})."
+                    f"The best supplier WITH A DECLARED ENDPOINT is "
+                    f"'{_br['name']}' (trust {_br['trust']}, contact "
+                    f"{_br['contact']}) — note its endpoint is declared by "
+                    "the agent and unverified (reachability_status: "
+                    "declared_unverified); the Guild has not checked it."
                 ),
                 "best_reachable": _br,
             }
         if best is not None and not any_reachable:
             out["reachability"] = {
-                "status": "supply_unreachable",
+                "status": "supply_has_no_declared_endpoint",
                 "honest_answer": (
                     f"The evidence ranks '{best['name']}' first for "
                     f"'{capability}', but no agent on this shortlist has "

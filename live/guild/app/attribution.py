@@ -96,21 +96,19 @@ def is_genuine_external(event: dict[str, Any]) -> bool:
     """True iff `event` is attributable to an agent we do not operate.
 
     Accepts either the internal event shape (keys `fp`, `ua`, `key`) or the public
-    feed shape (keys `first_party`, `user_agent`, `actor`)."""
-    first_party = event.get("fp", event.get("first_party"))
-    if first_party:
-        return False
-    if _is_known_first_party_incident(event):
+    feed shape (keys `first_party`, `user_agent`, `actor`).
+
+    CENTRAL ANALYTICS INVARIANT (2026-07-10): an event whose caller class is
+    AG_INTERNAL, AG_TEST, OPERATOR or REGISTRY_CRAWLER can NEVER be genuine
+    external. This is the single gate every genuine_external metric flows
+    through (store.instrumentation filters on this function), so the invariant
+    holds for current metrics, historical aggregation (classification is
+    read-time) and any dashboard built on them. Guarded by
+    tests/test_analytics_invariant.py."""
+    cls = caller_class(event)
+    if not may_count_as_external_growth(cls):
         return False
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
-
-    # Our own self-identified test harnesses and registry/uptime crawlers are
-    # never genuine external — found live 2026-07-10: the MCP verification
-    # battery (UA mcp:pilot-a-audit/1) was correctly counted AG_TEST by
-    # caller_class but still leaked into the genuine_external headline because
-    # this function never consulted those rules.
-    if AG_TEST_UA_RE.search(ua) or CRAWLER_UA_RE.search(ua):
-        return False
 
     # A self-identified MCP client that isn't one of ours.
     client = _mcp_client(ua)
@@ -133,6 +131,8 @@ def attribution_class(event: dict[str, Any]) -> str:
     if is_genuine_external(event):
         return "genuine_external"
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
+    if event.get("op"):
+        return "operator"             # admin-token action, auditable
     if AG_TEST_UA_RE.search(ua):
         return "ag_test"              # our own self-identified harnesses
     if CRAWLER_UA_RE.search(ua):
@@ -183,7 +183,7 @@ def caller_class(event: Mapping[str, Any], *,
     `operator` — the call carried the admin token.
     The store decides those three; this function owns everything UA-derived.
     """
-    if operator:
+    if operator or event.get("op"):
         return "OPERATOR"
     if event.get("fp", event.get("first_party")):
         return "AG_INTERNAL"

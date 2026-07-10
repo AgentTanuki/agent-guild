@@ -1,0 +1,18 @@
+== BEFORE kill ==
+invoke: 200
+discovery /capabilities: 200
+discovery /.well-known/agent-card.json: 200
+== FIRE kill switch (operator) ==
+{"killed":true,"reason":"scheduled drill"}
+== DURING kill ==
+invoke (expect 503): 503
+{"error":"swarm invocations are disabled","reason":"scheduled drill","denied":"kill_switch","terms":"https://agent-guild-5d5r.onrender.com/terms.json"}
+discovery /capabilities (expect 200): 200
+agent-card (expect 200): 200
+non-admin revive (expect 401/403): 401
+== REVIVE (operator) ==
+{"killed":false}
+== AFTER revive ==
+invoke (expect 200): 200
+== audit events ==
+kill_switch events: [('kill_switch_cleared', 'operator'), ('kill_switch_set', 'operator')]

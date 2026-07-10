@@ -53,6 +53,10 @@ def set_killed(store, value: bool, reason: str = "") -> None:
         store.swarm_state["killed_at"] = (
             datetime.now(timezone.utc).isoformat() if value else None)
         store._save()
+    # Auditable operator event (op=True → caller class OPERATOR, structurally
+    # excluded from every external-growth metric by the analytics invariant).
+    store.record_event(None, "kill_switch_set" if value else "kill_switch_cleared",
+                       op=True, reason=reason)
 
 
 def derive_actor(x_api_key: Optional[str], client_host: str, ua: str,
