@@ -306,13 +306,22 @@ def _swarm_skills(base: str) -> list[dict[str, Any]]:
         "inputModes": ["text/plain"],
         "outputModes": ["application/json"],
     }]
+    import json as _json
     for cap in sorted(CAPABILITIES.values(), key=lambda c: c.id):
+        # Fully-formed, copy-pasteable example built from the capability's own
+        # first fixture — cold-discovery testing showed generic clients template
+        # their call off the example verbatim, and "{...}" placeholders made
+        # them send un-runnable payloads.
+        try:
+            example_payload = _json.dumps(cap.fixtures[0]["input"])[:220]
+        except Exception:
+            example_payload = "{}"
         skills.append({
             "id": f"ag.{cap.id}",
             "name": cap.name,
             "description": cap.summary + " Send: 'invoke: " + cap.id + " <json>'.",
             "tags": list(cap.tags),
-            "examples": [f"invoke: {cap.id} " + "{...}"],
+            "examples": [f"invoke: {cap.id} {example_payload}"],
             "inputModes": ["text/plain"],
             "outputModes": ["application/json"],
         })
@@ -463,8 +472,14 @@ async def a2a_endpoint(request: Request):
     m = _CAP_RE.search(text)
     _adv_url = None
     _inv = re.match(r"^\s*invoke:\s*([a-z0-9_.\-]+)\s*(\{.*\})?\s*$", text, re.S | re.I)
+    _inv_intent = bool(re.match(r"^\s*invoke\b", text, re.I))
     if _inv:
         caller_kind, caller_cap = "swarm_invoke_ask", _inv.group(1)
+    elif _inv_intent:
+        # The caller clearly wants to invoke but the syntax is off (e.g. missing
+        # capability id). A generic probe_ack here is a dead end for a machine —
+        # answer with the exact corrective format instead.
+        caller_kind, caller_cap = "swarm_invoke_malformed", None
     elif lowered in ("capabilities", "capability map", "supply", "demand"):
         caller_kind, caller_cap = "capabilities_map", None
     elif m:
@@ -508,6 +523,16 @@ async def a2a_endpoint(request: Request):
                     base=str(request.base_url).rstrip("/"))
             except _gw.Denied as _d:
                 payload = {"denied": _d.kind, **_d.detail}
+    elif caller_kind == "swarm_invoke_malformed":
+        from .swarm.capabilities import CAPABILITIES as _caps
+        payload = {
+            "error": "invoke_syntax",
+            "expected": "invoke: <capability_id> <json object payload>",
+            "example": 'invoke: json.repair {"text": "{\'a\': 1,}"}',
+            "capability_ids": sorted(_caps.keys()),
+            "schemas": "/.well-known/ag-identities/index.json",
+            "terms": "/terms.json",
+        }
     elif caller_kind == "capabilities_map":
         payload: dict[str, Any] = {
             "supplied": store.capability_index(),

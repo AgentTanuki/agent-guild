@@ -220,3 +220,30 @@ def test_instructions_signature_actually_verifies_end_to_end():
     out = client.post(f"/agents/{aid}/prove/verify", json={"signature": sig})
     assert out.status_code == 200
     assert out.json()["status"] == "proven"
+
+
+def test_a2a_malformed_invoke_gets_corrective_error_not_probe_ack():
+    """Cold-discovery finding (2026-07-10): a client that sends 'invoke:' with
+    a bad/missing capability id must get the exact corrective syntax and the
+    capability index — a generic probe_ack is a machine dead end."""
+    req = {
+        "jsonrpc": "2.0", "id": "x", "method": "message/send",
+        "params": {"message": {"parts": [{"kind": "text",
+                                          "text": 'invoke: {"text": "{bad,}"}'}]}},
+    }
+    payload = json.loads(client.post("/a2a", json=req).json()["result"]["parts"][0]["text"])
+    assert payload.get("error") == "invoke_syntax"
+    assert "capability_ids" in payload and "json.repair" in payload["capability_ids"]
+    assert "expected" in payload
+
+
+def test_a2a_swarm_skill_examples_are_fully_formed():
+    """Skill examples must be copy-pasteable (no '{...}' placeholders) —
+    generic clients template their first call off the example verbatim."""
+    card = client.get("/.well-known/agent-card.json").json()
+    swarm_skills = [s for s in card["skills"] if s["id"].startswith("ag.")]
+    assert swarm_skills
+    for s in swarm_skills:
+        ex = s["examples"][0]
+        assert "{...}" not in ex, s["id"]
+        assert ex.startswith("invoke: "), s["id"]
