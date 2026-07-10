@@ -1,0 +1,18 @@
+== 1. initialize (public Host where applicable) ==
+session=42840bc9058645b497d7536feb16ff49 body_sample=id":1,"result":{"protocolVersion":"2025-03-26","capabilities
+== 2. notifications/initialized ==
+code=202
+== 3. tools/list ==
+tools: 30 | has ag_json_canonicalize: True | has guild_check: True
+== 4. invoke harmless tool (ag_json_canonicalize) ==
+isError: False | canonical in payload: True
+== 5. malformed invocation (missing required arg) ==
+machine-readable error: True
+== 6. unauthorised write (guild_attest, bogus key) ==
+rejected with structured error: True
+== 7. ordinary FastAPI routes ==
+health: 200 | check: 200 | card: 200
+== 8. spoofed Host -> guard fires (local only) ==
+spoofed-host code=421
+== 9. public Host accepted via allowlist (local, spoofed to prod host) ==
+public-host code=200

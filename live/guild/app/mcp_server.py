@@ -13,6 +13,7 @@ told apart from our own tests — see `_client_ua`.
 """
 from __future__ import annotations
 
+import os
 from typing import Optional
 from typing_extensions import TypedDict
 
@@ -500,16 +501,33 @@ _register_swarm_tools()
 
 # Streamable-HTTP ASGI app, mounted by main.py at /mcp (served at /mcp/).
 #
-# host_origin_protection MUST be disabled explicitly: fastmcp's Host/Origin
-# guard (DNS-rebinding protection for localhost dev servers) defaults to ON in
-# some releases and rejects every request whose Host header is not localhost
-# with "421 Misdirected Request". Behind Render the public Host is
-# agent-guild-5d5r.onrender.com, so with the guard on, EVERY external MCP
-# client is rejected — this silently broke the production /mcp endpoint
-# (observed 2026-07-10; registry-led discovery failed at initialize).
-# A public HTTPS API needs no rebinding guard. Fall back for old versions
-# whose http_app() lacks the kwarg (those versions had no guard).
+# Host/Origin guard configuration — evidence and rationale in
+# docs/discovery-swarm/evidence/mcp-421-host-guard.md. History:
+#   * unpinned fastmcp picked up a release whose guard default rejected every
+#     non-localhost Host with a bare "421 Misdirected Request", silently
+#     breaking the entire production /mcp surface (initialize, tools/list AND
+#     invocation) for all external clients — found 2026-07-10.
+#   * e8749bd disabled the guard globally as an emergency unblock.
+#   * Now: the NARROWEST supported production-safe configuration — an explicit
+#     Host allowlist. fastmcp semantics (http.py:_allowed_hosts_for_scope)
+#     always append loopback DEFAULT_HOSTS and the bound server host, so local
+#     dev and tests keep working; any other Host gets 421 (defense-in-depth
+#     against Host-header tricks) and cross-site browser Origins get 403
+#     (no cookies are used on /mcp, so CSRF exposure was already nil).
+# Override hosts via GUILD_PUBLIC_HOSTS (comma-separated) when a custom
+# domain lands. Fall back for old fastmcp versions whose http_app() lacks
+# the kwargs (those versions had no guard to configure).
+PUBLIC_HOSTS = [h.strip() for h in os.environ.get(
+    "GUILD_PUBLIC_HOSTS", "agent-guild-5d5r.onrender.com").split(",") if h.strip()]
 try:
-    mcp_app = mcp.http_app(path="/", host_origin_protection=False)
+    # "auto" + explicit allowlists = the documented narrow mode: with explicit
+    # allowed_hosts, the guard validates EVERY request against
+    # PUBLIC_HOSTS + loopback DEFAULT_HOSTS + the bound server host.
+    # (fastmcp 3.4.4 setting http_host_origin_protection defaults to False,
+    # so allowed_hosts alone would configure a guard that never runs —
+    # verified empirically before this change.)
+    mcp_app = mcp.http_app(path="/", host_origin_protection="auto",
+                           allowed_hosts=PUBLIC_HOSTS,
+                           allowed_origins=[f"https://{h}" for h in PUBLIC_HOSTS])
 except TypeError:  # fastmcp < 3.x: no guard, no kwarg
     mcp_app = mcp.http_app(path="/")
