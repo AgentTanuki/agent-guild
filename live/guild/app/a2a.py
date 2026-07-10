@@ -473,8 +473,21 @@ async def a2a_endpoint(request: Request):
     _adv_url = None
     _inv = re.match(r"^\s*invoke:\s*([a-z0-9_.\-]+)\s*(\{.*\})?\s*$", text, re.S | re.I)
     _inv_intent = bool(re.match(r"^\s*invoke\b", text, re.I))
+    # A bare option-style reply: "1", "3", "user: 2", "(a)", "option 3" — a
+    # machine selecting from a menu. Live telemetry (actor a2a:net:4580505b,
+    # 2026-07-10) showed an LLM-driven client sending "user: 1" ×9 and
+    # "user: 3" and dead-ending at probe_ack. The Guild never issues numbered
+    # menus and /a2a is STATELESS (no conversation id, no continuation token,
+    # no stored option set), so no numeric reply is ever resolvable here — the
+    # honest machine answer is a structured clarification carrying the exact
+    # explicit actions, not a generic ack.
+    _opt = bool(re.match(
+        r"^\s*(?:user:\s*)?(?:option\s*)?[\(\[]?(?:\d{1,3}|[a-e])[\)\].]?\s*$",
+        text, re.I))
     if _inv:
         caller_kind, caller_cap = "swarm_invoke_ask", _inv.group(1)
+    elif _opt:
+        caller_kind, caller_cap = "option_reply", None
     elif _inv_intent:
         # The caller clearly wants to invoke but the syntax is off (e.g. missing
         # capability id). A generic probe_ack here is a dead end for a machine —
@@ -523,6 +536,41 @@ async def a2a_endpoint(request: Request):
                     base=str(request.base_url).rstrip("/"))
             except _gw.Denied as _d:
                 payload = {"denied": _d.kind, **_d.detail}
+    elif caller_kind == "option_reply":
+        # Machine-readable clarification for an unresolvable menu selection.
+        payload = {
+            "kind": "option_reply_without_context",
+            "error": "no_session_context",
+            "received": text[:40],
+            "explanation": (
+                "This A2A endpoint is stateless: there is no conversation id, "
+                "no stored option set, and no continuation token, and the "
+                "Guild never issues numbered menus — so a bare option reply "
+                "like this cannot be resolved to an action. If a numbered "
+                "list appeared in your context, it was composed on your side. "
+                "Every Guild action is one self-contained message; pick one "
+                "from `actions` and send it in full."),
+            "actions": [
+                {"action": "capabilities.map", "send": "capabilities",
+                 "returns": "full supply/demand map"},
+                {"action": "trust.check", "send": "check: <capability>",
+                 "example": "check: fact-check",
+                 "returns": "best-evidenced agent + verdict + reachability"},
+                {"action": "capability.invoke",
+                 "send": "invoke: <capability_id> <json payload>",
+                 "example": 'invoke: json.repair {"text": "{\'a\': 1,}"}',
+                 "schemas": "/.well-known/ag-identities/index.json",
+                 "returns": "deterministic result + signed provenance"},
+                {"action": "prove.howto", "send": "how do I prove key control?",
+                 "returns": "the exact self-serve proving calls"},
+                {"action": "register",
+                 "send": None,
+                 "http": {"method": "POST", "path": "/agents/register",
+                          "body": {"name": "<you>", "capabilities": [],
+                                   "metadata": {"endpoint": "<your URL>"}}},
+                 "returns": "your agent_id + api key + guild_next"},
+            ],
+        }
     elif caller_kind == "swarm_invoke_malformed":
         from .swarm.capabilities import CAPABILITIES as _caps
         payload = {
