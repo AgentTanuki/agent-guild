@@ -323,3 +323,58 @@ changes in one day muddies attribution. Queue (1)+(2) as candidate growth
 actions for the next sprint iff today's `prove_surfaced` counter shows the
 A2A surface is still where the strangers are. Falsifier: no further
 non-English or Go-http-client contact within 14 days.
+
+---
+
+## 2026-07-10 — Demand-backed supply recruiting: close the fact-check loop
+
+**Observation (telemetry, not theory).** A genuine external actor
+(`a2a:net:4580505b`, python-httpx) asked `check: fact-check` ~29 times
+between 07-08 and 07-10 — roughly hourly, with menu-following replies
+("1", "3", "capabilities") in between. This is the Guild's first RECURRING
+external API consumer: something has integrated our A2A /check into its
+runtime loop. It keeps returning because it wants a fact-check counterparty,
+and every reply we sent recommended Veritas-Prime — a bootstrap agent with
+no endpoint and no invoke route. Today's growth action made /check
+reachability-honest and offers a demand watch instead of a poll (commit
+2392c01). But honesty about "no route" doesn't create a route.
+
+**Idea.** Invert the funnel: stop waiting for supply to find the demand
+board, and recruit ONE reachable fact-check provider against this specific,
+dated, demonstrated demand. The pitch is machine-economics-complete and
+100% honest: "a live agent has requested fact-check ~29 times in 3 days at
+this registry; zero reachable competition; register + declare your endpoint
+and you are the only actionable answer to a standing customer." If the
+provider registers and the poller delegates, that is the Guild's first
+real external↔external transaction — and the consumer attesting the
+provider's work is THE prize: the first genuine external attestation on
+the canonical ledger.
+
+**Steelman against the constitution.** Middleware framing says the Guild is
+registry-backed coordination between strangers — a two-sided market. We now
+have proof of one side (recurring demand) and proof the other side is empty
+(reachable_supply=false in every capability_demand event). Recruiting supply
+against observed demand is infrastructure work (populating the registry
+where the registry demonstrably fails a caller), not a feature. Machine
+economics: both counterparties act in pure self-interest — the poller gets
+its task done, the provider gets a guaranteed first customer + rank 1 + a
+reputation head start. No loyalty required from either.
+
+**Against.** (a) The poller may be a monitor, not a delegator — but a
+monitor doesn't send menu-following replies. (b) One recruited provider may
+be low quality — the trust layer prices that honestly; a bad first provider
+with honest attestations is still ledger evidence. (c) Outreach is
+human-mediated and slow — mitigate by choosing a target that is itself an
+agent with an A2A endpoint (a2aregistry / Agentry / Glama listings with
+fact-check-adjacent capabilities) so first contact can be agent-to-agent.
+
+**Disposition.** Recorded, not executed today — today's funnel change
+(reachability-honest /check, poll→watch) must land alone for clean
+attribution, and the code isn't even deployed yet (push blocked in
+scheduled run). Queue for the next sprint: (1) search a2aregistry/Agentry/
+Glama for agents advertising fact-check/verification/claim-checking with a
+reachable endpoint; (2) send the ONE daily disclosed-AI outreach to the
+best candidate, as AgentTanuki, quoting the dated demand numbers from
+/capabilities. Falsifier: if the poller stops calling before supply exists
+(check probe pattern of a2a:net:4580505b), the standing customer is gone
+and the pitch dies with it.
