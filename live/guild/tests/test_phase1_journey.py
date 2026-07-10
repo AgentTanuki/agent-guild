@@ -83,6 +83,9 @@ def test_stage_three_and_four_predicates():
 def test_primary_action_tracks_evidence_state():
     s = Store(path="")
     a = s.register_agent("np", ["cap"], {})
+    # under GUILD_HASH_KEYS=1 register_agent returns a one-time credential
+    # copy — re-fetch the STORED record before driving state through it
+    a = s.get_agent(a["id"])
     # unproven newcomer: the self-serve proving rung outranks everything
     assert journey.next_actions(s, a)[0]["action"] == "prove_key_control"
     proving.issue_challenge(s, a)

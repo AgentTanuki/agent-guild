@@ -35,8 +35,11 @@ def test_rotate_migrates_account_and_old_key_stops_working():
     good = client.post(f"/agents/{a['id']}/endpoint", headers={"X-API-Key": new},
                        json={"endpoint": "https://example.com/a2a"})
     assert good.status_code == 200
-    # billing account followed the key
-    assert new in store.accounts and old not in store.accounts
+    # billing account followed the key (keyed by key_id under GUILD_HASH_KEYS=1)
+    from app import credentials as creds
+    new_acct = creds.key_id_of(new) if creds.hashing_enabled() else new
+    old_acct = creds.key_id_of(old) if creds.hashing_enabled() else old
+    assert new_acct in store.accounts and old_acct not in store.accounts
 
 
 def test_revoke_stops_auth_and_admin_can_reissue():
@@ -66,9 +69,13 @@ def test_revoke_stops_auth_and_admin_can_reissue():
 
 def test_gateway_member_tier_requires_registered_key():
     from app.swarm.gateway import derive_actor
+    from app import credentials as creds
     a = _register("GatewayMember")
     actor, member = derive_actor(a["api_key"], "1.2.3.4", "ua", store=store)
-    assert member and actor == a["api_key"]
+    # members are keyed by the raw key (legacy) or its public key_id (hashed)
+    expected = (creds.key_id_of(a["api_key"]) if creds.hashing_enabled()
+                else a["api_key"])
+    assert member and actor == expected
     actor, member = derive_actor("sk_fake_nonsense", "1.2.3.4", "ua", store=store)
     assert not member and actor.startswith("swarm:badkey:")
     actor, member = derive_actor(None, "1.2.3.4", "ua", store=store)

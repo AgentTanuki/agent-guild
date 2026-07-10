@@ -20,6 +20,7 @@ from typing import Any, Optional
 import jsonschema
 
 from .capabilities import CAPABILITIES, CapabilityError, run_capability, category_of
+from .. import credentials as creds
 from . import experience, provenance
 from .identity import registry, SWARM_TAG
 
@@ -71,9 +72,16 @@ def derive_actor(x_api_key: Optional[str], client_host: str, ua: str,
     failure — guests are welcome) and is namespaced so it cannot collide with
     real member metrics."""
     if x_api_key:
-        if store is not None and any(
-                a.get("api_key") == x_api_key for a in store.agents.values()):
-            return x_api_key, True
+        agent = (store.agent_for_presented_key(x_api_key)
+                 if store is not None else None)
+        if agent is not None:
+            # member tier is a scoped privilege: a valid key without the
+            # 'invoke' scope is denied explicitly (machine-readable), never
+            # silently downgraded to guest.
+            if not creds.has_scope(agent, "invoke"):
+                raise Denied(403, "missing_scope",
+                             creds.scope_error(agent, "invoke"))
+            return (creds.actor_key_for_agent(agent) or x_api_key), True
         fp = hashlib.sha256(f"{client_host}|{ua}".encode()).hexdigest()[:16]
         return f"swarm:badkey:{fp}", False
     fp = hashlib.sha256(f"{client_host}|{ua}".encode()).hexdigest()[:16]
@@ -178,7 +186,7 @@ def invoke(store, capability_id: str, payload: Any, *,
         # genuine-external vs first-party is decided by the same code as
         # everything else (T12: false-demand exclusion).
         store.record_event(
-            None if not is_member else x_api_key, "swarm_invoke", ua=ua,
+            None if not is_member else actor, "swarm_invoke", ua=ua,
             endpoint="swarm_invoke", capability=capability_id,
             outcome="success" if ok else error_kind,
             tier=rate["tier"], actor=actor)

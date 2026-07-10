@@ -35,6 +35,7 @@ from . import __version__
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from .state import store
+from . import credentials as creds
 from . import journey as journey_engine
 from . import proving
 from .a2a import router as a2a_router
@@ -156,8 +157,44 @@ def _require_key(agent: dict, x_api_key: Optional[str], role: str) -> None:
     drive their own keys elsewhere (and cannot be impersonated for attestations,
     which still require a valid signature)."""
     if agent.get("custodial"):
-        if not x_api_key or x_api_key != agent.get("api_key"):
+        if not creds.verify_agent_key(agent, x_api_key):
             raise HTTPException(401, f"invalid or missing X-API-Key for {role}")
+        # first successful auth of a legacy-scope credential is audited once
+        store._note_legacy_scope_use(agent)
+
+
+def _require_scope(agent: Optional[dict], scope: str) -> None:
+    """Machine-readable scope enforcement: 403 naming exactly the missing
+    scope. Legacy (scopes-absent) records hold the least-privilege member set,
+    never admin. Every denial is audited (key_id only)."""
+    if not creds.has_scope(agent, scope):
+        store.record_event(creds.actor_key_for_agent(agent) if agent else None,
+                           "scope_denied", agent_id=(agent or {}).get("id"),
+                           key_id=(agent or {}).get("key_id"),
+                           required_scope=scope,
+                           have_scopes=creds.scopes_of(agent))
+        raise HTTPException(403, creds.scope_error(agent, scope))
+    # scope check passed => the caller authenticated; note legacy-scope use once
+    store._note_legacy_scope_use(agent)
+
+
+# --- lightweight per-agent rate limiting for credential lifecycle routes -----
+import time as _time
+_KEY_OP_WINDOW_S = 60.0
+_KEY_OP_MAX = 5            # rotate+revoke calls per agent per window
+_key_op_hits: dict[str, list[float]] = {}
+
+
+def _rate_limit_key_op(agent_id: str) -> None:
+    now = _time.time()
+    hits = [t for t in _key_op_hits.get(agent_id, []) if now - t < _KEY_OP_WINDOW_S]
+    if len(hits) >= _KEY_OP_MAX:
+        raise HTTPException(429, {
+            "error": "rate_limited",
+            "detail": "too many credential operations; retry shortly",
+            "retry_after_seconds": int(_KEY_OP_WINDOW_S)})
+    hits.append(now)
+    _key_op_hits[agent_id] = hits
 
 
 def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
@@ -368,10 +405,20 @@ def rotate_key(agent_id: str, x_api_key: Optional[str] = Header(None),
     agent = store.get_agent(agent_id)
     if not agent:
         raise HTTPException(404, "agent not found")
-    if not (x_admin_token and x_admin_token == ADMIN_TOKEN):
-        if not agent.get("api_key"):
+    _rate_limit_key_op(agent_id)
+    operator = bool(x_admin_token and x_admin_token == ADMIN_TOKEN)
+    if not operator:
+        if not creds.agent_has_active_key(agent):
             raise HTTPException(401, "key revoked — rotation requires the admin token")
         _require_key(agent, x_api_key, "agent")
+        # Self-service: authenticating with the agent's OWN current key proves
+        # ownership — rotating/retiring your own credential is a least-privilege
+        # self-action and must not require the operator-only `admin` scope
+        # (a self-registered key never carries it). The admin TOKEN remains the
+        # recovery path after a revoke.
+    else:
+        store.record_event(None, "operator_recovery", op=True,
+                           agent_id=agent_id, action="rotate")
     return store.rotate_api_key(agent_id)
 
 
@@ -384,8 +431,13 @@ def revoke_key(agent_id: str, x_api_key: Optional[str] = Header(None),
     agent = store.get_agent(agent_id)
     if not agent:
         raise HTTPException(404, "agent not found")
+    _rate_limit_key_op(agent_id)
     if not (x_admin_token and x_admin_token == ADMIN_TOKEN):
         _require_key(agent, x_api_key, "agent")
+        # Self-service revocation (see rotate) — own key proves ownership.
+    else:
+        store.record_event(None, "operator_recovery", op=True,
+                           agent_id=agent_id, action="revoke")
     return store.revoke_api_key(agent_id)
 
 
@@ -540,8 +592,9 @@ def post_attestation(req: AttestationRequest, x_api_key: Optional[str] = Header(
         raise HTTPException(404, "issuer not found")
     if not issuer.get("custodial"):
         raise HTTPException(400, "issuer is self-sovereign; submit a signed `credential` instead")
-    if not x_api_key or x_api_key != issuer.get("api_key"):
+    if not creds.verify_agent_key(issuer, x_api_key):
         raise HTTPException(401, "invalid or missing X-API-Key for issuer")
+    _require_scope(issuer, "attest")
     subject = store.get_agent(req.subject_id)
     if not subject:
         raise HTTPException(404, "subject not found")
@@ -570,8 +623,7 @@ def record_collaboration(req: RecordCollaborationRequest,
     →attest — so every real interaction can land as a verifiable ledger record."""
     if not x_api_key:
         raise HTTPException(401, "X-API-Key required (the requester's key from register)")
-    requester = next((a for a in store.agents.values()
-                      if a.get("api_key") == x_api_key), None)
+    requester = store.agent_for_presented_key(x_api_key)
     if not requester:
         raise HTTPException(401, "invalid X-API-Key")
     try:
@@ -587,9 +639,18 @@ def record_collaboration(req: RecordCollaborationRequest,
 
 # --- escrow + settlement: the economic layer ---------------------------------
 def _require_account(x_api_key: Optional[str]):
-    if not x_api_key or not store.get_account(x_api_key):
+    # get_account resolves the PRESENTED credential (raw sk_/ak_) to its
+    # account; a bare public key_id never resolves.
+    acct = store.get_account(x_api_key) if x_api_key else None
+    if acct is None:
         raise HTTPException(401, "X-API-Key for a funded account required "
                                  "(POST /billing/trial for a free starter balance)")
+    owner = acct.get("owner_agent_id")
+    if owner:
+        # member-tier escrow requires the 'escrow' scope on the owning agent
+        _require_scope(store.get_agent(owner), "escrow")
+    # return the presented credential — the store's escrow entry points do
+    # their own strict resolution (they are also reached via MCP with raw keys)
     return x_api_key
 
 
@@ -730,7 +791,7 @@ def _is_self_read(agent: dict, x_api_key: Optional[str]) -> bool:
     take — never meter it."""
     if not x_api_key:
         return False
-    if agent.get("api_key") and x_api_key == agent["api_key"]:
+    if creds.verify_agent_key(agent, x_api_key):
         return True
     acct = store.get_account(x_api_key)
     return bool(acct and acct.get("owner_agent_id") == agent["id"])
@@ -893,8 +954,7 @@ def demand_watch(body: dict[str, Any], x_api_key: Optional[str] = Header(None)):
     if not x_api_key:
         raise HTTPException(401, "X-API-Key required — POST /agents/register "
                                  "(free) returns one")
-    agent = next((a for a in store.agents.values()
-                  if a.get("api_key") == x_api_key), None)
+    agent = store.agent_for_presented_key(x_api_key)
     if agent is None:
         acct = store.get_account(x_api_key)
         if acct and acct.get("owner_agent_id"):

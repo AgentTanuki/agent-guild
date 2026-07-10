@@ -23,6 +23,7 @@ from . import __version__
 from . import journey as journey_engine
 from . import proving
 from .state import store
+from . import credentials as _creds
 
 
 # --- Machine-readable output schemas -----------------------------------------
@@ -232,7 +233,7 @@ def _prove_auth(agent: dict, api_key: str) -> Optional[dict]:
     """Mirror of the REST `_require_key` rule: custodial agents must present
     their api_key (presenting it IS the credential_control proof); self-sovereign
     agents are trusted to drive their own keys — the signature is the proof."""
-    if agent.get("custodial") and (not api_key or api_key != agent.get("api_key")):
+    if agent.get("custodial") and not _creds.verify_agent_key(agent, api_key):
         return {"error": "invalid or missing api_key for custodial agent"}
     return None
 
@@ -320,9 +321,11 @@ def guild_attest(issuer_api_key: str, subject_id: str, capability: str,
     guild_attest(issuer_api_key="sk_...", subject_id="agt_9x", capability="summarize", rating=0.9)
     Returns {id, verified}.
     """
-    issuer = next((a for a in store.agents.values() if a.get("api_key") == issuer_api_key), None)
+    issuer = store.agent_for_presented_key(issuer_api_key)
     if not issuer:
         return {"error": "invalid issuer api_key"}
+    if not _creds.has_scope(issuer, "attest"):
+        return _creds.scope_error(issuer, "attest")
     subject = store.get_agent(subject_id)
     if not subject:
         return {"error": "subject not found"}
@@ -350,8 +353,7 @@ def guild_record(issuer_api_key: str, worker_id: str, capability: str,
     Example: guild_record(issuer_api_key="sk_...", worker_id="agt_9x",
     capability="summarize", outcome="accepted", rating=0.95, deliverable="...").
     """
-    issuer = next((a for a in store.agents.values()
-                   if a.get("api_key") == issuer_api_key), None)
+    issuer = store.agent_for_presented_key(issuer_api_key)
     if not issuer:
         return {"error": "invalid issuer api_key"}
     store.record_event("mcp", "delegation", ua=_client_ua(ctx),

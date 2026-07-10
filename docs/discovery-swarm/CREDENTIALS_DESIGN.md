@@ -150,3 +150,127 @@ needs to read them back, so they are hashed.
   (funded) escrows to the new credential, so post-rotation release/refund
   requires the NEW key. Previously the retired key string still matched the
   escrow record (a replay hole) while the new key did not.
+
+## 13. Verifier construction (refinement, 2026-07-10)
+
+The first cut of this branch stored a **raw, unsalted SHA-256** of the key.
+That is replaced by a salted PBKDF2-HMAC-SHA256 verifier, self-describing so
+the cost can be raised later without a migration:
+
+```
+pbkdf2_sha256$<iterations>$<salt_b64>$<dk_b64>
+```
+
+* Per-key random 16-byte salt (defeats precomputation and cross-key
+  correlation). Default 100 000 iterations (`GUILD_KDF_ITERS`, tunable).
+* Rationale for PBKDF2 over argon2/bcrypt: api keys are 192-bit random
+  (`sk_` + 24 random bytes), so brute force is already infeasible and a heavy
+  memory-hard KDF only adds auth latency; PBKDF2 gives defense-in-depth at a
+  bounded cost (a single verify measured < 100 ms at 100k iters — tested).
+* `verify_key_hash` is constant-time (`hmac.compare_digest`) and also accepts a
+  legacy bare-sha256 digest, so a record hashed by the first cut of this branch
+  still authenticates during a rolling upgrade and re-hashes to PBKDF2 on its
+  next rotation.
+* **key_id is a separate, deterministic identifier** — `sha256(key)[:12]`,
+  used ONLY to look up the record in O(1). It is not a secret verifier (48
+  bits, non-reversible to the 192-bit key), safe to log and to use as an
+  account/event key, and is never accepted as a credential.
+
+## 14. Scopes — least privilege (refinement)
+
+* Vocabulary: `read, invoke, attest, escrow, admin`. **Unknown scopes fail
+  closed** (`has_scope` returns False for anything outside the vocabulary,
+  even for a legacy all-scopes record).
+* **Newly issued credentials default to `DEFAULT_ISSUE_SCOPES = read, invoke,
+  attest, escrow`** — every action a normal member legitimately performs, but
+  NEVER `admin`. `admin` is reserved for the operator path (admin token) and is
+  never granted to a self-registered key.
+* A pre-scoping record (no `scopes` field) is treated as fully privileged until
+  its next rotation re-issues it with least-privilege scopes — this is the only
+  place "all scopes" is a default, and it exists purely for backward
+  compatibility.
+* **Self-service rotation/revocation does NOT require `admin`.** Authenticating
+  with the agent's own current key proves ownership; requiring `admin` there
+  (as the first cut did) would make autonomous credential lifecycle impossible.
+  The admin TOKEN remains the recovery path after a revoke.
+* Route-level scope requirements are explicit and testable: member-tier
+  `/invoke` → `invoke`; `/attestations` + MCP `guild_attest` → `attest`;
+  `/escrow*` → `escrow`.
+
+## 15. Rollout lifecycle (staged, toward hashed as the end-state)
+
+Intended production end-state: hashed credentials, plaintext storage removed,
+flag deleted. Sequence:
+
+1. **Ship dark (now).** `GUILD_HASH_KEYS` unset in production → zero behavior
+   change; the code path is exercised only by the ON-mode test suite.
+2. **Backup.** Snapshot `guild.json` (+ `.events.jsonl`) — migration is one-way.
+3. **Enable.** Set `GUILD_HASH_KEYS=1`. On the next load, `_migrate_plaintext_keys`
+   rewrites every plaintext key in place: record → hash + key_id, account and
+   historical event/billing/escrow keys → key_id, one `_save` compacts the
+   journal so no raw key remains on disk. Idempotent (a re-load re-migrates
+   nothing). Emits an `api_keys_migrated` audit event.
+4. **Mixed-record recognition.** A record is hashed iff it has `api_key_hash`
+   (and `api_key is None`); plaintext iff it has a non-null `api_key`.
+   `verify_agent_key` handles both, so during the load window there is never a
+   half-state visible to callers. New issues are always hashed under the flag.
+5. **Rollback.** Because hashing is one-way, rollback = restore the pre-migration
+   backup (step 2) and unset the flag. Any keys issued AFTER enabling would not
+   be in the backup, so roll back promptly or re-issue those few. Documented as
+   the reason to enable during a quiet window.
+6. **Remove plaintext.** Once `/instrumentation` (or a one-off audit query)
+   shows zero records with a non-null `api_key`, the plaintext read paths in
+   `verify_agent_key`/`actor_key_for_agent` become dead and can be deleted.
+7. **Delete the flag.** After plaintext removal has been live and stable, make
+   hashing unconditional (drop the `hashing_enabled()` branches), delete
+   `GUILD_HASH_KEYS`, and drop the legacy bare-sha256 acceptance in
+   `verify_key_hash`. The `key_id`/scopes/audit machinery stays.
+
+## 16. Credential-leak regression scan
+
+`tests/test_credential_leak_scan.py` asserts, under the flag: no raw `sk_`
+secret in JSON state, the journal, event records, the billing log, application
+logs (`caplog`), or exception strings, after driving register / metered read /
+attestation / escrow-failure / rotation / revocation; plus a static repo scan
+for stray raw-key literals outside tests; plus the KDF-latency bound. When the
+SQLite backend lands, the same scan is extended to the SQLite state file.
+
+## 17. Refinements round 2 (2026-07-10)
+
+**Legacy scope policy (no longer "indefinitely fully privileged").**
+A record with no explicit `scopes` field receives the least-privilege member
+set (`read/invoke/attest/escrow`) — never `admin`. `is_legacy_scope()` marks it;
+the FIRST successful authentication emits a one-time `legacy_credential_used`
+audit event (key_id + effective scopes, never the secret); `/instrumentation`
+carries `legacy_scope_credentials` = {count, key_ids} for operator visibility;
+rotation writes an explicit modern scope set, clearing legacy status. Unknown
+scope values are dropped (fail closed per value); a malformed `scopes` field
+(not a list) grants nothing. No known production workflow depends on legacy
+`admin` (admin scope gates no route today), so no compatibility mapping is
+needed — the change is a strict reduction of implicit privilege.
+
+**key_id entropy.** Raised from 12 to 32 hex chars = **128 bits** (`KEY_ID_LEN`).
+Deterministic (`sha256(key)[:32]`) so a presented key looks up its record in
+O(1); different keys → different ids; rotation → a new id; issuance guards
+against a duplicate id (`_fresh_api_key`, regenerates on the astronomically
+unlikely collision) so duplicate identifiers are rejected safely; a revoked id
+cannot authenticate (its verifier is cleared).
+
+**Lifecycle invariants (tested, incl. concurrency).** Rotation needs the current
+valid credential OR the admin recovery token; self-revocation needs the current
+valid credential; a revoked credential cannot rotate/restore itself; rotation
+invalidates the old verifier atomically (under the store lock) and only the new
+credential works; two concurrent rotations leave EXACTLY ONE valid credential
+(`test_credential_concurrency.py`); rotate+revoke resolve deterministically.
+Audited: `api_key_issued`, `api_key_rotated`, `api_key_revoked`,
+`legacy_credential_used`, `scope_denied`, `operator_recovery` — all key_id-only.
+`/key/rotate` and `/key/revoke` are rate-limited (5 / agent / 60 s → 429).
+
+**KDF hardening.** salt = `os.urandom(16)` (CSPRNG); `dklen=32` explicit;
+iteration count stored in the verifier; malformed verifiers fail safely; a
+parsed iteration count outside `[1, MAX_ITERS=10_000_000]` is rejected BEFORE
+PBKDF2 runs (no unbounded computation from a tampered verifier); a configured
+`GUILD_KDF_ITERS` below `MIN_PROD_ITERS=100_000` is clamped UP to the floor
+unless `GUILD_ALLOW_WEAK_KDF=1` marks an explicit dev/test environment;
+comparison is constant-time. AG keys are high-entropy machine tokens, NOT
+human passwords — PBKDF2 is defense-in-depth, documented as such.

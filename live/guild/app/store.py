@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 from .crypto import generate_keypair, did_from_public_key, canonicalize
 from .reachability import reachability_fields
+from . import credentials as creds
 from .vc import issue_credential, verify_credential, issue_passport
 from .reputation import score, AttRecord, AgentScore, ScoringResult
 from .billing import (
@@ -97,6 +98,54 @@ class Store:
             self.demand_watches = data.get("demand_watches", [])
             self.swarm_state = data.get("swarm_state", {})
         self._replay_event_journal()
+        if creds.hashing_enabled():
+            self._migrate_plaintext_keys()
+
+    def _migrate_plaintext_keys(self) -> None:
+        """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
+        replace every stored plaintext api_key with its sha256 hash + public
+        key_id, re-key the agent's billing account, and rewrite historical
+        actor keys in the events log, billing log, escrows and swarm referral
+        tokens so no raw secret remains at rest. Idempotent — a migrated key
+        keeps authenticating (the presented raw key hashes to the same
+        digest) and account/attribution history stays continuous under the
+        key_id."""
+        migrated = 0
+        for agent in self.agents.values():
+            raw = agent.get("api_key")
+            if not raw:
+                continue
+            kid = creds.key_id_of(raw)
+            agent["api_key"] = None
+            agent["api_key_hash"] = creds.hash_key(raw)
+            agent["key_id"] = kid
+            agent.setdefault("scopes", list(creds.DEFAULT_ISSUE_SCOPES))
+            agent.setdefault(
+                "credential_class",
+                "first_party" if agent.get("first_party") else "external")
+            if raw in self.accounts:
+                acct = self.accounts.pop(raw)
+                acct["key"] = kid
+                acct["hashed"] = True
+                self.accounts[kid] = acct
+            for e in self.events:
+                if e.get("key") == raw:
+                    e["key"] = kid
+                if e.get("actor") == raw:
+                    e["actor"] = kid
+            for b in self.billing_log:
+                if b.get("key") == raw:
+                    b["key"] = kid
+            for esc in self.escrows.values():
+                if esc.get("requester_key") == raw:
+                    esc["requester_key"] = kid
+            for tok in (self.swarm_state.get("referral_tokens") or {}).values():
+                if isinstance(tok, dict) and tok.get("actor") == raw:
+                    tok["actor"] = kid
+            migrated += 1
+        if migrated:
+            self.record_event(None, "api_keys_migrated", agents=migrated)
+            self._save()  # compacts the journal too — raw keys leave disk
 
     def _replay_event_journal(self) -> None:
         """Append journal events not already in the compacted store. Dedup is
@@ -165,6 +214,18 @@ class Store:
         (white paper §3.2, §7.3)."""
         return hashlib.sha256(canonicalize(config).encode("utf-8")).hexdigest()
 
+    def _fresh_api_key(self) -> str:
+        """A new sk_ secret whose public key_id does not collide with any
+        existing agent. key_id is 128 bits, so a collision is astronomically
+        unlikely — but issuance guards against it deterministically rather than
+        assuming it away (duplicate identifiers must be rejected safely)."""
+        existing = {a.get("key_id") for a in self.agents.values() if a.get("key_id")}
+        for _ in range(8):
+            raw = "sk_" + secrets.token_hex(24)
+            if creds.key_id_of(raw) not in existing:
+                return raw
+        raise RuntimeError("could not mint a collision-free api key")  # never
+
     def register_agent(
         self,
         name: str,
@@ -198,7 +259,7 @@ class Store:
                 custodial = False
             else:  # custodial: Guild generates and holds the key
                 priv, pub = generate_keypair()
-                api_key = "sk_" + secrets.token_hex(24)
+                api_key = self._fresh_api_key()
                 custodial = True
             did = did_from_public_key(pub)
             # Behavioral configuration: content-addressed at registration, and
@@ -233,11 +294,24 @@ class Store:
                 # -attestation, -passport all start from this dict.
                 "milestones": {"registered": now},
             }
+            hashed = bool(api_key and creds.hashing_enabled())
+            if hashed:
+                # hashed-at-rest (GUILD_HASH_KEYS=1): the record keeps only
+                # sha256(key) + the public key_id; the raw key is returned
+                # exactly once, in the copy handed back below.
+                rec["api_key"] = None
+                rec["api_key_hash"] = creds.hash_key(api_key)
+                rec["key_id"] = creds.key_id_of(api_key)
+                rec["scopes"] = list(creds.DEFAULT_ISSUE_SCOPES)
+                rec["credential_class"] = "first_party" if fp else "external"
             self.agents[agent_id] = rec
-            # Custodial agents get a billing account keyed by their api_key, so
-            # they can pay for lookups with the same secret they already hold.
+            # Custodial agents get a billing account keyed by their api_key
+            # (legacy) or by the public key_id (hashed mode), so they can pay
+            # for lookups with the same secret they already hold.
             if api_key:
-                self._new_account(key=api_key, owner_agent_id=agent_id, first_party=fp)
+                self._new_account(key=(rec.get("key_id") or api_key),
+                                  owner_agent_id=agent_id, first_party=fp,
+                                  hashed=hashed)
             # Record the referral edge (pending: the referrer is paid only once
             # this agent activates — see activate_referral).
             if referred_by:
@@ -258,6 +332,12 @@ class Store:
             self.record_event(api_key, "register", agent_id=agent_id,
                               custodial=custodial, referred=bool(referred_by),
                               agent_first_party=fp)
+            if hashed:
+                # credential audit trail (issue/rotate/revoke); key_id only,
+                # never the secret.
+                self.record_event(rec["key_id"], "api_key_issued",
+                                  agent_id=agent_id, key_id=rec["key_id"],
+                                  credential_class=rec["credential_class"])
             self._rep_cache = None
             self._save()
             # dual-write: identity creation is chain evidence (public fields ONLY —
@@ -269,6 +349,12 @@ class Store:
                 "referred_by": referred_by, "principal": principal,
                 "config_hash": cfg_hash,
             }, actor_did=did)
+            if hashed:
+                # show the secret exactly once: the STORED record holds only
+                # the hash; the caller's copy carries the raw key to relay.
+                out = dict(rec)
+                out["api_key"] = api_key
+                return out
             return rec
 
     def declare_configuration(self, agent_id: str, config: dict[str, Any]) -> dict[str, Any]:
@@ -357,25 +443,67 @@ class Store:
             return {"agent_id": agent_id, "endpoint": endpoint, "declared_at": _now()}
 
     # --- credential lifecycle (Pilot A audit, 2026-07-10) --------------------
-    def rotate_api_key(self, agent_id: str) -> dict[str, Any]:
+    def rotate_api_key(self, agent_id: str,
+                       expires_in_days: Optional[float] = None) -> dict[str, Any]:
         """Issue a fresh api_key for the agent, migrating its billing account
-        (accounts are keyed by the api_key). The old key stops authenticating
-        immediately; past events keep their original key for attribution."""
+        (accounts are keyed by the api_key, or by its public key_id under
+        GUILD_HASH_KEYS=1). The old key stops authenticating immediately; past
+        events keep their original actor key for attribution. `expires_in_days`
+        optionally time-boxes the new credential."""
         with self.lock:
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
             old = agent.get("api_key")
-            new = "sk_" + secrets.token_hex(24)
-            agent["api_key"] = new
+            old_actor = creds.actor_key_for_agent(agent)
+            old_kid = agent.get("key_id") or (creds.key_id_of(old) if old else None)
+            new = self._fresh_api_key()
             agent["api_key_rotated_at"] = _now()
-            if old and old in self.accounts:
-                acct = self.accounts.pop(old)
-                acct["key"] = new
-                self.accounts[new] = acct
-            self.record_event(new, "api_key_rotated", agent_id=agent_id)
+            if expires_in_days is not None:
+                agent["api_key_expires_at"] = (
+                    datetime.now(timezone.utc)
+                    + timedelta(days=float(expires_in_days))).isoformat()
+            else:
+                agent.pop("api_key_expires_at", None)
+            if creds.hashing_enabled():
+                agent["api_key"] = None
+                agent["api_key_hash"] = creds.hash_key(new)
+                agent["key_id"] = creds.key_id_of(new)
+                # rotation always writes an EXPLICIT modern scope set — a legacy
+                # (scopes-absent) record is upgraded to least-privilege here.
+                if agent.get("scopes") is None:
+                    agent["scopes"] = list(creds.DEFAULT_ISSUE_SCOPES)
+                agent.setdefault(
+                    "credential_class",
+                    "first_party" if agent.get("first_party") else "external")
+                new_actor = agent["key_id"]
+            else:
+                agent["api_key"] = new
+                agent.pop("api_key_hash", None)
+                agent.pop("key_id", None)
+                if agent.get("scopes") is None:
+                    agent["scopes"] = list(creds.DEFAULT_ISSUE_SCOPES)
+                new_actor = new
+            if old_actor and old_actor in self.accounts:
+                acct = self.accounts.pop(old_actor)
+                acct["key"] = new_actor
+                if creds.hashing_enabled():
+                    acct["hashed"] = True
+                self.accounts[new_actor] = acct
+            if old_actor:
+                # open escrows follow the account to the new credential, so a
+                # rotated payer can still release/refund (and the retired key
+                # cannot).
+                for esc in self.escrows.values():
+                    if esc.get("requester_key") == old_actor \
+                            and esc.get("status") == "funded":
+                        esc["requester_key"] = new_actor
+            self.record_event(new_actor, "api_key_rotated", agent_id=agent_id,
+                              key_id=agent.get("key_id"), old_key_id=old_kid)
             self._save()
             return {"agent_id": agent_id, "api_key": new,
+                    "key_id": agent.get("key_id"),
+                    "expires_at": agent.get("api_key_expires_at"),
                     "rotated_at": agent["api_key_rotated_at"],
                     "note": "the previous key no longer authenticates"}
 
@@ -387,10 +515,14 @@ class Store:
             if agent is None:
                 raise ValueError("agent not found")
             old = agent.get("api_key")
+            old_actor = (creds.actor_key_for_agent(agent)
+                         or self.account_for_agent(agent_id))
             agent["api_key"] = None
+            agent.pop("api_key_hash", None)  # key_id stays: public history
             agent["api_key_revoked_at"] = _now()
-            self.record_event(old or self.account_for_agent(agent_id) or "anon",
-                              "api_key_revoked", agent_id=agent_id)
+            self.record_event(old_actor or "anon",
+                              "api_key_revoked", agent_id=agent_id,
+                              key_id=agent.get("key_id"))
             self._save()
             return {"agent_id": agent_id, "revoked_at": agent["api_key_revoked_at"],
                     "note": "identity and history retained; POST "
@@ -493,7 +625,8 @@ class Store:
     # --- billing accounts / credit ledger -----------------------------------
     def _new_account(self, key: Optional[str] = None,
                      owner_agent_id: Optional[str] = None,
-                     first_party: bool = False) -> dict[str, Any]:
+                     first_party: bool = False,
+                     hashed: bool = False) -> dict[str, Any]:
         key = key or ("ak_" + secrets.token_hex(20))
         acct = {
             "key": key,
@@ -506,6 +639,10 @@ class Store:
             "first_party": bool(first_party),
             "created_at": _now(),
         }
+        if hashed:
+            # keyed by the public key_id of a hashed credential; resolution
+            # only accepts the RAW secret for these (see _account_key).
+            acct["hashed"] = True
         self.accounts[key] = acct
         return acct
 
@@ -516,13 +653,77 @@ class Store:
             self._save()
             return acct
 
+    def _account_key(self, presented: Optional[str]) -> Optional[str]:
+        """Resolve a PRESENTED credential to the accounts-dict key it may
+        spend. Legacy accounts (plaintext key, ak_ billing keys) match by
+        equality; hashed accounts match only when the RAW sk_ secret is
+        presented (its sha256 prefix is the account key). A bare public
+        key_id is never accepted as a credential."""
+        if not presented:
+            return None
+        acct = self.accounts.get(presented)
+        if acct is not None and not acct.get("hashed"):
+            return presented
+        if presented.startswith("sk_"):
+            kid = creds.key_id_of(presented)
+            hashed_acct = self.accounts.get(kid)
+            if hashed_acct is not None and hashed_acct.get("hashed"):
+                return kid
+        return None
+
+    def resolve_billing_key(self, presented: Optional[str]) -> Optional[str]:
+        """Public alias of _account_key for the HTTP layer."""
+        return self._account_key(presented)
+
+    def agent_for_presented_key(self, presented: Optional[str]
+                                ) -> Optional[dict[str, Any]]:
+        """The agent that owns a presented credential — constant-time compare
+        per record, both storage forms (plaintext / sha256), honouring
+        revocation and expiry. Replaces raw equality scans."""
+        if not presented:
+            return None
+        for a in self.agents.values():
+            if creds.verify_agent_key(a, presented):
+                self._note_legacy_scope_use(a)
+                return a
+        return None
+
+    def _note_legacy_scope_use(self, agent: dict[str, Any]) -> None:
+        """On the FIRST successful auth of a legacy-scope credential, emit a
+        one-time `legacy_credential_used` audit event (key_id only, never the
+        secret) and flag the record so the event fires once."""
+        if not creds.is_legacy_scope(agent):
+            return
+        if agent.get("legacy_scope_noted"):
+            return
+        agent["legacy_scope_noted"] = True
+        self.record_event(creds.actor_key_for_agent(agent),
+                          "legacy_credential_used", agent_id=agent.get("id"),
+                          key_id=agent.get("key_id"),
+                          effective_scopes=list(creds.LEGACY_SCOPES))
+        self._save()
+
+    def legacy_scope_credentials(self) -> dict[str, Any]:
+        """Operator view: which credentials still rely on the legacy scope
+        interpretation (no explicit `scopes` field). key_ids only."""
+        ids = [{"agent_id": a.get("id"), "key_id": a.get("key_id"),
+                "seen": bool(a.get("legacy_scope_noted"))}
+               for a in self.agents.values()
+               if creds.is_legacy_scope(a) and creds.agent_has_active_key(a)]
+        return {"count": len(ids), "credentials": ids}
+
     def get_account(self, key: str) -> Optional[dict[str, Any]]:
-        return self.accounts.get(key)
+        resolved = self._account_key(key)
+        return self.accounts.get(resolved) if resolved else None
 
     def charge(self, key: str, cost: int, endpoint: str) -> dict[str, Any]:
         """Draw `cost` credits from an account. Raises UnknownAccount or
         InsufficientCredits. Returns the account."""
         with self.lock:
+            resolved = self._account_key(key)
+            if resolved is None:
+                raise UnknownAccount(key)
+            key = resolved
             acct = self.accounts.get(key)
             if acct is None:
                 raise UnknownAccount(key)
@@ -539,6 +740,7 @@ class Store:
 
     def credit(self, key: str, credits: int, reason: str = "topup") -> dict[str, Any]:
         with self.lock:
+            key = self._account_key(key) or key
             acct = self.accounts.get(key)
             if acct is None:
                 raise UnknownAccount(key)
@@ -573,6 +775,7 @@ class Store:
         (the agent's identity for instrumentation purposes). `fp` marks whether
         the actor is first-party (our own seed/test traffic) so external,
         third-party usage can be isolated."""
+        key = creds.sanitize_actor_key(key)
         acct = self.accounts.get(key or "")
         fp = bool(acct and acct.get("first_party"))
         event = {"key": key or "anon", "type": etype, "ua": ua or "",
@@ -610,7 +813,7 @@ class Store:
         those workers can be attributed as 'delegation following a recommendation'."""
         if not key:
             return
-        acct = self.accounts.get(key)
+        acct = self.get_account(key)
         if acct is None:
             return
         recs = acct.setdefault("recent_recs", [])
@@ -619,7 +822,7 @@ class Store:
         acct["recent_recs"] = recs[-50:]
 
     def followed_recommendation(self, key: Optional[str], worker_id: str) -> bool:
-        acct = self.accounts.get(key or "")
+        acct = self.get_account(key or "")
         return bool(acct and worker_id in acct.get("recent_recs", []))
 
     def account_for_agent(self, agent_id: str) -> Optional[str]:
@@ -814,9 +1017,9 @@ class Store:
         # traffic is crawlers or our own tests. Only EXTERNAL_* classes may
         # feed external-growth reporting (attribution.may_count_as_external_growth).
         from .attribution import caller_class
-        verified_keys = {a.get("api_key") for a in self.agents.values()
+        verified_keys = {creds.actor_key_for_agent(a) for a in self.agents.values()
                          if (a.get("milestones") or {}).get("key_proof")}
-        member_keys = {a.get("api_key") for a in self.agents.values()}
+        member_keys = {creds.actor_key_for_agent(a) for a in self.agents.values()}
         class_counts: dict[str, int] = {}
         for e in self.events:
             k = e.get("key")
@@ -824,6 +1027,9 @@ class Store:
                                verified=k in verified_keys)
             class_counts[cls] = class_counts.get(cls, 0) + 1
         combined["caller_classes"] = class_counts
+        # credential hygiene: how many active credentials still rely on the
+        # legacy scope interpretation (operator-visible; key_ids only).
+        combined["legacy_scope_credentials"] = self.legacy_scope_credentials()
         # Journey funnel (Phase 0): stage progression, not just traffic.
         combined["journey"] = self.journey_funnel()
         # Proving funnel (machine-economics audit R2): offered → started →
@@ -1663,6 +1869,10 @@ class Store:
             amount = int(amount)
             if amount <= 0:
                 raise ValueError("amount must be a positive integer (credits)")
+            resolved = self._account_key(requester_key)
+            if resolved is None:
+                raise UnknownAccount(requester_key)
+            requester_key = resolved
             acct = self.accounts.get(requester_key)
             if acct is None:
                 raise UnknownAccount(requester_key)
@@ -1722,7 +1932,8 @@ class Store:
             esc = self.escrows.get(escrow_id)
             if esc is None:
                 raise ValueError("escrow not found")
-            if esc["requester_key"] != requester_key:
+            requester_key = self._account_key(requester_key)
+            if not requester_key or esc["requester_key"] != requester_key:
                 raise ValueError("only the funding party may release this escrow")
             if esc["status"] != "funded":
                 raise ValueError(f"escrow is {esc['status']}, not funded")
@@ -1770,7 +1981,8 @@ class Store:
             esc = self.escrows.get(escrow_id)
             if esc is None:
                 raise ValueError("escrow not found")
-            if esc["requester_key"] != requester_key:
+            requester_key = self._account_key(requester_key)
+            if not requester_key or esc["requester_key"] != requester_key:
                 raise ValueError("only the funding party may refund this escrow")
             if esc["status"] != "funded":
                 raise ValueError(f"escrow is {esc['status']}, not funded")
@@ -1793,9 +2005,11 @@ class Store:
             esc = self.escrows.get(escrow_id)
             if esc is None:
                 raise ValueError("escrow not found")
-            actor = self.accounts.get(actor_key)
+            actor_key = self._account_key(actor_key)
+            actor = self.accounts.get(actor_key) if actor_key else None
             actor_agent = actor.get("owner_agent_id") if actor else None
-            if esc["requester_key"] != actor_key and actor_agent != esc["worker_id"]:
+            if (not actor_key or esc["requester_key"] != actor_key) \
+                    and actor_agent != esc["worker_id"]:
                 raise ValueError("only a party to this escrow may dispute it")
             if esc["status"] != "funded":
                 raise ValueError(f"escrow is {esc['status']}, not funded")
