@@ -30,6 +30,8 @@ client = TestClient(app)
 @pytest.fixture
 def hash_on(monkeypatch):
     monkeypatch.setenv("GUILD_HASH_KEYS", "1")
+    monkeypatch.setenv("GUILD_ALLOW_WEAK_KDF", "1")
+    monkeypatch.setenv("GUILD_KDF_ITERS", "1000")   # fast for tests
 
 
 @pytest.fixture
@@ -278,10 +280,84 @@ def test_self_rotate_revoke_do_not_require_admin_scope(hash_off):
     assert r.status_code == 200, r.text
 
 
-def test_absent_scopes_field_means_all_scopes(hash_off):
-    a = _register("Unscoped")
+def test_legacy_absent_scopes_is_least_privilege_not_admin(hash_off):
+    """Legacy policy: a record with no `scopes` field gets the least-privilege
+    member set (read/invoke/attest/escrow) — NOT admin, NOT all."""
+    a = _register("Legacy")
     store.agents[a["id"]].pop("scopes", None)   # pre-hardening record shape
-    b = _register("UnscopedSubject")
+    b = _register("LegacySubject")
+    # attest (a member scope) works
     assert client.post("/attestations", headers={"X-API-Key": a["api_key"]},
                        json={"issuer_id": a["id"], "subject_id": b["id"],
                              "capability": "x", "rating": 0.8}).status_code == 200
+    # but the record does NOT hold admin
+    assert not creds.has_scope(store.agents[a["id"]], "admin")
+    assert set(creds.scopes_of(store.agents[a["id"]])) == set(creds.LEGACY_SCOPES)
+
+
+def test_legacy_credential_use_is_audited_once_and_listed(hash_off):
+    a = _register("LegacyAudited")
+    store.agents[a["id"]].pop("scopes", None)
+    # operator view lists it before first use
+    listed = store.legacy_scope_credentials()
+    assert any(c["agent_id"] == a["id"] for c in listed["credentials"])
+    # drive two authenticated (write) calls; the audit event fires exactly once
+    b = _register("LegacyAuditSubj")
+    for _ in range(2):
+        client.post("/attestations", headers={"X-API-Key": a["api_key"]},
+                    json={"issuer_id": a["id"], "subject_id": b["id"],
+                          "capability": "x", "rating": 0.7})
+    evs = [e for e in store.events
+           if e.get("type") == "legacy_credential_used" and e.get("agent_id") == a["id"]]
+    assert len(evs) == 1
+    assert evs[0].get("effective_scopes") == list(creds.LEGACY_SCOPES)
+
+
+def test_legacy_rotation_writes_explicit_modern_scopes(hash_off):
+    a = _register("LegacyRotate")
+    store.agents[a["id"]].pop("scopes", None)
+    assert creds.is_legacy_scope(store.agents[a["id"]])
+    r = client.post(f"/agents/{a['id']}/key/rotate", headers={"X-API-Key": a["api_key"]})
+    assert r.status_code == 200, r.text
+    rec = store.agents[a["id"]]
+    assert not creds.is_legacy_scope(rec)                       # now explicit
+    assert rec["scopes"] == list(creds.DEFAULT_ISSUE_SCOPES)
+
+
+def test_scope_matrix(hash_off):
+    a = _register("Matrix")
+    rec = store.agents[a["id"]]
+    # missing scopes -> legacy least-privilege
+    rec.pop("scopes", None)
+    assert set(creds.scopes_of(rec)) == set(creds.LEGACY_SCOPES)
+    # empty scopes -> nothing
+    rec["scopes"] = []
+    assert creds.scopes_of(rec) == []
+    assert not creds.has_scope(rec, "invoke")
+    # unknown scope values -> dropped (fail closed per value)
+    rec["scopes"] = ["invoke", "superuser", "root"]
+    assert creds.scopes_of(rec) == ["invoke"]
+    assert not creds.has_scope(rec, "superuser")
+    # malformed scopes field (not a list) -> nothing
+    rec["scopes"] = "invoke"
+    assert creds.scopes_of(rec) == []
+    # explicit least-privilege
+    rec["scopes"] = list(creds.DEFAULT_ISSUE_SCOPES)
+    assert creds.has_scope(rec, "escrow") and not creds.has_scope(rec, "admin")
+    # explicit admin
+    rec["scopes"] = ["admin"]
+    assert creds.has_scope(rec, "admin") and not creds.has_scope(rec, "invoke")
+    # unknown REQUIRED scope always fails closed
+    assert not creds.has_scope(rec, "not_a_scope")
+
+
+def test_scope_denial_is_audited(hash_off):
+    a = _register("Denied")
+    store.agents[a["id"]]["scopes"] = ["read"]   # no attest
+    b = _register("DeniedSubject")
+    r = client.post("/attestations", headers={"X-API-Key": a["api_key"]},
+                    json={"issuer_id": a["id"], "subject_id": b["id"],
+                          "capability": "x", "rating": 0.5})
+    assert r.status_code == 403
+    assert any(e.get("type") == "scope_denied" and e.get("required_scope") == "attest"
+               and e.get("agent_id") == a["id"] for e in store.events)

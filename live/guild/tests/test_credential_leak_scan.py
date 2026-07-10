@@ -21,7 +21,8 @@ SK = re.compile(r"sk_[0-9a-f]{16,}")
 @pytest.fixture
 def hash_on(monkeypatch):
     monkeypatch.setenv("GUILD_HASH_KEYS", "1")
-    monkeypatch.setenv("GUILD_KDF_ITERS", "1000")   # fast for tests
+    monkeypatch.setenv("GUILD_KDF_ITERS", "1000")
+    monkeypatch.setenv("GUILD_ALLOW_WEAK_KDF", "1")   # fast for tests
     yield
 
 
@@ -97,5 +98,5 @@ def test_production_kdf_cost_is_bounded():
     assert creds.verify_key_hash("sk_" + "a" * 48, h)
     dt = (time.perf_counter() - t0) * 1000
     assert dt < 100, f"verify took {dt:.0f}ms at 100k iters"
-    os.environ["GUILD_KDF_ITERS"] = "1000"
+    os.environ["GUILD_KDF_ITERS"] = "1000"; os.environ["GUILD_ALLOW_WEAK_KDF"]="1"
     importlib.reload(creds)

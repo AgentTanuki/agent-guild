@@ -214,6 +214,18 @@ class Store:
         (white paper §3.2, §7.3)."""
         return hashlib.sha256(canonicalize(config).encode("utf-8")).hexdigest()
 
+    def _fresh_api_key(self) -> str:
+        """A new sk_ secret whose public key_id does not collide with any
+        existing agent. key_id is 128 bits, so a collision is astronomically
+        unlikely — but issuance guards against it deterministically rather than
+        assuming it away (duplicate identifiers must be rejected safely)."""
+        existing = {a.get("key_id") for a in self.agents.values() if a.get("key_id")}
+        for _ in range(8):
+            raw = "sk_" + secrets.token_hex(24)
+            if creds.key_id_of(raw) not in existing:
+                return raw
+        raise RuntimeError("could not mint a collision-free api key")  # never
+
     def register_agent(
         self,
         name: str,
@@ -247,7 +259,7 @@ class Store:
                 custodial = False
             else:  # custodial: Guild generates and holds the key
                 priv, pub = generate_keypair()
-                api_key = "sk_" + secrets.token_hex(24)
+                api_key = self._fresh_api_key()
                 custodial = True
             did = did_from_public_key(pub)
             # Behavioral configuration: content-addressed at registration, and
@@ -445,7 +457,7 @@ class Store:
             old = agent.get("api_key")
             old_actor = creds.actor_key_for_agent(agent)
             old_kid = agent.get("key_id") or (creds.key_id_of(old) if old else None)
-            new = "sk_" + secrets.token_hex(24)
+            new = self._fresh_api_key()
             agent["api_key_rotated_at"] = _now()
             if expires_in_days is not None:
                 agent["api_key_expires_at"] = (
@@ -457,7 +469,10 @@ class Store:
                 agent["api_key"] = None
                 agent["api_key_hash"] = creds.hash_key(new)
                 agent["key_id"] = creds.key_id_of(new)
-                agent.setdefault("scopes", list(creds.DEFAULT_ISSUE_SCOPES))
+                # rotation always writes an EXPLICIT modern scope set — a legacy
+                # (scopes-absent) record is upgraded to least-privilege here.
+                if agent.get("scopes") is None:
+                    agent["scopes"] = list(creds.DEFAULT_ISSUE_SCOPES)
                 agent.setdefault(
                     "credential_class",
                     "first_party" if agent.get("first_party") else "external")
@@ -466,6 +481,8 @@ class Store:
                 agent["api_key"] = new
                 agent.pop("api_key_hash", None)
                 agent.pop("key_id", None)
+                if agent.get("scopes") is None:
+                    agent["scopes"] = list(creds.DEFAULT_ISSUE_SCOPES)
                 new_actor = new
             if old_actor and old_actor in self.accounts:
                 acct = self.accounts.pop(old_actor)
@@ -667,8 +684,33 @@ class Store:
             return None
         for a in self.agents.values():
             if creds.verify_agent_key(a, presented):
+                self._note_legacy_scope_use(a)
                 return a
         return None
+
+    def _note_legacy_scope_use(self, agent: dict[str, Any]) -> None:
+        """On the FIRST successful auth of a legacy-scope credential, emit a
+        one-time `legacy_credential_used` audit event (key_id only, never the
+        secret) and flag the record so the event fires once."""
+        if not creds.is_legacy_scope(agent):
+            return
+        if agent.get("legacy_scope_noted"):
+            return
+        agent["legacy_scope_noted"] = True
+        self.record_event(creds.actor_key_for_agent(agent),
+                          "legacy_credential_used", agent_id=agent.get("id"),
+                          key_id=agent.get("key_id"),
+                          effective_scopes=list(creds.LEGACY_SCOPES))
+        self._save()
+
+    def legacy_scope_credentials(self) -> dict[str, Any]:
+        """Operator view: which credentials still rely on the legacy scope
+        interpretation (no explicit `scopes` field). key_ids only."""
+        ids = [{"agent_id": a.get("id"), "key_id": a.get("key_id"),
+                "seen": bool(a.get("legacy_scope_noted"))}
+               for a in self.agents.values()
+               if creds.is_legacy_scope(a) and creds.agent_has_active_key(a)]
+        return {"count": len(ids), "credentials": ids}
 
     def get_account(self, key: str) -> Optional[dict[str, Any]]:
         resolved = self._account_key(key)
@@ -985,6 +1027,9 @@ class Store:
                                verified=k in verified_keys)
             class_counts[cls] = class_counts.get(cls, 0) + 1
         combined["caller_classes"] = class_counts
+        # credential hygiene: how many active credentials still rely on the
+        # legacy scope interpretation (operator-visible; key_ids only).
+        combined["legacy_scope_credentials"] = self.legacy_scope_credentials()
         # Journey funnel (Phase 0): stage progression, not just traffic.
         combined["journey"] = self.journey_funnel()
         # Proving funnel (machine-economics audit R2): offered → started →

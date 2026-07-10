@@ -234,3 +234,43 @@ logs (`caplog`), or exception strings, after driving register / metered read /
 attestation / escrow-failure / rotation / revocation; plus a static repo scan
 for stray raw-key literals outside tests; plus the KDF-latency bound. When the
 SQLite backend lands, the same scan is extended to the SQLite state file.
+
+## 17. Refinements round 2 (2026-07-10)
+
+**Legacy scope policy (no longer "indefinitely fully privileged").**
+A record with no explicit `scopes` field receives the least-privilege member
+set (`read/invoke/attest/escrow`) — never `admin`. `is_legacy_scope()` marks it;
+the FIRST successful authentication emits a one-time `legacy_credential_used`
+audit event (key_id + effective scopes, never the secret); `/instrumentation`
+carries `legacy_scope_credentials` = {count, key_ids} for operator visibility;
+rotation writes an explicit modern scope set, clearing legacy status. Unknown
+scope values are dropped (fail closed per value); a malformed `scopes` field
+(not a list) grants nothing. No known production workflow depends on legacy
+`admin` (admin scope gates no route today), so no compatibility mapping is
+needed — the change is a strict reduction of implicit privilege.
+
+**key_id entropy.** Raised from 12 to 32 hex chars = **128 bits** (`KEY_ID_LEN`).
+Deterministic (`sha256(key)[:32]`) so a presented key looks up its record in
+O(1); different keys → different ids; rotation → a new id; issuance guards
+against a duplicate id (`_fresh_api_key`, regenerates on the astronomically
+unlikely collision) so duplicate identifiers are rejected safely; a revoked id
+cannot authenticate (its verifier is cleared).
+
+**Lifecycle invariants (tested, incl. concurrency).** Rotation needs the current
+valid credential OR the admin recovery token; self-revocation needs the current
+valid credential; a revoked credential cannot rotate/restore itself; rotation
+invalidates the old verifier atomically (under the store lock) and only the new
+credential works; two concurrent rotations leave EXACTLY ONE valid credential
+(`test_credential_concurrency.py`); rotate+revoke resolve deterministically.
+Audited: `api_key_issued`, `api_key_rotated`, `api_key_revoked`,
+`legacy_credential_used`, `scope_denied`, `operator_recovery` — all key_id-only.
+`/key/rotate` and `/key/revoke` are rate-limited (5 / agent / 60 s → 429).
+
+**KDF hardening.** salt = `os.urandom(16)` (CSPRNG); `dklen=32` explicit;
+iteration count stored in the verifier; malformed verifiers fail safely; a
+parsed iteration count outside `[1, MAX_ITERS=10_000_000]` is rejected BEFORE
+PBKDF2 runs (no unbounded computation from a tampered verifier); a configured
+`GUILD_KDF_ITERS` below `MIN_PROD_ITERS=100_000` is clamped UP to the floor
+unless `GUILD_ALLOW_WEAK_KDF=1` marks an explicit dev/test environment;
+comparison is constant-time. AG keys are high-entropy machine tokens, NOT
+human passwords — PBKDF2 is defense-in-depth, documented as such.

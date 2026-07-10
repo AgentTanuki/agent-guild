@@ -36,14 +36,45 @@ SCOPES = ("read", "invoke", "attest", "escrow", "admin")
 # path (admin token) and is never granted to a self-registered key.
 DEFAULT_ISSUE_SCOPES = ("read", "invoke", "attest", "escrow")
 
-# Backward compatibility: a record that predates scoping has no `scopes` field
-# and is treated as fully privileged until its next rotation re-issues it with
-# least-privilege scopes. New records always carry an explicit `scopes` list.
-_LEGACY_ALL_SCOPES = tuple(SCOPES)
+# Legacy policy (refinement 2026-07-10): a record that predates scoping has no
+# `scopes` field. It is NOT treated as fully privileged. It receives the normal
+# least-privilege member set (read/invoke/attest/escrow) — never admin — until
+# its next rotation writes an explicit modern scope set. is_legacy_scope() lets
+# the store record a one-time `legacy_credential_used` audit event and expose an
+# operator-visible count of credentials still on legacy interpretation.
+LEGACY_SCOPES = tuple(DEFAULT_ISSUE_SCOPES)
 
-KEY_ID_LEN = 12  # hex chars — public, stable identifier (NOT the verifier)
 
-_DEFAULT_ITERS = int(os.environ.get("GUILD_KDF_ITERS", "100000"))
+def is_legacy_scope(agent: Optional[dict[str, Any]]) -> bool:
+    """True iff this record relies on the legacy scope interpretation (exists,
+    but carries no explicit `scopes` field)."""
+    return bool(agent) and agent.get("scopes") is None
+
+KEY_ID_LEN = 32  # hex chars = 128 bits of identifier entropy (NOT a secret)
+
+DK_LEN = 32                 # derived-key length in bytes (explicit)
+MIN_PROD_ITERS = 100_000    # production floor; below this needs dev/test mode
+MAX_ITERS = 10_000_000      # bound any iteration count before it drives PBKDF2
+
+
+def _weak_kdf_allowed() -> bool:
+    """Sub-floor iteration counts (fast tests) are accepted ONLY in a clearly
+    recognised dev/test environment."""
+    return os.environ.get("GUILD_ALLOW_WEAK_KDF", "") == "1"
+
+
+def _configured_iters() -> int:
+    """Iteration count for NEW hashes. A configured value below the production
+    floor is clamped UP to the floor unless dev/test mode is explicit, so a
+    misconfiguration can never silently weaken production. Always bounded by
+    MAX_ITERS."""
+    try:
+        raw = int(os.environ.get("GUILD_KDF_ITERS", str(MIN_PROD_ITERS)))
+    except ValueError:
+        raw = MIN_PROD_ITERS
+    if raw < MIN_PROD_ITERS and not _weak_kdf_allowed():
+        raw = MIN_PROD_ITERS
+    return max(1, min(raw, MAX_ITERS))
 
 
 def hashing_enabled() -> bool:
@@ -56,10 +87,14 @@ def hashing_enabled() -> bool:
 
 def hash_key(raw: str, *, iterations: Optional[int] = None) -> str:
     """Salted PBKDF2-HMAC-SHA256 verifier for a raw key. Non-deterministic
-    (fresh random salt each call) — NOT an identifier; use key_id_of for that."""
-    iters = iterations or _DEFAULT_ITERS
-    salt = os.urandom(16)
-    dk = hashlib.pbkdf2_hmac("sha256", raw.encode("utf-8"), salt, iters)
+    (fresh CSPRNG salt each call) — NOT an identifier; use key_id_of for that.
+    AG keys are high-entropy machine-generated tokens (sk_ + 24 random bytes =
+    192 bits), NOT human-selected passwords; PBKDF2 is defense-in-depth, not the
+    primary barrier (see CREDENTIALS_DESIGN.md §13)."""
+    iters = iterations if iterations is not None else _configured_iters()
+    iters = max(1, min(iters, MAX_ITERS))
+    salt = os.urandom(16)  # os.urandom = CSPRNG
+    dk = hashlib.pbkdf2_hmac("sha256", raw.encode("utf-8"), salt, iters, dklen=DK_LEN)
     return "pbkdf2_sha256${}${}${}".format(
         iters,
         base64.b64encode(salt).decode("ascii"),
@@ -82,7 +117,12 @@ def verify_key_hash(raw: str, stored: str) -> bool:
             expected = base64.b64decode(dk_b64)
         except (ValueError, base64.binascii.Error):
             return False
-        dk = hashlib.pbkdf2_hmac("sha256", raw.encode("utf-8"), salt, iters)
+        # Bound the stored/parsed iteration count BEFORE it drives PBKDF2 so a
+        # corrupt or tampered verifier can never cause an unbounded computation.
+        if not (1 <= iters <= MAX_ITERS):
+            return False
+        dk = hashlib.pbkdf2_hmac("sha256", raw.encode("utf-8"), salt, iters,
+                                 dklen=len(expected) or DK_LEN)
         return hmac.compare_digest(dk, expected)
     # legacy bare sha256 hex (pre-refinement records): verify, so a rolling
     # re-hash can happen on next rotation without locking anyone out.
@@ -153,22 +193,25 @@ def actor_key_for_agent(agent: dict[str, Any]) -> Optional[str]:
 # --- scopes ------------------------------------------------------------------
 
 def scopes_of(agent: Optional[dict[str, Any]]) -> list[str]:
-    """A record WITH a `scopes` field returns exactly those (new records carry
-    least-privilege scopes). A record WITHOUT one is a pre-scoping legacy
-    record and is treated as fully privileged until its next rotation — this
-    keeps existing agents working, and is the only place 'all scopes' is the
-    default."""
+    """Effective scopes for a record, fail-closed throughout:
+      * no agent            -> [] (no credential, no scopes);
+      * `scopes` absent      -> LEGACY_SCOPES (least-privilege member set);
+      * `scopes` is a list   -> only its KNOWN entries (unknown/malformed
+                                values are dropped = fail closed per value);
+      * `scopes` malformed    -> [] (corrupt record grants nothing; re-issue).
+    admin is never implied — it must be listed explicitly."""
     if not agent:
-        return list(DEFAULT_ISSUE_SCOPES)
+        return []
     s = agent.get("scopes")
     if s is None:
-        return list(_LEGACY_ALL_SCOPES)
-    return list(s)
+        return list(LEGACY_SCOPES)
+    if not isinstance(s, (list, tuple)):
+        return []
+    return [x for x in s if isinstance(x, str) and x in SCOPES]
 
 
 def has_scope(agent: Optional[dict[str, Any]], scope: str) -> bool:
-    """Fail closed: an unknown scope (outside the vocabulary) is never granted,
-    even to a legacy all-scopes record."""
+    """Fail closed: an unknown scope (outside the vocabulary) is never granted."""
     if scope not in SCOPES:
         return False
     return scope in scopes_of(agent)
