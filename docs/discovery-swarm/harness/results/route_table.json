@@ -1,0 +1,583 @@
+[
+ {
+  "methods": [
+   "*"
+  ],
+  "path": "/openapi.json",
+  "handler": "Route"
+ },
+ {
+  "methods": [
+   "*"
+  ],
+  "path": "/docs",
+  "handler": "Route"
+ },
+ {
+  "methods": [
+   "*"
+  ],
+  "path": "/docs/oauth2-redirect",
+  "handler": "Route"
+ },
+ {
+  "methods": [
+   "*"
+  ],
+  "path": "/redoc",
+  "handler": "Route"
+ },
+ {
+  "methods": [
+   "*"
+  ],
+  "path": "_IncludedRouter(original_router=<fastapi.routing.APIRouter object at 0xfc21ae0b17e0>, include_context=_RouterIncludeContext(included_router=<fastapi.routing.APIRouter object at 0xfc21ae0b17e0>, prefix='', tags=[], dependencies=[], default_response_class=<fastapi.datastructures.DefaultPlaceholder object at 0xfc21ae156530>, responses={}, callbacks=[], deprecated=None, include_in_schema=True, generate_unique_id_function=<fastapi.datastructures.DefaultPlaceholder object at 0xfc21ae1565c0>, strict_content_type=True, dependency_overrides_provider=<fastapi.applications.FastAPI object at 0xfc21afad84f0>), _effective_candidates=[], _effective_candidates_version=None, _effective_low_priority_routes=[], _effective_low_priority_routes_version=None)",
+  "handler": "_IncludedRouter"
+ },
+ {
+  "methods": [
+   "*"
+  ],
+  "path": "_IncludedRouter(original_router=<fastapi.routing.APIRouter object at 0xfc21ab5732b0>, include_context=_RouterIncludeContext(included_router=<fastapi.routing.APIRouter object at 0xfc21ab5732b0>, prefix='', tags=[], dependencies=[], default_response_class=<fastapi.datastructures.DefaultPlaceholder object at 0xfc21ae156530>, responses={}, callbacks=[], deprecated=None, include_in_schema=True, generate_unique_id_function=<fastapi.datastructures.DefaultPlaceholder object at 0xfc21ae1565c0>, strict_content_type=True, dependency_overrides_provider=<fastapi.applications.FastAPI object at 0xfc21afad84f0>), _effective_candidates=[], _effective_candidates_version=None, _effective_low_priority_routes=[], _effective_low_priority_routes_version=None)",
+  "handler": "_IncludedRouter"
+ },
+ {
+  "methods": [
+   "*"
+  ],
+  "path": "/mcp",
+  "handler": "Mount"
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/",
+  "handler": "root",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/health",
+  "handler": "health",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/agents/register",
+  "handler": "register",
+  "body_model": [
+   "RegisterRequest"
+  ]
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/agents/{agent_id}/configuration",
+  "handler": "declare_configuration",
+  "body_model": [
+   "ConfigurationRequest"
+  ]
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/agents/{agent_id}/endpoint",
+  "handler": "declare_endpoint",
+  "body_model": [
+   "dict"
+  ]
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/agents/{agent_id}/prove",
+  "handler": "prove_start",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/agents/{agent_id}/prove/verify",
+  "handler": "prove_verify",
+  "body_model": [
+   "Optional"
+  ]
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents",
+  "handler": "list_agents",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents/{agent_id}",
+  "handler": "get_agent",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/tasks",
+  "handler": "create_task",
+  "body_model": [
+   "CreateTaskRequest"
+  ]
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/tasks/{task_id}",
+  "handler": "get_task",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/tasks/{task_id}/receipt",
+  "handler": "submit_receipt",
+  "body_model": [
+   "ReceiptRequest"
+  ]
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents/{agent_id}/attestations",
+  "handler": "get_attestations",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/attestations",
+  "handler": "post_attestation",
+  "body_model": [
+   "AttestationRequest"
+  ]
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/collaborations",
+  "handler": "record_collaboration",
+  "body_model": [
+   "RecordCollaborationRequest"
+  ]
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/escrow",
+  "handler": "open_escrow",
+  "body_model": [
+   "EscrowRequest"
+  ]
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/escrow/{escrow_id}",
+  "handler": "get_escrow",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/escrow/{escrow_id}/release",
+  "handler": "release_escrow",
+  "body_model": [
+   "EscrowReleaseRequest"
+  ]
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/escrow/{escrow_id}/refund",
+  "handler": "refund_escrow",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/escrow/{escrow_id}/dispute",
+  "handler": "dispute_escrow",
+  "body_model": [
+   "EscrowDisputeRequest"
+  ]
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/billing/revenue",
+  "handler": "get_revenue",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents/{agent_id}/passport",
+  "handler": "get_passport",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/credentials/verify",
+  "handler": "verify_credential_endpoint",
+  "body_model": [
+   "dict"
+  ]
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/.well-known/agent-guild-did.json",
+  "handler": "guild_did_doc",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents/{agent_id}/reputation",
+  "handler": "get_reputation",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents/{agent_id}/journey",
+  "handler": "get_journey",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents/{agent_id}/evidence",
+  "handler": "get_evidence",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents/{agent_id}/flags",
+  "handler": "get_flag",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents/{agent_id}/risk-score",
+  "handler": "get_risk_score",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/flags",
+  "handler": "list_flags",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/check",
+  "handler": "check",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/demand/watch",
+  "handler": "demand_watch",
+  "body_model": [
+   "dict"
+  ]
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/capabilities",
+  "handler": "capabilities",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/search",
+  "handler": "search",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/billing/account",
+  "handler": "create_billing_account",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/billing/trial",
+  "handler": "grant_trial",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/billing/account",
+  "handler": "get_billing_account",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/billing/topup",
+  "handler": "topup",
+  "body_model": [
+   "TopupRequest"
+  ]
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/billing/webhook",
+  "handler": "stripe_webhook",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/sdk/agentguild_verify.py",
+  "handler": "sdk_verify_py",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/sdk/agentguild_verify.mjs",
+  "handler": "sdk_verify_mjs",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/standard.md",
+  "handler": "standard_md",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/agents.md",
+  "handler": "agents_md",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/citizenship",
+  "handler": "citizenship",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/citizenship.md",
+  "handler": "citizenship_md",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/for-agents",
+  "handler": "for_agents",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/standard",
+  "handler": "get_standard",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/.well-known/agent-guild.json",
+  "handler": "wellknown_manifest",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/.well-known/glama.json",
+  "handler": "wellknown_glama",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/.well-known/ai-plugin.json",
+  "handler": "ai_plugin_manifest",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/llms.txt",
+  "handler": "llms_txt",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/instrumentation",
+  "handler": "get_instrumentation",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/instrumentation/recent",
+  "handler": "get_recent_activity",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/ledger/checkpoint",
+  "handler": "ledger_checkpoint",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/ledger/checkpoints",
+  "handler": "ledger_checkpoints",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/ledger/checkpoint/publish",
+  "handler": "publish_checkpoint",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/ledger/stats",
+  "handler": "ledger_stats",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/ledger/reputation",
+  "handler": "ledger_reputation",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/evaluation",
+  "handler": "get_evaluation",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/referrals",
+  "handler": "get_referrals",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "POST"
+  ],
+  "path": "/self-eval/run",
+  "handler": "run_self_eval",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/self-eval",
+  "handler": "get_self_eval",
+  "body_model": null
+ },
+ {
+  "methods": [
+   "GET"
+  ],
+  "path": "/self-eval/history",
+  "handler": "get_self_eval_history",
+  "body_model": null
+ }
+]

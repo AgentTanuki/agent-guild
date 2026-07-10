@@ -1,0 +1,2954 @@
+{
+ "summary": {
+  "attempts": 12,
+  "succeeded": 10
+ },
+ "runs": [
+  {
+   "task": "task.json_repair",
+   "mode": "registry",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "json repair",
+     "status": 0
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "json repair",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "fix json",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "fix json",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "json",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "json",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "aicomglobal",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "PaKi Curator",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "400860 x402 Growth and Safety Catalog",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ANP2 Network Relay",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "aicom_list_services",
+     "status": 200,
+     "ms": 196
+    },
+    {
+     "step": "mcp_initialize",
+     "status": 200,
+     "ms": 748
+    },
+    {
+     "step": "mcp_tools_list",
+     "status": 200
+    },
+    {
+     "step": "mcp_tools_call",
+     "tool": "structured_json_repair",
+     "status": 402,
+     "ms": 1054
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "a2a-collaboration",
+     "status": 200,
+     "ms": 2631
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "task_lifecycle",
+     "status": 200,
+     "ms": 1049
+    }
+   ],
+   "candidates_considered": 69,
+   "top5": [
+    {
+     "name": "aicomglobal",
+     "src": "a2aregistry",
+     "score": 12,
+     "live_score": 11
+    },
+    {
+     "name": "io.github.ktcod/x402-json-repair-mcp",
+     "src": "mcp-registry",
+     "score": 11,
+     "live_score": 11
+    },
+    {
+     "name": "PaKi Curator",
+     "src": "a2aregistry",
+     "score": 9,
+     "live_score": 8
+    },
+    {
+     "name": "ANP2 Network Relay",
+     "src": "a2aregistry",
+     "score": 8,
+     "live_score": 8
+    },
+    {
+     "name": "400860 x402 Growth and Safety Catalog",
+     "src": "a2aregistry",
+     "score": 8,
+     "live_score": 7
+    }
+   ],
+   "tried": [
+    "aicomglobal",
+    "io.github.ktcod/x402-json-repair-mcp",
+    "PaKi Curator",
+    "ANP2 Network Relay"
+   ],
+   "outcome": {
+    "ok": false,
+    "why": "a2a response unparseable: 'parts'",
+    "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"kind\":\"task\",\"id\":\"anp2-task-19f4b3764ca-292\",\"contextId\":\"anp2-ctx-19f4b3764ca-291\",\"status\":{\"state\":\"completed\",\"timestamp\":\"2026-07-10T08:49:09Z\",\"message\":{\"kind\":\"message\",\"role\":\"agent\",\"messageId\":\"anp2-19f4b3764ca\",\"parts\":[{\"kind\":\"text\",\"text\":\"ANP2 rece",
+    "provider_name": "ANP2 Network Relay",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 20,
+   "wall_s": 8.6
+  },
+  {
+   "task": "task.json_repair",
+   "mode": "protocol",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "json repair",
+     "status": 0
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "json repair",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "fix json",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "fix json",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "json",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "json",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "aicomglobal",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "PaKi Curator",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "400860 x402 Growth and Safety Catalog",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ANP2 Network Relay",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ARCASOS Short-Term Rental Search",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentSearch",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Bot Hub",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Dynamic Feed",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "GitDealFlow Signal Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Graph Advocate",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HexNest Machine Reasoning Network",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "InsideOut",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean Public Data Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "MERCURY Web Fetch",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "MolTrust Trust Registry",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "OptionsAhoy Equity Planner",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PREA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Packrift A2A Packaging Procurement Router",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PartsTable Intelligence",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Perkoon \u2014 Agent Data Layer",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "TESSA Marketing & Technology",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "TiEQi-A2A-GEO (120 skills)",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Torify \u2014 Japanese Locale APIs for AI Agents",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "colegal-public-assistant",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "pathtoAGI \u2014 the Observatory",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "2s",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AIScan",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Guild",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Planets",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentRank",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agoragentic",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Aurelius Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HORIZON SHIELD KIRA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean News Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "LogicNodes",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Mobility Quote Agent",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "MoveHome.org Property Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Ownify Support Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PoolParty Agent Concierge",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PostalForm",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SYNTHORA Mesh",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Solvela",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SwarmSync Commerce Demo Agent",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Zee",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "agent-ready",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "inferGONKA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "iwant-marketplace",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "marginalia",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "\u6606\u4ed1 \u00b7 \u6ce8\u518c\u4e2d\u5fc3",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "aicom_list_services",
+     "status": 200,
+     "ms": 280
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "guild.invoke",
+     "status": 200,
+     "ms": 778
+    }
+   ],
+   "candidates_considered": 69,
+   "top5": [
+    {
+     "name": "aicomglobal",
+     "src": "a2aregistry",
+     "score": 12,
+     "live_score": 11
+    },
+    {
+     "name": "Agent Guild",
+     "src": "a2aregistry",
+     "score": 7,
+     "live_score": 11
+    },
+    {
+     "name": "PaKi Curator",
+     "src": "a2aregistry",
+     "score": 9,
+     "live_score": 8
+    },
+    {
+     "name": "ANP2 Network Relay",
+     "src": "a2aregistry",
+     "score": 8,
+     "live_score": 8
+    },
+    {
+     "name": "AgentSearch",
+     "src": "a2aregistry",
+     "score": 8,
+     "live_score": 8
+    }
+   ],
+   "tried": [
+    "aicomglobal",
+    "Agent Guild"
+   ],
+   "outcome": {
+    "ok": true,
+    "skill": "guild.invoke",
+    "validated": true,
+    "provider_url": "https://agent-guild-5d5r.onrender.com/a2a",
+    "raw": "{\"ok\": true, \"capability\": \"json.repair\", \"version\": \"1.0.0\", \"invocation_id\": \"inv_d1cfaae49cd2ad1c\", \"result\": {\"ok\": true, \"parsed\": {\"name\": \"Ada\", \"age\": 36}, \"repaired\": \"{\\\"name\\\": \\\"Ada\\\", \\\"age\\\": 36}\", \"changed\": true, \"steps\": [\"converted_single_quotes\", \"removed_trailing_commas\"]}, \"latency_ms\": 0.068, \"rate\": {\"tier\": \"guest\", \"limit\": 200, \"used_today\": 3, \"remaining_today\": 197}, \"p",
+    "provider_name": "Agent Guild",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 58,
+   "wall_s": 1.1
+  },
+  {
+   "task": "task.date_normalize",
+   "mode": "registry",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "date normalize",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "date normalize",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "date parser",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "date parser",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "iso 8601",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "iso 8601",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agoragentic",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MoveHome.org Property Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PostalForm",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Torify \u2014 Japanese Locale APIs for AI Agents",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "agent-ready",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "interchange-spend-status",
+     "status": 200,
+     "ms": 1466
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "create_enquiry",
+     "status": 200,
+     "ms": 309
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "postalform_machine_payment_planning",
+     "status": 200,
+     "ms": 254
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "ask",
+     "status": 200,
+     "ms": 377
+    }
+   ],
+   "candidates_considered": 50,
+   "top5": [
+    {
+     "name": "Agoragentic",
+     "src": "a2aregistry",
+     "score": 7,
+     "live_score": 7
+    },
+    {
+     "name": "MoveHome.org Property Agent",
+     "src": "a2aregistry",
+     "score": 7,
+     "live_score": 7
+    },
+    {
+     "name": "PostalForm",
+     "src": "a2aregistry",
+     "score": 7,
+     "live_score": 7
+    },
+    {
+     "name": "agent-ready",
+     "src": "a2aregistry",
+     "score": 7,
+     "live_score": 7
+    }
+   ],
+   "tried": [
+    "Agoragentic",
+    "MoveHome.org Property Agent",
+    "PostalForm",
+    "agent-ready"
+   ],
+   "outcome": {
+    "ok": false,
+    "skill": "ask",
+    "validated": false,
+    "provider_url": "https://agent-ready.dev/api/v1/a2a",
+    "raw": "\"\"",
+    "provider_name": "agent-ready",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 18,
+   "wall_s": 2.4
+  },
+  {
+   "task": "task.date_normalize",
+   "mode": "protocol",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "date normalize",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "date normalize",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "date parser",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "date parser",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "iso 8601",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "iso 8601",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agoragentic",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MoveHome.org Property Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PostalForm",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Torify \u2014 Japanese Locale APIs for AI Agents",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "agent-ready",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "pathtoAGI \u2014 the Observatory",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PartsTable Intelligence",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "2s",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "400860 x402 Growth and Safety Catalog",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AIScan",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "ANP2 Network Relay",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ARCASOS Short-Term Rental Search",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Guild",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Planets",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentRank",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentSearch",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Aurelius Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Bot Hub",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Dynamic Feed",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "GitDealFlow Signal Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Graph Advocate",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HORIZON SHIELD KIRA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HexNest Machine Reasoning Network",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "InsideOut",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean News Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean Public Data Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "LogicNodes",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MERCURY Web Fetch",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "Mobility Quote Agent",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "MolTrust Trust Registry",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "OptionsAhoy Equity Planner",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Ownify Support Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PREA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PaKi Curator",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Packrift A2A Packaging Procurement Router",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Perkoon \u2014 Agent Data Layer",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PoolParty Agent Concierge",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SYNTHORA Mesh",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Solvela",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SwarmSync Commerce Demo Agent",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "TESSA Marketing & Technology",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "TiEQi-A2A-GEO (120 skills)",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Zee",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "aicomglobal",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "colegal-public-assistant",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "inferGONKA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "iwant-marketplace",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "marginalia",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "\u6606\u4ed1 \u00b7 \u6ce8\u518c\u4e2d\u5fc3",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "ag.text.date_normalize",
+     "status": 200,
+     "ms": 796
+    },
+    {
+     "step": "a2a_schema_retry",
+     "status": 200
+    }
+   ],
+   "candidates_considered": 50,
+   "top5": [
+    {
+     "name": "Agent Guild",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 16
+    },
+    {
+     "name": "Solvela",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 8
+    },
+    {
+     "name": "Agoragentic",
+     "src": "a2aregistry",
+     "score": 7,
+     "live_score": 7
+    },
+    {
+     "name": "MoveHome.org Property Agent",
+     "src": "a2aregistry",
+     "score": 7,
+     "live_score": 7
+    },
+    {
+     "name": "PostalForm",
+     "src": "a2aregistry",
+     "score": 7,
+     "live_score": 7
+    }
+   ],
+   "tried": [
+    "Agent Guild"
+   ],
+   "outcome": {
+    "ok": true,
+    "skill": "ag.text.date_normalize",
+    "validated": true,
+    "provider_url": "https://agent-guild-5d5r.onrender.com/a2a",
+    "raw": "{\"ok\": true, \"capability\": \"text.date_normalize\", \"version\": \"1.0.0\", \"invocation_id\": \"inv_8bc62f086f34c652\", \"result\": {\"results\": [{\"input\": \"March 5th, 2026 at 4pm UTC\", \"ok\": true, \"iso\": \"2026-03-05T16:00:00+00:00\", \"date\": \"2026-03-05\"}], \"parsed\": 1, \"failed\": 0}, \"latency_ms\": 0.214, \"rate\": {\"tier\": \"guest\", \"limit\": 200, \"used_today\": 5, \"remaining_today\": 195}, \"provenance\": {\"envelope",
+    "provider_name": "Agent Guild",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 57,
+   "wall_s": 1.1
+  },
+  {
+   "task": "task.csv_to_json",
+   "mode": "protocol",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "csv to json",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "csv to json",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "csv",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "csv",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "table convert",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "table convert",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "GitDealFlow Signal Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "AIScan",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentRank",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Aurelius Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Graph Advocate",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HORIZON SHIELD KIRA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PartsTable Intelligence",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PoolParty Agent Concierge",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SwarmSync Commerce Demo Agent",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "TiEQi-A2A-GEO (120 skills)",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Torify \u2014 Japanese Locale APIs for AI Agents",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "aicomglobal",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "colegal-public-assistant",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "iwant-marketplace",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "2s",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "400860 x402 Growth and Safety Catalog",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ANP2 Network Relay",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ARCASOS Short-Term Rental Search",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Guild",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Planets",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentSearch",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agoragentic",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Bot Hub",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Dynamic Feed",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HexNest Machine Reasoning Network",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "InsideOut",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean News Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean Public Data Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "LogicNodes",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MERCURY Web Fetch",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "Mobility Quote Agent",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "MolTrust Trust Registry",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MoveHome.org Property Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "OptionsAhoy Equity Planner",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Ownify Support Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PREA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PaKi Curator",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Packrift A2A Packaging Procurement Router",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Perkoon \u2014 Agent Data Layer",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PostalForm",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SYNTHORA Mesh",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Solvela",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "TESSA Marketing & Technology",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Zee",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "agent-ready",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "inferGONKA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "marginalia",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "pathtoAGI \u2014 the Observatory",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "\u6606\u4ed1 \u00b7 \u6ce8\u518c\u4e2d\u5fc3",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "ag.table.csv_to_json",
+     "status": 200,
+     "ms": 2298
+    },
+    {
+     "step": "a2a_schema_retry",
+     "status": 200
+    }
+   ],
+   "candidates_considered": 54,
+   "top5": [
+    {
+     "name": "Agent Guild",
+     "src": "a2aregistry",
+     "score": 1,
+     "live_score": 11
+    },
+    {
+     "name": "Aurelius Agent",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 2
+    },
+    {
+     "name": "PoolParty Agent Concierge",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 2
+    },
+    {
+     "name": "aicomglobal",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 2
+    },
+    {
+     "name": "colegal-public-assistant",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 2
+    }
+   ],
+   "tried": [
+    "Agent Guild"
+   ],
+   "outcome": {
+    "ok": true,
+    "skill": "ag.table.csv_to_json",
+    "validated": true,
+    "provider_url": "https://agent-guild-5d5r.onrender.com/a2a",
+    "raw": "{\"ok\": true, \"capability\": \"table.csv_to_json\", \"version\": \"1.0.0\", \"invocation_id\": \"inv_c270872272588a54\", \"result\": {\"rows\": [{\"name\": \"ada\", \"score\": \"10\"}, {\"name\": \"bob\", \"score\": \"7\"}], \"columns\": [\"name\", \"score\"], \"count\": 2, \"delimiter\": \",\"}, \"latency_ms\": 0.638, \"rate\": {\"tier\": \"guest\", \"limit\": 200, \"used_today\": 7, \"remaining_today\": 193}, \"provenance\": {\"envelope\": {\"schema_version",
+    "provider_name": "Agent Guild",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 57,
+   "wall_s": 3.1
+  },
+  {
+   "task": "task.csv_to_json",
+   "mode": "registry",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "csv to json",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "csv to json",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "csv",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "csv",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "table convert",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "table convert",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "GitDealFlow Signal Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "mcp_initialize",
+     "status": 404,
+     "ms": 328
+    },
+    {
+     "step": "mcp_initialize_retry_slash",
+     "status": 404
+    },
+    {
+     "step": "mcp_initialize",
+     "status": 404,
+     "ms": 278
+    },
+    {
+     "step": "mcp_initialize_retry_slash",
+     "status": 404
+    },
+    {
+     "step": "mcp_initialize",
+     "status": 200,
+     "ms": 538
+    },
+    {
+     "step": "mcp_tools_list",
+     "status": 200
+    },
+    {
+     "step": "mcp_tools_call",
+     "tool": "data_parse_csv_to_json",
+     "status": 402,
+     "ms": 511
+    },
+    {
+     "step": "mcp_initialize",
+     "status": 200,
+     "ms": 41
+    },
+    {
+     "step": "mcp_tools_list",
+     "status": 200
+    },
+    {
+     "step": "mcp_tools_call",
+     "tool": "csv_to_json",
+     "status": 200,
+     "ms": 573
+    }
+   ],
+   "candidates_considered": 54,
+   "top5": [
+    {
+     "name": "io.github.Br0ski777/csv-to-json",
+     "src": "mcp-registry",
+     "score": 10,
+     "live_score": 10
+    },
+    {
+     "name": "io.github.Br0ski777/csv-to-json",
+     "src": "mcp-registry",
+     "score": 10,
+     "live_score": 10
+    },
+    {
+     "name": "io.github.Br0ski777/csv-to-json",
+     "src": "mcp-registry",
+     "score": 10,
+     "live_score": 10
+    },
+    {
+     "name": "io.github.pipeworx-io/csv",
+     "src": "mcp-registry",
+     "score": 6,
+     "live_score": 6
+    },
+    {
+     "name": "GitDealFlow Signal Agent",
+     "src": "a2aregistry",
+     "score": 6,
+     "live_score": 1
+    }
+   ],
+   "tried": [
+    "io.github.Br0ski777/csv-to-json",
+    "io.github.Br0ski777/csv-to-json",
+    "io.github.Br0ski777/csv-to-json",
+    "io.github.pipeworx-io/csv"
+   ],
+   "outcome": {
+    "ok": true,
+    "tool": "csv_to_json",
+    "validated": true,
+    "provider_url": "https://gateway.pipeworx.io/csv/mcp",
+    "raw": "{\"columns\": [\"name\", \"score\"], \"count\": 2, \"rows\": [{\"name\": \"ada\", \"score\": \"10\"}, {\"name\": \"bob\", \"score\": \"7\"}]}",
+    "provider_name": "io.github.pipeworx-io/csv",
+    "provider_src": "mcp-registry"
+   },
+   "requests_used": 20,
+   "wall_s": 5.7
+  },
+  {
+   "task": "task.semver",
+   "mode": "registry",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "semver",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "semver",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "version compare",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "version compare",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "semantic version",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "semantic version",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Graph Advocate",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AIScan",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "ARCASOS Short-Term Rental Search",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "OptionsAhoy Equity Planner",
+     "status": 200
+    },
+    {
+     "step": "mcp_initialize",
+     "status": 200,
+     "ms": 49
+    },
+    {
+     "step": "mcp_tools_list",
+     "status": 200
+    },
+    {
+     "step": "mcp_tools_call",
+     "tool": "parse_semver",
+     "status": 200,
+     "ms": 283
+    }
+   ],
+   "candidates_considered": 51,
+   "top5": [
+    {
+     "name": "io.github.pipeworx-io/semver",
+     "src": "mcp-registry",
+     "score": 11,
+     "live_score": 11
+    },
+    {
+     "name": "Graph Advocate",
+     "src": "a2aregistry",
+     "score": 4,
+     "live_score": 2
+    },
+    {
+     "name": "OptionsAhoy Equity Planner",
+     "src": "a2aregistry",
+     "score": 3,
+     "live_score": 1
+    }
+   ],
+   "tried": [
+    "io.github.pipeworx-io/semver"
+   ],
+   "outcome": {
+    "ok": true,
+    "tool": "parse_semver",
+    "validated": true,
+    "provider_url": "https://gateway.pipeworx.io/semver/mcp",
+    "raw": "{\"input\": \"1.4.2\", \"valid\": true, \"major\": 1, \"minor\": 4, \"patch\": 2, \"prerelease\": [], \"build\": [], \"release\": \"1.4.2\", \"is_prerelease\": false}",
+    "provider_name": "io.github.pipeworx-io/semver",
+    "provider_src": "mcp-registry"
+   },
+   "requests_used": 14,
+   "wall_s": 9.9
+  },
+  {
+   "task": "task.semver",
+   "mode": "protocol",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "semver",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "semver",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "version compare",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "version compare",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "semantic version",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "semantic version",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Graph Advocate",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AIScan",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "ARCASOS Short-Term Rental Search",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "OptionsAhoy Equity Planner",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PaKi Curator",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "TiEQi-A2A-GEO (120 skills)",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "2s",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "400860 x402 Growth and Safety Catalog",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ANP2 Network Relay",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Guild",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Planets",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentRank",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentSearch",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agoragentic",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Aurelius Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Bot Hub",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Dynamic Feed",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "GitDealFlow Signal Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HORIZON SHIELD KIRA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HexNest Machine Reasoning Network",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "InsideOut",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean News Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean Public Data Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "LogicNodes",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MERCURY Web Fetch",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "Mobility Quote Agent",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "MolTrust Trust Registry",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MoveHome.org Property Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Ownify Support Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PREA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Packrift A2A Packaging Procurement Router",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PartsTable Intelligence",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Perkoon \u2014 Agent Data Layer",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PoolParty Agent Concierge",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PostalForm",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SYNTHORA Mesh",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Solvela",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SwarmSync Commerce Demo Agent",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "TESSA Marketing & Technology",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Torify \u2014 Japanese Locale APIs for AI Agents",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Zee",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "agent-ready",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "aicomglobal",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "colegal-public-assistant",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "inferGONKA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "iwant-marketplace",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "marginalia",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "pathtoAGI \u2014 the Observatory",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "\u6606\u4ed1 \u00b7 \u6ce8\u518c\u4e2d\u5fc3",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "ag.code.semver_compare",
+     "status": 200,
+     "ms": 298
+    }
+   ],
+   "candidates_considered": 51,
+   "top5": [
+    {
+     "name": "Agent Guild",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 12
+    },
+    {
+     "name": "Graph Advocate",
+     "src": "a2aregistry",
+     "score": 4,
+     "live_score": 2
+    },
+    {
+     "name": "Dynamic Feed",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 2
+    },
+    {
+     "name": "HORIZON SHIELD KIRA",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 2
+    },
+    {
+     "name": "SYNTHORA Mesh",
+     "src": "a2aregistry",
+     "score": 2,
+     "live_score": 2
+    }
+   ],
+   "tried": [
+    "Agent Guild"
+   ],
+   "outcome": {
+    "ok": true,
+    "skill": "ag.code.semver_compare",
+    "validated": true,
+    "provider_url": "https://agent-guild-5d5r.onrender.com/a2a",
+    "raw": "{\"ok\": true, \"capability\": \"code.semver_compare\", \"version\": \"1.0.0\", \"invocation_id\": \"inv_81e2c91dbf268f1a\", \"result\": {\"version\": \"1.4.2\", \"constraint\": \">=1.3.0 <2.0.0\", \"satisfies\": true}, \"latency_ms\": 0.026, \"rate\": {\"tier\": \"guest\", \"limit\": 200, \"used_today\": 8, \"remaining_today\": 192}, \"provenance\": {\"envelope\": {\"schema_version\": \"ag-provenance/1\", \"provider\": {\"ag_id\": \"agid_85fbb730c8",
+    "provider_name": "Agent Guild",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 56,
+   "wall_s": 0.3
+  },
+  {
+   "task": "task.trust_lookup",
+   "mode": "registry",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "agent reputation",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "agent reputation",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "trust",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "trust",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "agent trust",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "agent trust",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Graph Advocate",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ANP2 Network Relay",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Guild",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentRank",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "aicomglobal",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "iwant-marketplace",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "agent_score",
+     "status": 200,
+     "ms": 804
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "guild.check",
+     "status": 200,
+     "ms": 333
+    }
+   ],
+   "candidates_considered": 65,
+   "top5": [
+    {
+     "name": "Graph Advocate",
+     "src": "a2aregistry",
+     "score": 18,
+     "live_score": 18
+    },
+    {
+     "name": "Agent Guild",
+     "src": "a2aregistry",
+     "score": 15,
+     "live_score": 15
+    },
+    {
+     "name": "AgentRank",
+     "src": "a2aregistry",
+     "score": 15,
+     "live_score": 15
+    },
+    {
+     "name": "aicomglobal",
+     "src": "a2aregistry",
+     "score": 15,
+     "live_score": 15
+    },
+    {
+     "name": "iwant-marketplace",
+     "src": "a2aregistry",
+     "score": 15,
+     "live_score": 15
+    }
+   ],
+   "tried": [
+    "Graph Advocate",
+    "Agent Guild"
+   ],
+   "outcome": {
+    "ok": true,
+    "skill": "guild.check",
+    "validated": true,
+    "provider_url": "https://agent-guild-5d5r.onrender.com/a2a",
+    "raw": "{\"schema_version\": 2, \"capability\": \"fact-check\", \"status\": \"supply\", \"decision\": {\"agent_id\": \"agent_d0a8f6ef9b41\", \"estimate\": 0.442, \"confidence\": 0.632, \"staleness\": {\"most_recent_at\": \"2026-06-30T12:32:30.235970+00:00\", \"age_days\": 9.85, \"label\": \"fresh\"}, \"top_evidence\": [\"11 verified task receipt(s) as worker; 12 attestation(s) received from 3 distinct reviewer(s).\", \"3 reviewer(s) are seed",
+    "provider_name": "Agent Guild",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 14,
+   "wall_s": 7.0
+  },
+  {
+   "task": "task.trust_lookup",
+   "mode": "protocol",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "agent reputation",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "agent reputation",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "trust",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "trust",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "agent trust",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "agent trust",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Graph Advocate",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ANP2 Network Relay",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Guild",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentRank",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "aicomglobal",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "iwant-marketplace",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MolTrust Trust Registry",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentSearch",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agoragentic",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Dynamic Feed",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "GitDealFlow Signal Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HORIZON SHIELD KIRA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "LogicNodes",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "Ownify Support Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SwarmSync Commerce Demo Agent",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "TiEQi-A2A-GEO (120 skills)",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "2s",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "400860 x402 Growth and Safety Catalog",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AIScan",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "ARCASOS Short-Term Rental Search",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Planets",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Aurelius Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Bot Hub",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HexNest Machine Reasoning Network",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "InsideOut",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean News Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean Public Data Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "MERCURY Web Fetch",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "Mobility Quote Agent",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "MoveHome.org Property Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "OptionsAhoy Equity Planner",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PREA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PaKi Curator",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Packrift A2A Packaging Procurement Router",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PartsTable Intelligence",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Perkoon \u2014 Agent Data Layer",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PoolParty Agent Concierge",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PostalForm",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SYNTHORA Mesh",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Solvela",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "TESSA Marketing & Technology",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Torify \u2014 Japanese Locale APIs for AI Agents",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Zee",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "agent-ready",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "colegal-public-assistant",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "inferGONKA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "marginalia",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "pathtoAGI \u2014 the Observatory",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "\u6606\u4ed1 \u00b7 \u6ce8\u518c\u4e2d\u5fc3",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "agent_score",
+     "status": 200,
+     "ms": 492
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "guild.check",
+     "status": 200,
+     "ms": 287
+    }
+   ],
+   "candidates_considered": 65,
+   "top5": [
+    {
+     "name": "Graph Advocate",
+     "src": "a2aregistry",
+     "score": 18,
+     "live_score": 18
+    },
+    {
+     "name": "Agent Guild",
+     "src": "a2aregistry",
+     "score": 15,
+     "live_score": 15
+    },
+    {
+     "name": "AgentRank",
+     "src": "a2aregistry",
+     "score": 15,
+     "live_score": 15
+    },
+    {
+     "name": "aicomglobal",
+     "src": "a2aregistry",
+     "score": 15,
+     "live_score": 15
+    },
+    {
+     "name": "iwant-marketplace",
+     "src": "a2aregistry",
+     "score": 15,
+     "live_score": 15
+    }
+   ],
+   "tried": [
+    "Graph Advocate",
+    "Agent Guild"
+   ],
+   "outcome": {
+    "ok": true,
+    "skill": "guild.check",
+    "validated": true,
+    "provider_url": "https://agent-guild-5d5r.onrender.com/a2a",
+    "raw": "{\"schema_version\": 2, \"capability\": \"fact-check\", \"status\": \"supply\", \"decision\": {\"agent_id\": \"agent_d0a8f6ef9b41\", \"estimate\": 0.442, \"confidence\": 0.632, \"staleness\": {\"most_recent_at\": \"2026-06-30T12:32:30.235970+00:00\", \"age_days\": 9.85, \"label\": \"fresh\"}, \"top_evidence\": [\"11 verified task receipt(s) as worker; 12 attestation(s) received from 3 distinct reviewer(s).\", \"3 reviewer(s) are seed",
+    "provider_name": "Agent Guild",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 58,
+   "wall_s": 0.8
+  },
+  {
+   "task": "task.dedupe",
+   "mode": "registry",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "dedupe",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "dedupe",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "deduplicate records",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "deduplicate records",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "duplicate detection",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "duplicate detection",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "aicomglobal",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "2s",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AIScan",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Planets",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agoragentic",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "aicom_report_telemetry",
+     "status": 200,
+     "ms": 207
+    }
+   ],
+   "candidates_considered": 50,
+   "top5": [
+    {
+     "name": "aicomglobal",
+     "src": "a2aregistry",
+     "score": 5,
+     "live_score": 5
+    },
+    {
+     "name": "Agent Planets",
+     "src": "a2aregistry",
+     "score": 1,
+     "live_score": 1
+    },
+    {
+     "name": "Agoragentic",
+     "src": "a2aregistry",
+     "score": 1,
+     "live_score": 1
+    },
+    {
+     "name": "2s",
+     "src": "a2aregistry",
+     "score": 1,
+     "live_score": 0
+    }
+   ],
+   "tried": [
+    "aicomglobal"
+   ],
+   "outcome": {
+    "ok": true,
+    "skill": "aicom_report_telemetry",
+    "validated": true,
+    "provider_url": "https://aicomglobal.com/a2a",
+    "raw": "\"Send a DataPart {skill, input} to invoke a capability. Skills: aicom_whoami, aicom_register, aicom_search_offerings, aicom_get_offering, aicom_post_offering, aicom_express_interest, aicom_get_inbox, aicom_endorse, aicom_report, aicom_trust, aicom_request_verification, aicom_verification_status, aicom_credits, aicom_reflect, aicom_read_oasis, aicom_get_reflection, aicom_witness, aicom_oasis_weathe",
+    "provider_name": "aicomglobal",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 12,
+   "wall_s": 9.3
+  },
+  {
+   "task": "task.dedupe",
+   "mode": "protocol",
+   "log": [
+    {
+     "step": "mcp_registry_search",
+     "kw": "dedupe",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "dedupe",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "deduplicate records",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "deduplicate records",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "mcp_registry_search",
+     "kw": "duplicate detection",
+     "status": 200
+    },
+    {
+     "step": "glama_search_skipped",
+     "kw": "duplicate detection",
+     "note": "listing pages are human URLs; not machine-invocable"
+    },
+    {
+     "step": "a2a_registry_list",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Low-Price GPT-5.5 x402 API",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "aicomglobal",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "2s",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AIScan",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Planets",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agoragentic",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HORIZON SHIELD KIRA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MolTrust Trust Registry",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Packrift A2A Packaging Procurement Router",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "TiEQi-A2A-GEO (120 skills)",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "400860 x402 Growth and Safety Catalog",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ANP2 Network Relay",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "ARCASOS Short-Term Rental Search",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Agent Guild",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentRank",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "AgentSearch",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Aurelius Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Bot Hub",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Dynamic Feed",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "GitDealFlow Signal Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Graph Advocate",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "HexNest Machine Reasoning Network",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "InsideOut",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean News Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "Korean Public Data Agent",
+     "status": 530
+    },
+    {
+     "step": "inspect_card",
+     "name": "LogicNodes",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "MERCURY Web Fetch",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "Mobility Quote Agent",
+     "status": 0
+    },
+    {
+     "step": "inspect_card",
+     "name": "MoveHome.org Property Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "OptionsAhoy Equity Planner",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Ownify Support Agent",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PREA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PaKi Curator",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PartsTable Intelligence",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Perkoon \u2014 Agent Data Layer",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PoolParty Agent Concierge",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "PostalForm",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SYNTHORA Mesh",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Solvela",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "SwarmSync Commerce Demo Agent",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "TESSA Marketing & Technology",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "Torify \u2014 Japanese Locale APIs for AI Agents",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "Zee",
+     "status": 404
+    },
+    {
+     "step": "inspect_card",
+     "name": "agent-ready",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "colegal-public-assistant",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "inferGONKA",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "iwant-marketplace",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "marginalia",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "pathtoAGI \u2014 the Observatory",
+     "status": 200
+    },
+    {
+     "step": "inspect_card",
+     "name": "\u6606\u4ed1 \u00b7 \u6ce8\u518c\u4e2d\u5fc3",
+     "status": 200
+    },
+    {
+     "step": "a2a_card_fetch",
+     "status": 200
+    },
+    {
+     "step": "a2a_message_send",
+     "skill": "ag.data.dedupe",
+     "status": 200,
+     "ms": 809
+    }
+   ],
+   "candidates_considered": 50,
+   "top5": [
+    {
+     "name": "Agent Guild",
+     "src": "a2aregistry",
+     "score": 0,
+     "live_score": 8
+    },
+    {
+     "name": "aicomglobal",
+     "src": "a2aregistry",
+     "score": 5,
+     "live_score": 5
+    },
+    {
+     "name": "Agent Planets",
+     "src": "a2aregistry",
+     "score": 1,
+     "live_score": 1
+    },
+    {
+     "name": "Agoragentic",
+     "src": "a2aregistry",
+     "score": 1,
+     "live_score": 1
+    },
+    {
+     "name": "HORIZON SHIELD KIRA",
+     "src": "a2aregistry",
+     "score": 1,
+     "live_score": 1
+    }
+   ],
+   "tried": [
+    "Agent Guild"
+   ],
+   "outcome": {
+    "ok": true,
+    "skill": "ag.data.dedupe",
+    "validated": true,
+    "provider_url": "https://agent-guild-5d5r.onrender.com/a2a",
+    "raw": "{\"ok\": true, \"capability\": \"data.dedupe\", \"version\": \"1.0.0\", \"invocation_id\": \"inv_27ca27e1adb7d405\", \"result\": {\"unique\": [{\"email\": \"a@x.com\"}, {\"email\": \"b@x.com\"}], \"kept\": 2, \"removed\": 1, \"duplicates\": [{\"record\": {\"email\": \"a@x.com\"}, \"count\": 2}]}, \"latency_ms\": 0.032, \"rate\": {\"tier\": \"guest\", \"limit\": 200, \"used_today\": 9, \"remaining_today\": 191}, \"provenance\": {\"envelope\": {\"schema_ver",
+    "provider_name": "Agent Guild",
+    "provider_src": "a2aregistry"
+   },
+   "requests_used": 56,
+   "wall_s": 0.8
+  }
+ ]
+}

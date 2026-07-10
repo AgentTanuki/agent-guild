@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "<string>", line 9, in <module>
+  File "/sessions/pensive-wizardly-pascal/mnt/Agent Guild/live/guild/app/store.py", line 261, in register_agent
+    self._save()
+  File "/sessions/pensive-wizardly-pascal/mnt/Agent Guild/live/guild/app/store.py", line 149, in _save
+    os.replace(tmp, self.path)
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/audit/conc_b.json.tmp' -> '/tmp/audit/conc_b.json'
+A(threads): errors=0 registered=160 dup_ids=0 persisted=160 json_ok=True
+B(2 procs): proc1_saw=30 proc2_saw= expected=60 final_on_disk=30 lost=30
+B: final JSON parses OK (atomic rename prevented corruption)
