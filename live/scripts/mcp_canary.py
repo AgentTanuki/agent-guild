@@ -105,9 +105,12 @@ def main():
     else:
         check("session_id_present", False, "no Mcp-Session-Id header")
 
-    # host guard: a spoofed Host must be rejected (guard active, not disabled)
+    # host guard: a spoofed Host must be rejected. Behind Render/Cloudflare an
+    # unknown Host is rejected at the EDGE (403/404) before it reaches the
+    # origin's 421 — any of those means "not served", which is the property we
+    # care about. A 200 would mean the guard is off.
     st, _, _, _ = _post("/mcp/", INIT, {"Host": "canary-evil.example"})
-    check("host_guard_active", st == 421, f"spoofed-host HTTP {st}")
+    check("host_guard_active", st in (421, 403, 404), f"spoofed-host HTTP {st}")
     # foreign browser Origin must be rejected
     st, _, _, _ = _post("/mcp/", INIT, {"Origin": "https://canary-evil.example"})
     check("origin_guard_active", st == 403, f"foreign-origin HTTP {st}")

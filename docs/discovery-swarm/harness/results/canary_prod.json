@@ -1,0 +1,38 @@
+{
+ "base": "https://agent-guild-5d5r.onrender.com",
+ "at": "2026-07-10T15:04:53Z",
+ "checks": [
+  {
+   "name": "initialize",
+   "ok": true,
+   "detail": "HTTP 200 306ms"
+  },
+  {
+   "name": "tools_list",
+   "ok": true,
+   "detail": "30 tools 1168ms"
+  },
+  {
+   "name": "harmless_invoke",
+   "ok": true,
+   "detail": "884ms"
+  },
+  {
+   "name": "structured_error",
+   "ok": true,
+   "detail": "HTTP 200"
+  },
+  {
+   "name": "host_guard_active",
+   "ok": true,
+   "detail": "spoofed-host HTTP 403"
+  },
+  {
+   "name": "origin_guard_active",
+   "ok": true,
+   "detail": "foreign-origin HTTP 403"
+  }
+ ],
+ "failures": [],
+ "healthy": true
+}
