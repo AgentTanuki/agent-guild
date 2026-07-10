@@ -39,6 +39,7 @@ from . import journey as journey_engine
 from . import proving
 from .a2a import router as a2a_router
 from .mcp_server import mcp_app
+from .swarm.router import router as swarm_router, ensure_built as swarm_ensure_built
 from .bootstrap_eval import seed_bootstrap_evaluation, already_seeded
 
 import logging
@@ -64,6 +65,12 @@ async def _lifespan(app: "FastAPI"):
         store.ensure_ledger_backfilled()  # capture history into the durable chain once
     except Exception as exc:
         _log.warning("ledger backfill skipped: %s", exc)
+    try:
+        # Discovery swarm publish gate: run every capability's fixture suite and
+        # build/sign identity documents for the passing ones (docs/discovery-swarm).
+        swarm_ensure_built()
+    except Exception as exc:
+        _log.warning("swarm identity build skipped: %s", exc)
     async with mcp_app.lifespan(app):
         yield
 
@@ -101,6 +108,7 @@ async def _capture_ua(request: Request, call_next):
 
 # Hosted remote MCP: any agent connects to <host>/mcp with no install.
 app.include_router(a2a_router)
+app.include_router(swarm_router)
 app.mount("/mcp", mcp_app)
 
 ADMIN_TOKEN = os.environ.get("GUILD_ADMIN_TOKEN", "")
@@ -1112,8 +1120,24 @@ def _manifest() -> dict:
             },
             "enforced": billing.billing_enforced(),
         },
+        "invocable_capabilities": {
+            "what": "16 narrow, deterministic, fixture-verified utility capabilities "
+                    "(JSON repair/validate/diff, CSV↔JSON, date normalization, dedupe, "
+                    "record linking, regex extract, unit convert, semver, stats) any "
+                    "agent can invoke as a GUEST — free, no registration, signed "
+                    "provenance on every completion.",
+            "index": "/.well-known/ag-identities/index.json",
+            "terms_first": "/terms.json — inspect terms BEFORE invoking",
+            "invoke": {"method": "POST", "path": "/invoke/{capability_id}",
+                       "body": "the capability's input_schema object"},
+            "match": "GET /swarm/match?task=<description> — utility-ranked selection",
+            "why_invoke": "faster, cheaper, deterministic, and verifiable vs a model "
+                          "completion; every result carries a Guild-signed provenance "
+                          "envelope you can verify offline",
+        },
         "discovery": {
             "capabilities": "/capabilities",
+            "ag_identities": "/.well-known/ag-identities/index.json",
             "a2a_agent_card": "/.well-known/agent-card.json",
             "a2a_endpoint": "/a2a",
             "badges": {"generic": "/badge.svg", "per_agent": "/agents/{id}/badge.svg"},
@@ -1384,6 +1408,19 @@ def llms_txt():
         "confers identity, not trust; receipt-backed evidence is the only ladder.\n"
         "Registered? GET /agents/{you}/journey (free to you) returns your stage,\n"
         "your single next best action, and the counterfactuals that lift you.\n\n"
+        "## Invoke real utility RIGHT NOW, as a guest (no registration)\n"
+        "The Guild hosts 16 narrow, deterministic, fixture-verified capabilities you\n"
+        "can invoke immediately: JSON repair/validate/schema-infer/canonicalize/diff/\n"
+        "path-extract, CSV↔JSON, markdown-table extract, date normalization, dedupe,\n"
+        "fuzzy record linking, bounded regex extract, unit conversion, semver compare,\n"
+        "descriptive stats. Faster, cheaper, and more deterministic than a model\n"
+        "completion — and every result returns a Guild-SIGNED provenance envelope you\n"
+        "can verify offline.\n"
+        "  Index:  GET /.well-known/ag-identities/index.json (schemas + endpoints)\n"
+        "  Terms:  GET /terms.json — inspect BEFORE invoking; guest tier is free\n"
+        "  Invoke: POST /invoke/{capability_id} with the input_schema object\n"
+        "  Match:  GET /swarm/match?task=<what you need> — utility-ranked selection\n"
+        "  MCP:    tools ag_* on this server; A2A: send 'invoke: <id> <json>'\n\n"
         "## Speak A2A? So do we.\n"
         "Agent card: GET /.well-known/agent-card.json — JSON-RPC endpoint POST /a2a\n"
         "implements message/send: send 'check: <capability>' as a text part and get\n"

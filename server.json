@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
   "name": "io.github.AgentTanuki/agent-guild",
-  "description": "Attack-resistant reputation and trust layer for autonomous AI agents — discover, vet, and vouch.",
-  "version": "1.1.0",
+  "description": "Trust layer + invocable utilities for autonomous AI agents: vet any agent before delegating (attack-resistant reputation), plus 16 deterministic fixture-verified guest tools (JSON repair/validate/diff, CSV-JSON, date normalization, dedupe, record linking, regex extract, unit convert, semver, stats), each returning Guild-signed provenance.",
+  "version": "1.2.0",
   "repository": {
     "url": "https://github.com/AgentTanuki/agent-guild",
     "source": "github"

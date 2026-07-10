@@ -62,6 +62,7 @@ class Store:
         self.escrows: dict[str, dict[str, Any]] = {}       # agent-to-agent escrows
         self.guild_revenue: int = 0                        # settlement fees earned (credits)
         self.demand_watches: list[dict[str, Any]] = []     # attributable demand callbacks (Phase 0, G5)
+        self.swarm_state: dict[str, Any] = {}              # discovery swarm: counters, actions, referral tokens, kill flag
         self._rep_cache: Optional[ScoringResult] = None
         # Append-only sidecar journal for instrumentation events. record_event
         # is deliberately cheap (no full-store _save on read paths), which used
@@ -93,6 +94,7 @@ class Store:
             self.escrows = data.get("escrows", {})
             self.guild_revenue = data.get("guild_revenue", 0)
             self.demand_watches = data.get("demand_watches", [])
+            self.swarm_state = data.get("swarm_state", {})
         self._replay_event_journal()
 
     def _replay_event_journal(self) -> None:
@@ -142,7 +144,8 @@ class Store:
                        "checkpoints": self.checkpoints,
                        "escrows": self.escrows,
                        "guild_revenue": self.guild_revenue,
-                       "demand_watches": self.demand_watches}, f, indent=2)
+                       "demand_watches": self.demand_watches,
+                       "swarm_state": self.swarm_state}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal
         if self.events_path:

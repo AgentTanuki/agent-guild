@@ -434,5 +434,69 @@ def guild_verify(credential: dict, ctx: Context = None) -> dict:
     return store.verify_passport(credential, ua=_client_ua(ctx))
 
 
+# --------------------------------------------------------------------------
+# Discovery Swarm: invocable utility capabilities as first-class MCP tools.
+# Generated from the fixture-gated capability registry (app/swarm) so the MCP
+# surface, REST /invoke, and A2A 'invoke:' messages stay identical. Guests are
+# rate-limited by the gateway; every completion carries a signed provenance
+# envelope. See /.well-known/ag-identities/index.json and /terms.json.
+# --------------------------------------------------------------------------
+
+def _swarm_invoke(capability_id: str, payload: dict, api_key: str, ctx) -> dict:
+    from . import journey as journey_engine
+    from .swarm import gateway
+    from .swarm.router import ensure_built
+    ensure_built()
+    try:
+        _status, body = gateway.invoke(
+            store, capability_id, payload, x_api_key=(api_key or None),
+            client_host="mcp", ua=_client_ua(ctx), first_party=False,
+            base=journey_engine.BASE)
+        return body
+    except gateway.Denied as d:
+        return {"ok": False, "denied": d.kind, **d.detail}
+
+
+def _make_swarm_tool(cap):
+    import json as _json
+
+    def tool_fn(payload: dict, api_key: str = "", ctx: Context = None) -> dict:
+        return _swarm_invoke(cap.id, payload, api_key, ctx)
+
+    tool_fn.__name__ = "ag_" + cap.id.replace(".", "_")
+    tool_fn.__doc__ = (
+        f"{cap.summary}\n\n{cap.description}\n\n"
+        f"Deterministic, fixture-verified, free for guests (rate-limited; pass "
+        f"your Guild api_key to use your member budget). Returns the result plus "
+        f"a Guild-signed provenance envelope.\n\n"
+        f"`payload` MUST match this JSON Schema:\n"
+        f"{_json.dumps(cap.input_schema)}\n\n"
+        f"Output schema: {_json.dumps(cap.output_schema)}")
+    return tool_fn
+
+
+def _register_swarm_tools() -> None:
+    from .swarm.capabilities import CAPABILITIES
+
+    @mcp.tool
+    def ag_capabilities(ctx: Context = None) -> dict:
+        """List Agent Guild's invocable utility capabilities (the ag_* tools):
+        id, version, summary, input/output JSON schemas, latency, guest terms.
+        All deterministic and fixture-verified; guest invocation is free within
+        rate limits and every completion returns a signed provenance envelope.
+        Full identity documents: GET /.well-known/ag-identities/index.json."""
+        from . import journey as journey_engine
+        from .swarm.router import ensure_built
+        from .swarm.identity import registry
+        ensure_built()
+        store.record_event("mcp", "swarm_index_fetch", ua=_client_ua(ctx))
+        return registry.index(journey_engine.BASE)
+
+    for _cap in CAPABILITIES.values():
+        mcp.tool(_make_swarm_tool(_cap))
+
+
+_register_swarm_tools()
+
 # Streamable-HTTP ASGI app, mounted by main.py at /mcp (served at /mcp/).
 mcp_app = mcp.http_app(path="/")

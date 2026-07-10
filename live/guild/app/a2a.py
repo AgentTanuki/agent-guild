@@ -284,6 +284,41 @@ def _prove_instructions(text: str) -> dict[str, Any]:
 # A2A: agent card (discovery) + minimal JSON-RPC endpoint (message/send)
 # --------------------------------------------------------------------------
 
+def _swarm_skills(base: str) -> list[dict[str, Any]]:
+    """One A2A skill per published, fixture-gated swarm capability, plus the
+    generic invoke skill. Generated from the same registry as REST and MCP."""
+    from .swarm.capabilities import CAPABILITIES
+    skills: list[dict[str, Any]] = [{
+        "id": "guild.invoke",
+        "name": "Invoke a Guild utility capability (guest, free)",
+        "description": (
+            "Send 'invoke: <capability_id> <json payload>' to run one of the "
+            "Guild's deterministic, fixture-verified utility capabilities "
+            "(JSON repair/validate/diff, CSV↔JSON, date normalization, dedupe, "
+            "record linking, regex extract, unit convert, semver, stats). No "
+            "registration needed; rate-limited; every completion returns a "
+            f"Guild-signed provenance envelope. Index of all capabilities with "
+            f"schemas: {base}/.well-known/ag-identities/index.json — terms "
+            f"(inspect before invoking): {base}/terms.json"),
+        "tags": ["utility", "invocation", "deterministic", "guest"],
+        "examples": ['invoke: json.repair {"text": "{\'a\': 1,}"}',
+                     'invoke: text.date_normalize {"dates": ["3rd March 2026"]}'],
+        "inputModes": ["text/plain"],
+        "outputModes": ["application/json"],
+    }]
+    for cap in sorted(CAPABILITIES.values(), key=lambda c: c.id):
+        skills.append({
+            "id": f"ag.{cap.id}",
+            "name": cap.name,
+            "description": cap.summary + " Send: 'invoke: " + cap.id + " <json>'.",
+            "tags": list(cap.tags),
+            "examples": [f"invoke: {cap.id} " + "{...}"],
+            "inputModes": ["text/plain"],
+            "outputModes": ["application/json"],
+        })
+    return skills
+
+
 def _agent_card(base: str) -> dict[str, Any]:
     return {
         "protocolVersion": "0.3.0",
@@ -338,6 +373,7 @@ def _agent_card(base: str) -> dict[str, Any]:
                 "inputModes": ["text/plain"],
                 "outputModes": ["application/json"],
             },
+            *_swarm_skills(base),
         ],
     }
 
@@ -426,7 +462,10 @@ async def a2a_endpoint(request: Request):
     lowered = text.lower().strip()
     m = _CAP_RE.search(text)
     _adv_url = None
-    if lowered in ("capabilities", "capability map", "supply", "demand"):
+    _inv = re.match(r"^\s*invoke:\s*([a-z0-9_.\-]+)\s*(\{.*\})?\s*$", text, re.S | re.I)
+    if _inv:
+        caller_kind, caller_cap = "swarm_invoke_ask", _inv.group(1)
+    elif lowered in ("capabilities", "capability map", "supply", "demand"):
         caller_kind, caller_cap = "capabilities_map", None
     elif m:
         caller_kind, caller_cap = "capability_ask", m.group(1)
@@ -446,7 +485,30 @@ async def a2a_endpoint(request: Request):
                        caller_kind=caller_kind, capability=caller_cap)
 
     import json as _json
-    if caller_kind == "capabilities_map":
+    if caller_kind == "swarm_invoke_ask":
+        # A2A route into the acquisition gateway: same chokepoint, limits,
+        # attribution, and signed provenance envelope as POST /invoke/{id}.
+        from .swarm import gateway as _gw
+        from .swarm.router import ensure_built as _ensure_built, _is_first_party as _fp
+        _ensure_built()
+        try:
+            _payload = _json.loads(_inv.group(2)) if _inv.group(2) else {}
+        except (_json.JSONDecodeError, ValueError):
+            _payload = None
+        if not isinstance(_payload, dict):
+            payload = {"error": "send: invoke: <capability_id> <json object payload>",
+                       "index": "/.well-known/ag-identities/index.json"}
+        else:
+            try:
+                _status, payload = _gw.invoke(
+                    store, _inv.group(1), _payload,
+                    x_api_key=request.headers.get("x-api-key"),
+                    client_host=client_host, ua=real_ua,
+                    first_party=_fp(request.headers.get("x-guild-source")),
+                    base=str(request.base_url).rstrip("/"))
+            except _gw.Denied as _d:
+                payload = {"denied": _d.kind, **_d.detail}
+    elif caller_kind == "capabilities_map":
         payload: dict[str, Any] = {
             "supplied": store.capability_index(),
             "demand": store.demand_summary(),
