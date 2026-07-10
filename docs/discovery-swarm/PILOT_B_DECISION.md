@@ -61,6 +61,23 @@ This finding does not change the decision to CONDITIONAL_GO and must not be used
 | Persistence safe for Pilot B concurrency | **NOT MET for growth** (measured 50 % write loss at 2 processes; safe today only because topology is 1 process) |
 | Unit economics measured and bounded | **PARTIAL** (costs bounded by rate limits ≈ $0 marginal; no revenue signal yet) |
 
+## Progress since the initial decision (2026-07-10, same day)
+
+Condition work landed or staged — the decision stays **CONDITIONAL_GO**, but the gap list is materially shorter:
+
+- **Machine menu continuation (was a live dead-end): FIXED + deployed.** Bare option replies (`user: 1`, `user: 3`, stale/foreign/replayed/invalid) now return `option_reply_without_context` with the exact self-contained actions instead of `probe_ack`. `/a2a` is stateless by design, so no numeric reply is ever silently guessed. Verified in production; 7 regression tests.
+- **Reachability semantics: FORMALISED + deployed.** Status ladder (`no_endpoint`/`declared_unverified`/`unknown` producible; `recently_reachable`/`currently_unreachable`/`invocation_verified` reserved for an SSRF-safe declaration-time verifier, never read-path URL probing) + `verification_method`/`last_verified_at`/`verification_age_seconds`/`invocation_supported`/`recommended_for_routing`. `declared_unverified` is never called reachable; `recommended_for_routing` is honestly false everywhere. `REACHABILITY_SEMANTICS.md`.
+- **Central analytics invariant: ENFORCED + deployed.** `is_genuine_external` now derives from `caller_class`; AG_INTERNAL/AG_TEST/OPERATOR/REGISTRY_CRAWLER cannot feed any external-growth metric at any funnel stage (tested per-class per-stage). Kill events audited as OPERATOR.
+- **Kill-switch drill: DONE (local).** invoke→503, read-only discovery survives, non-admin revive→401, operator revives, events audited. Result committed.
+- **MCP canary: BUILT + green in production** (AG_TEST identity; initialize/tools-list/invoke/error/host-guard/origin-guard/latency).
+- **First-party token: WIRED** (strict-mode code + render.yaml var + activation runbook + tests); activation is Ross-gated.
+- **Persistence migration: PREPARED (not deployed).** Topology confirmed single-worker/single-instance; recommendation = SQLite+WAL on the existing disk; migration script + tests prove 60/60 concurrent writes vs the JSON store's 30/60. `PERSISTENCE_MIGRATION.md`.
+- **Credentials: DESIGNED + implemented on a branch (flag-gated OFF, not merged).** `CREDENTIALS_DESIGN.md` on main; hashing/scopes/expiry implementation on `credential-hardening` (297 tests both modes).
+- **Fact-check supplier: BUILT dark.** `evidence.claim_check` — evidence-relative (never general-knowledge), 32 fixtures, p50 0.06 ms, injection-inert; `GUILD_ENABLE_CLAIMCHECK`-gated OFF, absent from all production surfaces. Held until the post-fix natural baseline is recorded.
+- **Registry verification: DONE.** `REGISTRY_VERIFICATION.md` — MCP registry/Glama/a2aregistry discoverable with correct endpoints; a2aregistry stored skills (2) and Smithery tools (5) are stale vs the live 19/30; corrected a2aregistry card staged; submissions are outbound public-content actions held for Ross.
+
+Still open (unchanged blockers): deploy the SQLite migration; merge credential hardening + activate `GUILD_HASH_KEYS`; activate `GUILD_FIRST_PARTY_TOKEN`; submit the refreshed a2aregistry + Smithery listings; schedule the MCP canary; reproduce a registry-led cold-discovery win AFTER the listing refresh. The natural experiment (actor 4580505b) remains uncontaminated and unresolved — no return observed since 08:36 UTC; passive watch continues.
+
 ## Conditions — ALL must close before >100 identities (or any concurrency growth)
 
 1. **Persistence**: migrate store to SQLite (WAL) on the existing Render disk — transactions for registration/credits/escrow/events; keep the JSON export as a backup artifact. Non-destructive migration with verified backup first. (Blocks: concurrency.)
