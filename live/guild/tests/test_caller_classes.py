@@ -72,3 +72,17 @@ def test_instrumentation_exposes_caller_class_counts():
     assert "caller_classes" in inst
     assert set(inst["caller_classes"]) <= set(CALLER_CLASSES)
     assert sum(inst["caller_classes"].values()) >= 1
+
+
+def test_ag_test_and_crawler_uas_are_never_genuine_external():
+    """Found live 2026-07-10: the MCP verification battery (mcp:pilot-a-audit)
+    was AG_TEST under caller_class yet still counted in the genuine_external
+    headline, because is_genuine_external never consulted the AG-test/crawler
+    UA rules. The two classifiers must agree at the growth gate."""
+    from app.attribution import attribution_class
+    for ua in ("mcp:pilot-a-audit/1", "ColdDiscoveryHarness/1.0",
+               "Glama-Crawler/1.0", "UptimeRobot/2.0"):
+        e = _e(ua=ua)
+        assert not is_genuine_external(e), ua
+        assert attribution_class(e) in ("ag_test", "registry_crawler"), (
+            ua, attribution_class(e))

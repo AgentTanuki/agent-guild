@@ -31,6 +31,22 @@ Clean-context LLM clients (independent contexts, no AG in any prompt):
 
 Capability utility (`harness/results/utility_bench.json`): 16/16 live-verified, 320 runs, 100 % fixture success, byte-identical determinism, machine-readable failures, p50 ≤1.4 ms. Classification: **`calc/code/data/json/table/text` transforms (all 16): VALID_BUT_COMMODITISED** — any code-capable agent could run these locally; the rational reasons to invoke are protocol-native access (A2A/MCP without a sandbox), signed provenance, and zero cost. **Trust reads (guild_check/reputation): STRONG_UTILITY** — data that exists nowhere else, and the only category where cold registry-led discovery picked AG on merit. No capability classified WEAK/BROKEN/UNTESTED; nothing to retire.
 
+## New evidence (2026-07-10, added after the initial decision): recurring external actor `a2a:net:4580505b…`
+
+Full evidence file: `evidence/external-actor-4580505b.md`. An anonymous A2A caller (UA `python-httpx/0.28.1`, LLM-driven behaviour: natural-language opener, menu-number follow-ups `1`/`3`) asked `check: fact-check` ~29 times over ~3 days at roughly hourly intervals, because every reply recommended a supplier with no declared endpoint and no reachability disclosure — an un-actionable answer that rationally degenerates into polling. This is likely **the strongest real-world evidence Pilot A has produced**, and it must be read precisely:
+
+- **EXTERNAL_ENGAGEMENT: proven (high confidence)** — content-bearing deciding interactions, no time-correlation with AG cron, no AG tool using that UA/transport, ≥2-day persistence.
+- **RECURRING_EXTERNAL_USE: proven (high confidence)** — returns across days and responds to prior AG output.
+- **COLD_DISCOVERY: NOT proven** — no datum records how the actor first found `/a2a`; stated explicitly in the evidence file.
+- **SUCCESSFUL_MARKET_TRANSACTION: NOT proven — the opposite.** The actor is demonstrated external DEMAND that AG failed to convert (no reachable supplier, menu dead-ends). The reported proving/receipt completion could not be independently bound to this actor from public data (proving requires a registered key; no visible link between the key and this network fingerprint).
+- Classification: **EXTERNAL_UNKNOWN** (not auto-promoted to EXTERNAL_VERIFIED on the `a2a:net:` prefix; AG-origin explanations largely excluded but the httpx UA is generic).
+
+Response deployed the same day, sequenced separately from any transport change for clean attribution: reachability-honest `/check` (2392c01 + `2b78ae3` amendment adding the machine-readable `reachability_status` ladder — `declared_endpoint` is a claim, not a route; no liveness probing of registered URLs, which would be an SSRF primitive). Verified in production: the actor's exact query shape now returns `supply_unreachable`, an honest no-route answer, and an actionable `POST /demand/watch` path. Before/after captures: `harness/results/baseline_pre_2392c01.txt`, `harness/results/post_2392c01.txt`.
+
+**Natural experiment now running** (registered before deploy; no contact with the actor): hypothesis — the polling was caused by the un-actionable recommendation; falsifier — polling continues unchanged despite the honest answer and watch path. Observed via daily ops-watch. **Fact-check supply experiment** deferred by design: a genuinely callable, tested fact-check capability may be added only after post-fix baseline behaviour is observed, and the actor must discover it through normal surfaces, never by manual notification.
+
+This finding does not change the decision to CONDITIONAL_GO and must not be used to justify GO: it strengthens the engagement/recurrence evidence while leaving cold discovery (separately proven by the harness) and market transactions (still zero) exactly where they were.
+
 ## GO criteria scored
 
 | Criterion | Verdict |

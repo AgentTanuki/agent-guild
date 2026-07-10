@@ -104,6 +104,14 @@ def is_genuine_external(event: dict[str, Any]) -> bool:
         return False
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
 
+    # Our own self-identified test harnesses and registry/uptime crawlers are
+    # never genuine external — found live 2026-07-10: the MCP verification
+    # battery (UA mcp:pilot-a-audit/1) was correctly counted AG_TEST by
+    # caller_class but still leaked into the genuine_external headline because
+    # this function never consulted those rules.
+    if AG_TEST_UA_RE.search(ua) or CRAWLER_UA_RE.search(ua):
+        return False
+
     # A self-identified MCP client that isn't one of ours.
     client = _mcp_client(ua)
     if client is not None:
@@ -125,6 +133,10 @@ def attribution_class(event: dict[str, Any]) -> str:
     if is_genuine_external(event):
         return "genuine_external"
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
+    if AG_TEST_UA_RE.search(ua):
+        return "ag_test"              # our own self-identified harnesses
+    if CRAWLER_UA_RE.search(ua):
+        return "registry_crawler"     # indexes manifests, never an agent
     if ua == "mcp/remote":
         return "unattributable_mcp"
     if not ua or TOOLING_UA_RE.search(ua):

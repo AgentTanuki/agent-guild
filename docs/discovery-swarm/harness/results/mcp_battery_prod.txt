@@ -1,0 +1,14 @@
+== 1. initialize (public Host where applicable) ==
+session=b80e40ef4b9f43ecb9e91bbd261f8a7a body_sample=id":1,"result":{"protocolVersion":"2025-03-26","capabilities
+== 2. notifications/initialized ==
+code=202
+== 3. tools/list ==
+tools: 30 | has ag_json_canonicalize: True | has guild_check: True
+== 4. invoke harmless tool (ag_json_canonicalize) ==
+isError: False | canonical in payload: True
+== 5. malformed invocation (missing required arg) ==
+machine-readable error: True
+== 6. unauthorised write (guild_attest, bogus key) ==
+rejected with structured error: True
+== 7. ordinary FastAPI routes ==
+health: 200 | check: 200 | card: 200
