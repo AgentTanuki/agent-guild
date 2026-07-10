@@ -225,3 +225,22 @@ def test_capability_demand_event_carries_reachable_supply():
     s.check("fact-check")
     ev = [e for e in s.events if e["type"] == "capability_demand"][-1]
     assert ev["reachable_supply"] is True
+
+
+def test_reachability_status_never_overstates_verification():
+    """A declared endpoint is a claim, not a route: the Boolean stays for
+    compat, but reachability_status must say declared_endpoint (never a
+    verified state — no verifier exists yet) and last_verified_at must be
+    null. Guards against quietly promoting declarations to verified."""
+    s = _seeded_store()
+    a = s.register_agent(name="DeclaredOnly", capabilities=["fact-check"],
+                         metadata={"endpoint": "https://example.com/a2a"})
+    r = s.check("fact-check")
+    entries = r["shortlist"] + [r["decision"]]
+    for e in entries:
+        assert e["reachability_status"] in ("unknown", "declared_endpoint")
+        assert e["last_verified_at"] is None
+        if e.get("reachable"):
+            assert e["reachability_status"] == "declared_endpoint"
+        else:
+            assert e["reachability_status"] == "unknown"

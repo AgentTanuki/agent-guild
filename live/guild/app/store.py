@@ -1087,6 +1087,23 @@ class Store:
                 "rank": s.rank if s else 0,
                 "reachable": bool(endpoint),
                 "contact": endpoint,
+                # `reachable` is a compat Boolean and would otherwise conceal
+                # real uncertainty: an endpoint STRING is a claim, not a route.
+                # `reachability_status` is the honest machine-readable ladder:
+                #   unknown            — no endpoint declared
+                #   declared_endpoint  — agent declared a URL; NEVER verified
+                #   recently_verified / currently_reachable / invocation_verified
+                #                      — reserved for a future verifier that
+                #                        checks liveness AT DECLARATION TIME
+                #                        (opt-in, never by probing arbitrary
+                #                        registered URLs from read paths — that
+                #                        would be an SSRF primitive)
+                #   unreachable        — a verification attempt failed
+                # Today only the first two are producible; last_verified_at is
+                # therefore always null and says so honestly.
+                "reachability_status": ("declared_endpoint" if endpoint
+                                        else "unknown"),
+                "last_verified_at": None,
             })
         items.sort(key=lambda x: x["trust"], reverse=True)
         return items[:limit]
@@ -1305,6 +1322,8 @@ class Store:
                 # agent" without learning whether it can be contacted at all.
                 "reachable": best.get("reachable", False),
                 "contact": best.get("contact"),
+                "reachability_status": best.get("reachability_status", "unknown"),
+                "last_verified_at": best.get("last_verified_at"),
             }
         out: dict[str, Any] = {
             "schema_version": 2,
