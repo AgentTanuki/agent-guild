@@ -55,11 +55,23 @@ def set_killed(store, value: bool, reason: str = "") -> None:
         store._save()
 
 
-def derive_actor(x_api_key: Optional[str], client_host: str, ua: str) -> tuple[str, bool]:
+def derive_actor(x_api_key: Optional[str], client_host: str, ua: str,
+                 store=None) -> tuple[str, bool]:
     """(actor_key, is_member). Members are keyed by their api_key (existing
-    convention); guests get a stable ip+ua fingerprint namespaced 'swarm:'."""
+    convention); guests get a stable ip+ua fingerprint namespaced 'swarm:'.
+
+    Pilot A audit fix (2026-07-10): a presented key is only MEMBER if it
+    belongs to a registered agent. Previously ANY non-empty X-API-Key string
+    was granted the member tier (10× daily budget) and polluted member-keyed
+    attribution. An unknown/revoked key now downgrades to guest (never a hard
+    failure — guests are welcome) and is namespaced so it cannot collide with
+    real member metrics."""
     if x_api_key:
-        return x_api_key, True
+        if store is not None and any(
+                a.get("api_key") == x_api_key for a in store.agents.values()):
+            return x_api_key, True
+        fp = hashlib.sha256(f"{client_host}|{ua}".encode()).hexdigest()[:16]
+        return f"swarm:badkey:{fp}", False
     fp = hashlib.sha256(f"{client_host}|{ua}".encode()).hexdigest()[:16]
     return f"swarm:{fp}", False
 
@@ -129,7 +141,7 @@ def invoke(store, capability_id: str, payload: Any, *,
             "error": "payload must be a JSON object matching input_schema",
             "input_schema": cap.input_schema})
     _payload_size_ok(payload)
-    actor, is_member = derive_actor(x_api_key, client_host, ua)
+    actor, is_member = derive_actor(x_api_key, client_host, ua, store=store)
     rate = _check_rate(actor, is_member)
 
     invocation_id = "inv_" + secrets.token_hex(8)
@@ -262,8 +274,10 @@ def terms(base: str) -> dict:
                        "resource-exhaustion or injection attempts",
                        "reselling guest access as your own paid capability "
                        "without provenance passthrough"],
-        "abuse_handling": "rate limits + circuit breakers; violations revoke "
-                          "keys (existing revocation applies)",
+        "abuse_handling": "rate limits + circuit breakers; violating keys are "
+                          "revoked via POST /agents/{id}/key/revoke (members "
+                          "may also revoke/rotate their own key at "
+                          "/agents/{id}/key/rotate)",
         "kill_switch": "the operator can disable all swarm invocations "
                        "instantly; you will receive HTTP 503",
         "terms_stability": "terms are versioned; this document is the "

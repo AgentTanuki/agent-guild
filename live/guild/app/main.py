@@ -358,6 +358,37 @@ def declare_endpoint(agent_id: str, body: dict[str, Any],
     return out
 
 
+@app.post("/agents/{agent_id}/key/rotate")
+def rotate_key(agent_id: str, x_api_key: Optional[str] = Header(None),
+               x_admin_token: Optional[str] = Header(None)):
+    """Rotate this agent's api_key (auth: the CURRENT key, or the admin token —
+    the recovery path after a revoke). Returns the new key exactly once.
+    Credential lifecycle added by the Pilot A audit (2026-07-10): a machine
+    must be able to test and retire a credential without a human."""
+    agent = store.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(404, "agent not found")
+    if not (x_admin_token and x_admin_token == ADMIN_TOKEN):
+        if not agent.get("api_key"):
+            raise HTTPException(401, "key revoked — rotation requires the admin token")
+        _require_key(agent, x_api_key, "agent")
+    return store.rotate_api_key(agent_id)
+
+
+@app.post("/agents/{agent_id}/key/revoke")
+def revoke_key(agent_id: str, x_api_key: Optional[str] = Header(None),
+               x_admin_token: Optional[str] = Header(None)):
+    """Revoke this agent's api_key (auth: the current key, or the admin token).
+    Identity and history are retained; the key stops authenticating
+    immediately. Rotate (admin) re-issues later."""
+    agent = store.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(404, "agent not found")
+    if not (x_admin_token and x_admin_token == ADMIN_TOKEN):
+        _require_key(agent, x_api_key, "agent")
+    return store.revoke_api_key(agent_id)
+
+
 @app.post("/agents/{agent_id}/prove")
 def prove_start(agent_id: str, x_api_key: Optional[str] = Header(None)):
     """Start the self-serve proving rung: the ONE journey step a newcomer can

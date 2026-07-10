@@ -64,6 +64,16 @@ KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
                   "(run from our own sandbox against prod); the X-Guild-Source "
                   "first-party header was omitted by mistake.",
     },
+    {
+        "ua": "mcp:probe/1",
+        "from": "2026-07-10T07:00:00+00:00",
+        "to": "2026-07-10T13:00:00+00:00",
+        "reason": "Pilot A cold-discovery audit (2026-07-10): a clean-context "
+                  "test client completed the MCP handshake with clientInfo name "
+                  "'probe' and called guild_check. It is our own test system; "
+                  "by design it sent no X-Guild-Source header, so without this "
+                  "entry it reads as a genuine external MCP client.",
+    },
 ]
 
 
@@ -120,6 +130,67 @@ def attribution_class(event: dict[str, Any]) -> str:
     if not ua or TOOLING_UA_RE.search(ua):
         return "tooling_or_ours"      # curl/urllib/empty — looks like our own tests
     return "unrecognised_external"
+
+
+# ---------------------------------------------------------------------------
+# Explicit caller classes (Pilot A instrumentation audit, 2026-07-10).
+#
+# `attribution_class` answers "why is this (not) genuine external?".
+# `caller_class` answers the operational question "WHO is calling?", with a
+# closed 7-value taxonomy so growth metrics can be filtered by construction:
+# only EXTERNAL_* classes may ever feed external-growth reporting; a registry
+# crawler fetching a manifest is never an engaged external agent.
+# ---------------------------------------------------------------------------
+
+CALLER_CLASSES = (
+    "AG_INTERNAL", "AG_TEST", "REGISTRY_CRAWLER",
+    "EXTERNAL_UNKNOWN", "EXTERNAL_VERIFIED", "EXTERNAL_MEMBER", "OPERATOR",
+)
+
+# Registry / search-engine / uptime crawlers: they index manifests, they do
+# not perform tasks. Matched anywhere in the UA, case-insensitive.
+CRAWLER_UA_RE = re.compile(
+    r"(glama|smithery|modelcontextprotocol|a2aregistry|crawler|spider|"
+    r"bingbot|googlebot|gptbot|claudebot|ccbot|censys|shodan|"
+    r"uptime|pingdom|statuscake|betteruptime|render/|kube-probe)", re.I)
+
+# Our own test harnesses, self-identified by UA. Narrow on purpose: these are
+# names WE ship, not generic tooling (generic tooling is handled separately).
+AG_TEST_UA_RE = re.compile(
+    r"(colddiscoveryharness|pilot-?a-audit|guild-ops-check|agentguild-selftest)",
+    re.I)
+
+
+def caller_class(event: Mapping[str, Any], *,
+                 member: bool = False, verified: bool = False,
+                 operator: bool = False) -> str:
+    """Classify WHO produced `event` into one of CALLER_CLASSES.
+
+    `member`   — the caller presented a valid registered api key.
+    `verified` — the member has completed the proving rung (key_proof).
+    `operator` — the call carried the admin token.
+    The store decides those three; this function owns everything UA-derived.
+    """
+    if operator:
+        return "OPERATOR"
+    if event.get("fp", event.get("first_party")):
+        return "AG_INTERNAL"
+    ua = (event.get("ua", event.get("user_agent")) or "").strip()
+    if _is_known_first_party_incident(event) or AG_TEST_UA_RE.search(ua):
+        return "AG_TEST"
+    if CRAWLER_UA_RE.search(ua):
+        return "REGISTRY_CRAWLER"
+    if member and verified:
+        return "EXTERNAL_VERIFIED"
+    if member:
+        return "EXTERNAL_MEMBER"
+    return "EXTERNAL_UNKNOWN"
+
+
+def may_count_as_external_growth(cls: str) -> bool:
+    """The single gate for external-growth metrics: crawlers and our own
+    traffic can never inflate them, by type rather than by policy."""
+    return cls in ("EXTERNAL_UNKNOWN", "EXTERNAL_VERIFIED", "EXTERNAL_MEMBER")
 
 
 # ---------------------------------------------------------------------------

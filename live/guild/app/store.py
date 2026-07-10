@@ -355,6 +355,46 @@ class Store:
             self._save()
             return {"agent_id": agent_id, "endpoint": endpoint, "declared_at": _now()}
 
+    # --- credential lifecycle (Pilot A audit, 2026-07-10) --------------------
+    def rotate_api_key(self, agent_id: str) -> dict[str, Any]:
+        """Issue a fresh api_key for the agent, migrating its billing account
+        (accounts are keyed by the api_key). The old key stops authenticating
+        immediately; past events keep their original key for attribution."""
+        with self.lock:
+            agent = self.agents.get(agent_id)
+            if agent is None:
+                raise ValueError("agent not found")
+            old = agent.get("api_key")
+            new = "sk_" + secrets.token_hex(24)
+            agent["api_key"] = new
+            agent["api_key_rotated_at"] = _now()
+            if old and old in self.accounts:
+                acct = self.accounts.pop(old)
+                acct["key"] = new
+                self.accounts[new] = acct
+            self.record_event(new, "api_key_rotated", agent_id=agent_id)
+            self._save()
+            return {"agent_id": agent_id, "api_key": new,
+                    "rotated_at": agent["api_key_rotated_at"],
+                    "note": "the previous key no longer authenticates"}
+
+    def revoke_api_key(self, agent_id: str) -> dict[str, Any]:
+        """Revoke the agent's api_key. The agent keeps its identity, record and
+        history but can no longer authenticate; a later rotate re-issues."""
+        with self.lock:
+            agent = self.agents.get(agent_id)
+            if agent is None:
+                raise ValueError("agent not found")
+            old = agent.get("api_key")
+            agent["api_key"] = None
+            agent["api_key_revoked_at"] = _now()
+            self.record_event(old or self.account_for_agent(agent_id) or "anon",
+                              "api_key_revoked", agent_id=agent_id)
+            self._save()
+            return {"agent_id": agent_id, "revoked_at": agent["api_key_revoked_at"],
+                    "note": "identity and history retained; POST "
+                            f"/agents/{agent_id}/key/rotate (admin) re-issues"}
+
     # --- referrals (agents as the growth engine) ----------------------------
     def _referred_agent_usage(self, agent_id: str) -> tuple[int, int]:
         """(accepted_receipts_as_worker, paid_reads) for a referred agent — the
@@ -766,6 +806,23 @@ class Store:
             "request) — a lone capability-shaped ask is deciding but an automated "
             "monitor could emit it. Measure retention against strong actors; use "
             "genuine_external_probe_only_* for the trustworthy probe-volume signal.")
+        # Explicit caller-class breakdown (Pilot A instrumentation audit,
+        # 2026-07-10): a closed 7-value taxonomy — AG_INTERNAL / AG_TEST /
+        # REGISTRY_CRAWLER / EXTERNAL_UNKNOWN / EXTERNAL_VERIFIED /
+        # EXTERNAL_MEMBER / OPERATOR — so a reader can see at a glance how much
+        # traffic is crawlers or our own tests. Only EXTERNAL_* classes may
+        # feed external-growth reporting (attribution.may_count_as_external_growth).
+        from .attribution import caller_class
+        verified_keys = {a.get("api_key") for a in self.agents.values()
+                         if (a.get("milestones") or {}).get("key_proof")}
+        member_keys = {a.get("api_key") for a in self.agents.values()}
+        class_counts: dict[str, int] = {}
+        for e in self.events:
+            k = e.get("key")
+            cls = caller_class(e, member=k in member_keys,
+                               verified=k in verified_keys)
+            class_counts[cls] = class_counts.get(cls, 0) + 1
+        combined["caller_classes"] = class_counts
         # Journey funnel (Phase 0): stage progression, not just traffic.
         combined["journey"] = self.journey_funnel()
         # Proving funnel (machine-economics audit R2): offered → started →
