@@ -383,15 +383,24 @@ def declare_endpoint(agent_id: str, body: dict[str, Any],
         raise HTTPException(404, "agent not found")
     _require_key(agent, x_api_key, "agent")
     url = str(body.get("endpoint") or "").strip()
-    if not (url.startswith("http://") or url.startswith("https://")):
-        raise HTTPException(422, "endpoint must be an http(s) URL")
-    if len(url) > 500:
-        raise HTTPException(422, "endpoint too long")
-    out = store.set_agent_endpoint(agent_id, url)
+    # `verify` (optional) opts into a single owner-initiated SSRF-safe liveness
+    # probe at declaration time. Default False: declaration is network-free.
+    verify = bool(body.get("verify"))
+    if verify:
+        # repeated verification is rate-limited per agent (reuses the credential-
+        # op limiter: 5 / agent / 60s) so one agent cannot hammer outbound probes.
+        _rate_limit_key_op(agent_id)
+    try:
+        # policy failures (prohibited/invalid endpoint properties) -> 422;
+        # a merely-unreachable public URL still declares successfully.
+        out = store.set_agent_endpoint(agent_id, url, verify=verify)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
     out["guild_next"] = journey_engine.guild_next(
         store, agent,
-        note="Endpoint declared — you are now reachable. One action advances "
-             "you now:")
+        note="Endpoint declared. " + (
+            "Liveness was checked (see reachability_status). "
+            if verify else "") + "One action advances you now:")
     return out
 
 
