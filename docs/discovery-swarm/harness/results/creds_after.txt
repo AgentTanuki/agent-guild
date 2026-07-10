@@ -1,0 +1,8 @@
+=== credential-hardening dark-merge AFTER probe 2026-07-10T17:38:18Z ===
+deployed rev: 480a055e3b10176098124781ece1481fb1e16685
+health: {"ok":true,"agents":53,"tasks":203,"attestations":200}
+guest invoke json.canonicalize: True
+a2a check fact-check reachability: supply_has_no_declared_endpoint
+mcp init: 200
+legacy_scope_credentials.count (all current creds, flag OFF): 52
+hashing flag active in prod? expect False: flag OFF (no api_key_hash issued)
