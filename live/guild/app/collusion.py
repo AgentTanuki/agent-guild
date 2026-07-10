@@ -148,7 +148,13 @@ def detect_collusion(
             + 0.30 * min(1.0, inflation / 0.5)
             + 0.25 * (1.0 - min(1.0, ext_per_member))
         )
-        suspicion *= 1.0 - min(0.9, closeness)        # earned standing lowers it
+        # Earned standing lowers suspicion — but only when that standing was
+        # earned OUTSIDE the ring. With zero external reviewers the ring's
+        # EigenTrust mass is self-generated (in a tiny/young network the ring
+        # can even BE the network max), so discounting by closeness would let
+        # a pure two-account farm wash itself clean.
+        if external_reviewers:
+            suspicion *= 1.0 - min(0.9, closeness)    # externally-earned standing lowers it
         if contains_seed:
             suspicion *= 0.15                          # seed inside ⇒ likely real
         suspicion = max(0.0, min(1.0, suspicion))

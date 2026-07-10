@@ -499,4 +499,17 @@ def _register_swarm_tools() -> None:
 _register_swarm_tools()
 
 # Streamable-HTTP ASGI app, mounted by main.py at /mcp (served at /mcp/).
-mcp_app = mcp.http_app(path="/")
+#
+# host_origin_protection MUST be disabled explicitly: fastmcp's Host/Origin
+# guard (DNS-rebinding protection for localhost dev servers) defaults to ON in
+# some releases and rejects every request whose Host header is not localhost
+# with "421 Misdirected Request". Behind Render the public Host is
+# agent-guild-5d5r.onrender.com, so with the guard on, EVERY external MCP
+# client is rejected — this silently broke the production /mcp endpoint
+# (observed 2026-07-10; registry-led discovery failed at initialize).
+# A public HTTPS API needs no rebinding guard. Fall back for old versions
+# whose http_app() lacks the kwarg (those versions had no guard).
+try:
+    mcp_app = mcp.http_app(path="/", host_origin_protection=False)
+except TypeError:  # fastmcp < 3.x: no guard, no kwarg
+    mcp_app = mcp.http_app(path="/")
