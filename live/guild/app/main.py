@@ -380,7 +380,11 @@ def rotate_key(agent_id: str, x_api_key: Optional[str] = Header(None),
         if not creds.agent_has_active_key(agent):
             raise HTTPException(401, "key revoked — rotation requires the admin token")
         _require_key(agent, x_api_key, "agent")
-        _require_scope(agent, "admin")
+        # Self-service: authenticating with the agent's OWN current key proves
+        # ownership — rotating/retiring your own credential is a least-privilege
+        # self-action and must not require the operator-only `admin` scope
+        # (a self-registered key never carries it). The admin TOKEN remains the
+        # recovery path after a revoke.
     return store.rotate_api_key(agent_id)
 
 
@@ -395,7 +399,7 @@ def revoke_key(agent_id: str, x_api_key: Optional[str] = Header(None),
         raise HTTPException(404, "agent not found")
     if not (x_admin_token and x_admin_token == ADMIN_TOKEN):
         _require_key(agent, x_api_key, "agent")
-        _require_scope(agent, "admin")
+        # Self-service revocation (see rotate) — own key proves ownership.
     return store.revoke_api_key(agent_id)
 
 

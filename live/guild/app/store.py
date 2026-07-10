@@ -115,12 +115,11 @@ class Store:
             raw = agent.get("api_key")
             if not raw:
                 continue
-            h = creds.hash_key(raw)
-            kid = h[:creds.KEY_ID_LEN]
+            kid = creds.key_id_of(raw)
             agent["api_key"] = None
-            agent["api_key_hash"] = h
+            agent["api_key_hash"] = creds.hash_key(raw)
             agent["key_id"] = kid
-            agent.setdefault("scopes", list(creds.DEFAULT_SCOPES))
+            agent.setdefault("scopes", list(creds.DEFAULT_ISSUE_SCOPES))
             agent.setdefault(
                 "credential_class",
                 "first_party" if agent.get("first_party") else "external")
@@ -291,7 +290,7 @@ class Store:
                 rec["api_key"] = None
                 rec["api_key_hash"] = creds.hash_key(api_key)
                 rec["key_id"] = creds.key_id_of(api_key)
-                rec["scopes"] = list(creds.DEFAULT_SCOPES)
+                rec["scopes"] = list(creds.DEFAULT_ISSUE_SCOPES)
                 rec["credential_class"] = "first_party" if fp else "external"
             self.agents[agent_id] = rec
             # Custodial agents get a billing account keyed by their api_key
@@ -458,7 +457,7 @@ class Store:
                 agent["api_key"] = None
                 agent["api_key_hash"] = creds.hash_key(new)
                 agent["key_id"] = creds.key_id_of(new)
-                agent.setdefault("scopes", list(creds.DEFAULT_SCOPES))
+                agent.setdefault("scopes", list(creds.DEFAULT_ISSUE_SCOPES))
                 agent.setdefault(
                     "credential_class",
                     "first_party" if agent.get("first_party") else "external")

@@ -70,9 +70,14 @@ def test_on_mode_hashes_at_rest_and_still_authenticates(hash_on):
     assert raw and raw.startswith("sk_")            # shown once at issuance
     rec = store.agents[a["id"]]
     assert rec.get("api_key") is None               # never stored raw
-    assert rec["api_key_hash"] == creds.hash_key(raw)
-    assert rec["key_id"] == creds.hash_key(raw)[:12]
-    assert rec["scopes"] == creds.DEFAULT_SCOPES    # default: all scopes
+    # salted PBKDF2 verifier: self-describing, non-deterministic (fresh salt),
+    # so it is NOT equal to a re-hash — it must VERIFY the raw key instead.
+    assert rec["api_key_hash"].startswith("pbkdf2_sha256$")
+    assert creds.verify_key_hash(raw, rec["api_key_hash"])
+    assert not creds.verify_key_hash("sk_wrong", rec["api_key_hash"])
+    assert rec["key_id"] == creds.key_id_of(raw)    # deterministic identifier
+    assert rec["scopes"] == list(creds.DEFAULT_ISSUE_SCOPES)  # least privilege
+    assert "admin" not in rec["scopes"]             # never granted by default
     assert rec["credential_class"] in ("first_party", "external")
     # account keyed by the public key_id, not the secret
     assert rec["key_id"] in store.accounts
@@ -114,9 +119,11 @@ def test_on_mode_rotation_invalidates_old_hash(hash_on):
     new = r.json()["api_key"]
     assert new != old and new.startswith("sk_")
     rec = store.agents[a["id"]]
-    assert rec["api_key_hash"] == creds.hash_key(new) != old_hash
+    assert creds.verify_key_hash(new, rec["api_key_hash"])
+    assert not creds.verify_key_hash(old, rec["api_key_hash"])  # old key dead
+    assert rec["api_key_hash"] != old_hash                       # verifier rotated
     assert rec.get("api_key") is None
-    assert _auth_probe(a["id"], old).status_code == 401   # old hash gone
+    assert _auth_probe(a["id"], old).status_code == 401   # old credential gone
     assert _auth_probe(a["id"], new).status_code == 200
     # account followed the credential to the new key_id
     assert rec["key_id"] in store.accounts
@@ -164,9 +171,10 @@ def test_migration_hashes_plaintext_in_place_on_first_load(monkeypatch):
     rec = s2.get_agent(a["id"])
     kid = creds.key_id_of(raw)
     assert rec["api_key"] is None
-    assert rec["api_key_hash"] == creds.hash_key(raw)
+    assert rec["api_key_hash"].startswith("pbkdf2_sha256$")
+    assert creds.verify_key_hash(raw, rec["api_key_hash"])
     assert rec["key_id"] == kid
-    assert rec["scopes"] == creds.DEFAULT_SCOPES
+    assert rec["scopes"] == list(creds.DEFAULT_ISSUE_SCOPES)  # least privilege
     # account re-keyed raw -> key_id; balances intact
     assert kid in s2.accounts and raw not in s2.accounts
     assert s2.accounts[kid]["owner_agent_id"] == a["id"]
@@ -182,9 +190,14 @@ def test_migration_hashes_plaintext_in_place_on_first_load(monkeypatch):
     if os.path.exists(path + ".events.jsonl"):
         on_disk += open(path + ".events.jsonl").read()
     assert raw not in on_disk
-    # idempotent: a third load changes nothing
+    # idempotent: a third load re-migrates nothing (already hashed) and the
+    # stored verifier still authenticates the original raw key. (The verifier
+    # is salted, so it is NOT byte-equal to a fresh hash — verify, don't compare.)
+    hash_before = s2.get_agent(a["id"])["api_key_hash"]
     s3 = Store(path=path)
-    assert s3.get_agent(a["id"])["api_key_hash"] == creds.hash_key(raw)
+    rec3 = s3.get_agent(a["id"])
+    assert rec3["api_key_hash"] == hash_before          # untouched on reload
+    assert creds.verify_key_hash(raw, rec3["api_key_hash"])
 
 
 def test_off_mode_never_migrates(monkeypatch):
@@ -248,17 +261,21 @@ def test_scope_denial_member_invoke(hash_on):
     assert g.status_code != 403
 
 
-def test_scope_denial_key_rotate_requires_admin_scope(hash_off):
-    a = _register("ScopedRotator")
-    _narrow(a["id"], ["read", "invoke", "attest", "escrow"])  # everything but admin
+def test_self_rotate_revoke_do_not_require_admin_scope(hash_off):
+    """Corrected from the branch's first version: authenticating with the
+    agent's OWN current key proves ownership, so rotating/retiring your own
+    credential is a least-privilege SELF-action and must NOT require the
+    operator-only `admin` scope (a self-registered key never carries it).
+    Autonomous credential lifecycle would be impossible otherwise."""
+    a = _register("SelfRotator")
+    _narrow(a["id"], ["read", "invoke", "attest", "escrow"])  # least privilege, no admin
     r = client.post(f"/agents/{a['id']}/key/rotate",
                     headers={"X-API-Key": a["api_key"]})
-    assert r.status_code == 403
-    assert r.json()["detail"]["required_scope"] == "admin"
+    assert r.status_code == 200, r.text
+    new = r.json()["api_key"]
     r = client.post(f"/agents/{a['id']}/key/revoke",
-                    headers={"X-API-Key": a["api_key"]})
-    assert r.status_code == 403
-    assert r.json()["detail"]["required_scope"] == "admin"
+                    headers={"X-API-Key": new})
+    assert r.status_code == 200, r.text
 
 
 def test_absent_scopes_field_means_all_scopes(hash_off):
