@@ -15,6 +15,7 @@ import csv
 import io
 import json
 import math
+import os
 import re
 import statistics
 import time
@@ -1171,3 +1172,14 @@ def validate_all() -> dict[str, dict]:
 
 def category_of(cap_id: str) -> str:
     return cap_id.split(".", 1)[0]
+
+
+# --------------------------------------------------------------------------
+# flag-gated capabilities (default OFF — must not appear on any surface)
+# --------------------------------------------------------------------------
+# evidence.claim_check ships dark: it registers (and therefore appears on the
+# REST / A2A / MCP surfaces, which are all generated from CAPABILITIES) only
+# when GUILD_ENABLE_CLAIMCHECK=1 at import time. The module self-registers on
+# import; see app/swarm/factcheck.py.
+if os.environ.get("GUILD_ENABLE_CLAIMCHECK") == "1":
+    from . import factcheck as _factcheck  # noqa: F401,E402
