@@ -103,3 +103,14 @@ def test_journal_lines_are_valid_json_events():
         assert e["at"]  # timestamp present for replay ordering
     finally:
         _cleanup(path)
+
+
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _force_json_backend(monkeypatch):
+    """These tests validate JSON-backend internals (the .events.jsonl journal,
+    the on-disk JSON state file, or the JSON migration source), so they pin the
+    default JSON store regardless of an ambient GUILD_STORE=sqlite run."""
+    monkeypatch.setenv("GUILD_STORE", "json")
