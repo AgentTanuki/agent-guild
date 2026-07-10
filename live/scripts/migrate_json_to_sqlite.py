@@ -152,7 +152,13 @@ def load_source(data_path: str) -> dict[str, Any]:
     if not os.path.exists(data_path):
         raise FileNotFoundError(f"GUILD_DATA file not found: {data_path}")
     with open(data_path, "r") as f:
-        data = json.load(f)
+        try:
+            data = json.load(f)
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise ValueError(f"malformed JSON source ({data_path}): {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"incomplete JSON source: top level is {type(data).__name__}, "
+                         "expected an object with the store collections")
     state = {
         "agents": data.get("agents", {}),
         "tasks": data.get("tasks", {}),
@@ -308,6 +314,109 @@ def migrate(data_path: str, db_path: str) -> dict[str, int]:
 
 # --- verification ---------------------------------------------------------------
 
+# --- extended integrity checks (orphans, dups, hashes, auth, reachability) ----
+
+def _record_hashes(records, key):
+    """sha256(canonical(record)) keyed by `key` (a field name)."""
+    return {r.get(key): _sha(canonicalize(r)) for r in records}
+
+
+def check_record_hashes(state, con) -> tuple[bool, list[str]]:
+    """Canonical-hash comparison for the critical entities (agents, ledger):
+    every source record must hash byte-identically to its migrated json."""
+    msgs, ok = [], True
+    # agents (keyed by id)
+    src = _record_hashes(list(state["agents"].values()), "id")
+    db = {json.loads(r[1]).get("id"): _sha(canonicalize(json.loads(r[1])))
+          for r in con.execute("SELECT id, data FROM agents").fetchall()}
+    if src == db:
+        msgs.append(f"[OK ] agent canonical hashes match ({len(src)})")
+    else:
+        ok = False
+        msgs.append(f"[FAIL] agent canonical hash mismatch "
+                    f"(source={len(src)} sqlite={len(db)})")
+    # ledger (keyed by seq)
+    ssrc = _record_hashes(state["ledger_records"], "seq")
+    sdb = {json.loads(r[0]).get("seq"): _sha(canonicalize(json.loads(r[0])))
+           for r in con.execute("SELECT data FROM ledger").fetchall()}
+    if ssrc == sdb:
+        msgs.append(f"[OK ] ledger canonical hashes match ({len(ssrc)})")
+    else:
+        ok = False
+        msgs.append(f"[FAIL] ledger canonical hash mismatch")
+    return ok, msgs
+
+
+def check_orphans(state) -> tuple[bool, list[str]]:
+    """Referential integrity: accounts->agents, escrows->agents."""
+    agent_ids = set(state["agents"])
+    orphan_acc = [k for k, a in state["accounts"].items()
+                  if a.get("owner_agent_id") and a["owner_agent_id"] not in agent_ids]
+    orphan_esc = [e.get("id") for e in state["escrows"].values()
+                  if (e.get("requester_id") and e["requester_id"] not in agent_ids)
+                  or (e.get("worker_id") and e["worker_id"] not in agent_ids)]
+    ok = not orphan_acc and not orphan_esc
+    msgs = [f"[{'OK ' if not orphan_acc else 'FAIL'}] account->agent orphans: {len(orphan_acc)}",
+            f"[{'OK ' if not orphan_esc else 'FAIL'}] escrow->agent orphans: {len(orphan_esc)}"]
+    return ok, msgs
+
+
+def check_duplicates(state, con) -> tuple[bool, list[str]]:
+    """No duplicate primary keys, in the source lists or the migrated tables."""
+    msgs, ok = [], True
+    seqs = [d.get("seq") for d in state["ledger_records"]]
+    att_ids = [a.get("id") for a in state["attestations"]]
+    for label, vals in (("ledger.seq", seqs), ("attestation.id", att_ids)):
+        dups = len(vals) - len(set(vals))
+        if dups:
+            ok = False
+        msgs.append(f"[{'OK ' if not dups else 'FAIL'}] duplicate {label}: {dups}")
+    # every migrated PK table has exactly COUNT(DISTINCT pk) == COUNT(*)
+    for table, pk in (("agents", "id"), ("accounts", "key"), ("tasks", "id"),
+                      ("escrows", "id"), ("ledger", "seq")):
+        tot = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        dis = con.execute(f"SELECT COUNT(DISTINCT {pk}) FROM {table}").fetchone()[0]
+        if tot != dis:
+            ok = False
+            msgs.append(f"[FAIL] {table}.{pk} has duplicates ({tot} rows, {dis} distinct)")
+    return ok, msgs
+
+
+def check_credential_auth(state, con) -> tuple[bool, list[str]]:
+    """A sampled credential still verifies against its MIGRATED record: every
+    security-relevant field (api_key / api_key_hash / key_id / scopes / revoked /
+    expiry) survives byte-identically into sqlite, so authentication is
+    unchanged post-migration."""
+    fields = ("api_key", "api_key_hash", "key_id", "scopes",
+              "api_key_revoked_at", "api_key_expires_at")
+    sampled = [a for a in state["agents"].values()
+               if any(a.get(f) for f in fields)]
+    if not sampled:
+        return True, ["[OK ] credential-auth: no credentials to sample"]
+    ok = True
+    for a in sampled[:10]:
+        row = con.execute("SELECT data FROM agents WHERE id=?", (a["id"],)).fetchone()
+        mig = json.loads(row[0]) if row else {}
+        if any(mig.get(f) != a.get(f) for f in fields):
+            ok = False
+    return ok, [f"[{'OK ' if ok else 'FAIL'}] credential-auth fields preserved "
+                f"(sampled {min(len(sampled),10)} of {len(sampled)} credentials)"]
+
+
+def check_reachability(state, con) -> tuple[bool, list[str]]:
+    """Every agent's reachability sub-record survives migration byte-identically."""
+    have = [a for a in state["agents"].values() if a.get("reachability")]
+    ok = True
+    for a in have:
+        row = con.execute("SELECT data FROM agents WHERE id=?", (a["id"],)).fetchone()
+        mig = json.loads(row[0]) if row else {}
+        if mig.get("reachability") != a.get("reachability"):
+            ok = False
+    return ok, [f"[{'OK ' if ok else 'FAIL'}] reachability records preserved "
+                f"({len(have)} agents carry a reachability record)"]
+
+
+
 def verify(data_path: str, db_path: str) -> bool:
     """Independently compare SQLite contents against the JSON source and
     re-verify the ledger hash chain from the SQLITE rows. Read-only on both."""
@@ -344,6 +453,17 @@ def verify(data_path: str, db_path: str) -> bool:
             same_head = db_records[-1].get("hash") == state["ledger_records"][-1].get("hash")
             print(f"  [{'OK ' if same_head else 'FAIL'}] chain heads match")
             ok = ok and same_head
+        # extended integrity: canonical hashes, orphans, dups, auth, reachability
+        for fn in (check_record_hashes, check_orphans, check_duplicates,
+                   check_credential_auth, check_reachability):
+            try:
+                sub_ok, msgs = (fn(state, con) if fn is not check_orphans
+                                else fn(state))
+            except Exception as exc:  # a check must never mask a real result
+                sub_ok, msgs = False, [f"[FAIL] {fn.__name__}: {exc}"]
+            for m in msgs:
+                print("  " + m)
+            ok = ok and sub_ok
         # every kv collection present
         for k in KV_KEYS:
             row = con.execute("SELECT v FROM kv WHERE k=?", (k,)).fetchone()
@@ -376,12 +496,24 @@ def main(argv: Optional[list[str]] = None) -> int:
             print(f"verify-only: {out} vs {args.data}")
             return 0 if verify(args.data, out) else 1
         print(f"migrating {args.data} -> {out}")
+        pre = load_source(args.data)
+        print("pre-migration source counts:")
+        for t in ("agents", "accounts", "tasks", "attestations", "escrows",
+                  "ledger_records", "events_deduped"):
+            print(f"  {t:<16} {len(pre[t])}")
         counts = migrate(args.data, out)
+        print("post-migration sqlite counts:")
         for t, n in counts.items():
             print(f"  wrote {t:<13} {n}")
         print("verifying...")
         good = verify(args.data, out)
         print("RESULT:", "verified OK" if good else "VERIFICATION FAILED")
+        print("")
+        print("ROLLBACK: this migration is non-destructive — the JSON source and "
+              "its .events.jsonl journal are never modified. To roll back, simply "
+              "keep running with the JSON store (unset GUILD_STORE, or "
+              "GUILD_STORE=json) and delete the generated file:")
+        print(f"    rm -f {out} {out}-wal {out}-shm")
         return 0 if good else 1
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
