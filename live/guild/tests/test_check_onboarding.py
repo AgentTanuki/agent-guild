@@ -167,3 +167,61 @@ def test_check_no_supply_has_no_decision():
     s = _seeded_store()
     r = s.check("no-such-capability")
     assert r["decision"] is None
+
+
+# --- reachability honesty (2026-07-10) --------------------------------------
+# Live telemetry: an external agent asked `check: fact-check` ~29 times over
+# 3 days because the reply said "hire Veritas-Prime" — an agent with no
+# declared endpoint. An un-actionable recommendation turns /check into a poll.
+# These tests lock the fix: the payload must say whether the recommended
+# supply can actually be contacted, and must offer a watch instead of a poll.
+
+def test_check_unreachable_supply_is_named_and_offers_watch():
+    s = _seeded_store()
+    r = s.check("fact-check")  # bootstrap agents declare no endpoint
+    assert r["best_agent"]["reachable"] is False
+    assert r["best_agent"]["contact"] is None
+    assert r["decision"]["reachable"] is False
+    block = r["reachability"]
+    assert block["status"] == "supply_unreachable"
+    assert "/demand/watch" in block["watch_now"]["watch"]
+    assert "fact-check" in block["watch_now"]["watch"]
+    # the honest answer never pretends there is a route
+    assert "no route" in block["honest_answer"].lower()
+
+
+def test_check_surfaces_best_reachable_when_top_is_not():
+    s = _seeded_store()
+    a = s.register_agent(name="ReachableFactChecker",
+                         capabilities=["fact-check"],
+                         metadata={"endpoint": "https://example.com/a2a"})
+    r = s.check("fact-check")
+    # top-ranked is still an endpoint-less bootstrap agent, but a contactable
+    # supplier exists — the payload must point at the actionable one
+    block = r["reachability"]
+    assert block["status"] == "top_ranked_unreachable"
+    assert block["best_reachable"]["id"] == a["id"]
+    assert block["best_reachable"]["contact"] == "https://example.com/a2a"
+
+
+def test_check_reachable_top_has_no_reachability_block():
+    s = Store(path="")
+    a = s.register_agent(name="OnlyFactChecker",
+                         capabilities=["fact-check"],
+                         metadata={"endpoint": "https://example.com/a2a"})
+    r = s.check("fact-check")
+    assert "reachability" not in r
+    assert r["best_agent"]["id"] == a["id"]
+    assert r["best_agent"]["reachable"] is True
+
+
+def test_capability_demand_event_carries_reachable_supply():
+    s = _seeded_store()
+    s.check("fact-check")
+    ev = [e for e in s.events if e["type"] == "capability_demand"][-1]
+    assert ev["reachable_supply"] is False
+    s.register_agent(name="R", capabilities=["fact-check"],
+                     metadata={"endpoint": "https://example.com/x"})
+    s.check("fact-check")
+    ev = [e for e in s.events if e["type"] == "capability_demand"][-1]
+    assert ev["reachable_supply"] is True

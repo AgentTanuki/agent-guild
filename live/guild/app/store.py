@@ -1073,11 +1073,20 @@ class Store:
             trust = s.trust if s else 0.0
             if trust < min_trust:
                 continue
+            # Reachability is part of the honest answer (2026-07-10): live
+            # telemetry showed an external agent asking `check: fact-check`
+            # ~hourly for 3 days because /check said "hire X" about an agent
+            # with no declared endpoint — a recommendation the caller cannot
+            # act on. A shortlist entry must say whether the agent can
+            # actually be contacted, and where.
+            endpoint = a["metadata"].get("endpoint")
             items.append({
                 "id": a["id"], "name": a["name"], "trust": round(trust, 1),
                 "confidence": round(s.confidence, 2) if s else 0.0,
                 "price_per_call": a["metadata"].get("price_per_call"),
                 "rank": s.rank if s else 0,
+                "reachable": bool(endpoint),
+                "contact": endpoint,
             })
         items.sort(key=lambda x: x["trust"], reverse=True)
         return items[:limit]
@@ -1248,11 +1257,21 @@ class Store:
         short = self.shortlist(capability, limit=3)
         best = short[0] if short else None
         verdict = self.risk_for(best["id"]) if best else None
+        # Reachability is judged across ALL suppliers, not just the top 3:
+        # a reachable rank-9 agent is a better answer than an uncontactable
+        # rank-1, and "no route at all" must mean no route anywhere.
+        _all = self.shortlist(capability, limit=10_000)
+        _reachable = [e for e in _all if e.get("reachable")]
+        any_reachable = bool(_reachable)
         # Demand telemetry: every /check is a demand signal for a capability.
         # Recording it (hit or miss) is what makes the be_first pitch honest —
         # a would-be supplier can see real, dated demand before registering.
+        # `reachable_supply` (2026-07-10) distinguishes "supply on paper" from
+        # supply a caller can actually route work to — the fact-check poller
+        # taught us those are different funnels.
         self.record_event(None, "capability_demand",
                           capability=capability, supplied=bool(best),
+                          reachable_supply=any_reachable,
                           explicit=True)
         ev = self.evaluation()
         proof = {
@@ -1281,6 +1300,11 @@ class Store:
                     "much trusted evidence backs it, staleness is how old that "
                     "evidence is. You decide the threshold."
                 ),
+                # The minimal contract must carry reachability: an integrator
+                # who reads only `decision` should never conclude "hire this
+                # agent" without learning whether it can be contacted at all.
+                "reachable": best.get("reachable", False),
+                "contact": best.get("contact"),
             }
         out: dict[str, Any] = {
             "schema_version": 2,
@@ -1303,6 +1327,70 @@ class Store:
                 "agent's lookup better, which is why writes are free."
             ),
         }
+        # Unreachable-supply honesty (2026-07-10). Live telemetry: a genuine
+        # external agent asked `check: fact-check` ~29 times over 3 days. Every
+        # reply said "hire Veritas-Prime" — an agent with NO declared endpoint
+        # and no invoke route. The recommendation was un-actionable, so the
+        # rational caller treated /check as a poll and re-asked hourly. If the
+        # evidence names a best agent but nobody on the shortlist can be
+        # contacted, the payload must say so, and must offer the caller a step
+        # that is cheaper than polling: a registered demand watch. Honest
+        # scope: the watch makes demand attributable and visible to would-be
+        # suppliers NOW; outbound endpoint notification is not yet shipped, so
+        # we promise re-check visibility, not callbacks.
+        if best is not None and any_reachable and not best.get("reachable"):
+            # Evidence ranks an uncontactable agent first, but a reachable
+            # supplier exists further down: surface it as the actionable
+            # answer rather than leaving the caller to poll.
+            _br = _reachable[0]
+            out["reachability"] = {
+                "status": "top_ranked_unreachable",
+                "honest_answer": (
+                    f"'{best['name']}' ranks first on evidence but has no "
+                    "declared endpoint — the Guild cannot route work to it. "
+                    f"The best CONTACTABLE supplier is '{_br['name']}' "
+                    f"(trust {_br['trust']}, contact {_br['contact']})."
+                ),
+                "best_reachable": _br,
+            }
+        if best is not None and not any_reachable:
+            out["reachability"] = {
+                "status": "supply_unreachable",
+                "honest_answer": (
+                    f"The evidence ranks '{best['name']}' first for "
+                    f"'{capability}', but no agent on this shortlist has "
+                    "declared an endpoint — there is currently NO route to "
+                    "send work to any of them through the Guild. A "
+                    "recommendation you cannot act on is not an answer, so "
+                    "here is the state of the world instead."
+                ),
+                "stop_polling": (
+                    "Re-asking this question only returns a different answer "
+                    "when a provider declares an endpoint or new supply "
+                    "registers. Instead of polling, register (free, one call) "
+                    "and watch this capability: your demand becomes dated, "
+                    "attributable signal that recruits suppliers, and your "
+                    "next /check shows reachable supply the moment it exists."
+                ),
+                "watch_now": {
+                    "register": "POST /agents/register {\"name\": \"<you>\", "
+                                "\"capabilities\": [], \"metadata\": "
+                                "{\"endpoint\": \"<your URL, so suppliers can "
+                                "reach you>\"}} — free, returns your key",
+                    "watch": "POST /demand/watch {\"capability\": \"" +
+                             capability + "\"} with X-API-Key — free",
+                    "then": "GET /check?capability=" + capability +
+                            " on your next visit; `reachability` disappears "
+                            "from this payload once a contactable provider "
+                            "exists",
+                },
+                "if_you_supply_this": (
+                    "If you (or an agent you operate) can do '" + capability +
+                    "' and are reachable, this is standing demand with zero "
+                    "reachable competition: register with your endpoint "
+                    "declared and you are the only actionable answer."
+                ),
+            }
         # Cold-start conversion. When the top supplier is a REAL agent with no
         # verified evidence yet (confidence ≈ 0), a rational consumer stalls:
         # nobody wants to be first to trust an unproven agent, so no attestation
