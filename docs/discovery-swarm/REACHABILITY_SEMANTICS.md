@@ -15,7 +15,7 @@ Core principle: **an endpoint string is a claim, not a route.** A status may nev
 | `currently_unreachable` (reserved) | the last verification attempt failed | 24 h → `declared_unverified` | `declaration_probe` | the URL did NOT answer recently; prefer another supplier | only with failure disclosure | NO |
 | `invocation_verified` (reserved) | a guild-observed task receipt travelled through this endpoint | 7 d → `recently_reachable` | `guild_observed_receipt` | the endpoint demonstrably ACCEPTS AND COMPLETES work | YES | YES |
 
-The three reserved statuses are **not producible today** — the verifier is designed but unbuilt, and per the SSRF constraint it may only ever run: owner-initiated at declaration time; scheme+host syntactic validation first; DNS-resolved address checked against private/link-local/loopback ranges; no redirects followed; one request; ≤5 s timeout; result stored, never re-probed from read paths. Arbitrary server-side probing of registered URLs from `/check`/`/search` is prohibited — that is an SSRF primitive.
+The three verified statuses are **now producible** (reachability-verifier, 2026-07-10): and per the SSRF constraint it may only ever run: owner-initiated at declaration time; scheme+host syntactic validation first; DNS-resolved address checked against private/link-local/loopback ranges; no redirects followed; one request; ≤5 s timeout; result stored, never re-probed from read paths. Arbitrary server-side probing of registered URLs from any READ path (`/check`, `/search`, capability listing, journey/dashboard reads, demand matching) is prohibited and does not happen — those paths call the pure `reachability_fields()`. The verifier runs ONLY at endpoint declaration, owner-initiated.
 
 ## Exposed fields (per shortlist entry and per `decision`)
 
@@ -27,3 +27,29 @@ The three reserved statuses are **not producible today** — the verifier is des
 `reachability.status = top_ranked_no_declared_endpoint` — evidence ranks an endpoint-less agent first but a declared-endpoint supplier exists: the actionable alternative is surfaced WITH its `declared_unverified` disclosure.
 
 Field renames from the first iteration (deployed hours apart, no external consumers observed in between): `reachable` → `has_declared_endpoint`; statuses `unknown/declared_endpoint` → `no_endpoint/declared_unverified`; block statuses `supply_unreachable/top_ranked_unreachable` → `supply_has_no_declared_endpoint/top_ranked_no_declared_endpoint`.
+
+## Verifier implementation (2026-07-10)
+
+`app/reachability.py` now provides the SSRF-safe declaration-time verifier, in
+three separated concerns:
+
+1. `url_policy_check(url)` — pure, no network. Rejects a DECLARATION only for
+   prohibited/invalid properties: unsupported scheme, embedded credentials,
+   literal loopback/private/link-local/multicast/unspecified/reserved address,
+   or a port outside {80,443,8080,8443}.
+2. `liveness_probe(url)` — a single owner-initiated network check (opt-in via
+   `verify=true` on `POST /agents/{id}/endpoint`). DNS-rebinding safe: resolve,
+   screen EVERY resolved address, connect to a PINNED screened address, send
+   HEAD with the real Host header, follow NO redirects (a 3xx is a failure),
+   bound the read to 4 KB, never process the body, never send an AG secret,
+   `PROBE_TIMEOUT_S=3` so a worker is not held. Yields `recently_reachable` or
+   `currently_unreachable`; the declaration stands regardless.
+3. `note_invocation_verified(agent_id)` (store) — the ONLY path to
+   `invocation_verified`, set when a guild-observed task receipt is submitted by
+   a worker that has a declared endpoint. Never set by a generic HTTP answer.
+
+Expiry is applied in the pure `status_for()`/`reachability_fields()` read path:
+`recently_reachable`/`currently_unreachable` age out after 24 h to
+`declared_unverified`; `invocation_verified` after 7 days to
+`declared_unverified`. `recommended_for_routing` is True only under
+`recently_reachable` or `invocation_verified`.

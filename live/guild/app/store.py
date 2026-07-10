@@ -20,7 +20,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
 from .crypto import generate_keypair, did_from_public_key, canonicalize
-from .reachability import reachability_fields
+from .reachability import (reachability_fields, url_policy_check,
+                           liveness_probe, invocation_verified_record)
 from . import credentials as creds
 from .vc import issue_credential, verify_credential, issue_passport
 from .reputation import score, AttRecord, AgentScore, ScoringResult
@@ -427,20 +428,60 @@ class Store:
     def watches_for(self, agent_id: str) -> list[dict[str, Any]]:
         return [w for w in self.demand_watches if w["agent_id"] == agent_id]
 
-    def set_agent_endpoint(self, agent_id: str, endpoint: str) -> dict[str, Any]:
+    def set_agent_endpoint(self, agent_id: str, endpoint: str,
+                           verify: bool = False) -> dict[str, Any]:
         """Declare a reachable endpoint (A2A or plain HTTP URL) for this agent.
-        Without one, first contact is one-way: the agent can read the Guild but
-        neither the Guild nor its members can route a collaboration invite back
-        (the Forge-9 lesson, 2026-07-03)."""
+        Three separate concerns (docs/discovery-swarm/REACHABILITY_SEMANTICS.md):
+          1. URL POLICY — rejected here (ValueError) ONLY for prohibited/invalid
+             properties (scheme, embedded creds, loopback/private/link-local/
+             multicast/unspecified/reserved, bad port). A policy-valid but
+             merely-down URL is NEVER rejected.
+          2. DECLARATION — stored; status starts at declared_unverified.
+          3. optional owner-initiated LIVENESS verification (verify=True): a
+             single SSRF-safe, bounded probe. Its result is recorded honestly
+             (recently_reachable / currently_unreachable); the declaration
+             stands regardless.
+        The verifier NEVER runs from any read path — only here, owner-initiated."""
+        ok, reason = url_policy_check(str(endpoint))
+        if not ok:
+            raise ValueError(f"endpoint policy: {reason}")
+        record = None
+        if verify:
+            # bounded (PROBE_TIMEOUT_S) — does not hold a worker unduly; never
+            # raises. INVOCATION_VERIFIED is NOT producible here (generic HTTP).
+            record = liveness_probe(str(endpoint))
         with self.lock:
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
             agent.setdefault("metadata", {})["endpoint"] = endpoint
+            if record is not None:
+                agent["reachability"] = record
+            else:
+                # a fresh declaration supersedes any stale verification record
+                agent.pop("reachability", None)
             self.record_event(self.account_for_agent(agent_id), "endpoint_declared",
-                              agent_id=agent_id, endpoint=endpoint)
+                              agent_id=agent_id, endpoint=endpoint,
+                              verified=bool(record),
+                              reachability_status=(record or {}).get(
+                                  "status", "declared_unverified"))
             self._save()
-            return {"agent_id": agent_id, "endpoint": endpoint, "declared_at": _now()}
+            fields = reachability_fields(endpoint, agent.get("reachability"))
+            return {"agent_id": agent_id, "endpoint": endpoint,
+                    "declared_at": _now(), **fields}
+
+    def note_invocation_verified(self, agent_id: str) -> None:
+        """Set invocation_verified for an agent whose DECLARED endpoint has just
+        carried a guild-observed task receipt — the only path to that status.
+        No-op if the agent declared no endpoint (nothing to verify)."""
+        with self.lock:
+            agent = self.agents.get(agent_id)
+            if not agent or not (agent.get("metadata") or {}).get("endpoint"):
+                return
+            agent["reachability"] = invocation_verified_record()
+            self.record_event(self.account_for_agent(agent_id),
+                              "endpoint_invocation_verified", agent_id=agent_id)
+            self._save()
 
     # --- credential lifecycle (Pilot A audit, 2026-07-10) --------------------
     def rotate_api_key(self, agent_id: str,
@@ -1287,21 +1328,16 @@ class Store:
             # act on. A shortlist entry must say whether the agent can
             # actually be contacted, and where.
             endpoint = a["metadata"].get("endpoint")
-            # Reachability semantics are formalised in
-            # docs/discovery-swarm/REACHABILITY_SEMANTICS.md — status ladder,
-            # entry/expiry rules, verification methods, what a machine may
-            # infer, and when the Guild may recommend vs ROUTE. Producible
-            # today: no_endpoint, declared_unverified, unknown (malformed).
-            # recently_reachable / currently_unreachable / invocation_verified
-            # require the (designed, unbuilt) SSRF-safe declaration-time
-            # verifier — never URL probing from read paths.
+            # Reachability semantics: docs/discovery-swarm/REACHABILITY_SEMANTICS.md.
+            # This is a READ path — it consumes the stored verification record
+            # (with TTL expiry) and NEVER probes the network.
             items.append({
                 "id": a["id"], "name": a["name"], "trust": round(trust, 1),
                 "confidence": round(s.confidence, 2) if s else 0.0,
                 "price_per_call": a["metadata"].get("price_per_call"),
                 "rank": s.rank if s else 0,
                 "contact": endpoint,
-                **reachability_fields(endpoint),
+                **reachability_fields(endpoint, a.get("reachability")),
             })
         items.sort(key=lambda x: x["trust"], reverse=True)
         return items[:limit]
@@ -2337,6 +2373,11 @@ class Store:
                                       task_id=task_id)
             self._rep_cache = None
             self._save()
+        # A guild-observed receipt for delivered work, by a worker that has a
+        # DECLARED endpoint, is the only evidence that upgrades reachability to
+        # invocation_verified (outside the lock re-entrancy; note_* re-locks).
+        if outcome not in ("rejected",):
+            self.note_invocation_verified(task.get("worker_agent_id"))
             # dual-write: the raw receipt event. Unlike a sealed collaboration
             # record, this does NOT freeze a provenance class — a later attestation
             # entry can still upgrade the interpretation (append-only composition).
