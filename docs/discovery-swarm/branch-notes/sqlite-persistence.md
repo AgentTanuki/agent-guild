@@ -31,3 +31,9 @@ Concern (ONE): persistence-layer cutover. Nothing else.
 ## Status
 - New branch from main 2f5b60a. Migration script + test already on main.
   Cutover backend not yet built.
+
+## Status (built 2026-07-10)
+- SqliteBackend (app/store_sqlite.py) + GUILD_STORE wiring + write-through hooks + transactional invariants.
+- 393 pass in all 3 modes (json / sqlite / sqlite+hashing). 13 real multi-process concurrency tests.
+- Concurrent registrations: JSON loses 74%, SQLite loses 0.
+- Deployment decision: docs/discovery-swarm/SQLITE_CUTOVER.md. Single-instance/single-worker only; multi-instance -> Postgres.
