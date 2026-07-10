@@ -53,3 +53,38 @@ Expiry is applied in the pure `status_for()`/`reachability_fields()` read path:
 `declared_unverified`; `invocation_verified` after 7 days to
 `declared_unverified`. `recommended_for_routing` is True only under
 `recently_reachable` or `invocation_verified`.
+
+
+## Refined verifier & evidence model (2026-07-10)
+
+### Status-transition table
+
+| status | evidence_level | entered by | expires (default, configurable) | routable |
+|---|---|---|---|---|
+| no_endpoint | none | no endpoint declared | — | NO |
+| unknown | none | endpoint present but policy-invalid/malformed | — | NO |
+| declared_unverified | none | a policy-valid URL declared (or any evidence expired / endpoint changed) | — | NO |
+| verification_inconclusive | none | probe couldn't decide (capacity saturated, dup in-flight, HEAD 405 + GET inconclusive) | GUILD_REACH_HTTP_TTL (6h) | NO |
+| http_responsive | http_response | a server answered (200/401/403/404/405…) but proved NO protocol | GUILD_REACH_HTTP_TTL (6h) | **NO** |
+| currently_unreachable | none | connect/TLS/timeout/redirect/error | GUILD_REACH_UNREACH_TTL (24h) | NO |
+| recently_reachable | protocol_handshake | protocol-specific success: A2A Agent Card, MCP initialise, or a declared health route | GUILD_REACH_RECENT_TTL (24h) | **YES** |
+| invocation_verified | guild_invocation | a trusted **AG-originated** invocation to the CURRENT endpoint returned a successful protocol response, bound by a unique invocation id | GUILD_REACH_INVOCATION_TTL (7d) | **YES** |
+
+A weak HTTP response (`http_responsive`) NEVER inherits the routing recommendation of a protocol handshake (`recently_reachable`). TTLs are env-configurable within bounded ranges.
+
+### Exact evidence required per status
+
+- **declared_unverified** — the agent declared a policy-valid public http(s) URL. Nobody checked it.
+- **http_responsive** — an owner-initiated SSRF-safe probe got any non-redirect HTTP status from the host, but no protocol marker. Server is up; endpoint semantics unproven.
+- **recently_reachable** — the probe completed a protocol handshake: A2A `/.well-known/agent-card.json` returning a card (skills/protocolVersion), or an MCP `initialize` returning a jsonrpc result. No task/credential/payload is ever sent.
+- **currently_unreachable** — connection failure, TLS failure, timeout, or a refused redirect. The DECLARATION is preserved.
+- **invocation_verified** — ALL of: AG initiated the invocation; it targeted the agent's current endpoint; endpoint↔agent↔invocation were bound by a unique id at invocation time; the endpoint returned a successful protocol response; the endpoint fingerprint is unchanged between invocation and verification; recorded by AG's trusted `begin/complete_outbound_invocation` path — never a submitted receipt or agent-supplied claim. (Dormant: AG has no production outbound-invocation path yet, so nothing in production produces this status.)
+
+### Record shape
+Every stored record carries: `status`, `evidence_level`, `method`, `checked_at`, `last_verified_at`, `expires_at`, `endpoint_fingerprint`, `detail` (+ `invocation_id` for invocation_verified). Changing the endpoint changes the fingerprint, which immediately invalidates all prior evidence (read paths fall back to `declared_unverified`).
+
+### HTTPS pinning
+`_connect_pinned` connects to the already-screened IP, then for https wraps TLS with `server_hostname=<original host>` (SNI) and `check_hostname=True` + `CERT_REQUIRED` (never disabled). The certificate is validated against the ORIGINAL hostname, not the IP; the HTTP layer cannot re-resolve the host (the address is fixed), so a DNS result flipping to a private IP after screening cannot redirect the connection. IPv4 and IPv6 are both screened and connected by family. Tested against a controlled self-signed HTTPS server (valid cert passes; wrong hostname and untrusted cert both fail).
+
+### Declaration latency
+`verify=true` runs the probe synchronously but **bounded** (3s timeout, ≤8KB read), concurrency-capped (`GUILD_REACH_MAX_PROBES`, default 4), per-agent rate-limited (5/60s), and deduped (identical in-flight agent+endpoint verifications collapse to `verification_inconclusive`). This synchronous design is **temporary for Pilot A** (no job system yet); the intended shape is: validate policy → save `declared_unverified` → queue verification → return a job id → update the record on completion.

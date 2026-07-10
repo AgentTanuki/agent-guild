@@ -20,8 +20,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
 from .crypto import generate_keypair, did_from_public_key, canonicalize
-from .reachability import (reachability_fields, url_policy_check,
-                           liveness_probe, invocation_verified_record)
+from . import reachability as _reach
+from .reachability import reachability_fields, url_policy_check
 from . import credentials as creds
 from .vc import issue_credential, verify_credential, issue_passport
 from .reputation import score, AttRecord, AgentScore, ScoringResult
@@ -445,43 +445,120 @@ class Store:
         ok, reason = url_policy_check(str(endpoint))
         if not ok:
             raise ValueError(f"endpoint policy: {reason}")
-        record = None
-        if verify:
-            # bounded (PROBE_TIMEOUT_S) — does not hold a worker unduly; never
-            # raises. INVOCATION_VERIFIED is NOT producible here (generic HTTP).
-            record = liveness_probe(str(endpoint))
+        # 1. store the declaration (fresh declaration supersedes any stale
+        #    verification record — a changed endpoint invalidates prior evidence).
         with self.lock:
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
             agent.setdefault("metadata", {})["endpoint"] = endpoint
-            if record is not None:
-                agent["reachability"] = record
-            else:
-                # a fresh declaration supersedes any stale verification record
-                agent.pop("reachability", None)
+            agent.pop("reachability", None)
             self.record_event(self.account_for_agent(agent_id), "endpoint_declared",
-                              agent_id=agent_id, endpoint=endpoint,
-                              verified=bool(record),
-                              reachability_status=(record or {}).get(
-                                  "status", "declared_unverified"))
+                              agent_id=agent_id, endpoint=endpoint, verified=False,
+                              reachability_status="declared_unverified")
             self._save()
-            fields = reachability_fields(endpoint, agent.get("reachability"))
-            return {"agent_id": agent_id, "endpoint": endpoint,
-                    "declared_at": _now(), **fields}
+        # 2. optional owner-initiated liveness verification. Concurrency-capped
+        #    (one agent can't exhaust outbound workers) and deduped (identical
+        #    in-flight agent+endpoint verifications collapse to one). Synchronous
+        #    + bounded (PROBE_TIMEOUT_S) is a TEMPORARY Pilot-A design — no job
+        #    system yet; documented in REACHABILITY_SEMANTICS.md. INVOCATION_
+        #    VERIFIED is NOT producible here (that needs an AG-originated invoke).
+        record = None
+        if verify:
+            key = f"{agent_id}|{endpoint}"
+            with _reach._inflight_lock:
+                dup = key in _reach._inflight
+                if not dup:
+                    _reach._inflight.add(key)
+            if dup:
+                record = _reach.make_record(
+                    "verification_inconclusive", "declaration_probe", "none",
+                    str(endpoint), detail="identical verification already in flight")
+            else:
+                try:
+                    if _reach._probe_sem.acquire(timeout=_reach.PROBE_TIMEOUT_S * 2):
+                        try:
+                            record = _reach.liveness_probe(str(endpoint))
+                        finally:
+                            _reach._probe_sem.release()
+                    else:
+                        record = _reach.make_record(
+                            "verification_inconclusive", "declaration_probe",
+                            "none", str(endpoint),
+                            detail="probe capacity saturated; try later")
+                finally:
+                    with _reach._inflight_lock:
+                        _reach._inflight.discard(key)
+            with self.lock:
+                agent = self.agents.get(agent_id)
+                # only apply if the endpoint hasn't changed under us
+                if agent and (agent.get("metadata") or {}).get("endpoint") == endpoint:
+                    agent["reachability"] = record
+                    self.record_event(self.account_for_agent(agent_id),
+                                      "endpoint_verification",
+                                      agent_id=agent_id,
+                                      reachability_status=record["status"],
+                                      evidence_level=record["evidence_level"])
+                    self._save()
+        agent = self.agents.get(agent_id)
+        fields = reachability_fields(endpoint, (agent or {}).get("reachability"))
+        return {"agent_id": agent_id, "endpoint": endpoint,
+                "declared_at": _now(), **fields}
 
-    def note_invocation_verified(self, agent_id: str) -> None:
-        """Set invocation_verified for an agent whose DECLARED endpoint has just
-        carried a guild-observed task receipt — the only path to that status.
-        No-op if the agent declared no endpoint (nothing to verify)."""
+    # --- trusted AG-ORIGINATED invocation flow (the ONLY path to
+    #     invocation_verified). Dormant: AG has no production outbound-invocation
+    #     path yet, so nothing in production produces invocation_verified. The
+    #     flow enforces the full binding contract so it is correct when wired.
+    def begin_outbound_invocation(self, agent_id: str) -> Optional[dict[str, Any]]:
+        """AG initiates an outbound invocation to an agent's CURRENT endpoint.
+        Snapshots the endpoint + fingerprint and mints a unique invocation id
+        that binds endpoint↔agent↔invocation. Returns None if no endpoint."""
+        reg = self.__dict__.setdefault("outbound_invocations", {})
         with self.lock:
             agent = self.agents.get(agent_id)
-            if not agent or not (agent.get("metadata") or {}).get("endpoint"):
-                return
-            agent["reachability"] = invocation_verified_record()
-            self.record_event(self.account_for_agent(agent_id),
-                              "endpoint_invocation_verified", agent_id=agent_id)
+            endpoint = (agent or {}).get("metadata", {}).get("endpoint") if agent else None
+            if not agent or not endpoint:
+                return None
+            inv_id = "oinv_" + secrets.token_hex(12)
+            reg[inv_id] = {
+                "invocation_id": inv_id, "agent_id": agent_id,
+                "endpoint": endpoint,
+                "endpoint_fingerprint": _reach.endpoint_fingerprint(endpoint),
+                "created_at": _now(), "status": "open"}
+            return {"invocation_id": inv_id, "endpoint": endpoint}
+
+    def complete_outbound_invocation(self, invocation_id: str, *,
+                                     protocol_ok: bool,
+                                     receipt_ref: Optional[str] = None) -> bool:
+        """Close a trusted AG-originated invocation. Emits invocation_verified
+        ONLY if: the invocation is known + open, the agent's endpoint is
+        UNCHANGED since invocation (fingerprint match), and the endpoint
+        returned a successful protocol response (protocol_ok). Returns whether
+        invocation_verified was set."""
+        reg = self.__dict__.setdefault("outbound_invocations", {})
+        with self.lock:
+            inv = reg.get(invocation_id)
+            if not inv or inv.get("status") != "open":
+                return False
+            inv["status"] = "closed"
+            inv["receipt_ref"] = receipt_ref
+            agent = self.agents.get(inv["agent_id"])
+            if not agent:
+                return False
+            current = (agent.get("metadata") or {}).get("endpoint")
+            if not current or _reach.endpoint_fingerprint(current) != inv["endpoint_fingerprint"]:
+                inv["result"] = "endpoint_changed"
+                return False   # stale invocation against a previous endpoint
+            if not protocol_ok:
+                inv["result"] = "protocol_failed"
+                return False
+            agent["reachability"] = _reach.invocation_verified_record(current, invocation_id)
+            inv["result"] = "verified"
+            self.record_event(self.account_for_agent(inv["agent_id"]),
+                              "endpoint_invocation_verified",
+                              agent_id=inv["agent_id"], invocation_id=invocation_id)
             self._save()
+            return True
 
     # --- credential lifecycle (Pilot A audit, 2026-07-10) --------------------
     def rotate_api_key(self, agent_id: str,
@@ -2373,11 +2450,11 @@ class Store:
                                       task_id=task_id)
             self._rep_cache = None
             self._save()
-        # A guild-observed receipt for delivered work, by a worker that has a
-        # DECLARED endpoint, is the only evidence that upgrades reachability to
-        # invocation_verified (outside the lock re-entrancy; note_* re-locks).
-        if outcome not in ("rejected",):
-            self.note_invocation_verified(task.get("worker_agent_id"))
+        # NOTE: a submitted receipt does NOT upgrade reachability. A receipt
+        # does not prove AG invoked the agent's declared endpoint (work may have
+        # gone through another channel, or reference an unknown invocation).
+        # invocation_verified comes ONLY from the trusted AG-originated
+        # begin/complete_outbound_invocation flow.
             # dual-write: the raw receipt event. Unlike a sealed collaboration
             # record, this does NOT freeze a provenance class — a later attestation
             # entry can still upgrade the interpretation (append-only composition).

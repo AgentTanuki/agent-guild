@@ -386,6 +386,10 @@ def declare_endpoint(agent_id: str, body: dict[str, Any],
     # `verify` (optional) opts into a single owner-initiated SSRF-safe liveness
     # probe at declaration time. Default False: declaration is network-free.
     verify = bool(body.get("verify"))
+    if verify:
+        # repeated verification is rate-limited per agent (reuses the credential-
+        # op limiter: 5 / agent / 60s) so one agent cannot hammer outbound probes.
+        _rate_limit_key_op(agent_id)
     try:
         # policy failures (prohibited/invalid endpoint properties) -> 422;
         # a merely-unreachable public URL still declares successfully.

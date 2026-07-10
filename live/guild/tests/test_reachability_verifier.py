@@ -1,11 +1,12 @@
-"""SSRF-safe declaration-time reachability verifier (2026-07-10).
+"""SSRF-safe declaration-time reachability verifier (refined 2026-07-10).
 
-The verifier is owner-initiated, runs ONLY at endpoint declaration, and never
-from a read path. It rejects prohibited endpoint properties at declaration but
-preserves a policy-valid declaration whose host is merely down. INVOCATION_
-VERIFIED comes only from a guild-observed receipt, never a generic HTTP answer.
+Owner-initiated, runs ONLY at declaration, never from a read path. Rejects
+prohibited endpoint properties; preserves a policy-valid-but-down declaration.
+INVOCATION_VERIFIED comes ONLY from a trusted AG-originated invocation bound to
+a unique id against the CURRENT endpoint — never from a submitted receipt.
 """
-import os, socket, tempfile, time
+import os, socket, ssl, tempfile, threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
 import pytest
@@ -21,134 +22,257 @@ def _fresh():
     return Store(path=os.path.join(tempfile.mkdtemp(), f"{uuid.uuid4().hex}.json"))
 
 
-# --- URL policy (pure, no network) -------------------------------------------
+def _ai(addr, family=socket.AF_INET):
+    return [(family, 1, 6, "", (addr, 443))]
 
+
+# --- URL policy --------------------------------------------------------------
 @pytest.mark.parametrize("url,ok", [
-    ("https://example.com/a2a", True),
-    ("http://example.com:8080/x", True),
-    ("https://user:pass@example.com", False),   # embedded credentials
-    ("ftp://example.com", False),               # scheme
-    ("https://example.com:22", False),          # port
-    ("http://127.0.0.1/x", False),              # loopback literal
-    ("http://10.0.0.5/x", False),               # private literal
-    ("http://169.254.1.1/x", False),            # link-local literal
-    ("http://[::1]/x", False),                  # loopback v6
-    ("http://0.0.0.0/x", False),                # unspecified
-    ("http://224.0.0.1/x", False),              # multicast
-    ("not-a-url", False),
+    ("https://example.com/a2a", True), ("http://example.com:8080/x", True),
+    ("https://user:pass@example.com", False), ("ftp://example.com", False),
+    ("https://example.com:22", False), ("http://127.0.0.1/x", False),
+    ("http://10.0.0.5/x", False), ("http://169.254.1.1/x", False),
+    ("http://[::1]/x", False), ("http://0.0.0.0/x", False),
+    ("http://224.0.0.1/x", False), ("not-a-url", False),
 ])
 def test_url_policy(url, ok):
     assert R.url_policy_check(url)[0] is ok
 
 
-def test_declaration_rejects_prohibited_but_accepts_valid_public():
-    s = _fresh()
-    a = s.register_agent("Reachable", ["x"], {})
-    # prohibited -> ValueError (route maps to 422)
+def test_declaration_rejects_prohibited_accepts_public():
+    s = _fresh(); a = s.register_agent("R", ["x"], {})
     with pytest.raises(ValueError):
         s.set_agent_endpoint(a["id"], "http://127.0.0.1:9000")
-    # valid public URL declares fine (no network, verify off)
     out = s.set_agent_endpoint(a["id"], "https://example.com/a2a")
     assert out["reachability_status"] == "declared_unverified"
     assert out["recommended_for_routing"] is False
+    assert out["endpoint_fingerprint"] and out["evidence_level"] == "none"
 
 
-def test_dns_resolving_to_private_is_refused_as_failure_not_rejection():
-    """A public hostname that RESOLVES to a private address must fail the probe
-    (currently_unreachable) — the declaration is preserved, not rejected."""
-    s = _fresh()
-    a = s.register_agent("Rebind", ["x"], {})
-    with mock.patch.object(R.socket, "getaddrinfo",
-                           return_value=[(2, 1, 6, "", ("10.1.2.3", 443))]):
+# --- rebinding: DNS -> private (v4 and v6) refused ---------------------------
+@pytest.mark.parametrize("addr,fam", [("10.1.2.3", socket.AF_INET),
+                                      ("fd00::1", socket.AF_INET6)])
+def test_dns_to_private_refused_not_rejected(addr, fam):
+    s = _fresh(); a = s.register_agent("Rb", ["x"], {})
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai(addr, fam)):
         out = s.set_agent_endpoint(a["id"], "https://rebind.example/a2a", verify=True)
     assert out["reachability_status"] == "currently_unreachable"
     assert s.get_agent(a["id"])["metadata"]["endpoint"] == "https://rebind.example/a2a"
 
 
-def test_probe_success_marks_recently_reachable():
-    s = _fresh()
-    a = s.register_agent("Live", ["x"], {})
-    with mock.patch.object(R.socket, "getaddrinfo",
-                           return_value=[(2, 1, 6, "", ("93.184.216.34", 443))]), \
-         mock.patch.object(R, "_http_head_pinned", return_value=200):
-        out = s.set_agent_endpoint(a["id"], "https://example.com/a2a", verify=True)
-    assert out["reachability_status"] == "recently_reachable"
-    assert out["recommended_for_routing"] is True
-    assert out["verification_method"] == "declaration_probe"
-    assert out["last_verified_at"] is not None
+# --- liveness outcomes: weak HTTP is NOT routable ----------------------------
+def test_generic_405_is_http_responsive_not_routable():
+    s = _fresh(); a = s.register_agent("H", ["x"], {})
+    calls = {"n": 0}
+    def fake(*args, **kw):
+        calls["n"] += 1
+        return (405, b"") if calls["n"] == 1 else (200, b"ok")  # HEAD 405, GET 200
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", side_effect=fake):
+        out = s.set_agent_endpoint(a["id"], "https://api.example/", verify=True)
+    assert out["reachability_status"] == "http_responsive"
+    assert out["evidence_level"] == "http_response"
+    assert out["recommended_for_routing"] is False       # weak != protocol
 
 
-def test_redirect_is_a_verification_failure():
-    s = _fresh()
-    a = s.register_agent("Redir", ["x"], {})
-    with mock.patch.object(R.socket, "getaddrinfo",
-                           return_value=[(2, 1, 6, "", ("93.184.216.34", 443))]), \
-         mock.patch.object(R, "_http_head_pinned", return_value=302):
-        out = s.set_agent_endpoint(a["id"], "https://example.com/a2a", verify=True)
-    assert out["reachability_status"] == "currently_unreachable"
+def test_401_is_http_responsive_not_routable():
+    s = _fresh(); a = s.register_agent("Auth", ["x"], {})
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", return_value=(401, b"")):
+        out = s.set_agent_endpoint(a["id"], "https://api.example/", verify=True)
+    assert out["reachability_status"] == "http_responsive"
     assert out["recommended_for_routing"] is False
 
 
-def test_timeout_preserves_declaration_as_currently_unreachable():
-    s = _fresh()
-    a = s.register_agent("Slow", ["x"], {})
-    with mock.patch.object(R.socket, "getaddrinfo",
-                           return_value=[(2, 1, 6, "", ("93.184.216.34", 443))]), \
-         mock.patch.object(R, "_http_head_pinned", side_effect=socket.timeout()):
-        out = s.set_agent_endpoint(a["id"], "https://example.com/a2a", verify=True)
+def test_a2a_card_handshake_is_recently_reachable_and_routable():
+    s = _fresh(); a = s.register_agent("A2A", ["x"], {})
+    card = b'{"protocolVersion":"0.3.0","skills":[{"id":"x"}]}'
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", return_value=(200, card)):
+        out = s.set_agent_endpoint(a["id"], "https://prov.example/a2a", verify=True)
+    assert out["reachability_status"] == "recently_reachable"
+    assert out["evidence_level"] == "protocol_handshake"
+    assert out["recommended_for_routing"] is True
+
+
+def test_mcp_initialise_handshake_is_recently_reachable():
+    s = _fresh(); a = s.register_agent("MCP", ["x"], {})
+    body = b'{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26"}}'
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", return_value=(200, body)):
+        out = s.set_agent_endpoint(a["id"], "https://prov.example/mcp/", verify=True)
+    assert out["reachability_status"] == "recently_reachable"
+    assert out["evidence_level"] == "protocol_handshake"
+
+
+def test_redirect_and_timeout_are_currently_unreachable():
+    s = _fresh(); a = s.register_agent("RT", ["x"], {})
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", return_value=(302, b"")):
+        out = s.set_agent_endpoint(a["id"], "https://x.example/", verify=True)
     assert out["reachability_status"] == "currently_unreachable"
-    assert s.get_agent(a["id"])["metadata"]["endpoint"]  # declaration kept
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", side_effect=socket.timeout()):
+        out = s.set_agent_endpoint(a["id"], "https://x.example/", verify=True)
+    assert out["reachability_status"] == "currently_unreachable"
+    assert s.get_agent(a["id"])["metadata"]["endpoint"]     # declaration intact
 
 
-def test_recently_reachable_expires_to_declared_unverified():
-    s = _fresh()
-    a = s.register_agent("Expiring", ["x"], {})
-    with mock.patch.object(R.socket, "getaddrinfo",
-                           return_value=[(2, 1, 6, "", ("93.184.216.34", 443))]), \
-         mock.patch.object(R, "_http_head_pinned", return_value=200):
-        s.set_agent_endpoint(a["id"], "https://example.com/a2a", verify=True)
-    rec = s.get_agent(a["id"])
-    # force the check timestamp beyond the TTL
-    old = "2000-01-01T00:00:00+00:00"
-    rec["reachability"]["checked_at"] = old
-    assert R.status_for(rec["metadata"]["endpoint"], rec["reachability"]) == "declared_unverified"
-
-
-def test_invocation_verified_only_from_receipt_not_probe():
-    s = _fresh()
-    worker = s.register_agent("Worker", ["x"], {})
-    s.set_agent_endpoint(worker["id"], "https://example.com/a2a")
-    # a generic probe can never yield invocation_verified
-    with mock.patch.object(R.socket, "getaddrinfo",
-                           return_value=[(2, 1, 6, "", ("93.184.216.34", 443))]), \
-         mock.patch.object(R, "_http_head_pinned", return_value=200):
-        out = s.set_agent_endpoint(worker["id"], "https://example.com/a2a", verify=True)
-    assert out["reachability_status"] != "invocation_verified"
-    # a guild-observed receipt does
-    s.note_invocation_verified(worker["id"])
-    rec = s.get_agent(worker["id"])
-    fields = R.reachability_fields(rec["metadata"]["endpoint"], rec["reachability"])
-    assert fields["reachability_status"] == "invocation_verified"
-    assert fields["invocation_supported"] is True
-    assert fields["recommended_for_routing"] is True
-
-
-def test_note_invocation_verified_noop_without_endpoint():
-    s = _fresh()
-    a = s.register_agent("NoEndpoint", ["x"], {})
-    s.note_invocation_verified(a["id"])   # must not raise or set anything
+# --- endpoint change invalidates prior evidence ------------------------------
+def test_endpoint_change_invalidates_evidence():
+    s = _fresh(); a = s.register_agent("Chg", ["x"], {})
+    card = b'{"skills":[]}'
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", return_value=(200, card)):
+        s.set_agent_endpoint(a["id"], "https://old.example/a2a", verify=True)
+    assert s.get_agent(a["id"])["reachability"]["status"] == "recently_reachable"
+    # declaring a NEW endpoint drops the old record; status falls back
+    out = s.set_agent_endpoint(a["id"], "https://new.example/a2a")
+    assert out["reachability_status"] == "declared_unverified"
     assert "reachability" not in s.get_agent(a["id"])
 
 
-def test_read_paths_never_probe_the_network():
-    """/check, shortlist and reachability_fields must be pure. If any of them
-    touched the network, this patched getaddrinfo would raise."""
+def test_expired_evidence_not_recommended_for_routing():
+    s = _fresh(); a = s.register_agent("Exp", ["x"], {})
+    card = b'{"skills":[]}'
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", return_value=(200, card)):
+        s.set_agent_endpoint(a["id"], "https://prov.example/a2a", verify=True)
+    rec = s.get_agent(a["id"])["reachability"]
+    rec["expires_at"] = "2000-01-01T00:00:00+00:00"          # force expiry
+    ep = s.get_agent(a["id"])["metadata"]["endpoint"]
+    f = R.reachability_fields(ep, rec)
+    assert f["reachability_status"] == "declared_unverified"
+    assert f["recommended_for_routing"] is False
+
+
+# --- INVOCATION_VERIFIED only from a trusted AG invocation -------------------
+def test_receipt_cannot_self_upgrade_reachability():
     s = _fresh()
-    a = s.register_agent("Readonly", ["fact-check"], {})
+    emp = s.register_agent("Employer", ["hire"], {})
+    w = s.register_agent("Worker", ["x"], {})
+    s.set_agent_endpoint(w["id"], "https://w.example/a2a")
+    t = s.create_task(emp["id"], w["id"], "x", 0.0, {})
+    s.submit_receipt(t["id"], "0xabc", outcome="delivered")   # worker self-reports
+    rec = s.get_agent(w["id"]).get("reachability")
+    assert rec is None                                        # NOT upgraded
+
+
+def test_receipt_referencing_unknown_invocation_does_not_verify():
+    s = _fresh()
+    assert s.complete_outbound_invocation("oinv_doesnotexist", protocol_ok=True) is False
+
+
+def test_only_ag_originated_invocation_against_current_endpoint_verifies():
+    s = _fresh(); w = s.register_agent("W", ["x"], {})
+    s.set_agent_endpoint(w["id"], "https://w.example/a2a")
+    inv = s.begin_outbound_invocation(w["id"])
+    assert inv and inv["invocation_id"].startswith("oinv_")
+    assert s.complete_outbound_invocation(inv["invocation_id"], protocol_ok=True) is True
+    rec = s.get_agent(w["id"])["reachability"]
+    assert rec["status"] == "invocation_verified"
+    assert rec["evidence_level"] == "guild_invocation"
+    assert rec["invocation_id"] == inv["invocation_id"]
+
+
+def test_stale_invocation_against_previous_endpoint_does_not_verify():
+    s = _fresh(); w = s.register_agent("W", ["x"], {})
+    s.set_agent_endpoint(w["id"], "https://old.example/a2a")
+    inv = s.begin_outbound_invocation(w["id"])
+    s.set_agent_endpoint(w["id"], "https://new.example/a2a")   # endpoint changed
+    assert s.complete_outbound_invocation(inv["invocation_id"], protocol_ok=True) is False
+    assert s.get_agent(w["id"]).get("reachability", {}).get("status") != "invocation_verified"
+
+
+def test_protocol_failure_does_not_verify():
+    s = _fresh(); w = s.register_agent("W", ["x"], {})
+    s.set_agent_endpoint(w["id"], "https://w.example/a2a")
+    inv = s.begin_outbound_invocation(w["id"])
+    assert s.complete_outbound_invocation(inv["invocation_id"], protocol_ok=False) is False
+
+
+# --- read paths remain network-free ------------------------------------------
+def test_read_paths_never_probe():
+    s = _fresh(); a = s.register_agent("RO", ["fact-check"], {})
     s.set_agent_endpoint(a["id"], "https://example.com/a2a")
-    def _boom(*args, **kw):
+    def boom(*a, **k):
         raise AssertionError("read path performed DNS/network access")
-    with mock.patch.object(R.socket, "getaddrinfo", side_effect=_boom):
-        s.shortlist("fact-check", limit=5)     # read
-        s.check("fact-check")                   # read
+    with mock.patch.object(R.socket, "getaddrinfo", side_effect=boom):
+        s.shortlist("fact-check", limit=5)
+        s.check("fact-check")
         R.reachability_fields("https://example.com/a2a", a.get("reachability"))
+
+
+# --- concurrency: dedup identical in-flight verifications --------------------
+def test_duplicate_inflight_verification_is_deduped():
+    s = _fresh(); a = s.register_agent("Dup", ["x"], {})
+    R._inflight.add(f"{a['id']}|https://busy.example/a2a")   # pretend one in flight
+    try:
+        out = s.set_agent_endpoint(a["id"], "https://busy.example/a2a", verify=True)
+        assert out["reachability_status"] == "verification_inconclusive"
+    finally:
+        R._inflight.discard(f"{a['id']}|https://busy.example/a2a")
+
+
+# --- HTTPS pinning: SNI + cert-hostname validation (integration) -------------
+def _self_signed(cn="localhost"):
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    import datetime as dt
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)])
+    cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
+            .public_key(key.public_key()).serial_number(x509.random_serial_number())
+            .not_valid_before(dt.datetime.utcnow() - dt.timedelta(days=1))
+            .not_valid_after(dt.datetime.utcnow() + dt.timedelta(days=1))
+            .add_extension(x509.SubjectAlternativeName([x509.DNSName(cn)]), False)
+            .sign(key, hashes.SHA256()))
+    d = tempfile.mkdtemp()
+    cp, kp = os.path.join(d, "c.pem"), os.path.join(d, "k.pem")
+    open(cp, "wb").write(cert.public_bytes(serialization.Encoding.PEM))
+    open(kp, "wb").write(key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL,
+        serialization.NoEncryption()))
+    return cp, kp
+
+
+class _H(BaseHTTPRequestHandler):
+    def do_HEAD(self):
+        _H.sni = getattr(self.connection, "server_hostname", None)
+        self.send_response(200); self.end_headers()
+    def log_message(self, *a):
+        pass
+
+
+def _https_server(certfile, keyfile):
+    srv = HTTPServer(("127.0.0.1", 0), _H)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(certfile, keyfile)
+    srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+    t = threading.Thread(target=srv.serve_forever, daemon=True); t.start()
+    return srv, srv.server_address[1]
+
+
+def test_tls_pinning_sni_and_hostname_validation():
+    cp, kp = _self_signed("localhost")
+    srv, port = _https_server(cp, kp)
+    try:
+        trust = ssl.create_default_context(); trust.load_verify_locations(cp)
+        # connect to the PINNED loopback IP but validate cert for hostname
+        code, _ = R._http_request_pinned("https", "localhost", socket.AF_INET,
+                                         "127.0.0.1", port, "/", method="HEAD",
+                                         ssl_context=trust)
+        assert code == 200
+        # a wrong hostname must fail cert-hostname validation (not the Host header)
+        with pytest.raises(ssl.SSLError):
+            R._http_request_pinned("https", "wrong.example", socket.AF_INET,
+                                   "127.0.0.1", port, "/", method="HEAD",
+                                   ssl_context=trust)
+        # an UNTRUSTED cert (default system context) must fail verification
+        with pytest.raises(ssl.SSLError):
+            R._http_request_pinned("https", "localhost", socket.AF_INET,
+                                   "127.0.0.1", port, "/", method="HEAD")
+    finally:
+        srv.shutdown()

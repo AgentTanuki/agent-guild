@@ -1,66 +1,124 @@
-"""Reachability semantics + SSRF-safe declaration-time verifier — the single
-source of truth for how the Guild talks about whether a provider can be
-contacted, and the ONLY place a liveness check may run.
+"""Reachability semantics + SSRF-safe declaration-time verifier.
 
-Formal definitions: docs/discovery-swarm/REACHABILITY_SEMANTICS.md.
+Single source of truth for how the Guild talks about whether a provider can be
+contacted, and the ONLY place a liveness check may run. Read paths
+(/check, /search, listings, journey, dashboard, demand) call the PURE
+reachability_fields()/status_for() and never touch the network.
 
-Status ladder:
-  no_endpoint          — never declared an endpoint.
-  unknown              — a string is on file but malformed / policy-invalid.
-  declared_unverified  — a well-formed public URL is on file. A CLAIM by the
-                         agent, verified by nobody. Never called "reachable".
-  recently_reachable   — an SSRF-safe declaration-time liveness check answered
-                         within the last RECENT_TTL. Says the URL responds to
-                         HTTP; says NOTHING about invocation semantics.
-  currently_unreachable— the last verification attempt failed (connect/timeout/
-                         redirect/error). The DECLARATION is preserved; only the
-                         status reflects the failure. Expires to
-                         declared_unverified after UNREACH_TTL.
-  invocation_verified  — a guild-observed task receipt travelled THROUGH this
-                         endpoint within INVOCATION_TTL. The only status that
-                         proves the endpoint does WORK. Never set by a generic
-                         HTTP response.
+Formal definitions + status-transition table: REACHABILITY_SEMANTICS.md.
 
-Verification is OWNER-INITIATED, at declaration time only. It must NEVER run
-from /check, /search, capability listing, journey reads, dashboard reads,
-background demand matching, or any routing read — those paths call
-reachability_fields(), which is pure and never touches the network.
+Evidence ladder (weakest → strongest), with routing eligibility:
+  no_endpoint            evidence=none            route=NO
+  unknown                evidence=none            route=NO   (malformed/policy-invalid)
+  declared_unverified    evidence=none            route=NO   (agent's claim only)
+  verification_inconclusive evidence=none         route=NO   (probe couldn't decide)
+  http_responsive        evidence=http_response   route=NO   (a server answered — 401/403/
+                                                              404/405 all count — but NO
+                                                              protocol proof; NOT routable)
+  currently_unreachable  evidence=none            route=NO   (last probe failed)
+  recently_reachable     evidence=protocol_handshake route=YES (protocol-specific success:
+                                                              A2A card / MCP initialise /
+                                                              declared health route)
+  invocation_verified    evidence=guild_invocation route=YES (a trusted AG-ORIGINATED
+                                                              invocation to the CURRENT
+                                                              endpoint returned a successful
+                                                              protocol response, bound by a
+                                                              unique invocation id)
+
+A weak HTTP response NEVER inherits the routing recommendation of a protocol
+handshake. INVOCATION_VERIFIED is NEVER inferred from a submitted receipt.
 """
 from __future__ import annotations
 
+import hashlib
 import ipaddress
+import json
+import os
 import socket
-import time
-from datetime import datetime, timezone
+import ssl
+import threading
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 from urllib.parse import urlsplit
 
-PRODUCIBLE_STATUSES = ("no_endpoint", "declared_unverified", "unknown")
-VERIFIED_STATUSES = ("recently_reachable", "currently_unreachable",
-                     "invocation_verified")
+# --- statuses / evidence -----------------------------------------------------
+NO_ROUTE_STATUSES = ("no_endpoint", "unknown", "declared_unverified",
+                     "verification_inconclusive", "http_responsive",
+                     "currently_unreachable")
 ROUTABLE_STATUSES = ("recently_reachable", "invocation_verified")
+VERIFIED_STATUSES = ("http_responsive", "recently_reachable",
+                     "currently_unreachable", "invocation_verified",
+                     "verification_inconclusive")
 
-# TTLs (seconds)
-RECENT_TTL = 24 * 3600
-UNREACH_TTL = 24 * 3600
-INVOCATION_TTL = 7 * 24 * 3600
+EVIDENCE_LEVELS = ("none", "http_response", "protocol_handshake", "guild_invocation")
 
-# Ports an agent endpoint may use. Everything else is refused at declaration.
+# Internal probe OUTCOMES (kept distinct from stored statuses, per refinement).
+OUTCOME_NETWORK_REACHABLE = "network_reachable"
+OUTCOME_HTTP_RESPONSIVE = "http_responsive"
+OUTCOME_PROTOCOL_RESPONSIVE = "protocol_responsive"
+OUTCOME_UNREACHABLE = "currently_unreachable"
+OUTCOME_INCONCLUSIVE = "verification_inconclusive"
+
+
+def _env_int(name: str, default: int, lo: int, hi: int) -> int:
+    try:
+        v = int(os.environ.get(name, str(default)))
+    except ValueError:
+        v = default
+    return max(lo, min(v, hi))
+
+
+# --- configurable TTLs (bounded) ---------------------------------------------
+def recent_ttl() -> int:      # protocol handshake freshness
+    return _env_int("GUILD_REACH_RECENT_TTL", 24 * 3600, 300, 30 * 24 * 3600)
+
+
+def http_ttl() -> int:        # weak http-responsive freshness
+    return _env_int("GUILD_REACH_HTTP_TTL", 6 * 3600, 300, 30 * 24 * 3600)
+
+
+def unreach_ttl() -> int:
+    return _env_int("GUILD_REACH_UNREACH_TTL", 24 * 3600, 300, 30 * 24 * 3600)
+
+
+def invocation_ttl() -> int:
+    return _env_int("GUILD_REACH_INVOCATION_TTL", 7 * 24 * 3600, 300, 90 * 24 * 3600)
+
+
+def _ttl_for(status: str) -> int:
+    return {"recently_reachable": recent_ttl(), "http_responsive": http_ttl(),
+            "currently_unreachable": unreach_ttl(),
+            "verification_inconclusive": http_ttl(),
+            "invocation_verified": invocation_ttl()}.get(status, recent_ttl())
+
+
 ALLOWED_PORTS = {80, 443, 8080, 8443}
-PROBE_TIMEOUT_S = 3.0          # a verifier timeout must not hold a worker long
-PROBE_MAX_BYTES = 4096         # bound response bytes; we do not process the body
+PROBE_TIMEOUT_S = 3.0
+PROBE_MAX_BYTES = 8192
+
+# concurrency: cap outbound probes so one agent can't exhaust workers
+_MAX_CONCURRENT = _env_int("GUILD_REACH_MAX_PROBES", 4, 1, 32)
+_probe_sem = threading.BoundedSemaphore(_MAX_CONCURRENT)
+_inflight_lock = threading.Lock()
+_inflight: set[str] = set()   # dedup identical (agent|endpoint) verifications
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
-# --- 1. URL POLICY (pure, no network) — gates DECLARATION --------------------
+def _iso(dt: datetime) -> str:
+    return dt.isoformat()
 
+
+def endpoint_fingerprint(url: Optional[str]) -> Optional[str]:
+    if not url:
+        return None
+    return "epf_" + hashlib.sha256(str(url).encode("utf-8")).hexdigest()[:16]
+
+
+# --- 1. URL POLICY (pure) ----------------------------------------------------
 def url_policy_check(url: str) -> tuple[bool, str]:
-    """Validate an endpoint URL's PROPERTIES only (no DNS, no network). Returns
-    (ok, reason). A declaration is rejected iff this fails — never because a
-    remote service is merely down."""
     if not url or len(url) > 500:
         return False, "empty or over-long url"
     parts = urlsplit(url)
@@ -68,24 +126,21 @@ def url_policy_check(url: str) -> tuple[bool, str]:
         return False, f"unsupported scheme {parts.scheme!r} (http/https only)"
     if parts.username or parts.password or "@" in (parts.netloc or ""):
         return False, "embedded credentials are not allowed in the endpoint"
-    host = parts.hostname
-    if not host:
+    if not parts.hostname:
         return False, "missing host"
     if parts.port is not None and parts.port not in ALLOWED_PORTS:
         return False, f"port {parts.port} not permitted"
-    # If the host is a literal IP, screen it now (no DNS needed).
     try:
-        ip = ipaddress.ip_address(host)
+        ip = ipaddress.ip_address(parts.hostname)
         ok, reason = _screen_ip(ip)
         if not ok:
             return False, reason
     except ValueError:
-        pass  # a hostname — screened at probe time after DNS resolution
+        pass
     return True, "ok"
 
 
-def _screen_ip(ip: "ipaddress._BaseAddress") -> tuple[bool, str]:
-    """Reject any address that must not be contacted."""
+def _screen_ip(ip) -> tuple[bool, str]:
     if ip.is_loopback:
         return False, "loopback address"
     if ip.is_private:
@@ -101,15 +156,16 @@ def _screen_ip(ip: "ipaddress._BaseAddress") -> tuple[bool, str]:
     return True, "ok"
 
 
-def _resolve_and_screen(host: str, port: int) -> tuple[bool, list[str], str]:
-    """Resolve host and screen EVERY returned address. All must be public."""
+def _resolve_and_screen(host: str, port: int) -> tuple[bool, list[tuple[int, str]], str]:
+    """Resolve host, screen EVERY address (IPv4 and IPv6). Returns
+    [(family, addr), ...] of screened-public addresses."""
     try:
         infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
     except socket.gaierror as e:
         return False, [], f"dns resolution failed: {e}"
     addrs = []
     for info in infos:
-        addr = info[4][0]
+        family, addr = info[0], info[4][0]
         try:
             ip = ipaddress.ip_address(addr)
         except ValueError:
@@ -117,91 +173,69 @@ def _resolve_and_screen(host: str, port: int) -> tuple[bool, list[str], str]:
         ok, reason = _screen_ip(ip)
         if not ok:
             return False, [], f"dns resolves to {reason} ({addr})"
-        addrs.append(addr)
+        addrs.append((family, addr))
     if not addrs:
         return False, [], "no addresses resolved"
     return True, addrs, "ok"
 
 
-# --- 2. LIVENESS PROBE (network) — SSRF-safe, owner-initiated only -----------
+# --- 2. PINNED TRANSPORT -----------------------------------------------------
+def _connect_pinned(scheme: str, host: str, family: int, addr: str, port: int,
+                    ssl_context: Optional[ssl.SSLContext] = None):
+    """Open a socket to the PINNED, already-screened address. For https, wrap
+    with TLS using SNI=host and full certificate+hostname validation against
+    the ORIGINAL hostname (never the IP). The address is fixed here, so the
+    HTTP layer can never re-resolve the hostname (DNS-rebinding safe). TLS
+    verification is NEVER disabled."""
+    raw = socket.socket(family, socket.SOCK_STREAM)
+    raw.settimeout(PROBE_TIMEOUT_S)
+    raw.connect((addr, port))
+    if scheme == "https":
+        ctx = ssl_context or ssl.create_default_context()
+        # explicit belt-and-braces: default context already sets these
+        ctx.check_hostname = True
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        # SNI + cert hostname validation both use `host`, not `addr`
+        return ctx.wrap_socket(raw, server_hostname=host)
+    return raw
 
-def liveness_probe(url: str) -> dict[str, Any]:
-    """A single, bounded, SSRF-safe liveness check. Returns a verification
-    record: {status, method, checked_at, last_verified_at, detail}. NEVER
-    raises; a failure yields currently_unreachable with the declaration intact.
 
-    DNS-rebinding defense: resolve, screen EVERY address, then connect to a
-    PINNED screened address and send the Host header explicitly (the socket is
-    bound to the address we validated, not re-resolved by the HTTP client). No
-    redirects are followed (a 3xx is a verification failure). Response bytes are
-    bounded and the body is not processed. No AG secret is ever sent."""
-    ok, reason = url_policy_check(url)
-    if not ok:
-        return _rec("currently_unreachable", "declaration_probe",
-                    detail=f"policy: {reason}")
-    parts = urlsplit(url)
-    host = parts.hostname
-    port = parts.port or (443 if parts.scheme == "https" else 80)
-    ok, addrs, reason = _resolve_and_screen(host, port)
-    if not ok:
-        return _rec("currently_unreachable", "declaration_probe", detail=reason)
-    pinned = addrs[0]  # connect to the exact address we screened
+def _http_request_pinned(scheme: str, host: str, family: int, addr: str,
+                         port: int, path: str, method: str = "HEAD",
+                         body: Optional[bytes] = None,
+                         extra_headers: str = "",
+                         ssl_context: Optional[ssl.SSLContext] = None
+                         ) -> tuple[Optional[int], bytes]:
+    """One bounded HTTP request over a pinned connection. Returns
+    (status_code, body_prefix). No redirects are followed (caller treats 3xx as
+    a failure). Body read is capped at PROBE_MAX_BYTES; not otherwise processed.
+    No credentials are ever sent."""
+    sock = _connect_pinned(scheme, host, family, addr, port, ssl_context)
     try:
-        status_line = _http_head_pinned(parts.scheme, host, pinned, port,
-                                         parts.path or "/")
-    except Exception as e:
-        return _rec("currently_unreachable", "declaration_probe",
-                    detail=f"probe failed: {type(e).__name__}")
-    code = status_line
-    if code is None:
-        return _rec("currently_unreachable", "declaration_probe",
-                    detail="no HTTP status line")
-    if 300 <= code < 400:
-        # redirects are refused as verification failures (rebinding vector)
-        return _rec("currently_unreachable", "declaration_probe",
-                    detail=f"redirect {code} refused")
-    if 200 <= code < 500:
-        # any non-redirect answer (incl. 401/404) proves the host is LIVE and
-        # speaking HTTP — which is all recently_reachable claims.
-        return _rec("recently_reachable", "declaration_probe",
-                    detail=f"http {code}")
-    return _rec("currently_unreachable", "declaration_probe",
-                detail=f"http {code}")
-
-
-def _http_head_pinned(scheme: str, host: str, addr: str, port: int,
-                      path: str) -> Optional[int]:
-    """Minimal HTTP: connect to a PINNED validated address, send HEAD with the
-    real Host header, read only the status line, no redirects, no body. Uses
-    the stdlib socket/ssl directly so the connected address cannot be re-
-    resolved (DNS-rebinding safe). No credentials are sent."""
-    import ssl
-    raw = socket.create_connection((addr, port), timeout=PROBE_TIMEOUT_S)
-    try:
-        sock = raw
-        if scheme == "https":
-            ctx = ssl.create_default_context()
-            sock = ctx.wrap_socket(raw, server_hostname=host)
-        req = (f"HEAD {path} HTTP/1.1\r\nHost: {host}\r\n"
+        req = (f"{method} {path} HTTP/1.1\r\nHost: {host}\r\n"
                f"User-Agent: guild-reachability-probe/1\r\n"
-               f"Accept: */*\r\nConnection: close\r\n\r\n")
-        sock.sendall(req.encode("ascii", "ignore"))
+               f"Accept: */*\r\nConnection: close\r\n{extra_headers}")
+        if body is not None:
+            req += f"Content-Length: {len(body)}\r\n"
+        req += "\r\n"
+        sock.sendall(req.encode("ascii", "ignore") + (body or b""))
         sock.settimeout(PROBE_TIMEOUT_S)
         buf = b""
-        while b"\r\n" not in buf and len(buf) < PROBE_MAX_BYTES:
-            chunk = sock.recv(min(512, PROBE_MAX_BYTES - len(buf)))
+        while len(buf) < PROBE_MAX_BYTES:
+            chunk = sock.recv(min(1024, PROBE_MAX_BYTES - len(buf)))
             if not chunk:
                 break
             buf += chunk
         first = buf.split(b"\r\n", 1)[0].decode("ascii", "ignore")
-        # "HTTP/1.1 200 OK" -> 200
         bits = first.split(" ")
+        code = None
         if len(bits) >= 2 and bits[0].startswith("HTTP/"):
             try:
-                return int(bits[1])
+                code = int(bits[1])
             except ValueError:
-                return None
-        return None
+                code = None
+        body_prefix = buf.split(b"\r\n\r\n", 1)[1] if b"\r\n\r\n" in buf else b""
+        return code, body_prefix
     finally:
         try:
             sock.close()
@@ -209,85 +243,188 @@ def _http_head_pinned(scheme: str, host: str, addr: str, port: int,
             pass
 
 
-def _rec(status: str, method: str, detail: str = "") -> dict[str, Any]:
-    now = _now_iso()
+# --- 3. LIVENESS PROBE (owner-initiated, SSRF-safe) --------------------------
+def liveness_probe(url: str, *, ssl_context: Optional[ssl.SSLContext] = None
+                   ) -> dict[str, Any]:
+    """A single bounded SSRF-safe check. Chooses a protocol-specific probe when
+    the endpoint declares one (A2A card / MCP initialise), else a generic HTTP
+    fallback. NEVER raises; NEVER sends a task, credential or sensitive payload.
+    Returns a reachability record (see make_record)."""
+    ok, reason = url_policy_check(url)
+    if not ok:
+        return make_record("currently_unreachable", "declaration_probe",
+                           "none", url, detail=f"policy: {reason}")
+    parts = urlsplit(url)
+    host = parts.hostname
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    ok, addrs, reason = _resolve_and_screen(host, port)
+    if not ok:
+        return make_record("currently_unreachable", "declaration_probe",
+                           "none", url, detail=reason)
+    family, addr = addrs[0]
+
+    def _req(path, method="HEAD", body=None, headers=""):
+        return _http_request_pinned(parts.scheme, host, family, addr, port,
+                                    path, method, body, headers, ssl_context)
+
+    try:
+        outcome, code, detail = _classify(parts, _req)
+    except ssl.SSLError as e:
+        return make_record("currently_unreachable", "declaration_probe",
+                           "none", url, detail=f"tls failure: {type(e).__name__}")
+    except Exception as e:
+        return make_record("currently_unreachable", "declaration_probe",
+                           "none", url, detail=f"probe failed: {type(e).__name__}")
+
+    if outcome == OUTCOME_PROTOCOL_RESPONSIVE:
+        return make_record("recently_reachable", "protocol_probe",
+                           "protocol_handshake", url, detail=detail)
+    if outcome == OUTCOME_HTTP_RESPONSIVE:
+        # a server answered but proved no protocol — weak evidence, NOT routable
+        return make_record("http_responsive", "declaration_probe",
+                           "http_response", url, detail=detail)
+    if outcome == OUTCOME_UNREACHABLE:
+        return make_record("currently_unreachable", "declaration_probe",
+                           "none", url, detail=detail)
+    return make_record("verification_inconclusive", "declaration_probe",
+                       "none", url, detail=detail)
+
+
+def _classify(parts, req) -> tuple[str, Optional[int], str]:
+    """Return (outcome, http_code, detail). Protocol-specific first."""
+    path = parts.path or "/"
+    base = ""  # same host, path swapped
+    # A2A: an Agent Card at the well-known path with card markers = protocol proof
+    if "/a2a" in path or path in ("", "/"):
+        code, body = req("/.well-known/agent-card.json", method="GET")
+        if code and 200 <= code < 300 and _looks_like_a2a_card(body):
+            return OUTCOME_PROTOCOL_RESPONSIVE, code, "a2a agent-card handshake"
+    # MCP: initialise handshake (no secrets) with a jsonrpc result = protocol proof
+    if "/mcp" in path:
+        init = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                           "params": {"protocolVersion": "2025-03-26",
+                                      "capabilities": {},
+                                      "clientInfo": {"name": "guild-probe",
+                                                     "version": "1"}}}).encode()
+        code, body = req(path, method="POST", body=init,
+                         headers="Content-Type: application/json\r\n"
+                                 "Accept: application/json, text/event-stream\r\n")
+        if code and 200 <= code < 300 and b"jsonrpc" in body and b"result" in body:
+            return OUTCOME_PROTOCOL_RESPONSIVE, code, "mcp initialise handshake"
+    # Generic fallback: HEAD, then GET if HEAD is not allowed (405).
+    code, _ = req(path, method="HEAD")
+    if code is None:
+        return OUTCOME_UNREACHABLE, None, "no HTTP status line"
+    if 300 <= code < 400:
+        return OUTCOME_UNREACHABLE, code, f"redirect {code} refused"
+    if code == 405:
+        code2, _ = req(path, method="GET")
+        if code2 and 200 <= code2 < 400 and not (300 <= code2 < 400):
+            return OUTCOME_HTTP_RESPONSIVE, code2, f"http {code2} (HEAD 405)"
+        if code2 and 400 <= code2 < 500:
+            return OUTCOME_HTTP_RESPONSIVE, code2, f"http {code2}"
+        return OUTCOME_INCONCLUSIVE, code2, "HEAD 405, GET inconclusive"
+    if 200 <= code < 500:
+        # a server clearly responded (incl 401/403/404) — weak, not protocol
+        return OUTCOME_HTTP_RESPONSIVE, code, f"http {code}"
+    return OUTCOME_UNREACHABLE, code, f"http {code}"
+
+
+def _looks_like_a2a_card(body: bytes) -> bool:
+    try:
+        d = json.loads(body.decode("utf-8", "ignore"))
+    except Exception:
+        return False
+    return isinstance(d, dict) and ("skills" in d or "protocolVersion" in d)
+
+
+# --- 4. INVOCATION VERIFICATION (trusted, AG-originated only) -----------------
+def invocation_verified_record(url: str, invocation_id: str) -> dict[str, Any]:
+    """The ONLY producer of invocation_verified. Callers (store.complete_
+    outbound_invocation) MUST have already checked: AG initiated the invocation,
+    it targeted the CURRENT endpoint (fingerprint match), a unique invocation id
+    bound it, and the endpoint returned a successful protocol response. Never
+    produced from a submitted receipt or an agent-supplied claim."""
+    rec = make_record("invocation_verified", "guild_originated_invocation",
+                      "guild_invocation", url,
+                      detail=f"AG-originated invocation {invocation_id} succeeded")
+    rec["invocation_id"] = invocation_id
+    return rec
+
+
+# --- 5. RECORD + EFFECTIVE STATUS (pure) -------------------------------------
+def make_record(status: str, method: str, evidence_level: str,
+                endpoint: str, detail: str = "") -> dict[str, Any]:
+    now = _now()
+    verified = status in ("recently_reachable", "invocation_verified")
     return {
         "status": status,
+        "evidence_level": evidence_level,
         "method": method,
-        "checked_at": now,
-        "last_verified_at": now if status in ("recently_reachable",
-                                              "invocation_verified") else None,
+        "checked_at": _iso(now),
+        "last_verified_at": _iso(now) if verified else None,
+        "expires_at": _iso(now + timedelta(seconds=_ttl_for(status))),
+        "endpoint_fingerprint": endpoint_fingerprint(endpoint),
         "detail": detail,
     }
 
 
-def invocation_verified_record() -> dict[str, Any]:
-    """Record for a guild-observed receipt that travelled through the endpoint —
-    the only path to invocation_verified. Set by the store's receipt handler,
-    never by a generic HTTP probe."""
-    return _rec("invocation_verified", "guild_observed_receipt",
-                detail="guild-observed task receipt through declared endpoint")
-
-
-# --- 3. EFFECTIVE STATUS with expiry (pure) ----------------------------------
-
-def _age_seconds(iso: Optional[str]) -> Optional[float]:
-    if not iso:
-        return None
+def _expired(record: dict) -> bool:
+    exp = record.get("expires_at")
+    if not exp:
+        return True
     try:
-        dt = datetime.fromisoformat(iso)
+        return _now() >= datetime.fromisoformat(exp)
     except ValueError:
-        return None
-    return (datetime.now(timezone.utc) - dt).total_seconds()
+        return True
 
 
 def status_for(endpoint: Optional[str], record: Optional[dict] = None) -> str:
-    """Effective reachability status, applying TTL expiry to any stored
-    verification record. Pure — no network."""
     if not endpoint:
         return "no_endpoint"
     ok, _ = url_policy_check(str(endpoint))
     if not ok:
         return "unknown"
     if record:
-        st = record.get("status")
-        age = _age_seconds(record.get("checked_at"))
-        if st == "invocation_verified" and age is not None and age <= INVOCATION_TTL:
-            return "invocation_verified"
-        if st == "recently_reachable" and age is not None and age <= RECENT_TTL:
-            return "recently_reachable"
-        if st == "currently_unreachable" and age is not None and age <= UNREACH_TTL:
-            return "currently_unreachable"
-        # expired -> fall through to the plain declaration
+        # endpoint change invalidates all prior evidence for the old endpoint
+        if record.get("endpoint_fingerprint") != endpoint_fingerprint(endpoint):
+            return "declared_unverified"
+        if not _expired(record) and record.get("status") in VERIFIED_STATUSES:
+            return record["status"]
     return "declared_unverified"
 
 
 def reachability_fields(endpoint: Optional[str],
                         record: Optional[dict] = None) -> dict[str, Any]:
-    """The full honest field set for one provider, honouring a stored
-    verification record (with TTL expiry). Pure; callable from any read path
-    without side effects."""
+    """Pure read-path field set. Applies fingerprint invalidation + TTL expiry.
+    Never touches the network."""
     status = status_for(endpoint, record)
-    declared = status in ("declared_unverified", "recently_reachable",
-                           "currently_unreachable", "invocation_verified")
-    verified = status in ("recently_reachable", "invocation_verified")
-    method = None
-    last_verified_at = None
-    age = None
-    if status == "declared_unverified":
-        method = "declaration_only"
-    elif record and status in VERIFIED_STATUSES:
-        method = record.get("method")
-        last_verified_at = record.get("last_verified_at")
-        age = _age_seconds(record.get("checked_at"))
-        age = int(age) if age is not None else None
+    declared = status != "no_endpoint" and status != "unknown"
+    use_rec = bool(record
+                   and record.get("endpoint_fingerprint") == endpoint_fingerprint(endpoint)
+                   and status == record.get("status"))
     return {
         "has_declared_endpoint": declared,
         "reachability_status": status,
-        "verification_method": method,
-        "last_verified_at": last_verified_at,
-        "verification_age_seconds": age,
-        # invocation_verified is the ONLY status that proves work went through
+        "evidence_level": (record.get("evidence_level") if use_rec
+                           else ("none" if status != "declared_unverified" else "none")),
+        "verification_method": (record.get("method") if use_rec
+                                else ("declaration_only" if status == "declared_unverified"
+                                      else None)),
+        "last_verified_at": record.get("last_verified_at") if use_rec else None,
+        "verification_age_seconds": _age(record.get("checked_at")) if use_rec else None,
+        "expires_at": record.get("expires_at") if use_rec else None,
+        "endpoint_fingerprint": endpoint_fingerprint(endpoint),
+        # only a successful AG-originated invocation proves work goes through
         "invocation_supported": status == "invocation_verified",
         "recommended_for_routing": status in ROUTABLE_STATUSES,
     }
+
+
+def _age(iso: Optional[str]) -> Optional[int]:
+    if not iso:
+        return None
+    try:
+        return int((_now() - datetime.fromisoformat(iso)).total_seconds())
+    except ValueError:
+        return None
