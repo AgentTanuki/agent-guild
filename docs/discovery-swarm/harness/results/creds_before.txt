@@ -1,0 +1,7 @@
+=== credential-hardening dark-merge BEFORE probe 2026-07-10T17:36:13Z ===
+deployed rev: 2f5b60a991e333b5e9f80e5f4d78cdb60a978747
+health: {"ok":true,"agents":53,"tasks":203,"attestations":200}
+agents(total): 53
+guest invoke json.canonicalize: True
+a2a check fact-check reachability: supply_has_no_declared_endpoint
+instrumentation has legacy_scope_credentials (new field): False
