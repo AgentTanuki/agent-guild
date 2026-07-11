@@ -15,6 +15,7 @@ import json
 import os
 import secrets
 import statistics
+import sys
 import threading
 from contextlib import nullcontext
 from datetime import datetime, timezone, timedelta
@@ -85,11 +86,47 @@ class Store:
         self.store_mode = (os.environ.get("GUILD_STORE") or "json").strip().lower()
         self.backend = None
         if self.store_mode == "sqlite":
+            self._guard_single_writer()          # sqlite is single-writer ONLY
             from .store_sqlite import SqliteBackend
             self.backend = SqliteBackend(self._sqlite_path())
         self._load()
 
     # --- pluggable sqlite backend (GUILD_STORE=sqlite) ----------------------
+    @staticmethod
+    def _guard_single_writer() -> None:
+        """SQLite is a single-writer, single-node store. If the process is
+        knowingly configured for MULTIPLE worker processes (WEB_CONCURRENCY /
+        GUILD_WORKERS / UVICORN_WORKERS > 1, or an explicit uvicorn --workers N
+        on the command line), every worker would be an independent writer and
+        the cross-process invariants (ledger seq, account rekey, guild_revenue)
+        would be exposed exactly like the JSON store's whole-file clobber. Refuse
+        to start with a clear message rather than corrupt state silently.
+        Horizontal scale / multiple workers REQUIRE migrating to Postgres.
+        Override (single node, accepting the risk) with
+        GUILD_SQLITE_ALLOW_MULTIWORKER=1."""
+        if (os.environ.get("GUILD_SQLITE_ALLOW_MULTIWORKER") or "").strip() in ("1", "true", "yes"):
+            return
+        def _envint(name: str) -> int:
+            try:
+                return int((os.environ.get(name) or "0").strip() or 0)
+            except ValueError:
+                return 0
+        workers = max(_envint("WEB_CONCURRENCY"), _envint("GUILD_WORKERS"),
+                      _envint("UVICORN_WORKERS"))
+        import re as _re
+        m = _re.search(r"--workers[=\s]+(\d+)", " ".join(sys.argv))
+        if m:
+            workers = max(workers, int(m.group(1)))
+        if workers > 1:
+            raise RuntimeError(
+                f"GUILD_STORE=sqlite is single-writer only, but {workers} worker "
+                "processes are configured (WEB_CONCURRENCY/GUILD_WORKERS/"
+                "UVICORN_WORKERS or uvicorn --workers). SQLite on a local disk "
+                "cannot be safely written by multiple processes/instances — run "
+                "ONE uvicorn worker on ONE instance with ONE mounted disk, or "
+                "migrate to Postgres for horizontal scale. Set "
+                "GUILD_SQLITE_ALLOW_MULTIWORKER=1 to override on a single node.")
+
     def _sqlite_path(self) -> str:
         """Where the sqlite database lives. GUILD_STORE_PATH wins; otherwise it
         sits next to a concrete data file (…/guild.json -> …/guild.sqlite3). With
@@ -186,7 +223,73 @@ class Store:
             return
         rec = self.backend.fetch_account(key)
         if rec is not None:
-            self.accounts[key] = rec
+            self._refresh_in_place(self.accounts, key, rec)
+
+    def _refresh_in_place(self, mapping, key, rec):
+        """Overwrite one in-memory record with the authoritative DB record WITHOUT
+        replacing the dict object — callers (and the journey engine, and tests)
+        hold references to these dicts, so object identity must survive an
+        authoritative refresh. Nested dicts are merged in place too, because a
+        record handed back by register (a shallow copy) shares its nested
+        `metadata` dict with the stored record; that shared identity must be
+        preserved so a subsequent field write is still visible on both."""
+        rec.pop("_version", None)
+        cur = mapping.get(key)
+        if cur is None:
+            mapping[key] = rec
+        else:
+            self._merge_in_place(cur, rec)
+
+    @staticmethod
+    def _merge_in_place(cur: dict, rec: dict) -> None:
+        for k in list(cur.keys()):
+            if k not in rec:
+                del cur[k]
+        for k, v in rec.items():
+            if isinstance(v, dict) and isinstance(cur.get(k), dict):
+                Store._merge_in_place(cur[k], v)
+            else:
+                cur[k] = v
+
+    def _sync_agent_from_db(self, agent_id):
+        """Refresh one in-memory agent from the authoritative sqlite row. Called
+        at the top of a write transaction so credential rotation/revocation and
+        endpoint replacement validate + rekey off the LATEST committed record
+        (this is what makes concurrent same-agent rotations leave no orphan
+        account rows)."""
+        if self.backend is None or not agent_id:
+            return
+        rec = self.backend.fetch_agent(agent_id)
+        if rec is not None:
+            self._refresh_in_place(self.agents, agent_id, rec)
+
+    def _sync_escrow_from_db(self, escrow_id):
+        """Refresh one in-memory escrow from the authoritative sqlite row, inside
+        a write transaction, so release/refund/dispute settle the CURRENT escrow
+        state exactly once (no double settle, no guild_revenue clobber)."""
+        if self.backend is None or not escrow_id:
+            return
+        rec = self.backend.fetch_escrow(escrow_id)
+        if rec is not None:
+            self._refresh_in_place(self.escrows, escrow_id, rec)
+
+    def _sync_task_from_db(self, task_id):
+        """Refresh one in-memory task from the authoritative sqlite row (receipt
+        acceptance + task-state transitions validate off this)."""
+        if self.backend is None or not task_id:
+            return
+        rec = self.backend.fetch_task(task_id)
+        if rec is not None:
+            self._refresh_in_place(self.tasks, task_id, rec)
+
+    def _ledger_head(self):
+        """(next_seq, prev_hash) for the durable chain — AUTHORITATIVE from the
+        DB under sqlite (so concurrent appenders seal contiguous seqs), else from
+        the in-memory list under the JSON store (byte-for-byte unchanged)."""
+        if self.backend is not None:
+            return self.backend.fetch_ledger_head()
+        prev = self.ledger_records[-1]["hash"] if self.ledger_records else ("0" * 64)
+        return len(self.ledger_records), prev
 
     def _sqlite_flush_all(self):
         """Safety net for cold mutation paths that only call _save(): upsert the
@@ -214,8 +317,8 @@ class Store:
             b.put_kv("identity", self.identity)
             b.put_kv("swarm_state", self.swarm_state)
             b.put_kv("guild_revenue", self.guild_revenue)
-            b.put_kv("outbound_invocations",
-                     self.__dict__.get("outbound_invocations", {}))
+            for _inv in self.__dict__.get("outbound_invocations", {}).values():
+                b.put_invocation(_inv)
 
     def _sqlite_initial_load(self):
         """One-time cutover: write the whole in-memory state (hydrated from the
@@ -249,8 +352,8 @@ class Store:
             b.put_kv("identity", self.identity)
             b.put_kv("swarm_state", self.swarm_state)
             b.put_kv("guild_revenue", self.guild_revenue)
-            b.put_kv("outbound_invocations",
-                     self.__dict__.get("outbound_invocations", {}))
+            for _inv in self.__dict__.get("outbound_invocations", {}).values():
+                b.put_invocation(_inv)
 
     def _load_sqlite(self):
         if self.backend.is_empty() and self.path and os.path.exists(self.path):
@@ -378,7 +481,12 @@ class Store:
         self.events.sort(key=lambda e: e.get("at") or "")
 
     def _journal_event(self, event: dict[str, Any]) -> None:
-        if not self.events_path:
+        # Under GUILD_STORE=sqlite the events TABLE is the canonical, transactional
+        # event store; the .events.jsonl sidecar is NOT a second required source
+        # (a crash between the SQLite commit and a JSONL append must never create
+        # an inconsistent claim). So the journal is disabled under sqlite — the
+        # journal is only read once, at cutover, to import a pre-sqlite JSON store.
+        if self.backend is not None or not self.events_path:
             return
         try:
             with open(self.events_path, "a") as f:
@@ -677,6 +785,7 @@ class Store:
         # 1. store the declaration (fresh declaration supersedes any stale
         #    verification record — a changed endpoint invalidates prior evidence).
         with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)     # authoritative current endpoint
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
@@ -721,6 +830,7 @@ class Store:
                     with _reach._inflight_lock:
                         _reach._inflight.discard(key)
             with self.lock, self._txn():
+                self._sync_agent_from_db(agent_id)   # authoritative under sqlite
                 agent = self.agents.get(agent_id)
                 # only apply if the endpoint hasn't changed under us
                 if agent and (agent.get("metadata") or {}).get("endpoint") == endpoint:
@@ -748,18 +858,26 @@ class Store:
         that binds endpoint↔agent↔invocation. Returns None if no endpoint."""
         reg = self.__dict__.setdefault("outbound_invocations", {})
         with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)     # authoritative current endpoint
             agent = self.agents.get(agent_id)
             endpoint = (agent or {}).get("metadata", {}).get("endpoint") if agent else None
             if not agent or not endpoint:
                 return None
             inv_id = "oinv_" + secrets.token_hex(12)
-            reg[inv_id] = {
-                "invocation_id": inv_id, "agent_id": agent_id,
+            now = _now()
+            rec = {
+                "id": inv_id, "invocation_id": inv_id, "agent_id": agent_id,
                 "endpoint": endpoint,
                 "endpoint_fingerprint": _reach.endpoint_fingerprint(endpoint),
-                "created_at": _now(), "status": "open"}
+                "created_at": now, "started_at": now, "completed_at": None,
+                "expires_at": (datetime.now(timezone.utc)
+                               + timedelta(seconds=3600)).isoformat(),
+                "status": "open"}
+            reg[inv_id] = rec
             if self.backend is not None:
-                self._persist_kv("outbound_invocations", reg)
+                # bind (id, agent_id, fingerprint, status=open) atomically in the
+                # dedicated outbound_invocations table (not a kv blob).
+                self.backend.put_invocation(rec)
             return {"invocation_id": inv_id, "endpoint": endpoint}
 
     def complete_outbound_invocation(self, invocation_id: str, *,
@@ -772,21 +890,33 @@ class Store:
         invocation_verified was set."""
         reg = self.__dict__.setdefault("outbound_invocations", {})
         with self.lock, self._txn():
+            if self.backend is not None:
+                # authoritative single-row read of the invocation INSIDE the txn.
+                db_inv = self.backend.fetch_invocation(invocation_id)
+                if db_inv is not None:
+                    reg[invocation_id] = db_inv
             inv = reg.get(invocation_id)
             if not inv or inv.get("status") != "open":
                 return False
             inv["status"] = "closed"
             inv["receipt_ref"] = receipt_ref
+            inv["completed_at"] = _now()
+            self._sync_agent_from_db(inv["agent_id"])   # authoritative endpoint
             agent = self.agents.get(inv["agent_id"])
-            if not agent:
+
+            def _terminal(result: str) -> bool:
+                inv["result"] = result
+                if self.backend is not None:
+                    self.backend.put_invocation(inv)   # persist the closed state
                 return False
+
+            if not agent:
+                return _terminal("agent_gone")
             current = (agent.get("metadata") or {}).get("endpoint")
             if not current or _reach.endpoint_fingerprint(current) != inv["endpoint_fingerprint"]:
-                inv["result"] = "endpoint_changed"
-                return False   # stale invocation against a previous endpoint
+                return _terminal("endpoint_changed")   # stale — endpoint moved
             if not protocol_ok:
-                inv["result"] = "protocol_failed"
-                return False
+                return _terminal("protocol_failed")
             agent["reachability"] = _reach.invocation_verified_record(current, invocation_id)
             inv["result"] = "verified"
             self.record_event(self.account_for_agent(inv["agent_id"]),
@@ -794,7 +924,7 @@ class Store:
                               agent_id=inv["agent_id"], invocation_id=invocation_id)
             if self.backend is not None:
                 self._persist_agent(inv["agent_id"])
-                self._persist_kv("outbound_invocations", reg)
+                self.backend.put_invocation(inv)
             self._save()
             return True
 
@@ -807,12 +937,14 @@ class Store:
         events keep their original actor key for attribution. `expires_in_days`
         optionally time-boxes the new credential."""
         with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)     # authoritative current key/account
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
             old = agent.get("api_key")
             old_actor = creds.actor_key_for_agent(agent)
             old_kid = agent.get("key_id") or (creds.key_id_of(old) if old else None)
+            self._sync_account_from_db(old_actor)  # rekey the LATEST account row
             new = self._fresh_api_key()
             agent["api_key_rotated_at"] = _now()
             if expires_in_days is not None:
@@ -876,6 +1008,7 @@ class Store:
         """Revoke the agent's api_key. The agent keeps its identity, record and
         history but can no longer authenticate; a later rotate re-issues."""
         with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)     # authoritative current record
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
@@ -2152,6 +2285,9 @@ class Store:
         replaces existing entries. Runs at startup, so legacy stores (tasks graded
         before dual-write existed) are healed on the next boot."""
         with self.lock, self._txn():
+            if self.backend is not None:
+                # authoritative chain: never heal against a stale in-memory list.
+                self.ledger_records = self.backend.all_ledger()
             have = {d.get("task_id") for d in self.ledger_records if d.get("task_id")}
             graded = [t for t in self.tasks.values()
                       if t.get("outcome") in ("accepted", "disputed", "rejected", "delivered")
@@ -2171,9 +2307,9 @@ class Store:
                 return None
             if any(d.get("task_id") == task_id for d in self.ledger_records):
                 return self.ledger_record_for_task(task_id)
-            head = self.ledger_records[-1]["hash"] if self.ledger_records else ("0" * 64)
+            next_seq, head = self._ledger_head()   # authoritative under sqlite
             rec = build_record_for_task(self, task)
-            rec.seq = len(self.ledger_records)
+            rec.seq = next_seq
             rec.prev_hash = head
             rec.seal()
             d = asdict(rec)
@@ -2194,8 +2330,8 @@ class Store:
             from .ledger import GenericEntry, GENERIC_ENTRY_TYPES
             if type not in GENERIC_ENTRY_TYPES:
                 raise ValueError(f"unknown ledger event type: {type}")
-            head = self.ledger_records[-1]["hash"] if self.ledger_records else ("0" * 64)
-            e = GenericEntry(seq=len(self.ledger_records), type=type, body=body,
+            next_seq, head = self._ledger_head()   # authoritative under sqlite
+            e = GenericEntry(seq=next_seq, type=type, body=body,
                              actor_did=actor_did, created_at=_now(),
                              prev_hash=head).seal()
             d = asdict(e)
@@ -2219,6 +2355,11 @@ class Store:
         since the last published checkpoint, the existing one is returned rather
         than publishing a duplicate. Meant to be called on a schedule."""
         with self.lock, self._txn():
+            if self.backend is not None:
+                # build on the AUTHORITATIVE committed ledger + checkpoint feed,
+                # not a possibly-stale in-memory view (concurrent appenders).
+                self.ledger_records = self.backend.all_ledger()
+                self.checkpoints = self.backend.all_checkpoints()
             gid = self.guild_identity()
             led = self.durable_ledger()
             cp = led.signed_checkpoint(gid["did"], gid["private_key"])
@@ -2327,6 +2468,7 @@ class Store:
         guild_mediated collaboration (deepening the reputation moat). Only the payer
         may release."""
         with self.lock, self._txn():
+            self._sync_escrow_from_db(escrow_id)   # authoritative status/amount
             esc = self.escrows.get(escrow_id)
             if esc is None:
                 raise ValueError("escrow not found")
@@ -2340,6 +2482,10 @@ class Store:
             worker_key = self.account_for_agent(esc["worker_id"])
             if worker_key:
                 self.credit(worker_key, payout, reason="escrow_payout")
+            if self.backend is not None:
+                # read the CURRENT committed counter INSIDE this txn so
+                # concurrent releases accumulate the fee, never clobber it.
+                self.guild_revenue = self.backend.fetch_kv("guild_revenue", 0)
             self.guild_revenue += fee
             _fee = {"key": "guild", "type": "settlement_fee",
                     "amount": fee, "balance_after": self.guild_revenue,
@@ -2382,6 +2528,7 @@ class Store:
         """Cancel and refund a funded escrow back to the requester (no fee, since no
         value was exchanged). Only the payer may refund, and only before release."""
         with self.lock, self._txn():
+            self._sync_escrow_from_db(escrow_id)   # authoritative status
             esc = self.escrows.get(escrow_id)
             if esc is None:
                 raise ValueError("escrow not found")
@@ -2408,6 +2555,7 @@ class Store:
         """Flag a funded escrow as disputed; funds stay held pending resolution.
         Either party (payer or worker) may raise it."""
         with self.lock, self._txn():
+            self._sync_escrow_from_db(escrow_id)   # authoritative status
             esc = self.escrows.get(escrow_id)
             if esc is None:
                 raise ValueError("escrow not found")
@@ -2738,6 +2886,7 @@ class Store:
         outcome: str = "delivered",
     ) -> dict[str, Any]:
         with self.lock, self._txn():
+            self._sync_task_from_db(task_id)       # authoritative current task
             task = self.tasks.get(task_id)
             if not task:
                 raise ValueError("task not found")

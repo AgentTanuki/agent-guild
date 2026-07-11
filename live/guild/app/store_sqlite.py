@@ -79,7 +79,8 @@ CREATE TABLE IF NOT EXISTS agents (
     api_key_hash TEXT,
     revoked_at   TEXT,
     expires_at   TEXT,
-    json         TEXT NOT NULL
+    json         TEXT NOT NULL,
+    version      INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS agents_key_id ON agents (key_id);
 
@@ -87,13 +88,15 @@ CREATE TABLE IF NOT EXISTS accounts (
     key            TEXT PRIMARY KEY,
     owner_agent_id TEXT,
     balance        INTEGER,
-    json           TEXT NOT NULL
+    json           TEXT NOT NULL,
+    version        INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS accounts_owner ON accounts (owner_agent_id);
 
 CREATE TABLE IF NOT EXISTS tasks (
-    id   TEXT PRIMARY KEY,
-    json TEXT NOT NULL
+    id      TEXT PRIMARY KEY,
+    json    TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS attestations (
@@ -105,7 +108,8 @@ CREATE TABLE IF NOT EXISTS escrows (
     id            TEXT PRIMARY KEY,
     status        TEXT,
     requester_key TEXT,
-    json          TEXT NOT NULL
+    json          TEXT NOT NULL,
+    version       INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS escrows_requester ON escrows (requester_key);
 
@@ -156,8 +160,24 @@ CREATE TABLE IF NOT EXISTS demand_watches (
     json TEXT NOT NULL
 );
 
--- singletons + transient registers: identity, swarm_state, guild_revenue,
--- outbound_invocations. Whole-value blobs keyed by name.
+-- Trusted AG-originated outbound invocations get a DEDICATED table (not a kv
+-- blob) so begin binds (id, agent_id, fingerprint, status=open) atomically and
+-- complete does an authoritative single-row read inside the same transaction.
+CREATE TABLE IF NOT EXISTS outbound_invocations (
+    id                   TEXT PRIMARY KEY,
+    agent_id             TEXT,
+    endpoint_fingerprint TEXT,
+    status               TEXT,
+    started_at           TEXT,
+    completed_at         TEXT,
+    expires_at           TEXT,
+    json                 TEXT NOT NULL,
+    version              INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS oinv_agent ON outbound_invocations (agent_id);
+
+-- singletons + transient registers: identity, swarm_state, guild_revenue.
+-- Whole-value blobs keyed by name. (outbound_invocations is now its own table.)
 CREATE TABLE IF NOT EXISTS kv (
     k    TEXT PRIMARY KEY,
     json TEXT NOT NULL
@@ -165,7 +185,7 @@ CREATE TABLE IF NOT EXISTS kv (
 """
 
 # collections persisted as whole-value blobs in kv.
-KV_SINGLETONS = ("identity", "swarm_state", "guild_revenue", "outbound_invocations")
+KV_SINGLETONS = ("identity", "swarm_state", "guild_revenue")
 
 
 def _j(value: Any) -> str:
@@ -239,10 +259,22 @@ class SqliteBackend:
     def _init_schema(self) -> None:
         con = self.conn()
         con.executescript(SCHEMA)
+        # Additive on-disk migration: a DB created by an earlier build of this
+        # backend may lack the `version` columns (optimistic-concurrency) — add
+        # them in place. CREATE TABLE IF NOT EXISTS already handles the new
+        # outbound_invocations table. Purely additive, so it is safe to re-run.
+        for table in ("agents", "accounts", "tasks", "escrows"):
+            self._ensure_column(con, table, "version", "INTEGER NOT NULL DEFAULT 0")
         row = con.execute("SELECT json FROM kv WHERE k='_schema_version'").fetchone()
         if row is None:
             con.execute("INSERT OR REPLACE INTO kv VALUES ('_schema_version', ?)",
                         (_j(SCHEMA_VERSION),))
+
+    @staticmethod
+    def _ensure_column(con: sqlite3.Connection, table: str, col: str, decl: str) -> None:
+        cols = {r[1] for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
+        if col not in cols:
+            con.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
 
     # --- transactions (re-entrant, BEGIN IMMEDIATE, retry-on-BUSY) ----------
     def _begin(self) -> None:
@@ -315,16 +347,55 @@ class SqliteBackend:
 
 
     # --- per-entity write-through hooks ------------------------------------
+    # The write-sensitive tables (agents, accounts, tasks, escrows,
+    # outbound_invocations) carry an integer `version` column. Every ``put_*``
+    # here is an UPSERT that BUMPS ``version`` on update (optimistic-concurrency
+    # stamp), so an authoritative-read-then-write done inside one BEGIN
+    # IMMEDIATE transaction can never silently clobber newer state, and a
+    # compare-and-swap (``*_cas``) is available for callers that want to detect
+    # the conflict explicitly rather than serialize on the write lock.
     def put_agent(self, rec: dict[str, Any]) -> None:
         self._exec(
-            "INSERT OR REPLACE INTO agents (id,key_id,api_key_hash,revoked_at,expires_at,json)"
-            " VALUES (?,?,?,?,?,?)",
+            "INSERT INTO agents (id,key_id,api_key_hash,revoked_at,expires_at,json,version)"
+            " VALUES (?,?,?,?,?,?,0)"
+            " ON CONFLICT(id) DO UPDATE SET key_id=excluded.key_id,"
+            " api_key_hash=excluded.api_key_hash, revoked_at=excluded.revoked_at,"
+            " expires_at=excluded.expires_at, json=excluded.json,"
+            " version=agents.version+1",
             (rec.get("id"), rec.get("key_id"), rec.get("api_key_hash"),
              rec.get("api_key_revoked_at"), rec.get("api_key_expires_at"), _j(rec)))
 
+    def update_agent_cas(self, rec: dict[str, Any], expected_version: int) -> bool:
+        """Compare-and-swap an agent row: apply ONLY if the stored version is
+        still ``expected_version``, bumping it on success. Returns True if the
+        write landed, False if a newer version was already committed (a stale
+        write — the caller must re-read and retry, never silently overwrite)."""
+        cur = self._retry(lambda: self.conn().execute(
+            "UPDATE agents SET key_id=?,api_key_hash=?,revoked_at=?,expires_at=?,"
+            "json=?,version=version+1 WHERE id=? AND version=?",
+            (rec.get("key_id"), rec.get("api_key_hash"),
+             rec.get("api_key_revoked_at"), rec.get("api_key_expires_at"),
+             _j(rec), rec.get("id"), expected_version)))
+        return cur.rowcount == 1
+
+    def fetch_agent(self, agent_id: str):
+        """Authoritative agent record straight from the DB (read INSIDE a write
+        transaction so credential/endpoint mutations validate against the latest
+        committed row, not a stale in-memory snapshot)."""
+        row = self.conn().execute(
+            "SELECT json,version FROM agents WHERE id=?", (agent_id,)).fetchone()
+        if not row:
+            return None
+        rec = json.loads(row[0])
+        rec["_version"] = row[1]
+        return rec
+
     def put_account(self, rec: dict[str, Any]) -> None:
         self._exec(
-            "INSERT OR REPLACE INTO accounts (key,owner_agent_id,balance,json) VALUES (?,?,?,?)",
+            "INSERT INTO accounts (key,owner_agent_id,balance,json,version)"
+            " VALUES (?,?,?,?,0)"
+            " ON CONFLICT(key) DO UPDATE SET owner_agent_id=excluded.owner_agent_id,"
+            " balance=excluded.balance, json=excluded.json, version=accounts.version+1",
             (rec.get("key"), rec.get("owner_agent_id"), rec.get("balance"), _j(rec)))
 
     def delete_account(self, key: str) -> None:
@@ -341,8 +412,17 @@ class SqliteBackend:
         return json.loads(row[0]) if row else None
 
     def put_task(self, rec: dict[str, Any]) -> None:
-        self._exec("INSERT OR REPLACE INTO tasks (id,json) VALUES (?,?)",
-                   (rec.get("id"), _j(rec)))
+        self._exec(
+            "INSERT INTO tasks (id,json,version) VALUES (?,?,0)"
+            " ON CONFLICT(id) DO UPDATE SET json=excluded.json, version=tasks.version+1",
+            (rec.get("id"), _j(rec)))
+
+    def fetch_task(self, task_id: str):
+        """Authoritative task record straight from the DB (used by receipt
+        acceptance + task-state transitions inside their write transaction)."""
+        row = self.conn().execute(
+            "SELECT json FROM tasks WHERE id=?", (task_id,)).fetchone()
+        return json.loads(row[0]) if row else None
 
     def put_attestation(self, rec: dict[str, Any]) -> None:
         self._exec("INSERT OR REPLACE INTO attestations (id,json) VALUES (?,?)",
@@ -350,8 +430,70 @@ class SqliteBackend:
 
     def put_escrow(self, rec: dict[str, Any]) -> None:
         self._exec(
-            "INSERT OR REPLACE INTO escrows (id,status,requester_key,json) VALUES (?,?,?,?)",
+            "INSERT INTO escrows (id,status,requester_key,json,version)"
+            " VALUES (?,?,?,?,0)"
+            " ON CONFLICT(id) DO UPDATE SET status=excluded.status,"
+            " requester_key=excluded.requester_key, json=excluded.json,"
+            " version=escrows.version+1",
             (rec.get("id"), rec.get("status"), rec.get("requester_key"), _j(rec)))
+
+    def fetch_escrow(self, escrow_id: str):
+        """Authoritative escrow record straight from the DB. Escrow
+        release/refund/dispute read THIS (not the in-memory copy) inside their
+        BEGIN IMMEDIATE transaction, so a concurrent release cannot settle the
+        same escrow twice and guild_revenue cannot be clobbered."""
+        row = self.conn().execute(
+            "SELECT json FROM escrows WHERE id=?", (escrow_id,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    # --- outbound invocations (dedicated table) ----------------------------
+    def put_invocation(self, rec: dict[str, Any]) -> None:
+        self._exec(
+            "INSERT INTO outbound_invocations"
+            " (id,agent_id,endpoint_fingerprint,status,started_at,completed_at,expires_at,json,version)"
+            " VALUES (?,?,?,?,?,?,?,?,0)"
+            " ON CONFLICT(id) DO UPDATE SET agent_id=excluded.agent_id,"
+            " endpoint_fingerprint=excluded.endpoint_fingerprint, status=excluded.status,"
+            " started_at=excluded.started_at, completed_at=excluded.completed_at,"
+            " expires_at=excluded.expires_at, json=excluded.json,"
+            " version=outbound_invocations.version+1",
+            (rec.get("id") or rec.get("invocation_id"), rec.get("agent_id"),
+             rec.get("endpoint_fingerprint"), rec.get("status"),
+             rec.get("started_at") or rec.get("created_at"), rec.get("completed_at"),
+             rec.get("expires_at"), _j(rec)))
+
+    def fetch_invocation(self, invocation_id: str):
+        """Authoritative invocation row straight from the DB (complete reads it
+        inside the write transaction to verify status=open + fingerprint)."""
+        row = self.conn().execute(
+            "SELECT json FROM outbound_invocations WHERE id=?", (invocation_id,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def fetch_kv(self, name: str, default: Any = None):
+        """Authoritative singleton value straight from the DB (e.g. the
+        guild_revenue counter, read inside an escrow-release transaction so
+        concurrent releases accumulate the fee instead of clobbering it)."""
+        row = self.conn().execute(
+            "SELECT json FROM kv WHERE k=?", (name,)).fetchone()
+        return json.loads(row[0]) if row else default
+
+    def fetch_ledger_head(self) -> tuple:
+        """(next_seq, prev_hash) computed AUTHORITATIVELY from the committed
+        ledger rows, so concurrent appenders each seal against the true chain
+        head and produce a contiguous, gap-free `seq` instead of clobbering."""
+        row = self.conn().execute(
+            "SELECT seq,json FROM ledger ORDER BY seq DESC LIMIT 1").fetchone()
+        if not row:
+            return 0, ("0" * 64)
+        return int(row[0]) + 1, json.loads(row[1]).get("hash", "0" * 64)
+
+    def all_ledger(self) -> list:
+        return [json.loads(r[0]) for r in
+                self.conn().execute("SELECT json FROM ledger ORDER BY seq").fetchall()]
+
+    def all_checkpoints(self) -> list:
+        return [json.loads(r[0]) for r in
+                self.conn().execute("SELECT json FROM checkpoints ORDER BY idx").fetchall()]
 
     def put_ledger(self, rec: dict[str, Any]) -> None:
         self._exec("INSERT OR REPLACE INTO ledger (seq,json) VALUES (?,?)",
@@ -389,7 +531,7 @@ class SqliteBackend:
     def is_empty(self) -> bool:
         con = self.conn()
         for t in ("agents", "accounts", "tasks", "attestations", "escrows",
-                  "ledger", "events"):
+                  "ledger", "events", "outbound_invocations"):
             if con.execute(f"SELECT 1 FROM {t} LIMIT 1").fetchone():
                 return False
         # kv singletons alone (e.g. identity) also count as non-empty.
@@ -415,6 +557,9 @@ class SqliteBackend:
         billing_log = rows("SELECT json FROM billing_log ORDER BY seq")
         health_log = rows("SELECT json FROM health_log ORDER BY seq")
         demand_watches = rows("SELECT json FROM demand_watches ORDER BY seq")
+        # outbound_invocations now has its OWN table (keyed by invocation id).
+        invocations = {r["id"]: r for r in
+                       rows("SELECT json FROM outbound_invocations ORDER BY started_at")}
         kv = {r[0]: json.loads(r[1]) for r in
               con.execute("SELECT k,json FROM kv").fetchall()}
         return {
@@ -426,7 +571,7 @@ class SqliteBackend:
             "identity": kv.get("identity", {}),
             "swarm_state": kv.get("swarm_state", {}),
             "guild_revenue": kv.get("guild_revenue", 0),
-            "outbound_invocations": kv.get("outbound_invocations", {}),
+            "outbound_invocations": invocations,
         }
 
     # --- ops helpers --------------------------------------------------------
