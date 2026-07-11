@@ -1,0 +1,12 @@
+{
+ "genuine_external_events": 137,
+ "genuine_external_unique": 3,
+ "genuine_external_first_query": 3,
+ "genuine_external_repeat_query": 3,
+ "genuine_external_paid_query": 0,
+ "engaged_strong_actors": [
+  "a2a:net:4580505bcff74682",
+  "anon"
+ ],
+ "journey_external_registered": 14
+}

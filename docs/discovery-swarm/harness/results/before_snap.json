@@ -1,0 +1,21 @@
+{
+ "genuine_external_events": 137,
+ "genuine_external_unique": 3,
+ "genuine_external_first_query": 3,
+ "genuine_external_repeat_query": 3,
+ "genuine_external_paid_query": 0,
+ "engaged_strong_actors": [
+  "a2a:net:4580505bcff74682",
+  "anon"
+ ],
+ "caller_classes": {
+  "EXTERNAL_UNKNOWN": 447,
+  "EXTERNAL_MEMBER": 28,
+  "EXTERNAL_VERIFIED": 8,
+  "AG_INTERNAL": 51,
+  "AG_TEST": 65,
+  "REGISTRY_CRAWLER": 10
+ },
+ "journey_external_registered": 14,
+ "referrals": null
+}
