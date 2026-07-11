@@ -1,0 +1,5 @@
+=== firstparty dark-deploy BEFORE probe 2026-07-11T08:23:41Z ===
+deployed rev: 6dd049dad089a0e174907fc18cb4400d75987e98
+health: {"ok":true,"agents":53,"tasks":203,"attestations":200}
+genuine_external_events: 137
+caller_classes: {'EXTERNAL_UNKNOWN': 451, 'EXTERNAL_MEMBER': 28, 'EXTERNAL_VERIFIED': 8, 'AG_INTERNAL': 51, 'AG_TEST': 67, 'REGISTRY_CRAWLER': 10}
