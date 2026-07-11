@@ -86,3 +86,15 @@ def test_ag_test_and_crawler_uas_are_never_genuine_external():
         assert not is_genuine_external(e), ua
         assert attribution_class(e) in ("ag_test", "registry_crawler"), (
             ua, attribution_class(e))
+
+
+def test_mcp_canary_and_reachability_probe_uas_are_ag_test():
+    """Found leaking 2026-07-11: the MCP canary (mcp:guild-canary/1) was counted
+    genuine_external because it fell back to a bogus token and its UA wasn't
+    matched server-side. It is first-party by construction — match it here so it
+    can never inflate external metrics regardless of its runtime token."""
+    from app.attribution import attribution_class
+    for ua in ("mcp:guild-canary/1", "guild-canary", "guild-reachability-probe/1"):
+        e = _e(ua=ua)
+        assert not is_genuine_external(e), ua
+        assert attribution_class(e) == "ag_test", (ua, attribution_class(e))

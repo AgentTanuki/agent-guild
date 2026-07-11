@@ -169,7 +169,12 @@ CRAWLER_UA_RE = re.compile(
 # Our own test harnesses, self-identified by UA. Narrow on purpose: these are
 # names WE ship, not generic tooling (generic tooling is handled separately).
 AG_TEST_UA_RE = re.compile(
-    r"(colddiscoveryharness|pilot-?a-audit|guild-ops-check|agentguild-selftest)",
+    r"(colddiscoveryharness|pilot-?a-audit|guild-ops-check|agentguild-selftest|"
+    # the MCP canary (mcp:guild-canary/1 or a bare guild-canary token fallback):
+    # it is first-party by construction, so match its UA server-side too — it must
+    # never read as genuine_external even if its runtime lacks the first-party
+    # token (found leaking 2026-07-11).
+    r"guild-canary|guild-reachability-probe)",
     re.I)
 
 
