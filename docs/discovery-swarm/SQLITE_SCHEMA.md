@@ -159,3 +159,20 @@ Under `GUILD_STORE=sqlite`, **SQLite is the canonical event store**. The
 
 Rollback to the JSON store re-enables the journal automatically (the guard keys
 off `self.backend`).
+
+
+## Revenue: ledger unambiguity + reconciliation (2026-07-10)
+
+`guild_revenue` is derived, not a counter. The AUTHORITATIVE source is the
+escrows table (`guild_revenue_total()` = SUM of `fee` over `status='released'`),
+idempotent by the `escrow_id` primary key. Per the requirement that every
+settlement fee also be represented **unambiguously in the ledger**: each
+released escrow seals exactly ONE `escrow_event` ledger record with
+`body.event='released'` carrying `body.fee` (opened events carry a prospective
+fee; refunded events carry none — so only `released` counts).
+`ledger_settlement_fee_total()` sums `body.fee` where
+`type='escrow_event' AND body.event='released'`. The invariant
+`ledger_settlement_fee_total() == guild_revenue_total() == sum(settlement_fee
+billing rows)` is asserted by
+`test_settlement_fee_is_unambiguous_in_the_ledger_and_reconciles` — a divergence
+would mean a settlement fee is missing from or duplicated in the ledger.

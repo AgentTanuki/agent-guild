@@ -668,3 +668,50 @@ def test_concurrent_ledger_appends_contiguous_seq(_force_sqlite):
     # and the hash chain re-verifies from the persisted rows
     s2 = _store()
     assert s2.durable_ledger().verify_chain() is True, "hash chain broke under concurrency"
+
+
+def test_settlement_fee_is_unambiguous_in_the_ledger_and_reconciles():
+    """User condition (2026-07-10): the escrows-derived revenue is authoritative
+    ONLY because every settlement fee is represented unambiguously in the
+    ledger. Prove the three independent representations agree — escrows table
+    (authoritative), ledger escrow_event records (the condition), and the
+    settlement_fee billing rows — after a mix of releases, refunds and a
+    double-release attempt."""
+    import os, tempfile, uuid
+    from app.store import Store
+    os.environ["GUILD_STORE"] = "sqlite"
+    s = Store(path=os.path.join(tempfile.mkdtemp(), f"{uuid.uuid4().hex}.db"))
+    payer = s.register_agent("Payer", ["hire"], {})
+    worker = s.register_agent("Worker", ["x"], {})
+    s.credit(payer["api_key"], 10_000)
+    fee_total_expected = 0
+    escrow_ids = []
+    for i in range(8):
+        e = s.open_escrow(payer["api_key"], worker["id"], 100, "cap", {})
+        escrow_ids.append(e["id"])
+    # release 5, refund 2, leave 1 funded; attempt a DOUBLE release on one
+    for eid in escrow_ids[:5]:
+        r = s.release_escrow(eid, payer["api_key"])
+        fee_total_expected += r["fee"]
+    import pytest as _pt
+    with _pt.raises(ValueError):
+        s.release_escrow(escrow_ids[0], payer["api_key"])  # double-release rejected (idempotent)
+    for eid in escrow_ids[5:7]:
+        s.refund_escrow(eid, payer["api_key"])   # refunds contribute NO fee
+    b = s.backend
+    escrows_derived = b.guild_revenue_total()
+    ledger_derived = b.ledger_settlement_fee_total()
+    billing_derived = sum(x["amount"] for x in s.billing_log
+                          if x.get("type") == "settlement_fee")
+    # every settlement fee appears in the ledger exactly once => all three agree
+    assert escrows_derived == fee_total_expected, (escrows_derived, fee_total_expected)
+    assert ledger_derived == escrows_derived, (
+        f"ledger-derived {ledger_derived} != escrows-derived {escrows_derived} "
+        f"-> a settlement fee is missing/duplicated in the ledger")
+    assert billing_derived == escrows_derived, (billing_derived, escrows_derived)
+    # exactly one escrow_event ledger record per RELEASED escrow (5), not 6
+    released_events = [r for r in s.ledger_records
+                       if r.get("type") == "escrow_event"
+                       and (r.get("body") or {}).get("event") == "released"]
+    assert len(released_events) == 5, len(released_events)
+    os.environ.pop("GUILD_STORE", None)

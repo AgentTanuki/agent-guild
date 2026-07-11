@@ -517,6 +517,24 @@ class SqliteBackend:
             "WHERE status='released'").fetchone()
         return int(row[0]) if row and row[0] is not None else 0
 
+    def ledger_settlement_fee_total(self) -> int:
+        """The SAME revenue figure DERIVED FROM THE LEDGER: SUM of ``body.fee``
+        over every ``escrow_event`` ledger record. Each released escrow seals
+        exactly one ``escrow_event`` carrying its ``fee`` (keyed by escrow_id,
+        guarded by the ``status='funded'`` read), so every settlement fee is
+        represented in the ledger unambiguously — once. This reconciles with
+        ``guild_revenue_total()`` (the authoritative escrows-derived value); a
+        divergence would mean a settlement fee is missing from or duplicated in
+        the ledger."""
+        # Only a RELEASED escrow_event is a settlement. opened events also carry
+        # the (prospective) fee and refunded events carry none — so the sum is
+        # taken over body.event='released' to match settled revenue exactly.
+        row = self.conn().execute(
+            "SELECT COALESCE(SUM(json_extract(json,'$.body.fee')),0) FROM ledger "
+            "WHERE json_extract(json,'$.type')='escrow_event' "
+            "AND json_extract(json,'$.body.event')='released'").fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
     def fetch_ledger_head(self) -> tuple:
         """(next_seq, prev_hash) computed AUTHORITATIVELY from the committed
         ledger rows, so concurrent appenders each seal against the true chain
