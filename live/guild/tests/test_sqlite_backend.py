@@ -14,6 +14,7 @@ is GUILD_STORE=json or =sqlite.
 import json
 import os
 import pathlib
+import sqlite3
 import subprocess
 import sys
 
@@ -76,6 +77,18 @@ elif op == "invoke":
         if r and s.complete_outbound_invocation(r["invocation_id"], protocol_ok=True):
             ok += 1
     print("verified", ok)
+elif op == "release":
+    ok = 0
+    for eid in arg["escrow_ids"]:
+        try:
+            s.release_escrow(eid, arg["key"], deliverable_hash="0x" + "bb" * 32); ok += 1
+        except Exception:
+            pass
+    print("released", ok)
+elif op == "ledger":
+    for i in range(arg["n"]):
+        s.append_ledger_event("config_change", {"tag": arg["tag"], "i": i})
+    print("ok")
 elif op == "reader":
     end = time.time() + arg["secs"]
     reads = 0
@@ -173,11 +186,18 @@ def test_concurrent_rotations_leave_one_valid_credential(_force_sqlite):
     assert rows == 1, f"expected exactly 1 agent row (1 credential), observed {rows}"
     # the store is internally consistent after the rotation storm.
     assert s2.backend.integrity_check() == "ok"
-    # NOTE: orphan account rows can remain from a concurrent same-agent rekey
-    # race (each writer rekeys off its own stale in-memory account map). Those
-    # keys are dead (authenticate for nobody) and cannot occur under the
-    # single-writer production topology; the credential invariant above is the
-    # one the task requires.
+    # DB-AUTHORITATIVE REKEY (account-rekey-orphan invariant, now under
+    # multi-process): each rotation rekeys off the LATEST committed agent+account
+    # row (BEGIN IMMEDIATE serializes writers), so exactly ONE account row
+    # survives for this agent — no orphan (dead, authenticate-for-nobody) rows.
+    active = creds.actor_key_for_agent(rec)
+    con = sqlite3.connect(db)
+    keys = [r[0] for r in con.execute(
+        "SELECT key FROM accounts WHERE owner_agent_id=?", (aid,)).fetchall()]
+    con.close()
+    assert keys == [active], (
+        f"expected exactly one account row keyed {active!r} for agent {aid}, "
+        f"observed {keys} — orphan rekey rows leaked")
 
 
 # --- 3. concurrent endpoint declarations on DIFFERENT agents -----------------
@@ -411,3 +431,166 @@ def test_wal_checkpoint(_force_sqlite):
     assert len(s2.agents) == 100, (
         f"expected 100 agents after WAL checkpoint, observed {len(s2.agents)}")
     assert s2.backend.integrity_check() == "ok"
+
+
+# --- 14. optimistic-concurrency: a STALE version write is rejected -----------
+def test_stale_version_write_is_rejected(_force_sqlite):
+    """The version column + compare-and-swap detects a lost update: a writer
+    holding an old version can NOT silently overwrite a newer committed row."""
+    s = _store()
+    agent = s.register_agent("casualty", ["cap"], {})
+    aid = agent["id"]
+    b = s.backend
+    # read the row + its current version authoritatively
+    with b.transaction():
+        rec0 = b.fetch_agent(aid)
+    v0 = rec0["_version"]
+    # a concurrent writer commits a newer version (bumps to v0+1)
+    with b.transaction():
+        cur = b.fetch_agent(aid); cur.pop("_version", None)
+        cur["metadata"] = {"note": "newer"}
+        b.put_agent(cur)
+    with b.transaction():
+        assert b.fetch_agent(aid)["_version"] == v0 + 1
+    # the stale writer (still holding v0) attempts a CAS at the OLD version
+    stale = dict(rec0); stale.pop("_version", None)
+    stale["metadata"] = {"note": "STALE — must not land"}
+    with b.transaction():
+        applied = b.update_agent_cas(stale, expected_version=v0)
+    assert applied is False, "a stale-version CAS was silently applied (lost update)"
+    # newer state survived; the stale write did not clobber it
+    with b.transaction():
+        final = b.fetch_agent(aid)
+    assert final["metadata"] == {"note": "newer"}, (
+        f"stale write clobbered newer state: {final['metadata']}")
+    # and a CAS at the CURRENT version does land (and bumps again)
+    ok_rec = dict(final); ok_rec.pop("_version", None)
+    ok_rec["metadata"] = {"note": "current-wins"}
+    with b.transaction():
+        applied2 = b.update_agent_cas(ok_rec, expected_version=final["_version"])
+    assert applied2 is True
+    with b.transaction():
+        assert b.fetch_agent(aid)["metadata"] == {"note": "current-wins"}
+
+
+# --- 15. concurrent debits: EXACT success/reject + one record per success -----
+def test_concurrent_debits_exact_accounting(_force_sqlite):
+    """Stronger than the no-double-spend test: assert the exact number of
+    successful vs rejected debits, the balance equation, EXACTLY ONE billing
+    record per successful debit, and NO financial record for a rejected one."""
+    db = _force_sqlite
+    s = _store()
+    payer = s.register_agent("exact_payer", ["cap"], {})
+    key = payer["api_key"]
+    # fund with an EXACT budget: only `affordable` debits can succeed.
+    procs, per, amount = 4, 40, 5
+    attempts = procs * per                 # 160 debit attempts
+    affordable = 90                        # only 90 can succeed
+    start_free = s.get_account(key)["balance"]
+    s.credit(key, affordable * amount - start_free, reason="seed")  # exact budget
+    start = s.get_account(key)["balance"]
+    assert start == affordable * amount
+
+    results = _spawn(db, "debit", {"key": key, "n": per, "amount": amount}, count=procs)
+    _no_crash(results)
+    succeeded = sum(int(o.split()[-1]) for _, o, _ in results)
+    rejected = attempts - succeeded
+
+    con = sqlite3.connect(db)
+    bal = con.execute("SELECT balance FROM accounts WHERE key=?", (
+        s._account_key(key),)).fetchone()[0]
+    # one billing row per SUCCESSFUL charge; rejected debits leave NONE
+    charge_rows = con.execute(
+        "SELECT COUNT(*) FROM billing_log WHERE json LIKE '%\"type\":\"charge\"%'"
+    ).fetchone()[0]
+    con.close()
+
+    assert succeeded == affordable, (
+        f"expected exactly {affordable} successful debits, observed {succeeded}")
+    assert rejected == attempts - affordable, (
+        f"expected exactly {attempts - affordable} rejected, observed {rejected}")
+    assert bal >= 0, f"balance went negative: {bal}"
+    assert bal == start - succeeded * amount == 0, (
+        f"balance equation broken: start={start} succeeded={succeeded}x{amount} "
+        f"observed={bal}")
+    assert charge_rows == succeeded, (
+        f"expected exactly {succeeded} billing 'charge' rows (one per success), "
+        f"observed {charge_rows} — a rejected debit left a committed record, or "
+        f"a success double-recorded")
+
+
+# --- 16. concurrent escrow RELEASES: guild_revenue exact, idempotent ---------
+def test_concurrent_escrow_releases_guild_revenue_exact(_force_sqlite):
+    """guild_revenue invariant UNDER MULTI-PROCESS: many processes race to
+    release the SAME set of escrows. Each escrow settles EXACTLY ONCE (the
+    escrow_id is the idempotency key), guild_revenue equals the sum of fees with
+    no clobber, and the worker is paid exactly once per escrow."""
+    db = _force_sqlite
+    s = _store()
+    payer = s.register_agent("rel_payer", ["cap"], {})
+    worker = s.register_agent("rel_worker", ["cap"], {})
+    key = payer["api_key"]
+    s.credit(key, 1_000_000, reason="seed")
+    n_esc, amount = 12, 100
+    escrow_ids = [s.open_escrow(key, worker["id"], amount, capability="c")["id"]
+                  for _ in range(n_esc)]
+    fee_each = s.get_escrow(escrow_ids[0])["fee"]
+    worker_key = s.account_for_agent(worker["id"])
+    # read the worker account by its stored key directly (get_account resolves a
+    # CREDENTIAL, and a bare public key_id is not one under GUILD_HASH_KEYS=1).
+    worker_start = s.accounts[worker_key]["balance"]
+
+    # 4 processes EACH try to release ALL escrows -> contention on every escrow.
+    results = _spawn(db, "release",
+                     {"key": key, "escrow_ids": escrow_ids}, count=4)
+    _no_crash(results)
+    total_released = sum(int(o.split()[-1]) for _, o, _ in results)
+
+    s2 = _store()
+    con = sqlite3.connect(db)
+    released_rows = con.execute(
+        "SELECT COUNT(*) FROM escrows WHERE status='released'").fetchone()[0]
+    con.close()
+
+    # each escrow settled exactly once, even though 4 processes tried each.
+    assert total_released == n_esc, (
+        f"expected exactly {n_esc} successful releases across all processes "
+        f"(idempotent per escrow_id), observed {total_released}")
+    assert released_rows == n_esc, (
+        f"expected {n_esc} escrows in status=released, observed {released_rows}")
+    # guild_revenue == sum of fees, no clobber under concurrent releases.
+    assert s2.guild_revenue == n_esc * fee_each, (
+        f"guild_revenue clobbered: expected {n_esc * fee_each} "
+        f"({n_esc}x{fee_each}), observed {s2.guild_revenue}")
+    # worker paid exactly once per escrow (amount - fee).
+    worker_final = s2.accounts[worker_key]["balance"]
+    assert worker_final == worker_start + n_esc * (amount - fee_each), (
+        f"worker payout wrong: start={worker_start} "
+        f"expected+={n_esc}x{amount - fee_each} observed={worker_final}")
+
+
+# --- 17. concurrent ledger appends: contiguous seq, no gaps, no clobber ------
+def test_concurrent_ledger_appends_contiguous_seq(_force_sqlite):
+    """ledger-seq invariant UNDER MULTI-PROCESS: concurrent appenders each seal
+    against the authoritative DB head, so the persisted chain has contiguous
+    seqs 0..N-1 with no gap, no duplicate, and no lost append."""
+    db = _force_sqlite
+    s = _store()
+    before = len(s.backend.all_ledger())   # register events already on the chain
+    procs, per = 4, 30
+    results = _spawn(db, "ledger", {"n": per}, count=procs,
+                     tags=[f"L{i}" for i in range(procs)])
+    _no_crash(results)
+    con = sqlite3.connect(db)
+    seqs = [r[0] for r in con.execute("SELECT seq FROM ledger ORDER BY seq").fetchall()]
+    con.close()
+    expected_total = before + procs * per
+    assert len(seqs) == expected_total, (
+        f"expected {expected_total} ledger rows, observed {len(seqs)} "
+        f"(lost {expected_total - len(seqs)} appends)")
+    assert seqs == list(range(expected_total)), (
+        "ledger seq not contiguous 0..N-1 (gap, dup, or clobber): "
+        f"head={seqs[:3]} tail={seqs[-3:]}")
+    # and the hash chain re-verifies from the persisted rows
+    s2 = _store()
+    assert s2.durable_ledger().verify_chain() is True, "hash chain broke under concurrency"
