@@ -31,7 +31,7 @@ Every current `Store` collection is represented **exactly once**:
 | 10 | `ledger_records` (append-only, hash-chained) | `ledger` | PK `seq` = the record's **own** monotonic hash-chain sequence (NOT autoincrement), preserving chain order exactly. |
 | 11 | `checkpoints` (append-only list) | `checkpoints` | PK `idx` = the checkpoint's own index. |
 | 12 | `escrows` (dict)           | `escrows`    | PK `id`. Lifted+indexed: `status`, `requester_key`. `version` column. |
-| 13 | `guild_revenue` (int, singleton) | `kv['guild_revenue']` | Whole-value scalar keyed by name. |
+| 13 | `guild_revenue` (int, singleton) | **DERIVED** (SUM over `escrows` where `status=released`); `kv['guild_revenue']` kept only as a denormalised cache | Not a stored mutable counter — see "Derived revenue" below. |
 | 14 | `demand_watches` (append-only list) | `demand_watches` | PK `seq` **AUTOINCREMENT** — one row per entry. |
 | 15 | `swarm_state` (dict, singleton) | `kv['swarm_state']` | Whole-value blob keyed by name. |
 | 16 | `outbound_invocations` (dict) | `outbound_invocations` | PK `id`. **Dedicated table** (not a kv blob): columns `agent_id`, `endpoint_fingerprint`, `status`, `started_at`, `completed_at`, `expires_at`, `json`, `version`. Indexed `agent_id`. |
@@ -64,7 +64,7 @@ read-modify-write is serialized, not merely locked in-process.
 
 Operations made database-authoritative this way: credit/debit (`charge`,
 `credit`, `grant_trial`), escrow `open`/`release`/`refund`/`dispute` (including
-the `guild_revenue` counter), credential `rotate`/`revoke`, endpoint replacement
+the DERIVED `guild_revenue`; see "Derived revenue"), credential `rotate`/`revoke`, endpoint replacement
 (`set_agent_endpoint`), outbound invocation begin/complete, receipt acceptance
 (`submit_receipt`), ledger appends (`append_ledger_event`,
 `append_task_to_ledger`) and checkpoint publication.
@@ -78,6 +78,67 @@ retries/fails rather than silently clobbering newer state (proven by
 `test_stale_version_write_is_rejected`). Most operations rely on the
 authoritative `BEGIN IMMEDIATE` read+write; the version column + CAS are the
 explicit lost-update guard on top.
+
+## Derived revenue (amendment 1 — no read-modify-write counter)
+
+`guild_revenue` is **not** a mutable counter under sqlite. It is **DERIVED** from
+the committed settlement records as a query:
+
+```sql
+SELECT COALESCE(SUM(json_extract(json,'$.fee')),0)
+FROM escrows WHERE status='released';
+```
+
+exposed as `SqliteBackend.guild_revenue_total()`. `release_escrow` settles the
+escrow (`status='released'`, committed in the same `BEGIN IMMEDIATE`) and then
+sets the in-memory `self.guild_revenue` cache from that query; a fresh
+`Store.load` re-derives it the same way. Nothing ever does
+`revenue = read(); revenue += fee; write(revenue)`.
+
+**Why the escrows table, not the ledger.** The amendment's preferred source was
+the ledger's `escrow_event/released` rows (which also carry the fee). We chose
+the **escrows** table instead, for two reasons: (1) it is idempotent by
+`escrow_id`, the table's PRIMARY KEY — a given escrow contributes its fee **at
+most once** no matter how many times a release is attempted, because release is
+guarded by an authoritative `status='funded'` read, so a second attempt is
+rejected before it can add a second `released` row anywhere; and (2) it is
+**complete regardless of when ledger dual-write began** — every settled escrow
+is in the escrows table by construction, whereas very old settlements predating
+the ledger dual-write would be missing from the ledger and under-count a
+ledger-derived figure. The result is a value that is ALWAYS exact and that
+concurrent releases can neither clobber nor double-count (proven under
+multi-process contention by `test_concurrent_escrow_releases_guild_revenue_exact`
+and `test_concurrent_distinct_escrow_releases_revenue_exact`, and under retry by
+`test_revenue_increment_not_duplicated`).
+
+## Retry idempotency (amendment 3 — a retry commits exactly once or fails)
+
+The backend retries on `SQLITE_BUSY`/lock conflict. It **cannot** duplicate a
+committed side effect, and this is proven, not asserted:
+
+- The retry boundary is a **single SQL statement** — `BEGIN IMMEDIATE`
+  (`_begin`), a `put_*`/append (`_exec`), or `COMMIT` (`_commit`) — **never a
+  replay of the Python method body**, so no in-Python mutation is ever
+  re-executed. (The current design already had this shape: the retry does NOT
+  wrap the whole transaction, so there was no in-Python replay to fix; the
+  hardening was to make revenue derived and to document + test the guarantee.)
+- SQLite guarantees a statement that returns `SQLITE_BUSY` **did not modify the
+  database** (the lock is refused before any page write), so re-issuing it can
+  never double-apply. `BEGIN IMMEDIATE` only fails BUSY while acquiring the write
+  lock (nothing applied yet); `COMMIT` is atomic (a BUSY'd commit left the txn
+  open → the retry commits it once; an already-succeeded commit closed the txn →
+  a spurious retry is a no-op).
+- Every effect is idempotent by a **natural key** on replay: `agents.id`,
+  `accounts.key`, `tasks.id`, `escrows.id`, `outbound_invocations.id`,
+  `ledger.seq` (INSERT OR REPLACE), rotation on the single agent row keyed by the
+  new `key_id`, and revenue as the derived SUM above.
+
+`tests/test_sqlite_retry_idempotency.py` injects `OperationalError("database is
+locked")` once or twice *before* the real statement runs (modelling
+BUSY-before-apply) at both the `BEGIN` and `COMMIT` boundaries, and asserts NO
+duplication of any of the seven side-effect types: **events, ledger records,
+billing entries, receipts, escrow movements, revenue increments, and
+credential-rotation events**.
 
 ## Event-persistence decision (JSONL under sqlite)
 
