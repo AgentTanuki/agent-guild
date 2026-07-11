@@ -202,3 +202,14 @@ def test_two_process_concurrent_sqlite_writers_lose_zero_writes(populated):
     con.close()
     ok, msg = mig.verify_ledger_chain(rows)
     assert ok, msg
+
+
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _force_json_backend(monkeypatch):
+    """These tests validate JSON-backend internals (the .events.jsonl journal,
+    the on-disk JSON state file, or the JSON migration source), so they pin the
+    default JSON store regardless of an ambient GUILD_STORE=sqlite run."""
+    monkeypatch.setenv("GUILD_STORE", "json")

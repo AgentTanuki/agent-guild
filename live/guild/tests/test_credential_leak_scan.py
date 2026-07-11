@@ -100,3 +100,14 @@ def test_production_kdf_cost_is_bounded():
     assert dt < 100, f"verify took {dt:.0f}ms at 100k iters"
     os.environ["GUILD_KDF_ITERS"] = "1000"; os.environ["GUILD_ALLOW_WEAK_KDF"]="1"
     importlib.reload(creds)
+
+
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _force_json_backend(monkeypatch):
+    """These tests validate JSON-backend internals (the .events.jsonl journal,
+    the on-disk JSON state file, or the JSON migration source), so they pin the
+    default JSON store regardless of an ambient GUILD_STORE=sqlite run."""
+    monkeypatch.setenv("GUILD_STORE", "json")

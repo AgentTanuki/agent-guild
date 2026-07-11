@@ -361,3 +361,14 @@ def test_scope_denial_is_audited(hash_off):
     assert r.status_code == 403
     assert any(e.get("type") == "scope_denied" and e.get("required_scope") == "attest"
                and e.get("agent_id") == a["id"] for e in store.events)
+
+
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _force_json_backend(monkeypatch):
+    """These tests validate JSON-backend internals (the .events.jsonl journal,
+    the on-disk JSON state file, or the JSON migration source), so they pin the
+    default JSON store regardless of an ambient GUILD_STORE=sqlite run."""
+    monkeypatch.setenv("GUILD_STORE", "json")

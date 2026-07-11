@@ -15,7 +15,9 @@ import json
 import os
 import secrets
 import statistics
+import sys
 import threading
+from contextlib import nullcontext
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
@@ -76,10 +78,347 @@ class Store:
         # event durable in O(1): one JSON line per event, replayed on _load,
         # compacted into the main file (and truncated) on every _save.
         self.events_path = (self.path + ".events.jsonl") if self.path else ""
+        # --- pluggable persistence backend (GUILD_STORE) --------------------
+        # Default "json" = the historical behavior, byte for byte. "sqlite"
+        # swaps in a per-entity, write-through, crash-safe backend. Reads still
+        # come from the in-memory collections (correct under a single writer);
+        # only the persistence path changes.
+        self.store_mode = (os.environ.get("GUILD_STORE") or "json").strip().lower()
+        self.backend = None
+        if self.store_mode == "sqlite":
+            self._guard_single_writer()          # sqlite is single-writer ONLY
+            from .store_sqlite import SqliteBackend
+            self.backend = SqliteBackend(self._sqlite_path())
         self._load()
+
+    # --- pluggable sqlite backend (GUILD_STORE=sqlite) ----------------------
+    @staticmethod
+    def _guard_single_writer() -> None:
+        """Refuse to start GUILD_STORE=sqlite when MULTIPLE worker PROCESSES are
+        configured. Read this as three DISTINCT layers — do NOT conflate them:
+
+        1. APPLICATION GUARD (this method) = worker-PROCESS protection ONLY. It
+           refuses to start when this container is knowingly configured for >1
+           writer process (WEB_CONCURRENCY / GUILD_WORKERS / UVICORN_WORKERS > 1,
+           or an explicit ``uvicorn --workers N``). That is ALL it can see. It
+           CANNOT observe, and therefore does NOT prove, how many Render SERVICE
+           INSTANCES exist — a second instance running one worker each would each
+           pass this guard.
+
+        2. RENDER PERSISTENT-DISK TOPOLOGY = the infrastructure-level single-
+           INSTANCE constraint. A Render persistent disk cannot be mounted by
+           more than one instance, so while the SQLite file lives on that disk
+           the service cannot be horizontally scaled. This is what actually keeps
+           writers to one — and the APPLICATION CANNOT VERIFY IT from inside the
+           process. It is an operational invariant, enforced by Render, not by
+           this code.
+
+        3. FUTURE TOPOLOGY CHANGES require a Postgres migration review FIRST. Any
+           change that could admit a second writer — adding instances, removing
+           or detaching the persistent disk, enabling autoscaling, or moving off
+           Render — MUST go through an explicit Postgres migration review BEFORE
+           it is made. SQLite on a shared/absent disk re-introduces the whole-
+           file clobber class of failure; this guard will NOT catch that case.
+
+        So: this guard guarantees single-PROCESS-per-container, NOT single-
+        instance. Single-instance is a Render-disk property the app trusts but
+        cannot check. Override (single node, accepting the risk) with
+        GUILD_SQLITE_ALLOW_MULTIWORKER=1."""
+        if (os.environ.get("GUILD_SQLITE_ALLOW_MULTIWORKER") or "").strip() in ("1", "true", "yes"):
+            return
+        def _envint(name: str) -> int:
+            try:
+                return int((os.environ.get(name) or "0").strip() or 0)
+            except ValueError:
+                return 0
+        workers = max(_envint("WEB_CONCURRENCY"), _envint("GUILD_WORKERS"),
+                      _envint("UVICORN_WORKERS"))
+        import re as _re
+        m = _re.search(r"--workers[=\s]+(\d+)", " ".join(sys.argv))
+        if m:
+            workers = max(workers, int(m.group(1)))
+        if workers > 1:
+            raise RuntimeError(
+                f"GUILD_STORE=sqlite refused: {workers} worker PROCESSES are "
+                "configured (WEB_CONCURRENCY/GUILD_WORKERS/UVICORN_WORKERS or "
+                "uvicorn --workers). This is the APPLICATION GUARD, and it only "
+                "protects against multiple worker PROCESSES in THIS container — "
+                "it does NOT and CANNOT prove a single Render service INSTANCE "
+                "(that is a persistent-disk topology property: a Render disk "
+                "cannot be mounted by >1 instance, which the app cannot verify "
+                "from inside the process). Run ONE uvicorn worker on ONE instance "
+                "with ONE mounted disk. Adding instances, removing the disk, or "
+                "moving off Render REQUIRES an explicit Postgres migration review "
+                "FIRST. Set GUILD_SQLITE_ALLOW_MULTIWORKER=1 to override on a "
+                "single node, accepting the risk.")
+
+    def _sqlite_path(self) -> str:
+        """Where the sqlite database lives. GUILD_STORE_PATH wins; otherwise it
+        sits next to a concrete data file (…/guild.json -> …/guild.sqlite3). With
+        NO data path (the JSON store's in-memory mode) we use a private
+        shared-cache in-memory database, so each pathless Store is independent
+        and ephemeral, exactly like path='' under JSON."""
+        explicit = os.environ.get("GUILD_STORE_PATH")
+        if explicit:
+            return explicit
+        base = self.path or os.environ.get("GUILD_DATA", "")
+        if not base:
+            return (f"file:guildmem_{id(self):x}_{secrets.token_hex(4)}"
+                    "?mode=memory&cache=shared")
+        stem = base[:-5] if base.endswith(".json") else base
+        return stem + ".sqlite3"
+
+    def _txn(self):
+        """Re-entrant write transaction. No-op under the JSON store; under sqlite
+        the OUTERMOST _txn opens BEGIN IMMEDIATE and commits on success / rolls
+        back on exception, so a whole mutating method is one atomic transaction
+        and a crash cannot commit half of a multi-entity invariant. Enter it
+        while holding self.lock."""
+        if self.backend is None:
+            return nullcontext()
+        return self.backend.transaction()
+
+    # write-through persist hooks (sqlite only; each re-entrant-txn safe) ------
+    def _persist_agent(self, agent_id):
+        rec = self.agents.get(agent_id)
+        if rec is not None:
+            with self._txn():
+                self.backend.put_agent(rec)
+
+    def _persist_account(self, acct_or_key):
+        acct = (acct_or_key if isinstance(acct_or_key, dict)
+                else self.accounts.get(acct_or_key))
+        if acct is not None:
+            with self._txn():
+                self.backend.put_account(acct)
+
+    def _persist_account_delete(self, key):
+        with self._txn():
+            self.backend.delete_account(key)
+
+    def _persist_task(self, rec):
+        with self._txn():
+            self.backend.put_task(rec)
+
+    def _persist_attestation(self, rec):
+        with self._txn():
+            self.backend.put_attestation(rec)
+
+    def _persist_escrow(self, rec):
+        with self._txn():
+            self.backend.put_escrow(rec)
+
+    def _persist_ledger(self, rec):
+        with self._txn():
+            self.backend.put_ledger(rec)
+
+    def _persist_event(self, ev):
+        with self._txn():
+            self.backend.append_event(ev)
+
+    def _persist_billing(self, entry):
+        with self._txn():
+            self.backend.append_billing(entry)
+
+    def _persist_health(self, entry):
+        with self._txn():
+            self.backend.append_health(entry)
+
+    def _persist_demand_watch(self, entry):
+        with self._txn():
+            self.backend.append_demand_watch(entry)
+
+    def _persist_referral(self, rec):
+        with self._txn():
+            self.backend.put_referral(rec)
+
+    def _persist_checkpoint(self, rec):
+        with self._txn():
+            self.backend.put_checkpoint(rec)
+
+    def _persist_kv(self, name, value):
+        with self._txn():
+            self.backend.put_kv(name, value)
+
+    def _sync_account_from_db(self, key):
+        """Refresh one in-memory account from the authoritative sqlite row. Only
+        meaningful inside a write transaction (BEGIN IMMEDIATE), where it makes a
+        money read-modify-write safe against concurrent writers."""
+        if self.backend is None or not key:
+            return
+        rec = self.backend.fetch_account(key)
+        if rec is not None:
+            self._refresh_in_place(self.accounts, key, rec)
+
+    def _refresh_in_place(self, mapping, key, rec):
+        """Overwrite one in-memory record with the authoritative DB record WITHOUT
+        replacing the dict object — callers (and the journey engine, and tests)
+        hold references to these dicts, so object identity must survive an
+        authoritative refresh. Nested dicts are merged in place too, because a
+        record handed back by register (a shallow copy) shares its nested
+        `metadata` dict with the stored record; that shared identity must be
+        preserved so a subsequent field write is still visible on both."""
+        rec.pop("_version", None)
+        cur = mapping.get(key)
+        if cur is None:
+            mapping[key] = rec
+        else:
+            self._merge_in_place(cur, rec)
+
+    @staticmethod
+    def _merge_in_place(cur: dict, rec: dict) -> None:
+        for k in list(cur.keys()):
+            if k not in rec:
+                del cur[k]
+        for k, v in rec.items():
+            if isinstance(v, dict) and isinstance(cur.get(k), dict):
+                Store._merge_in_place(cur[k], v)
+            else:
+                cur[k] = v
+
+    def _sync_agent_from_db(self, agent_id):
+        """Refresh one in-memory agent from the authoritative sqlite row. Called
+        at the top of a write transaction so credential rotation/revocation and
+        endpoint replacement validate + rekey off the LATEST committed record
+        (this is what makes concurrent same-agent rotations leave no orphan
+        account rows)."""
+        if self.backend is None or not agent_id:
+            return
+        rec = self.backend.fetch_agent(agent_id)
+        if rec is not None:
+            self._refresh_in_place(self.agents, agent_id, rec)
+
+    def _sync_escrow_from_db(self, escrow_id):
+        """Refresh one in-memory escrow from the authoritative sqlite row, inside
+        a write transaction, so release/refund/dispute settle the CURRENT escrow
+        state exactly once (no double settle, no guild_revenue clobber)."""
+        if self.backend is None or not escrow_id:
+            return
+        rec = self.backend.fetch_escrow(escrow_id)
+        if rec is not None:
+            self._refresh_in_place(self.escrows, escrow_id, rec)
+
+    def _sync_task_from_db(self, task_id):
+        """Refresh one in-memory task from the authoritative sqlite row (receipt
+        acceptance + task-state transitions validate off this)."""
+        if self.backend is None or not task_id:
+            return
+        rec = self.backend.fetch_task(task_id)
+        if rec is not None:
+            self._refresh_in_place(self.tasks, task_id, rec)
+
+    def _ledger_head(self):
+        """(next_seq, prev_hash) for the durable chain — AUTHORITATIVE from the
+        DB under sqlite (so concurrent appenders seal contiguous seqs), else from
+        the in-memory list under the JSON store (byte-for-byte unchanged)."""
+        if self.backend is not None:
+            return self.backend.fetch_ledger_head()
+        prev = self.ledger_records[-1]["hash"] if self.ledger_records else ("0" * 64)
+        return len(self.ledger_records), prev
+
+    def _sqlite_flush_all(self):
+        """Safety net for cold mutation paths that only call _save(): upsert the
+        by-primary-key collections + singletons. Never DELETEs, so it cannot
+        clobber a row another writer added; append-only logs persist at their
+        append site, not here."""
+        b = self.backend
+        with b.transaction():
+            for r in self.agents.values():
+                b.put_agent(r)
+            for r in self.accounts.values():
+                b.put_account(r)
+            for r in self.tasks.values():
+                b.put_task(r)
+            for r in self.attestations:
+                b.put_attestation(r)
+            for r in self.escrows.values():
+                b.put_escrow(r)
+            for r in self.ledger_records:
+                b.put_ledger(r)
+            for r in self.referrals:
+                b.put_referral(r)
+            for r in self.checkpoints:
+                b.put_checkpoint(r)
+            b.put_kv("identity", self.identity)
+            b.put_kv("swarm_state", self.swarm_state)
+            b.put_kv("guild_revenue", self.guild_revenue)
+            for _inv in self.__dict__.get("outbound_invocations", {}).values():
+                b.put_invocation(_inv)
+
+    def _sqlite_initial_load(self):
+        """One-time cutover: write the whole in-memory state (hydrated from the
+        JSON snapshot) into sqlite, including the append-only logs."""
+        b = self.backend
+        with b.transaction():
+            for r in self.agents.values():
+                b.put_agent(r)
+            for r in self.accounts.values():
+                b.put_account(r)
+            for r in self.tasks.values():
+                b.put_task(r)
+            for r in self.attestations:
+                b.put_attestation(r)
+            for r in self.escrows.values():
+                b.put_escrow(r)
+            for r in self.ledger_records:
+                b.put_ledger(r)
+            for e in self.events:
+                b.append_event(e)
+            for r in self.referrals:
+                b.put_referral(r)
+            for r in self.checkpoints:
+                b.put_checkpoint(r)
+            for r in self.billing_log:
+                b.append_billing(r)
+            for r in self.health_log:
+                b.append_health(r)
+            for r in self.demand_watches:
+                b.append_demand_watch(r)
+            b.put_kv("identity", self.identity)
+            b.put_kv("swarm_state", self.swarm_state)
+            b.put_kv("guild_revenue", self.guild_revenue)
+            for _inv in self.__dict__.get("outbound_invocations", {}).values():
+                b.put_invocation(_inv)
+
+    def _load_sqlite(self):
+        if self.backend.is_empty() and self.path and os.path.exists(self.path):
+            # cutover from an existing JSON store on first sqlite boot.
+            self._load_from_json_file()
+            self._replay_event_journal()
+            self._sqlite_initial_load()
+            return
+        d = self.backend.load_all()
+        self.agents = d["agents"]
+        self.tasks = d["tasks"]
+        self.attestations = d["attestations"]
+        self.accounts = d["accounts"]
+        self.billing_log = d["billing_log"]
+        self.events = d["events"]
+        self.referrals = d["referrals"]
+        self.health_log = d["health_log"]
+        self.identity = d["identity"]
+        self.ledger_records = d["ledger"]
+        self.checkpoints = d["checkpoints"]
+        self.escrows = d["escrows"]
+        self.guild_revenue = d["guild_revenue"]
+        self.demand_watches = d["demand_watches"]
+        self.swarm_state = d["swarm_state"]
+        if d["outbound_invocations"]:
+            self.__dict__["outbound_invocations"] = d["outbound_invocations"]
 
     # --- persistence --------------------------------------------------------
     def _load(self) -> None:
+        if self.backend is not None:
+            self._load_sqlite()
+            if creds.hashing_enabled():
+                self._migrate_plaintext_keys()
+            return
+        self._load_from_json_file()
+        self._replay_event_journal()
+        if creds.hashing_enabled():
+            self._migrate_plaintext_keys()
+
+    def _load_from_json_file(self) -> None:
         if self.path and os.path.exists(self.path):
             with open(self.path, "r") as f:
                 data = json.load(f)
@@ -98,9 +437,6 @@ class Store:
             self.guild_revenue = data.get("guild_revenue", 0)
             self.demand_watches = data.get("demand_watches", [])
             self.swarm_state = data.get("swarm_state", {})
-        self._replay_event_journal()
-        if creds.hashing_enabled():
-            self._migrate_plaintext_keys()
 
     def _migrate_plaintext_keys(self) -> None:
         """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
@@ -170,7 +506,12 @@ class Store:
         self.events.sort(key=lambda e: e.get("at") or "")
 
     def _journal_event(self, event: dict[str, Any]) -> None:
-        if not self.events_path:
+        # Under GUILD_STORE=sqlite the events TABLE is the canonical, transactional
+        # event store; the .events.jsonl sidecar is NOT a second required source
+        # (a crash between the SQLite commit and a JSONL append must never create
+        # an inconsistent claim). So the journal is disabled under sqlite — the
+        # journal is only read once, at cutover, to import a pre-sqlite JSON store.
+        if self.backend is not None or not self.events_path:
             return
         try:
             with open(self.events_path, "a") as f:
@@ -180,6 +521,16 @@ class Store:
             pass  # instrumentation must never take down a request path
 
     def _save(self) -> None:
+        if self.backend is not None:
+            # sqlite: write-through happens at the per-entity persist hooks.
+            # Inside an explicit _txn (a wrapped mutating method) the hooks have
+            # already persisted every touched entity -> no-op. Outside a txn (a
+            # cold method that only calls _save) flush the by-PK collections as a
+            # safety net; append-only logs persist at their append site.
+            if self.backend.in_transaction():
+                return
+            self._sqlite_flush_all()
+            return
         if not self.path:
             return
         os.makedirs(os.path.dirname(os.path.abspath(self.path)), exist_ok=True)
@@ -239,7 +590,7 @@ class Store:
         config: Optional[dict[str, Any]] = None,
         principal: Optional[str] = None,
     ) -> dict[str, Any]:
-        with self.lock:
+        with self.lock, self._txn():
             agent_id = "agent_" + secrets.token_hex(6)
             # A referral only counts if it names a real, different agent. Edges
             # always point from a newer agent to an already-existing one, so the
@@ -339,6 +690,13 @@ class Store:
                 self.record_event(rec["key_id"], "api_key_issued",
                                   agent_id=agent_id, key_id=rec["key_id"],
                                   credential_class=rec["credential_class"])
+            if self.backend is not None:
+                self._persist_agent(agent_id)
+                _acct_key = rec.get("key_id") or api_key
+                if _acct_key:
+                    self._persist_account(_acct_key)
+                if referred_by and self.referrals:
+                    self._persist_referral(self.referrals[-1])
             self._rep_cache = None
             self._save()
             # dual-write: identity creation is chain evidence (public fields ONLY —
@@ -364,7 +722,7 @@ class Store:
         stamped with the new hash. Declared changes are cheap for the honest —
         this exists so silent swaps under a stable name become detectable
         (white paper §7.3)."""
-        with self.lock:
+        with self.lock, self._txn():
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
@@ -377,6 +735,8 @@ class Store:
                 {"hash": cfg_hash, "config": config, "declared_at": now})
             self.record_event(self.account_for_agent(agent_id), "config_change",
                               agent_id=agent_id, config_hash=cfg_hash)
+            if self.backend is not None:
+                self._persist_agent(agent_id)
             self._save()
             # dual-write: declared configuration changes are exactly the events
             # the §7.3 discontinuity discount needs — they must be tamper-evident.
@@ -400,7 +760,7 @@ class Store:
         losses — and gives the watcher a standing reason to return. Notification
         *delivery* ships with the outbound-nudge phase; until then the watch is
         visible on the agent's own record and in the demand telemetry."""
-        with self.lock:
+        with self.lock, self._txn():
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
@@ -420,6 +780,8 @@ class Store:
                 "notified_at": None,   # reserved for the outbound-nudge phase
             }
             self.demand_watches.append(w)
+            if self.backend is not None:
+                self._persist_demand_watch(w)
             self.record_event(self.account_for_agent(agent_id), "demand_watch",
                               agent_id=agent_id, capability=cap)
             self._save()
@@ -447,7 +809,8 @@ class Store:
             raise ValueError(f"endpoint policy: {reason}")
         # 1. store the declaration (fresh declaration supersedes any stale
         #    verification record — a changed endpoint invalidates prior evidence).
-        with self.lock:
+        with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)     # authoritative current endpoint
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
@@ -456,6 +819,8 @@ class Store:
             self.record_event(self.account_for_agent(agent_id), "endpoint_declared",
                               agent_id=agent_id, endpoint=endpoint, verified=False,
                               reachability_status="declared_unverified")
+            if self.backend is not None:
+                self._persist_agent(agent_id)
             self._save()
         # 2. optional owner-initiated liveness verification. Concurrency-capped
         #    (one agent can't exhaust outbound workers) and deduped (identical
@@ -489,7 +854,8 @@ class Store:
                 finally:
                     with _reach._inflight_lock:
                         _reach._inflight.discard(key)
-            with self.lock:
+            with self.lock, self._txn():
+                self._sync_agent_from_db(agent_id)   # authoritative under sqlite
                 agent = self.agents.get(agent_id)
                 # only apply if the endpoint hasn't changed under us
                 if agent and (agent.get("metadata") or {}).get("endpoint") == endpoint:
@@ -499,6 +865,8 @@ class Store:
                                       agent_id=agent_id,
                                       reachability_status=record["status"],
                                       evidence_level=record["evidence_level"])
+                    if self.backend is not None:
+                        self._persist_agent(agent_id)
                     self._save()
         agent = self.agents.get(agent_id)
         fields = reachability_fields(endpoint, (agent or {}).get("reachability"))
@@ -514,17 +882,27 @@ class Store:
         Snapshots the endpoint + fingerprint and mints a unique invocation id
         that binds endpoint↔agent↔invocation. Returns None if no endpoint."""
         reg = self.__dict__.setdefault("outbound_invocations", {})
-        with self.lock:
+        with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)     # authoritative current endpoint
             agent = self.agents.get(agent_id)
             endpoint = (agent or {}).get("metadata", {}).get("endpoint") if agent else None
             if not agent or not endpoint:
                 return None
             inv_id = "oinv_" + secrets.token_hex(12)
-            reg[inv_id] = {
-                "invocation_id": inv_id, "agent_id": agent_id,
+            now = _now()
+            rec = {
+                "id": inv_id, "invocation_id": inv_id, "agent_id": agent_id,
                 "endpoint": endpoint,
                 "endpoint_fingerprint": _reach.endpoint_fingerprint(endpoint),
-                "created_at": _now(), "status": "open"}
+                "created_at": now, "started_at": now, "completed_at": None,
+                "expires_at": (datetime.now(timezone.utc)
+                               + timedelta(seconds=3600)).isoformat(),
+                "status": "open"}
+            reg[inv_id] = rec
+            if self.backend is not None:
+                # bind (id, agent_id, fingerprint, status=open) atomically in the
+                # dedicated outbound_invocations table (not a kv blob).
+                self.backend.put_invocation(rec)
             return {"invocation_id": inv_id, "endpoint": endpoint}
 
     def complete_outbound_invocation(self, invocation_id: str, *,
@@ -536,27 +914,42 @@ class Store:
         returned a successful protocol response (protocol_ok). Returns whether
         invocation_verified was set."""
         reg = self.__dict__.setdefault("outbound_invocations", {})
-        with self.lock:
+        with self.lock, self._txn():
+            if self.backend is not None:
+                # authoritative single-row read of the invocation INSIDE the txn.
+                db_inv = self.backend.fetch_invocation(invocation_id)
+                if db_inv is not None:
+                    reg[invocation_id] = db_inv
             inv = reg.get(invocation_id)
             if not inv or inv.get("status") != "open":
                 return False
             inv["status"] = "closed"
             inv["receipt_ref"] = receipt_ref
+            inv["completed_at"] = _now()
+            self._sync_agent_from_db(inv["agent_id"])   # authoritative endpoint
             agent = self.agents.get(inv["agent_id"])
-            if not agent:
+
+            def _terminal(result: str) -> bool:
+                inv["result"] = result
+                if self.backend is not None:
+                    self.backend.put_invocation(inv)   # persist the closed state
                 return False
+
+            if not agent:
+                return _terminal("agent_gone")
             current = (agent.get("metadata") or {}).get("endpoint")
             if not current or _reach.endpoint_fingerprint(current) != inv["endpoint_fingerprint"]:
-                inv["result"] = "endpoint_changed"
-                return False   # stale invocation against a previous endpoint
+                return _terminal("endpoint_changed")   # stale — endpoint moved
             if not protocol_ok:
-                inv["result"] = "protocol_failed"
-                return False
+                return _terminal("protocol_failed")
             agent["reachability"] = _reach.invocation_verified_record(current, invocation_id)
             inv["result"] = "verified"
             self.record_event(self.account_for_agent(inv["agent_id"]),
                               "endpoint_invocation_verified",
                               agent_id=inv["agent_id"], invocation_id=invocation_id)
+            if self.backend is not None:
+                self._persist_agent(inv["agent_id"])
+                self.backend.put_invocation(inv)
             self._save()
             return True
 
@@ -568,13 +961,15 @@ class Store:
         GUILD_HASH_KEYS=1). The old key stops authenticating immediately; past
         events keep their original actor key for attribution. `expires_in_days`
         optionally time-boxes the new credential."""
-        with self.lock:
+        with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)     # authoritative current key/account
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
             old = agent.get("api_key")
             old_actor = creds.actor_key_for_agent(agent)
             old_kid = agent.get("key_id") or (creds.key_id_of(old) if old else None)
+            self._sync_account_from_db(old_actor)  # rekey the LATEST account row
             new = self._fresh_api_key()
             agent["api_key_rotated_at"] = _now()
             if expires_in_days is not None:
@@ -616,6 +1011,15 @@ class Store:
                     if esc.get("requester_key") == old_actor \
                             and esc.get("status") == "funded":
                         esc["requester_key"] = new_actor
+            if self.backend is not None:
+                self._persist_agent(agent_id)
+                if old_actor and old_actor != new_actor:
+                    self._persist_account_delete(old_actor)
+                if new_actor in self.accounts:
+                    self._persist_account(self.accounts[new_actor])
+                for _esc in self.escrows.values():
+                    if _esc.get("requester_key") == new_actor:
+                        self._persist_escrow(_esc)
             self.record_event(new_actor, "api_key_rotated", agent_id=agent_id,
                               key_id=agent.get("key_id"), old_key_id=old_kid)
             self._save()
@@ -628,7 +1032,8 @@ class Store:
     def revoke_api_key(self, agent_id: str) -> dict[str, Any]:
         """Revoke the agent's api_key. The agent keeps its identity, record and
         history but can no longer authenticate; a later rotate re-issues."""
-        with self.lock:
+        with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)     # authoritative current record
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
@@ -638,6 +1043,8 @@ class Store:
             agent["api_key"] = None
             agent.pop("api_key_hash", None)  # key_id stays: public history
             agent["api_key_revoked_at"] = _now()
+            if self.backend is not None:
+                self._persist_agent(agent_id)
             self.record_event(old_actor or "anon",
                               "api_key_revoked", agent_id=agent_id,
                               key_id=agent.get("key_id"))
@@ -671,7 +1078,7 @@ class Store:
           * per-referrer cap — bounds farm payouts;
           * DAG-by-construction — no self-referral or reciprocal loops possible.
         """
-        with self.lock:
+        with self.lock, self._txn():
             edge = next((r for r in self.referrals
                          if r["referred_id"] == agent_id and not r["activated"]), None)
             if edge is None:
@@ -695,6 +1102,8 @@ class Store:
                     self.record_event(key, "referral_activated",
                                       referrer_id=referrer, referred_id=agent_id,
                                       reward=REFERRAL_REWARD_CREDITS)
+            if self.backend is not None:
+                self._persist_referral(edge)
             self._save()
 
     # Backwards-compatible alias (the activation hooks call this name).
@@ -766,8 +1175,10 @@ class Store:
 
     def create_account(self, owner_agent_id: Optional[str] = None,
                        first_party: bool = False) -> dict[str, Any]:
-        with self.lock:
+        with self.lock, self._txn():
             acct = self._new_account(owner_agent_id=owner_agent_id, first_party=first_party)
+            if self.backend is not None:
+                self._persist_account(acct)
             self._save()
             return acct
 
@@ -837,11 +1248,12 @@ class Store:
     def charge(self, key: str, cost: int, endpoint: str) -> dict[str, Any]:
         """Draw `cost` credits from an account. Raises UnknownAccount or
         InsufficientCredits. Returns the account."""
-        with self.lock:
+        with self.lock, self._txn():
             resolved = self._account_key(key)
             if resolved is None:
                 raise UnknownAccount(key)
             key = resolved
+            self._sync_account_from_db(key)
             acct = self.accounts.get(key)
             if acct is None:
                 raise UnknownAccount(key)
@@ -849,25 +1261,34 @@ class Store:
                 raise InsufficientCredits(acct["balance"], cost)
             acct["balance"] -= cost
             acct["spent"] += cost
-            self.billing_log.append({
+            _entry = {
                 "key": key, "type": "charge", "endpoint": endpoint,
                 "amount": -cost, "balance_after": acct["balance"], "at": _now(),
-            })
+            }
+            self.billing_log.append(_entry)
+            if self.backend is not None:
+                self._persist_account(acct)
+                self._persist_billing(_entry)
             self._save()
             return acct
 
     def credit(self, key: str, credits: int, reason: str = "topup") -> dict[str, Any]:
-        with self.lock:
+        with self.lock, self._txn():
             key = self._account_key(key) or key
+            self._sync_account_from_db(key)
             acct = self.accounts.get(key)
             if acct is None:
                 raise UnknownAccount(key)
             acct["balance"] += credits
             acct["topped_up"] += credits
-            self.billing_log.append({
+            _entry = {
                 "key": key, "type": reason, "amount": credits,
                 "balance_after": acct["balance"], "at": _now(),
-            })
+            }
+            self.billing_log.append(_entry)
+            if self.backend is not None:
+                self._persist_account(acct)
+                self._persist_billing(_entry)
             self._save()
             return acct
 
@@ -875,15 +1296,19 @@ class Store:
         """Programmatic, human-free credit acquisition: an agent provisions a
         capped trial balance to evaluate the service. Play credits until real
         money is enabled — enough to run an evaluation, capped to limit abuse."""
-        with self.lock:
+        with self.lock, self._txn():
             acct = self._new_account(first_party=first_party)
             acct["balance"] += trial_credits
             acct["topped_up"] += trial_credits
             acct["trial"] = True
-            self.billing_log.append({
+            _entry = {
                 "key": acct["key"], "type": "trial_grant", "amount": trial_credits,
                 "balance_after": acct["balance"], "at": _now(),
-            })
+            }
+            self.billing_log.append(_entry)
+            if self.backend is not None:
+                self._persist_account(acct)
+                self._persist_billing(_entry)
             self._save()
             return acct
 
@@ -899,7 +1324,10 @@ class Store:
         event = {"key": key or "anon", "type": etype, "ua": ua or "",
                  "fp": fp, "at": _now(), **meta}
         self.events.append(event)
-        self._journal_event(event)  # durable immediately, O(1) — see __init__
+        if self.backend is not None:
+            self._persist_event(event)   # durable per-row (events table)
+        else:
+            self._journal_event(event)  # durable immediately, O(1) — see __init__
         # keep the persisted log bounded
         if len(self.events) > 50000:
             self.events = self.events[-25000:]
@@ -921,6 +1349,8 @@ class Store:
         if name in ms:
             return False
         ms[name] = _now()
+        if self.backend is not None:
+            self._persist_agent(agent_id)
         self.record_event(self.account_for_agent(agent_id), name,
                           agent_id=agent_id,
                           agent_first_party=bool(agent.get("first_party")), **meta)
@@ -1879,7 +2309,10 @@ class Store:
         purely additive: it appends missing history against the current head, never
         replaces existing entries. Runs at startup, so legacy stores (tasks graded
         before dual-write existed) are healed on the next boot."""
-        with self.lock:
+        with self.lock, self._txn():
+            if self.backend is not None:
+                # authoritative chain: never heal against a stale in-memory list.
+                self.ledger_records = self.backend.all_ledger()
             have = {d.get("task_id") for d in self.ledger_records if d.get("task_id")}
             graded = [t for t in self.tasks.values()
                       if t.get("outcome") in ("accepted", "disputed", "rejected", "delivered")
@@ -1891,7 +2324,7 @@ class Store:
     def append_task_to_ledger(self, task_id: str) -> Optional[dict[str, Any]]:
         """Seal one task's collaboration record against the durable chain head and
         persist it (the dual-write). Returns the sealed record dict."""
-        with self.lock:
+        with self.lock, self._txn():
             from dataclasses import asdict
             from .ledger import build_record_for_task
             task = self.tasks.get(task_id)
@@ -1899,13 +2332,15 @@ class Store:
                 return None
             if any(d.get("task_id") == task_id for d in self.ledger_records):
                 return self.ledger_record_for_task(task_id)
-            head = self.ledger_records[-1]["hash"] if self.ledger_records else ("0" * 64)
+            next_seq, head = self._ledger_head()   # authoritative under sqlite
             rec = build_record_for_task(self, task)
-            rec.seq = len(self.ledger_records)
+            rec.seq = next_seq
             rec.prev_hash = head
             rec.seal()
             d = asdict(rec)
             self.ledger_records.append(d)
+            if self.backend is not None:
+                self._persist_ledger(d)
             self._save()
             return d
 
@@ -1915,17 +2350,19 @@ class Store:
         (stage-1 dual-write: EVERY evidence-bearing mutation also lands on the
         chain; the store dicts remain the serving views until cutover).
         Bodies must contain public data only — never keys or secrets."""
-        with self.lock:
+        with self.lock, self._txn():
             from dataclasses import asdict
             from .ledger import GenericEntry, GENERIC_ENTRY_TYPES
             if type not in GENERIC_ENTRY_TYPES:
                 raise ValueError(f"unknown ledger event type: {type}")
-            head = self.ledger_records[-1]["hash"] if self.ledger_records else ("0" * 64)
-            e = GenericEntry(seq=len(self.ledger_records), type=type, body=body,
+            next_seq, head = self._ledger_head()   # authoritative under sqlite
+            e = GenericEntry(seq=next_seq, type=type, body=body,
                              actor_did=actor_did, created_at=_now(),
                              prev_hash=head).seal()
             d = asdict(e)
             self.ledger_records.append(d)
+            if self.backend is not None:
+                self._persist_ledger(d)
             self._save()
             return d
 
@@ -1942,7 +2379,12 @@ class Store:
         (LEDGER_ARCHITECTURE §7 stage-2). Idempotent: if no evidence has landed
         since the last published checkpoint, the existing one is returned rather
         than publishing a duplicate. Meant to be called on a schedule."""
-        with self.lock:
+        with self.lock, self._txn():
+            if self.backend is not None:
+                # build on the AUTHORITATIVE committed ledger + checkpoint feed,
+                # not a possibly-stale in-memory view (concurrent appenders).
+                self.ledger_records = self.backend.all_ledger()
+                self.checkpoints = self.backend.all_checkpoints()
             gid = self.guild_identity()
             led = self.durable_ledger()
             cp = led.signed_checkpoint(gid["did"], gid["private_key"])
@@ -1959,6 +2401,8 @@ class Store:
                 "checkpoint": cp,
             }
             self.checkpoints.append(entry)
+            if self.backend is not None:
+                self._persist_checkpoint(entry)
             self._save()
             return entry
 
@@ -1978,7 +2422,7 @@ class Store:
         `worker_id`. Closes the trust gap — the worker can deliver knowing payment
         is held; the requester pays only on acceptance. The Guild takes a small
         settlement fee on release (its revenue on every transaction)."""
-        with self.lock:
+        with self.lock, self._txn():
             amount = int(amount)
             if amount <= 0:
                 raise ValueError("amount must be a positive integer (credits)")
@@ -1986,6 +2430,7 @@ class Store:
             if resolved is None:
                 raise UnknownAccount(requester_key)
             requester_key = resolved
+            self._sync_account_from_db(requester_key)
             acct = self.accounts.get(requester_key)
             if acct is None:
                 raise UnknownAccount(requester_key)
@@ -1998,9 +2443,13 @@ class Store:
                 raise InsufficientCredits(acct["balance"], amount)
             # hold the funds
             acct["balance"] -= amount
-            self.billing_log.append({"key": requester_key, "type": "escrow_hold",
-                                     "amount": -amount, "balance_after": acct["balance"],
-                                     "at": _now()})
+            _hold = {"key": requester_key, "type": "escrow_hold",
+                     "amount": -amount, "balance_after": acct["balance"],
+                     "at": _now()}
+            self.billing_log.append(_hold)
+            if self.backend is not None:
+                self._persist_account(acct)
+                self._persist_billing(_hold)
             esc_id = "esc_" + secrets.token_hex(8)
             esc = {
                 "id": esc_id,
@@ -2018,6 +2467,8 @@ class Store:
                 "settled_at": None,
             }
             self.escrows[esc_id] = esc
+            if self.backend is not None:
+                self._persist_escrow(esc)
             self.record_event(requester_key, "escrow_open", endpoint="escrow",
                               worker_id=worker_id, amount=amount)
             self._save()
@@ -2041,7 +2492,8 @@ class Store:
         keeps the fee, and the transaction is recorded as a payment-backed,
         guild_mediated collaboration (deepening the reputation moat). Only the payer
         may release."""
-        with self.lock:
+        with self.lock, self._txn():
+            self._sync_escrow_from_db(escrow_id)   # authoritative status/amount
             esc = self.escrows.get(escrow_id)
             if esc is None:
                 raise ValueError("escrow not found")
@@ -2055,12 +2507,25 @@ class Store:
             worker_key = self.account_for_agent(esc["worker_id"])
             if worker_key:
                 self.credit(worker_key, payout, reason="escrow_payout")
-            self.guild_revenue += fee
-            self.billing_log.append({"key": "guild", "type": "settlement_fee",
-                                     "amount": fee, "balance_after": self.guild_revenue,
-                                     "at": _now(), "escrow_id": escrow_id})
             esc["status"] = "released"
             esc["settled_at"] = _now()
+            if self.backend is not None:
+                # Settle the escrow FIRST (status=released is now committed-in-txn
+                # on this connection), then DERIVE guild_revenue as the SUM of
+                # fees over released escrows — never a read-modify-write counter.
+                # Because the sum is keyed by escrow_id (each escrow settles
+                # exactly once, guarded by the status=funded check above),
+                # concurrent releases can neither clobber nor double-count it.
+                self._persist_escrow(esc)
+                self.guild_revenue = self.backend.guild_revenue_total()
+            else:
+                self.guild_revenue += fee
+            _fee = {"key": "guild", "type": "settlement_fee",
+                    "amount": fee, "balance_after": self.guild_revenue,
+                    "at": _now(), "escrow_id": escrow_id}
+            self.billing_log.append(_fee)
+            if self.backend is not None:
+                self._persist_billing(_fee)
             # record the payment-backed collaboration so the ledger + reputation
             # reflect a real, settled, economically-staked interaction.
             requester = self.get_agent(esc["requester_id"]) if esc["requester_id"] else None
@@ -2076,6 +2541,8 @@ class Store:
                     esc["task_id"] = res.get("task_id")
                 except ValueError:
                     pass
+            if self.backend is not None:
+                self._persist_escrow(esc)
             self._save()
             self.append_ledger_event("escrow_event", {
                 "event": "released", "escrow_id": escrow_id,
@@ -2083,6 +2550,10 @@ class Store:
                 "capability": esc.get("capability", ""), "amount": amount,
                 "fee": fee, "payout": payout, "task_id": esc["task_id"],
             }, actor_did=(self.agents.get(esc["requester_id"]) or {}).get("did", ""))
+            if self.backend is not None:
+                # authoritative refresh of the derived-revenue cache after the
+                # settlement + ledger rows are sealed (idempotent by escrow_id).
+                self.guild_revenue = self.backend.guild_revenue_total()
             return {"escrow_id": escrow_id, "status": "released", "amount": amount,
                     "fee": fee, "payout": payout, "worker_id": esc["worker_id"],
                     "guild_revenue": self.guild_revenue, "task_id": esc["task_id"]}
@@ -2090,7 +2561,8 @@ class Store:
     def refund_escrow(self, escrow_id: str, requester_key: str) -> dict[str, Any]:
         """Cancel and refund a funded escrow back to the requester (no fee, since no
         value was exchanged). Only the payer may refund, and only before release."""
-        with self.lock:
+        with self.lock, self._txn():
+            self._sync_escrow_from_db(escrow_id)   # authoritative status
             esc = self.escrows.get(escrow_id)
             if esc is None:
                 raise ValueError("escrow not found")
@@ -2102,6 +2574,8 @@ class Store:
             self.credit(requester_key, esc["amount"], reason="escrow_refund")
             esc["status"] = "refunded"
             esc["settled_at"] = _now()
+            if self.backend is not None:
+                self._persist_escrow(esc)
             self._save()
             self.append_ledger_event("escrow_event", {
                 "event": "refunded", "escrow_id": escrow_id,
@@ -2114,7 +2588,8 @@ class Store:
                        ) -> dict[str, Any]:
         """Flag a funded escrow as disputed; funds stay held pending resolution.
         Either party (payer or worker) may raise it."""
-        with self.lock:
+        with self.lock, self._txn():
+            self._sync_escrow_from_db(escrow_id)   # authoritative status
             esc = self.escrows.get(escrow_id)
             if esc is None:
                 raise ValueError("escrow not found")
@@ -2128,6 +2603,8 @@ class Store:
                 raise ValueError(f"escrow is {esc['status']}, not funded")
             esc["status"] = "disputed"
             esc["dispute"] = {"by": actor_agent or actor_key, "grounds": grounds, "at": _now()}
+            if self.backend is not None:
+                self._persist_escrow(esc)
             self._save()
             # dual-write: disputes are the chain's highest-information events —
             # they must be as tamper-evident as the successes they contest.
@@ -2181,7 +2658,7 @@ class Store:
         persisted, so the Guild can issue credentials (Agent Passports) in its own
         name that anyone can verify offline against this did:key. This is the
         issuer-of-record position — the credit-bureau anchor for agent reputation."""
-        with self.lock:
+        with self.lock, self._txn():
             if not self.identity:
                 priv, pub = generate_keypair()
                 self.identity = {
@@ -2191,6 +2668,8 @@ class Store:
                     "name": "Agent Guild",
                     "created_at": _now(),
                 }
+                if self.backend is not None:
+                    self._persist_kv("identity", self.identity)
                 self._save()
             return self.identity
 
@@ -2365,7 +2844,7 @@ class Store:
         the read-only `/self-eval` endpoint and the scheduled monitoring tick
         both consume exactly this, so server-side and external reporting can
         never diverge. `persist=True` also appends it to the durable series."""
-        with self.lock:
+        with self.lock, self._txn():
             v = self._health_vector()
             prev = self.health_log[-1] if self.health_log else None
             deltas: dict[str, float] = {}
@@ -2377,6 +2856,8 @@ class Store:
             snap["verdict"] = self._verdict(v, deltas)
             if persist:
                 self.health_log.append(snap)
+                if self.backend is not None:
+                    self._persist_health(snap)
                 if len(self.health_log) > 5000:
                     self.health_log = self.health_log[-2500:]
                 self._save()
@@ -2398,7 +2879,7 @@ class Store:
         payment: float = 0.0,
         metadata: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
-        with self.lock:
+        with self.lock, self._txn():
             task_id = "task_" + secrets.token_hex(6)
             rec = {
                 "id": task_id,
@@ -2420,6 +2901,8 @@ class Store:
                 "requester_config_hash": self._config_stamp(requester_id),
             }
             self.tasks[task_id] = rec
+            if self.backend is not None:
+                self._persist_task(rec)
             # First engagement (either role) is the stage-1→2 transition — the
             # broken-link metric this whole instrument panel exists to bend.
             self.record_milestone(requester_id, "first_engagement",
@@ -2436,7 +2919,8 @@ class Store:
         deliverable_url: Optional[str] = None,
         outcome: str = "delivered",
     ) -> dict[str, Any]:
-        with self.lock:
+        with self.lock, self._txn():
+            self._sync_task_from_db(task_id)       # authoritative current task
             task = self.tasks.get(task_id)
             if not task:
                 raise ValueError("task not found")
@@ -2448,6 +2932,8 @@ class Store:
                 # First delivered work = first-time activation (worker side).
                 self.record_milestone(task["worker_agent_id"], "first_receipt",
                                       task_id=task_id)
+            if self.backend is not None:
+                self._persist_task(task)
             self._rep_cache = None
             self._save()
         # NOTE: a submitted receipt does NOT upgrade reachability. A receipt
@@ -2527,7 +3013,7 @@ class Store:
         comment: str,
         stake: float = 0.0,
     ) -> dict[str, Any]:
-        with self.lock:
+        with self.lock, self._txn():
             att_id = "att_" + secrets.token_hex(8)
             cred = issue_credential(
                 cred_id=f"urn:att:{att_id}",
@@ -2549,7 +3035,7 @@ class Store:
         self, credential: dict[str, Any], stake: float = 0.0
     ) -> dict[str, Any]:
         """Self-sovereign path: verify a pre-signed VC, then store it."""
-        with self.lock:
+        with self.lock, self._txn():
             issuer = self.agent_by_did(credential.get("issuer", ""))
             subj_did = credential.get("credentialSubject", {}).get("id", "")
             subject = self.agent_by_did(subj_did)
@@ -2584,6 +3070,8 @@ class Store:
             "subject_config_hash": self._config_stamp(subject_id),
         }
         self.attestations.append(rec)
+        if self.backend is not None:
+            self._persist_attestation(rec)
         # Journey milestones: an attestation advances BOTH parties.
         self.record_milestone(issuer_id, "first_attestation_given",
                               attestation_id=att_id)
