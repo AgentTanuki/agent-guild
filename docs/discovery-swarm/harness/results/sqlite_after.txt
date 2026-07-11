@@ -1,0 +1,6 @@
+=== sqlite dark-merge AFTER probe 2026-07-11T04:23:49Z ===
+health: {"ok":true,"agents":53,"tasks":203,"attestations":200}
+guest invoke ok: True
+a2a reachability honest: supply_has_no_declared_endpoint
+mcp init: 200
+menu continuation: no_session_context
