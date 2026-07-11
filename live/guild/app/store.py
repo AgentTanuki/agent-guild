@@ -94,15 +94,35 @@ class Store:
     # --- pluggable sqlite backend (GUILD_STORE=sqlite) ----------------------
     @staticmethod
     def _guard_single_writer() -> None:
-        """SQLite is a single-writer, single-node store. If the process is
-        knowingly configured for MULTIPLE worker processes (WEB_CONCURRENCY /
-        GUILD_WORKERS / UVICORN_WORKERS > 1, or an explicit uvicorn --workers N
-        on the command line), every worker would be an independent writer and
-        the cross-process invariants (ledger seq, account rekey, guild_revenue)
-        would be exposed exactly like the JSON store's whole-file clobber. Refuse
-        to start with a clear message rather than corrupt state silently.
-        Horizontal scale / multiple workers REQUIRE migrating to Postgres.
-        Override (single node, accepting the risk) with
+        """Refuse to start GUILD_STORE=sqlite when MULTIPLE worker PROCESSES are
+        configured. Read this as three DISTINCT layers — do NOT conflate them:
+
+        1. APPLICATION GUARD (this method) = worker-PROCESS protection ONLY. It
+           refuses to start when this container is knowingly configured for >1
+           writer process (WEB_CONCURRENCY / GUILD_WORKERS / UVICORN_WORKERS > 1,
+           or an explicit ``uvicorn --workers N``). That is ALL it can see. It
+           CANNOT observe, and therefore does NOT prove, how many Render SERVICE
+           INSTANCES exist — a second instance running one worker each would each
+           pass this guard.
+
+        2. RENDER PERSISTENT-DISK TOPOLOGY = the infrastructure-level single-
+           INSTANCE constraint. A Render persistent disk cannot be mounted by
+           more than one instance, so while the SQLite file lives on that disk
+           the service cannot be horizontally scaled. This is what actually keeps
+           writers to one — and the APPLICATION CANNOT VERIFY IT from inside the
+           process. It is an operational invariant, enforced by Render, not by
+           this code.
+
+        3. FUTURE TOPOLOGY CHANGES require a Postgres migration review FIRST. Any
+           change that could admit a second writer — adding instances, removing
+           or detaching the persistent disk, enabling autoscaling, or moving off
+           Render — MUST go through an explicit Postgres migration review BEFORE
+           it is made. SQLite on a shared/absent disk re-introduces the whole-
+           file clobber class of failure; this guard will NOT catch that case.
+
+        So: this guard guarantees single-PROCESS-per-container, NOT single-
+        instance. Single-instance is a Render-disk property the app trusts but
+        cannot check. Override (single node, accepting the risk) with
         GUILD_SQLITE_ALLOW_MULTIWORKER=1."""
         if (os.environ.get("GUILD_SQLITE_ALLOW_MULTIWORKER") or "").strip() in ("1", "true", "yes"):
             return
@@ -119,13 +139,18 @@ class Store:
             workers = max(workers, int(m.group(1)))
         if workers > 1:
             raise RuntimeError(
-                f"GUILD_STORE=sqlite is single-writer only, but {workers} worker "
-                "processes are configured (WEB_CONCURRENCY/GUILD_WORKERS/"
-                "UVICORN_WORKERS or uvicorn --workers). SQLite on a local disk "
-                "cannot be safely written by multiple processes/instances — run "
-                "ONE uvicorn worker on ONE instance with ONE mounted disk, or "
-                "migrate to Postgres for horizontal scale. Set "
-                "GUILD_SQLITE_ALLOW_MULTIWORKER=1 to override on a single node.")
+                f"GUILD_STORE=sqlite refused: {workers} worker PROCESSES are "
+                "configured (WEB_CONCURRENCY/GUILD_WORKERS/UVICORN_WORKERS or "
+                "uvicorn --workers). This is the APPLICATION GUARD, and it only "
+                "protects against multiple worker PROCESSES in THIS container — "
+                "it does NOT and CANNOT prove a single Render service INSTANCE "
+                "(that is a persistent-disk topology property: a Render disk "
+                "cannot be mounted by >1 instance, which the app cannot verify "
+                "from inside the process). Run ONE uvicorn worker on ONE instance "
+                "with ONE mounted disk. Adding instances, removing the disk, or "
+                "moving off Render REQUIRES an explicit Postgres migration review "
+                "FIRST. Set GUILD_SQLITE_ALLOW_MULTIWORKER=1 to override on a "
+                "single node, accepting the risk.")
 
     def _sqlite_path(self) -> str:
         """Where the sqlite database lives. GUILD_STORE_PATH wins; otherwise it

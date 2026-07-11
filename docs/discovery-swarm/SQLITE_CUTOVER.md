@@ -32,11 +32,13 @@ atomically per operation within the single process.
 SQLite on a local disk is still single-node. If AG ever needs **multiple
 instances**, a Render disk cannot be shared, so SQLite is not an option and the
 answer is **managed Postgres** with a proper relational model — not this
-backend. Three invariants in this backend are correct only under a single
-writer (documented, and non-scenarios at the confirmed topology):
-ledger-chain `seq` under concurrent appenders, account-rekey orphan rows under
-concurrent same-agent rotation, and the `guild_revenue` global counter under
-concurrent escrow releases. Under a single writer none can occur.
+backend. Two invariants in this backend are made safe by the database-authoritative
+`BEGIN IMMEDIATE` read+write (proven under multi-process contention):
+ledger-chain `seq` under concurrent appenders and account-rekey orphan rows
+under concurrent same-agent rotation. `guild_revenue` is no longer a mutable
+counter at all — it is DERIVED as a SUM over settled escrows (idempotent by
+`escrow_id`), so it can never be clobbered or double-counted regardless of
+writer count (see `SQLITE_SCHEMA.md` → "Derived revenue").
 
 ## Suitability
 **SQLite is suitable ONLY for ONE Render instance + ONE mounted disk + ONE
@@ -50,23 +52,48 @@ Writes under `GUILD_STORE=sqlite` are database-authoritative: each
 write-sensitive op reads the current rows from SQLite inside one
 `BEGIN IMMEDIATE` transaction and validates/computes against those (not a stale
 in-memory snapshot), with a `version` column + compare-and-swap as the
-lost-update guard (see `docs/discovery-swarm/SQLITE_SCHEMA.md`). The three
-invariants previously flagged single-writer-only — ledger-chain `seq`,
-account-rekey orphan rows, and the `guild_revenue` counter — are now exercised
+lost-update guard (see `docs/discovery-swarm/SQLITE_SCHEMA.md`). The invariants
+previously flagged single-writer-only — ledger-chain `seq`, account-rekey
+orphan rows, and (formerly) the `guild_revenue` counter — are now exercised
 UNDER MULTI-PROCESS in `tests/test_sqlite_backend.py` and hold (contiguous seq,
-zero orphan account rows, exact guild_revenue). They are correct at any process
+zero orphan account rows, and an exact, now-DERIVED guild_revenue). They are correct at any process
 count on ONE disk; the single-worker rule below is about avoiding SQLite's
 `SQLITE_BUSY`/lock contention and the fact that a disk cannot be shared across
 instances, NOT about those invariants being unsafe.
 
-## Startup guard (fail fast on a multi-worker misconfiguration)
-`Store.__init__` refuses to start when `GUILD_STORE=sqlite` AND the process is
-knowingly configured for multiple workers — `WEB_CONCURRENCY`, `GUILD_WORKERS`
-or `UVICORN_WORKERS` `> 1`, or an explicit `uvicorn --workers N` on the command
-line. It raises a fatal `RuntimeError` explaining SQLite is single-writer-only
-and pointing at Postgres for horizontal scale, rather than silently running
-multiple writers. Single-node override (accepting the risk):
-`GUILD_SQLITE_ALLOW_MULTIWORKER=1`.
+## Startup guard — read as THREE distinct layers (do not conflate them)
+The startup guard does NOT, and cannot, guarantee "single instance." Its
+protection and the infrastructure constraint are separate things:
+
+1. **Application guard = worker-PROCESS protection ONLY.** `Store.__init__`
+   refuses to start when `GUILD_STORE=sqlite` AND this container is knowingly
+   configured for more than one writer PROCESS — `WEB_CONCURRENCY`,
+   `GUILD_WORKERS` or `UVICORN_WORKERS` `> 1`, or an explicit `uvicorn --workers
+   N`. That is the whole of what the code can observe. It CANNOT see how many
+   Render service INSTANCES are running; a second instance running one worker
+   each would each pass this guard. It raises a fatal `RuntimeError` rather than
+   silently running multiple writers. Single-node override (accepting the risk):
+   `GUILD_SQLITE_ALLOW_MULTIWORKER=1`.
+
+2. **Render persistent-disk topology = the single-INSTANCE constraint.** What
+   actually keeps writers to one is infrastructure, not the app: a Render
+   persistent disk **cannot be mounted by more than one instance**, so while the
+   SQLite file lives on that disk the service cannot be horizontally scaled. The
+   application **cannot verify this from inside the process** — it is an
+   operational invariant enforced by Render that the app trusts but does not
+   check. The guard does NOT prove it.
+
+3. **Any future topology change REQUIRES a Postgres migration review FIRST.**
+   Adding instances, enabling autoscaling, removing or detaching the persistent
+   disk, or moving off Render — anything that could admit a second writer — MUST
+   go through an explicit Postgres migration review BEFORE the change is made.
+   SQLite on a shared or absent disk re-introduces the whole-file clobber class
+   of failure, and neither the guard (layer 1) nor the disk constraint (layer 2)
+   will catch it once the disk is no longer the single mount point.
+
+**In one line:** the guard guarantees single-PROCESS-per-container, NOT
+single-instance; single-instance is a Render-disk property; changing the
+topology is a Postgres-migration decision, not a config toggle.
 
 ## Cutover checklist (all must be YES before `GUILD_STORE=sqlite`)
 1. Topology still single-instance + single-worker (disk attached, no `--workers`; the startup guard enforces this). ✅ confirmed 2026-07-10.
