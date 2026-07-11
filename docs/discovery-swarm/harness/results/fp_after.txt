@@ -1,0 +1,10 @@
+=== firstparty dark-deploy AFTER probe 2026-07-11 ===
+deployed rev: 8225934 (origin/main)
+health: {"ok":true,"agents":53,"tasks":203,"attestations":200}
+genuine_external_events: 137 (unchanged from before)
+guest invoke ok: True
+a2a reachability honest: supply_has_no_declared_endpoint
+mcp init: 200
+dedicated header route (terms.json with X-Agent-Guild-First-Party): 200
+VERDICT: behavior-neutral. Honor mode preserved (GUILD_FIRST_PARTY_TOKEN not set).
+Mechanism deployed dark; awaiting operator Render secret to activate strict mode.
