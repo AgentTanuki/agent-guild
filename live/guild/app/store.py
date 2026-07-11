@@ -2482,20 +2482,25 @@ class Store:
             worker_key = self.account_for_agent(esc["worker_id"])
             if worker_key:
                 self.credit(worker_key, payout, reason="escrow_payout")
+            esc["status"] = "released"
+            esc["settled_at"] = _now()
             if self.backend is not None:
-                # read the CURRENT committed counter INSIDE this txn so
-                # concurrent releases accumulate the fee, never clobber it.
-                self.guild_revenue = self.backend.fetch_kv("guild_revenue", 0)
-            self.guild_revenue += fee
+                # Settle the escrow FIRST (status=released is now committed-in-txn
+                # on this connection), then DERIVE guild_revenue as the SUM of
+                # fees over released escrows — never a read-modify-write counter.
+                # Because the sum is keyed by escrow_id (each escrow settles
+                # exactly once, guarded by the status=funded check above),
+                # concurrent releases can neither clobber nor double-count it.
+                self._persist_escrow(esc)
+                self.guild_revenue = self.backend.guild_revenue_total()
+            else:
+                self.guild_revenue += fee
             _fee = {"key": "guild", "type": "settlement_fee",
                     "amount": fee, "balance_after": self.guild_revenue,
                     "at": _now(), "escrow_id": escrow_id}
             self.billing_log.append(_fee)
-            esc["status"] = "released"
-            esc["settled_at"] = _now()
             if self.backend is not None:
                 self._persist_billing(_fee)
-                self._persist_kv("guild_revenue", self.guild_revenue)
             # record the payment-backed collaboration so the ledger + reputation
             # reflect a real, settled, economically-staked interaction.
             requester = self.get_agent(esc["requester_id"]) if esc["requester_id"] else None
@@ -2520,6 +2525,10 @@ class Store:
                 "capability": esc.get("capability", ""), "amount": amount,
                 "fee": fee, "payout": payout, "task_id": esc["task_id"],
             }, actor_did=(self.agents.get(esc["requester_id"]) or {}).get("did", ""))
+            if self.backend is not None:
+                # authoritative refresh of the derived-revenue cache after the
+                # settlement + ledger rows are sealed (idempotent by escrow_id).
+                self.guild_revenue = self.backend.guild_revenue_total()
             return {"escrow_id": escrow_id, "status": "released", "amount": amount,
                     "fee": fee, "payout": payout, "worker_id": esc["worker_id"],
                     "guild_revenue": self.guild_revenue, "task_id": esc["task_id"]}

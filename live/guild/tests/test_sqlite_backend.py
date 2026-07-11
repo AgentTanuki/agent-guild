@@ -567,6 +567,80 @@ def test_concurrent_escrow_releases_guild_revenue_exact(_force_sqlite):
     assert worker_final == worker_start + n_esc * (amount - fee_each), (
         f"worker payout wrong: start={worker_start} "
         f"expected+={n_esc}x{amount - fee_each} observed={worker_final}")
+    # NO double-count of any settlement side effect under the release storm:
+    con = sqlite3.connect(db)
+    fee_rows = con.execute(
+        "SELECT COUNT(*) FROM billing_log "
+        "WHERE json_extract(json,'$.type')='settlement_fee'").fetchone()[0]
+    released_ledger = con.execute(
+        "SELECT COUNT(*) FROM ledger "
+        "WHERE json_extract(json,'$.type')='escrow_event' "
+        "AND json_extract(json,'$.body.event')='released'").fetchone()[0]
+    con.close()
+    assert fee_rows == n_esc, (
+        f"expected exactly {n_esc} settlement_fee billing rows (one per escrow), "
+        f"observed {fee_rows} — a release double-recorded its fee")
+    assert released_ledger == n_esc, (
+        f"expected exactly {n_esc} escrow_event/released ledger rows, observed "
+        f"{released_ledger} — a settlement was sealed twice")
+    # revenue is DERIVED, so the reopened cache equals the SUM query exactly.
+    assert s2.guild_revenue == s2.backend.guild_revenue_total() == n_esc * fee_each, (
+        f"derived guild_revenue mismatch: cache={s2.guild_revenue} "
+        f"query={s2.backend.guild_revenue_total()} expected={n_esc * fee_each}")
+
+
+# --- 18. concurrent releases of DISTINCT escrows: revenue = exact total ------
+def test_concurrent_distinct_escrow_releases_revenue_exact(_force_sqlite):
+    """Companion to test 16: instead of every process racing the SAME set, each
+    process releases its OWN disjoint subset of escrows concurrently. The derived
+    revenue must equal the SUM of every settled fee — no lost release, no clobber
+    between the parallel writers."""
+    db = _force_sqlite
+    s = _store()
+    payer = s.register_agent("d_payer", ["cap"], {})
+    worker = s.register_agent("d_worker", ["cap"], {})
+    key = payer["api_key"]
+    s.credit(key, 1_000_000, reason="seed")
+    procs, per, amount = 4, 6, 100
+    # a disjoint block of escrows per process
+    blocks = []
+    for _ in range(procs):
+        blocks.append([s.open_escrow(key, worker["id"], amount, capability="c")["id"]
+                       for _ in range(per)])
+    fee_each = s.get_escrow(blocks[0][0])["fee"]
+    n_esc = procs * per
+
+    procs_l = []
+    for block in blocks:
+        procs_l.append(subprocess.Popen(
+            [sys.executable, "-c", WORKER, db, "release",
+             json.dumps({"key": key, "escrow_ids": block})],
+            cwd=str(GUILD_DIR), env={**os.environ, "PYTHONPATH": str(GUILD_DIR)},
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE))
+    total_released = 0
+    for p in procs_l:
+        o, e = p.communicate(timeout=180)
+        assert p.returncode == 0, f"release worker crashed: {e.decode()}"
+        total_released += int(o.decode().split()[-1])
+
+    s2 = _store()
+    con = sqlite3.connect(db)
+    released_rows = con.execute(
+        "SELECT COUNT(*) FROM escrows WHERE status='released'").fetchone()[0]
+    fee_rows = con.execute(
+        "SELECT COUNT(*) FROM billing_log "
+        "WHERE json_extract(json,'$.type')='settlement_fee'").fetchone()[0]
+    con.close()
+    assert total_released == n_esc, (
+        f"expected {n_esc} releases across disjoint blocks, observed {total_released}")
+    assert released_rows == n_esc, (
+        f"expected {n_esc} released escrows, observed {released_rows}")
+    assert fee_rows == n_esc, (
+        f"expected {n_esc} settlement_fee rows, observed {fee_rows}")
+    assert s2.guild_revenue == s2.backend.guild_revenue_total() == n_esc * fee_each, (
+        f"derived revenue wrong across distinct-escrow releases: "
+        f"cache={s2.guild_revenue} query={s2.backend.guild_revenue_total()} "
+        f"expected={n_esc * fee_each}")
 
 
 # --- 17. concurrent ledger appends: contiguous seq, no gaps, no clobber ------

@@ -184,7 +184,10 @@ CREATE TABLE IF NOT EXISTS kv (
 );
 """
 
-# collections persisted as whole-value blobs in kv.
+# collections persisted as whole-value blobs in kv. ``guild_revenue`` is kept as
+# a denormalised CACHE only — the authoritative value is DERIVED via
+# ``guild_revenue_total()`` (SUM of fees over released escrows), never read back
+# from kv as a mutable counter (see SQLITE_SCHEMA.md, amendment 1).
 KV_SINGLETONS = ("identity", "swarm_state", "guild_revenue")
 
 
@@ -477,6 +480,23 @@ class SqliteBackend:
             "SELECT json FROM kv WHERE k=?", (name,)).fetchone()
         return json.loads(row[0]) if row else default
 
+    def guild_revenue_total(self) -> int:
+        """Guild revenue DERIVED from committed settlement records, NEVER a
+        mutable read-modify-write counter: the SUM of the settlement ``fee`` over
+        every escrow that is committed in ``status='released'``. Each escrow
+        settles EXACTLY ONCE (release is guarded by the authoritative
+        ``status='funded'`` read on the escrow row), so this sum is idempotent by
+        ``escrow_id`` (the primary key) — concurrent releases can neither clobber
+        nor double-count it, and it is ALWAYS exact. Called inside the release
+        transaction (this release's row is already visible on the same
+        connection) and on load, to refresh the in-memory ``guild_revenue``
+        cache. See docs/discovery-swarm/SQLITE_SCHEMA.md for why the escrows
+        table (not the ledger) is the derivation source."""
+        row = self.conn().execute(
+            "SELECT COALESCE(SUM(json_extract(json,'$.fee')),0) FROM escrows "
+            "WHERE status='released'").fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
     def fetch_ledger_head(self) -> tuple:
         """(next_seq, prev_hash) computed AUTHORITATIVELY from the committed
         ledger rows, so concurrent appenders each seal against the true chain
@@ -570,7 +590,8 @@ class SqliteBackend:
             "demand_watches": demand_watches,
             "identity": kv.get("identity", {}),
             "swarm_state": kv.get("swarm_state", {}),
-            "guild_revenue": kv.get("guild_revenue", 0),
+            # DERIVED (idempotent by escrow_id), not the vestigial kv counter.
+            "guild_revenue": self.guild_revenue_total(),
             "outbound_invocations": invocations,
         }
 
