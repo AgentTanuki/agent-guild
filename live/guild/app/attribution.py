@@ -190,10 +190,24 @@ def caller_class(event: Mapping[str, Any], *,
     """
     if operator or event.get("op"):
         return "OPERATOR"
-    if event.get("fp", event.get("first_party")):
-        return "AG_INTERNAL"
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
-    if _is_known_first_party_incident(event) or AG_TEST_UA_RE.search(ua):
+    fp = bool(event.get("fp", event.get("first_party")))
+    # A first-party TEST caller (explicit fp_role='test', or a self-identified
+    # test/verification UA, or a known first-party incident) is AG_TEST; any
+    # other first-party caller is AG_INTERNAL. This is checked BEFORE the
+    # generic fp->AG_INTERNAL so a first-party canary/probe is AG_TEST, not
+    # AG_INTERNAL. A caller WITHOUT first-party auth can never be AG_INTERNAL.
+    is_test = (event.get("fp_role") == "test"
+               or _is_known_first_party_incident(event)
+               or AG_TEST_UA_RE.search(ua))
+    if fp and is_test:
+        return "AG_TEST"
+    if fp:
+        return "AG_INTERNAL"
+    # Non-first-party but self-identified AG test/verification tooling (e.g. the
+    # canary before the token is set) is still AG_TEST (defense-in-depth), never
+    # genuine external.
+    if is_test:
         return "AG_TEST"
     if CRAWLER_UA_RE.search(ua):
         return "REGISTRY_CRAWLER"

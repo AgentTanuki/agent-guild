@@ -13,3 +13,17 @@ Activation order (Ross):
 5. Record the activation date here and in the compliance matrix (upgrades the "internal/test/external distinguishable" item).
 
 Notes: the token travels in a request header over TLS, same trust level as X-API-Keys. Rotation = repeat steps 1–4. The token is deliberately NOT stored in git; `live/secrets/` is gitignored.
+
+## Update 2026-07-11 — dedicated header, constant-time, role, rotation (Pilot B Entry Step 1)
+
+The mechanism is now hardened (implementation: `app/firstparty.py`; full runbook + caller inventory: `PILOT_B_ENTRY_STATUS.md`):
+
+- **Dedicated header** `X-Agent-Guild-First-Party` carries the token (the legacy `X-Guild-Source` is still accepted during migration).
+- **Constant-time comparison** (`hmac.compare_digest`) — no `==` on the secret.
+- **Role header** `X-Agent-Guild-Role: test | internal` (default internal) splits first-party callers into **AG_TEST** vs **AG_INTERNAL**; both are excluded from external-growth metrics.
+- **Invalid/missing token in strict mode never sets first-party** → never AG_INTERNAL. UA/IP/naming are defense-in-depth only.
+- **No authority:** a valid token grants no scopes and no admin — classification/internal-auth only.
+- **Rotation:** `GUILD_FIRST_PARTY_TOKEN_PREV` supports a short dual-token window; remove it after migration (no permanent multi-token ambiguity). Procedure in `PILOT_B_ENTRY_STATUS.md`.
+- **Never recorded:** the raw token appears in no event, log, or exception (tested).
+
+Behaviour is unchanged in production until the token is set (honor mode preserved); setting it activates strict mode.

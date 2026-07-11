@@ -28,7 +28,7 @@ def _token() -> str:
     try:
         return open(p).read().strip()
     except OSError:
-        return "guild-canary"      # harmless when strict mode is off
+        return ""                  # no bogus token: the canary is AG_TEST by UA
 
 
 def _post(path, body, extra=None):
@@ -37,7 +37,11 @@ def _post(path, body, extra=None):
     req.add_header("Content-Type", "application/json")
     req.add_header("Accept", "application/json, text/event-stream")
     req.add_header("User-Agent", UA)
-    req.add_header("X-Guild-Source", _token())
+    tok = _token()
+    if tok:                                            # only ever a REAL token
+        req.add_header("X-Agent-Guild-First-Party", tok)
+        req.add_header("X-Guild-Source", tok)          # legacy, accepted during migration
+    req.add_header("X-Agent-Guild-Role", "test")       # canary is TEST; UA also -> AG_TEST
     for k, v in (extra or {}).items():
         req.add_header(k, v)
     t0 = time.time()

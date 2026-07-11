@@ -36,11 +36,30 @@ router = APIRouter()
 BASE = journey_engine.BASE  # canonical public origin — identity docs cite it
 
 
-def _is_first_party(x_guild_source: Optional[str]) -> bool:
-    token = os.environ.get("GUILD_FIRST_PARTY_TOKEN", "")
-    if not x_guild_source:
-        return False
-    return x_guild_source == token if token else True
+from .. import firstparty as _fp_auth
+
+
+def _is_first_party(x_guild_source: Optional[str],
+                    x_first_party: Optional[str] = None) -> bool:
+    """Constant-time first-party check (dedicated + legacy header). See
+    app/firstparty.py."""
+    return _fp_auth.is_first_party(x_first_party, x_guild_source)
+
+
+def _fp_from_request(request) -> tuple[bool, str]:
+    """(is_first_party, role) from a request's first-party headers — the
+    dedicated X-Agent-Guild-First-Party (preferred), the legacy X-Guild-Source,
+    and the optional X-Agent-Guild-Role (test|internal, default internal)."""
+    h = request.headers
+    ok = _fp_auth.is_first_party(h.get(_fp_auth.HEADER), h.get(_fp_auth.LEGACY_HEADER))
+    return ok, _fp_auth.role_of(h.get(_fp_auth.ROLE_HEADER))
+
+
+def _stamp_fp(request) -> None:
+    ok, role = _fp_from_request(request)
+    if ok and store.events:
+        store.events[-1]["fp"] = True
+        store.events[-1]["fp_role"] = role
 
 
 def _require_admin(x_admin_token: Optional[str]) -> None:
@@ -88,8 +107,7 @@ def identity_index(request: Request,
     with store.lock:
         store.record_event(None, "swarm_index_fetch",
                            ua=request.headers.get("user-agent", ""))
-        if _is_first_party(x_guild_source):
-            store.events[-1]["fp"] = True
+        _stamp_fp(request)
     return registry.index(BASE)
 
 
@@ -105,8 +123,7 @@ def identity_document(ag_id: str, request: Request,
         store.record_event(None, "swarm_identity_fetch",
                            ua=request.headers.get("user-agent", ""),
                            capability=doc["identity"]["capability"]["id"])
-        if _is_first_party(x_guild_source):
-            store.events[-1]["fp"] = True
+        _stamp_fp(request)
     return doc
 
 
@@ -115,8 +132,7 @@ def terms(request: Request, x_guild_source: Optional[str] = Header(None)):
     with store.lock:
         store.record_event(None, "swarm_terms_fetch",
                            ua=request.headers.get("user-agent", ""))
-        if _is_first_party(x_guild_source):
-            store.events[-1]["fp"] = True
+        _stamp_fp(request)
     return gateway.terms(BASE)
 
 
@@ -136,15 +152,15 @@ def invoke(capability_id: str, request: Request,
             x_api_key=x_api_key,
             client_host=(request.client.host if request.client else ""),
             ua=request.headers.get("user-agent", ""),
-            first_party=_is_first_party(x_guild_source),
+            first_party=_fp_from_request(request)[0],
+            first_party_role=_fp_from_request(request)[1],
             base=BASE)
     except gateway.Denied as d:
         with store.lock:
             store.record_event(None, "swarm_invoke_denied",
                                ua=request.headers.get("user-agent", ""),
                                capability=capability_id, reason=d.kind)
-            if _is_first_party(x_guild_source):
-                store.events[-1]["fp"] = True
+            _stamp_fp(request)
         headers = {}
         if d.status == 429:
             headers["Retry-After"] = str(d.detail.get("retry_after_seconds", 60))

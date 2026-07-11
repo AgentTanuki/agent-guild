@@ -119,15 +119,15 @@ ADMIN_TOKEN = os.environ.get("GUILD_ADMIN_TOKEN", "")
 # cannot accidentally (or deliberately) tag itself, and, more importantly, our
 # own traffic is reliably tagged. When unset, any non-empty header marks
 # first-party (convenient for local dev).
-FIRST_PARTY_TOKEN = os.environ.get("GUILD_FIRST_PARTY_TOKEN", "")
+from . import firstparty as _fp_auth
 
 
-def _is_first_party(x_guild_source: Optional[str]) -> bool:
-    if not x_guild_source:
-        return False
-    if FIRST_PARTY_TOKEN:
-        return x_guild_source == FIRST_PARTY_TOKEN
-    return True
+def _is_first_party(x_guild_source: Optional[str],
+                    x_first_party: Optional[str] = None) -> bool:
+    """Constant-time first-party check. Prefers the dedicated
+    X-Agent-Guild-First-Party header; accepts the legacy X-Guild-Source during
+    migration. See app/firstparty.py."""
+    return _fp_auth.is_first_party(x_first_party, x_guild_source)
 
 
 def _profile(rec: dict) -> AgentProfile:
@@ -307,14 +307,15 @@ def health():
 # --- identity ---------------------------------------------------------------
 @app.post("/agents/register", response_model=RegisterResponse)
 def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
-             x_guild_source: Optional[str] = Header(None)):
+             x_guild_source: Optional[str] = Header(None),
+             x_agent_guild_first_party: Optional[str] = Header(None)):
     seed = req.seed
     if seed and ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
         raise HTTPException(403, "seed status requires a valid X-Admin-Token")
     rec = store.register_agent(
         name=req.name, capabilities=req.capabilities, metadata=req.metadata,
         public_key=req.public_key, seed=seed,
-        first_party=_is_first_party(x_guild_source),  # token-gated; seeds are also tagged
+        first_party=_is_first_party(x_guild_source, x_agent_guild_first_party),  # token-gated
         referred_by=req.referred_by,
         config=req.config, principal=req.principal,
     )
@@ -1051,19 +1052,22 @@ def _account_response(acct: dict) -> AccountResponse:
 
 
 @app.post("/billing/account", response_model=AccountResponse)
-def create_billing_account(x_guild_source: Optional[str] = Header(None)):
+def create_billing_account(x_guild_source: Optional[str] = Header(None),
+                           x_agent_guild_first_party: Optional[str] = Header(None)):
     """Create a standalone billing account (for consumers that aren't registered
     agents). Returns a key + a free starter credit allowance."""
-    return _account_response(store.create_account(first_party=_is_first_party(x_guild_source)))
+    return _account_response(store.create_account(
+        first_party=_is_first_party(x_guild_source, x_agent_guild_first_party)))
 
 
 @app.post("/billing/trial", response_model=AccountResponse)
-def grant_trial(x_guild_source: Optional[str] = Header(None)):
+def grant_trial(x_guild_source: Optional[str] = Header(None),
+                x_agent_guild_first_party: Optional[str] = Header(None)):
     """Agent-native, human-free credit acquisition. An agent provisions a capped
     trial balance to *evaluate* the service before paying — no checkout, no
     invoice. Returns a key with enough credits to run an evaluation."""
     return _account_response(store.grant_trial(billing.TRIAL_CREDITS,
-                                               first_party=_is_first_party(x_guild_source)))
+        first_party=_is_first_party(x_guild_source, x_agent_guild_first_party)))
 
 
 @app.get("/billing/account", response_model=AccountResponse)

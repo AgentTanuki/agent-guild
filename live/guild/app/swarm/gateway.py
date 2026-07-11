@@ -134,7 +134,8 @@ def _payload_size_ok(payload: Any) -> int:
 
 def invoke(store, capability_id: str, payload: Any, *,
            x_api_key: Optional[str], client_host: str, ua: str,
-           first_party: bool, base: str) -> tuple[int, dict]:
+           first_party: bool, base: str,
+           first_party_role: str = "internal") -> tuple[int, dict]:
     """The one chokepoint every invocation flows through:
     kill switch → capability lookup → payload cap → rate limit → schema
     validation → run → provenance + experience + instrumentation."""
@@ -194,6 +195,7 @@ def invoke(store, capability_id: str, payload: Any, *,
             # record_event derives fp from the billing account; guests have
             # none, so tag explicitly when the caller declared first-party.
             store.events[-1]["fp"] = True
+            store.events[-1]["fp_role"] = first_party_role
         if referral:
             tokens = store.swarm_state.setdefault("referral_tokens", {})
             tokens[referral] = {"capability": capability_id, "actor": actor,
