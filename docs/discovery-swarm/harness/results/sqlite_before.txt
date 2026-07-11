@@ -1,0 +1,4 @@
+=== sqlite dark-merge BEFORE probe 2026-07-11T04:19:54Z ===
+deployed rev: b5ca37353879296138774a75de287fa5fb988749
+health: {"ok":true,"agents":53,"tasks":203,"attestations":200}
+guest invoke: True
