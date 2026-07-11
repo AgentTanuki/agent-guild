@@ -305,7 +305,27 @@ class SqliteBackend:
     def _retry(self, fn: Callable[[], Any]) -> Any:
         """Run ``fn`` with a bounded exponential backoff on SQLITE_BUSY. The
         per-connection busy_timeout already blocks up to 5s; this catches the
-        residual contention (e.g. an upgrade deadlock) rather than surfacing it."""
+        residual contention (e.g. an upgrade deadlock) rather than surfacing it.
+
+        RETRY IDEMPOTENCY (why a retry can NEVER duplicate a committed effect):
+        the retry boundary is a SINGLE SQL statement (``BEGIN IMMEDIATE`` in
+        ``_begin``, a ``put_*``/append INSERT/UPDATE in ``_exec``, or ``COMMIT``
+        in ``_commit``) — never a re-run of the Python method body, so no
+        in-Python mutation is ever replayed. SQLite guarantees a statement that
+        returns ``SQLITE_BUSY`` did NOT modify the database (the lock is refused
+        BEFORE any page is written), so re-issuing a BUSY'd statement cannot
+        double-apply it. ``BEGIN IMMEDIATE`` only ever fails BUSY while acquiring
+        the write lock (nothing applied yet); once held, subsequent writes in the
+        same transaction do not contend, and ``COMMIT`` is atomic (a BUSY'd
+        commit left the transaction open — the retry commits it exactly once; a
+        commit that already succeeded closes the transaction, so a spurious retry
+        is a harmless no-op). On top of that, every write is idempotent by a
+        natural key (agents.id, accounts.key, tasks.id, escrows.id,
+        outbound_invocations.id, ledger.seq via INSERT OR REPLACE), and
+        guild_revenue is DERIVED (a SUM over settled escrows), never an
+        incremented counter — so even a whole-unit replay re-derives the same
+        state instead of duplicating it. Proven by
+        ``tests/test_sqlite_retry_idempotency.py``."""
         delay = _BASE_BACKOFF_S
         last: Optional[Exception] = None
         for _ in range(_MAX_RETRIES):
