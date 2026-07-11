@@ -39,12 +39,37 @@ concurrent same-agent rotation, and the `guild_revenue` global counter under
 concurrent escrow releases. Under a single writer none can occur.
 
 ## Suitability
-**SQLite is suitable for Pilot B at the current single-instance/single-worker
-topology.** It is NOT suitable beyond that (multi-instance) — that requires
-Postgres.
+**SQLite is suitable ONLY for ONE Render instance + ONE mounted disk + ONE
+uvicorn worker.** Horizontal scale or multiple instances **REQUIRES migration to
+Postgres** — a Render disk cannot be shared, and multiple SQLite writers on a
+shared file re-introduce the whole-file clobber class of failure. At the
+confirmed single-instance/single-worker topology it is suitable for Pilot B.
+
+### Database-authoritative writes (why the "single-writer-only" invariants now hold)
+Writes under `GUILD_STORE=sqlite` are database-authoritative: each
+write-sensitive op reads the current rows from SQLite inside one
+`BEGIN IMMEDIATE` transaction and validates/computes against those (not a stale
+in-memory snapshot), with a `version` column + compare-and-swap as the
+lost-update guard (see `docs/discovery-swarm/SQLITE_SCHEMA.md`). The three
+invariants previously flagged single-writer-only — ledger-chain `seq`,
+account-rekey orphan rows, and the `guild_revenue` counter — are now exercised
+UNDER MULTI-PROCESS in `tests/test_sqlite_backend.py` and hold (contiguous seq,
+zero orphan account rows, exact guild_revenue). They are correct at any process
+count on ONE disk; the single-worker rule below is about avoiding SQLite's
+`SQLITE_BUSY`/lock contention and the fact that a disk cannot be shared across
+instances, NOT about those invariants being unsafe.
+
+## Startup guard (fail fast on a multi-worker misconfiguration)
+`Store.__init__` refuses to start when `GUILD_STORE=sqlite` AND the process is
+knowingly configured for multiple workers — `WEB_CONCURRENCY`, `GUILD_WORKERS`
+or `UVICORN_WORKERS` `> 1`, or an explicit `uvicorn --workers N` on the command
+line. It raises a fatal `RuntimeError` explaining SQLite is single-writer-only
+and pointing at Postgres for horizontal scale, rather than silently running
+multiple writers. Single-node override (accepting the risk):
+`GUILD_SQLITE_ALLOW_MULTIWORKER=1`.
 
 ## Cutover checklist (all must be YES before `GUILD_STORE=sqlite`)
-1. Topology still single-instance + single-worker (disk attached, no `--workers`). ✅ confirmed 2026-07-10.
+1. Topology still single-instance + single-worker (disk attached, no `--workers`; the startup guard enforces this). ✅ confirmed 2026-07-10.
 2. Backup taken: copy `/data/guild.json` + `/data/guild.json.events.jsonl`. ☐
 3. Run the migration to a NEW file on the disk (source untouched):
    `python scripts/migrate_json_to_sqlite.py --data /data/guild.json --out /data/guild.db` → RESULT: verified OK. ☐

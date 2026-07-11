@@ -37,3 +37,20 @@ Concern (ONE): persistence-layer cutover. Nothing else.
 - 393 pass in all 3 modes (json / sqlite / sqlite+hashing). 13 real multi-process concurrency tests.
 - Concurrent registrations: JSON loses 74%, SQLite loses 0.
 - Deployment decision: docs/discovery-swarm/SQLITE_CUTOVER.md. Single-instance/single-worker only; multi-instance -> Postgres.
+
+## Status (database-authoritative amendment, 2026-07-11)
+- Writes under GUILD_STORE=sqlite are now DATABASE-AUTHORITATIVE (BEGIN IMMEDIATE
+  authoritative read + validate + write in one txn), not in-memory RMW-then-persist.
+- version columns (agents/accounts/tasks/escrows/outbound_invocations) +
+  update_agent_cas CAS (stale-write rejected test).
+- outbound_invocations promoted to a DEDICATED table (was a kv blob).
+- SQLite is the canonical event store; .events.jsonl disabled under sqlite.
+- Startup guard: refuse GUILD_STORE=sqlite with >1 configured worker.
+- The 3 previously single-writer-only invariants (ledger seq / account rekey /
+  guild_revenue) now pass UNDER MULTI-PROCESS.
+- Complete 16-collection schema map: docs/discovery-swarm/SQLITE_SCHEMA.md.
+- Migration report: honest raw-key auth (only with a raw key / --test-key) + all
+  16 collections compared.
+- 397 pass in all 3 modes (json / sqlite / sqlite+hashing); 17 multi-process tests.
+- NB: this amendment intentionally touches set_agent_endpoint/rotate/revoke to add
+  authoritative reads (per the task); credential/keying SEMANTICS are unchanged.
