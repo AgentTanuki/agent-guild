@@ -382,25 +382,116 @@ def check_duplicates(state, con) -> tuple[bool, list[str]]:
     return ok, msgs
 
 
-def check_credential_auth(state, con) -> tuple[bool, list[str]]:
-    """A sampled credential still verifies against its MIGRATED record: every
-    security-relevant field (api_key / api_key_hash / key_id / scopes / revoked /
-    expiry) survives byte-identically into sqlite, so authentication is
-    unchanged post-migration."""
-    fields = ("api_key", "api_key_hash", "key_id", "scopes",
-              "api_key_revoked_at", "api_key_expires_at")
-    sampled = [a for a in state["agents"].values()
-               if any(a.get(f) for f in fields)]
-    if not sampled:
-        return True, ["[OK ] credential-auth: no credentials to sample"]
-    ok = True
-    for a in sampled[:10]:
+def _load_creds():
+    """Best-effort import of app.credentials so raw-key auth can be tested
+    end-to-end where a raw key is available. Returns None if unavailable (in
+    which case raw-key auth is reported as NOT performed, never as passed)."""
+    try:
+        import app.credentials as c  # already on the path?
+        return c
+    except Exception:
+        pass
+    here = os.path.dirname(os.path.abspath(__file__))
+    guild = os.path.join(os.path.dirname(here), "guild")
+    if guild not in sys.path:
+        sys.path.insert(0, guild)
+    try:
+        import app.credentials as c
+        return c
+    except Exception:
+        return None
+
+
+def check_credential_auth(state, con, test_keys=None) -> tuple[bool, list[str]]:
+    """Credential verification, reported HONESTLY and SEPARATELY.
+
+    Migration preserves a credential byte-identically; it does NOT (and cannot)
+    re-derive a *salted* PBKDF2 verifier from a hash. So this reports four
+    distinct things, and NEVER claims credential-auth verification where no raw
+    key exists:
+
+      (a) verifier-format preservation — the ``api_key_hash`` (``pbkdf2_sha256$..``)
+          / plaintext ``api_key`` / ``scopes`` / revoked / expiry fields survive
+          byte-identically into sqlite;
+      (b) ``key_id`` preservation;
+      (c) raw-key END-TO-END authentication against the MIGRATED record —
+          performed ONLY where a raw key is available (a plaintext key still in
+          the source, or a ``--test-key`` supplied on the CLI);
+      (d) the COUNT of records that CANNOT be end-to-end authenticated at
+          migration time (hashed-at-rest, no raw key)."""
+    creds = _load_creds()
+    fields_fmt = ("api_key", "api_key_hash", "key_id", "scopes",
+                  "api_key_revoked_at", "api_key_expires_at")
+    agents = list(state["agents"].values())
+    msgs, ok = [], True
+
+    # (a) + (b): format + key_id survive byte-identically into sqlite.
+    fmt_ok = kid_ok = True
+    have_cred = 0
+    for a in agents:
+        if not any(a.get(f) for f in ("api_key", "api_key_hash", "key_id")):
+            continue
+        have_cred += 1
         row = con.execute("SELECT data FROM agents WHERE id=?", (a["id"],)).fetchone()
         mig = json.loads(row[0]) if row else {}
-        if any(mig.get(f) != a.get(f) for f in fields):
-            ok = False
-    return ok, [f"[{'OK ' if ok else 'FAIL'}] credential-auth fields preserved "
-                f"(sampled {min(len(sampled),10)} of {len(sampled)} credentials)"]
+        if any(mig.get(f) != a.get(f) for f in fields_fmt):
+            fmt_ok = False
+        if mig.get("key_id") != a.get("key_id"):
+            kid_ok = False
+    ok = ok and fmt_ok and kid_ok
+    msgs.append(f"[{'OK ' if fmt_ok else 'FAIL'}] verifier-format preserved byte-identically "
+                f"(api_key/api_key_hash/scopes/revoked/expiry) for {have_cred} credential(s)")
+    msgs.append(f"[{'OK ' if kid_ok else 'FAIL'}] key_id preserved for {have_cred} credential(s)")
+
+    # (c): assemble the set of agents for which a RAW key is actually available.
+    raw_by_agent = {}
+    for a in agents:
+        raw = a.get("api_key")
+        if isinstance(raw, str) and raw.startswith("sk_"):
+            raw_by_agent[a["id"]] = raw     # plaintext-at-rest source key
+    if creds is not None:
+        for raw in (test_keys or []):
+            try:
+                kid = creds.key_id_of(raw)
+            except Exception:
+                continue
+            for a in agents:
+                if a.get("key_id") == kid or a.get("api_key") == raw:
+                    raw_by_agent[a["id"]] = raw   # operator-supplied known key
+
+    tested = passed = 0
+    if raw_by_agent and creds is None:
+        msgs.append("[WARN] app.credentials not importable — raw-key auth NOT performed")
+    elif creds is not None:
+        for aid, raw in raw_by_agent.items():
+            row = con.execute("SELECT data FROM agents WHERE id=?", (aid,)).fetchone()
+            mig = json.loads(row[0]) if row else {}
+            tested += 1
+            stored = mig.get("api_key_hash")
+            if stored:
+                authed = creds.verify_key_hash(raw, stored)
+            else:
+                authed = bool(mig.get("api_key")) and mig.get("api_key") == raw
+            kid_match = (not mig.get("key_id")) or creds.key_id_of(raw) == mig.get("key_id")
+            if authed and kid_match:
+                passed += 1
+            else:
+                ok = False
+    if tested:
+        msgs.append(f"[{'OK ' if passed == tested else 'FAIL'}] raw-key END-TO-END auth "
+                    f"against the MIGRATED record: {passed}/{tested} raw key(s) authenticate")
+    else:
+        msgs.append("[INFO] raw-key END-TO-END auth: 0 performed (no plaintext key in "
+                    "source and no --test-key supplied) — NOT claiming auth verification")
+
+    # (d): what remains unverifiable at migration time.
+    hashed_no_raw = sum(1 for a in agents
+                        if a.get("api_key_hash") and a["id"] not in raw_by_agent)
+    msgs.append(f"[INFO] {hashed_no_raw} credential(s) hashed-at-rest with NO raw key "
+                "available -> CANNOT be end-to-end authenticated during migration "
+                "(verifier-format preservation is the only guarantee; pass --test-key "
+                "to end-to-end verify a known key)")
+    return ok, msgs
 
 
 def check_reachability(state, con) -> tuple[bool, list[str]]:
@@ -417,7 +508,67 @@ def check_reachability(state, con) -> tuple[bool, list[str]]:
 
 
 
-def verify(data_path: str, db_path: str) -> bool:
+# --- complete collection matrix (all 16 store collections) -------------------
+
+# Every current Store collection, and how the migration represents it. This is
+# the migrate-script view; the RUNTIME backend (app/store_sqlite.py) is
+# documented in docs/discovery-swarm/SQLITE_SCHEMA.md.
+ALL_COLLECTIONS = (
+    ("agents",               "table"),
+    ("tasks",                "table"),
+    ("attestations",         "table"),
+    ("accounts",             "table"),
+    ("escrows",              "table"),
+    ("ledger_records",       "ledger-table"),
+    ("events",               "events-table"),
+    ("billing_log",          "kv-list"),
+    ("referrals",            "kv-list"),
+    ("health_log",           "kv-list"),
+    ("checkpoints",          "kv-list"),
+    ("demand_watches",       "kv-list"),
+    ("identity",             "kv-value"),
+    ("swarm_state",          "kv-value"),
+    ("guild_revenue",        "kv-value"),
+    ("outbound_invocations", "transient"),
+)
+
+
+def verify_all_collections(state, con) -> tuple[bool, list[str]]:
+    """Compare EVERY one of the 16 store collections (not just agents+ledger)."""
+    msgs, ok = [], []
+    table_of = {"agents": "agents", "tasks": "tasks", "attestations": "attestations",
+                "accounts": "accounts", "escrows": "escrows",
+                "ledger_records": "ledger", "events": "events"}
+    for name, kind in ALL_COLLECTIONS:
+        if kind in ("table", "ledger-table", "events-table"):
+            table = table_of[name]
+            got = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            want = (len(state["events_deduped"]) if name == "events"
+                    else len(state[name]))
+            good = got == want
+            msgs.append(f"[{'OK ' if good else 'FAIL'}] {name:<20} -> {table:<12} "
+                        f"sqlite={got:<7} source={want}")
+        elif kind == "kv-list":
+            row = con.execute("SELECT v FROM kv WHERE k=?", (name,)).fetchone()
+            got = len(json.loads(row[0])) if row else -1
+            want = len(state[name])
+            good = row is not None and json.loads(row[0]) == state[name]
+            msgs.append(f"[{'OK ' if good else 'FAIL'}] {name:<20} -> kv          "
+                        f"sqlite={got:<7} source={want} (full-equality)")
+        elif kind == "kv-value":
+            row = con.execute("SELECT v FROM kv WHERE k=?", (name,)).fetchone()
+            good = row is not None and json.loads(row[0]) == state[name]
+            msgs.append(f"[{'OK ' if good else 'FAIL'}] {name:<20} -> kv          "
+                        f"scalar/dict equality")
+        else:  # transient — the JSON store never persists outbound_invocations
+            good = True
+            msgs.append(f"[OK ] {name:<20} -> (transient) NOT persisted by the JSON "
+                        f"store; 0 rows expected pre-cutover")
+        ok.append(good)
+    return all(ok), msgs
+
+
+def verify(data_path: str, db_path: str, test_keys=None) -> bool:
     """Independently compare SQLite contents against the JSON source and
     re-verify the ledger hash chain from the SQLITE rows. Read-only on both."""
     state = load_source(data_path)
@@ -439,6 +590,12 @@ def verify(data_path: str, db_path: str) -> bool:
             if got != want:
                 ok = False
             print(f"  [{status}] {table:<13} sqlite={got:<8} source={want}")
+        # complete collection matrix — EVERY one of the 16 store collections
+        print("  -- all 16 collections --")
+        coll_ok, coll_msgs = verify_all_collections(state, con)
+        for m in coll_msgs:
+            print("  " + m)
+        ok = ok and coll_ok
         # ledger chain, re-read from SQLite (not from the source)
         rows = con.execute("SELECT data FROM ledger ORDER BY seq").fetchall()
         db_records = [json.loads(r[0]) for r in rows]
@@ -457,8 +614,12 @@ def verify(data_path: str, db_path: str) -> bool:
         for fn in (check_record_hashes, check_orphans, check_duplicates,
                    check_credential_auth, check_reachability):
             try:
-                sub_ok, msgs = (fn(state, con) if fn is not check_orphans
-                                else fn(state))
+                if fn is check_orphans:
+                    sub_ok, msgs = fn(state)
+                elif fn is check_credential_auth:
+                    sub_ok, msgs = fn(state, con, test_keys)
+                else:
+                    sub_ok, msgs = fn(state, con)
             except Exception as exc:  # a check must never mask a real result
                 sub_ok, msgs = False, [f"[FAIL] {fn.__name__}: {exc}"]
             for m in msgs:
@@ -483,6 +644,10 @@ def main(argv: Optional[list[str]] = None) -> int:
                    help="destination SQLite file (default: <data-stem>.sqlite3)")
     p.add_argument("--verify-only", action="store_true",
                    help="verify an existing SQLite file against the source; write nothing")
+    p.add_argument("--test-key", action="append", default=[], metavar="RAW_KEY",
+                   help="a RAW sk_ credential to END-TO-END authenticate against its "
+                        "migrated record (repeatable). The ONLY way to prove a "
+                        "hashed-at-rest credential still authenticates post-migration.")
     args = p.parse_args(argv)
     if not args.data:
         print("error: no source given (--data or GUILD_DATA)", file=sys.stderr)
@@ -494,7 +659,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 print(f"error: --verify-only but {out} does not exist", file=sys.stderr)
                 return 2
             print(f"verify-only: {out} vs {args.data}")
-            return 0 if verify(args.data, out) else 1
+            return 0 if verify(args.data, out, args.test_key) else 1
         print(f"migrating {args.data} -> {out}")
         pre = load_source(args.data)
         print("pre-migration source counts:")
@@ -506,7 +671,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         for t, n in counts.items():
             print(f"  wrote {t:<13} {n}")
         print("verifying...")
-        good = verify(args.data, out)
+        good = verify(args.data, out, args.test_key)
         print("RESULT:", "verified OK" if good else "VERIFICATION FAILED")
         print("")
         print("ROLLBACK: this migration is non-destructive — the JSON source and "
