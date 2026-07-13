@@ -1,10 +1,11 @@
 """The one-call collaboration write path — how real, verifiable interactions
 enter the canonical ledger.
 
-Locks the constraint this sprint removed: a single authenticated call must create
-a complete, content-addressed, highest-provenance (`guild_mediated`) collaboration
-record that the ledger picks up — instead of the four-call register→task→receipt
-→attest dance.
+prov-v2 (2026-07-13): one call = ONE party's cryptography. The record lands as
+`mutual_attestation` (the requester's receipt-backed claim), and its `signers`
+list names the requester only. `guild_mediated` requires two-party crypto,
+escrow settlement, or a Guild-observed bound invocation — a requester must
+never be able to manufacture the highest provenance class alone.
 """
 import os
 import hashlib
@@ -23,7 +24,7 @@ def _register(name, caps):
                        json={"name": name, "capabilities": caps}).json()
 
 
-def test_one_call_records_guild_mediated_ledger_record():
+def test_one_call_records_one_party_mutual_attestation():
     req = _register("Hirer", ["hiring"])
     wkr = _register("Doer", ["summarize"])
     r = client.post("/collaborations",
@@ -33,8 +34,11 @@ def test_one_call_records_guild_mediated_ledger_record():
                           "deliverable": "a tidy three-sentence summary"})
     assert r.status_code == 200, r.text
     body = r.json()
-    # one call produced a full, verifiable ledger record at the strongest tier
-    assert body["provenance"] == "guild_mediated"
+    # prov-v2: one party's word can NEVER mint the highest provenance class,
+    # and `signers` must not claim the worker signed anything.
+    assert body["provenance"] == "mutual_attestation"
+    assert body["ledger_record"]["signers"] == [req["did"]]
+    assert wkr["did"] not in body["ledger_record"]["signers"]
     assert body["ledger_record"]["worker_id"] == wkr["id"]
     assert body["ledger_record"]["outcome"] == "accepted"
     # the deliverable was content-addressed server-side (sha256)
@@ -57,7 +61,8 @@ def test_collaboration_shows_up_in_the_ledger():
     assert after["by_type"].get("receipt", 0) >= 1
     assert after["by_type"].get("attestation", 0) >= 1
     assert after["chain_valid"] is True
-    assert after["by_provenance"].get("guild_mediated", 0) >= 1
+    # prov-v2: the one-call path lands at mutual_attestation, never guild_mediated
+    assert after["by_provenance"].get("mutual_attestation", 0) >= 1
 
 
 def test_requires_auth_and_rejects_self_and_bad_outcome():

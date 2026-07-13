@@ -50,7 +50,19 @@ PROVENANCE_WEIGHT = {
     "verifiable_outcome": 0.9,
     "mutual_attestation": 0.6,
     "external_import": 0.2,
+    # prov-v2 additions (2026-07-13). Added, never removed — historical records
+    # keep their original bytes and are re-interpreted via append-only
+    # `reclassification` entries (see Ledger.effective_provenance):
+    "one_party_claim": 0.1,        # content-addressed but only ONE party ever
+                                   # authenticated/signed — a claim, not a proof
+    "first_party_bootstrap": 0.1,  # Guild-seeded demonstration cohort — labelled
+                                   # so it can never masquerade as external evidence
 }
+
+# The version tag of the provenance-classification rules currently in force.
+# Bumped whenever _classify semantics change; reclassification entries carry it
+# so a re-run is idempotent per rule version.
+PROVENANCE_RULES_VERSION = "prov-v2"
 # A live/open challenge downweights the signal pending resolution. An UPHELD
 # challenge does NOT zero the record — that would let adjudicated fraud vanish
 # from reputation (a whitewashing subsidy). Instead the record keeps its full
@@ -125,6 +137,13 @@ GENERIC_ENTRY_TYPES = (
     "receipt",         # a task receipt landed (raw event; provenance composed later)
     "attestation",     # an attestation was recorded (body carries credential hash)
     "escrow_event",    # escrow opened / released / refunded / disputed
+    "task_created",    # a task opened (raw event; makes serving views replayable)
+    "reclassification",  # append-only provenance correction: {target_id, task_id,
+                         # from, to, reason, rule_version}. NEVER rewrites the
+                         # target's bytes — interpretation composes at read time.
+    "issuer_rotation",   # Guild issuer key rotation: {old_did, new_did, proof}
+                         # where proof is the OLD key's signature over the body —
+                         # the continuity link verifiers walk across checkpoints.
 )
 
 
@@ -227,6 +246,34 @@ class Ledger:
         events are raw evidence composed at interpretation time)."""
         return [r for r in self.records if isinstance(r, CollaborationRecord)]
 
+    # --- append-only provenance corrections --------------------------------
+    def reclassifications(self) -> dict[str, dict[str, Any]]:
+        """target_id → latest reclassification body. Corrections are ordinary
+        chain entries, so they are themselves tamper-evident; the LAST one for a
+        target wins (later corrections supersede earlier ones)."""
+        out: dict[str, dict[str, Any]] = {}
+        for r in self.records:
+            if isinstance(r, GenericEntry) and r.type == "reclassification":
+                tid = r.body.get("target_id")
+                if tid:
+                    out[tid] = r.body
+        return out
+
+    def effective_provenance(self, rec: CollaborationRecord,
+                             _reclass: Optional[dict[str, dict[str, Any]]] = None) -> str:
+        """The provenance class a record CURRENTLY carries: its sealed original
+        unless an append-only reclassification entry supersedes it. Original
+        bytes are never touched — interpretation composes at read time."""
+        rc = (_reclass if _reclass is not None else self.reclassifications()).get(rec.id)
+        if rc and rc.get("to") in PROVENANCE_WEIGHT:
+            return rc["to"]
+        return rec.provenance
+
+    def effective_weight(self, rec: CollaborationRecord,
+                         _reclass: Optional[dict[str, dict[str, Any]]] = None) -> float:
+        return (PROVENANCE_WEIGHT.get(self.effective_provenance(rec, _reclass), 0.0)
+                * CHALLENGE_MULTIPLIER.get(rec.challenge_status, 1.0))
+
     def challenge(self, target_id: str, challenger_did: str, grounds: str,
                   stake: float = 0.0, created_at: str = "") -> Challenge:
         ch = Challenge(
@@ -297,10 +344,12 @@ class Ledger:
         """Per-worker reputation computed ONLY from immutable, provenance-weighted,
         non-upheld-challenged records. Reproducible by anyone from the ledger."""
         agg: dict[str, dict[str, Any]] = {}
+        reclass = self.reclassifications()
         for r in self.collabs():
-            w = r.weight()
+            w = self.effective_weight(r, reclass)
             if w <= 0:
                 continue
+            prov = self.effective_provenance(r, reclass)
             a = agg.setdefault(r.worker_id, {
                 "worker_id": r.worker_id, "worker_did": r.worker_did,
                 "weighted_success": 0.0, "weighted_total": 0.0,
@@ -309,7 +358,7 @@ class Ledger:
             a["weighted_success"] += w * r.success()
             a["weighted_total"] += w
             a["records"] += 1
-            a["by_provenance"][r.provenance] = a["by_provenance"].get(r.provenance, 0) + 1
+            a["by_provenance"][prov] = a["by_provenance"].get(prov, 0) + 1
         for a in agg.values():
             a["verifiable_success_rate"] = (
                 round(a["weighted_success"] / a["weighted_total"], 4)
@@ -319,10 +368,17 @@ class Ledger:
 
     def stats(self) -> dict[str, Any]:
         by_prov: dict[str, int] = {}
+        by_prov_original: dict[str, int] = {}
         by_type: dict[str, int] = {}
+        reclass = self.reclassifications()
+        reclassified = 0
         for r in self.records:
             if isinstance(r, CollaborationRecord):
-                by_prov[r.provenance] = by_prov.get(r.provenance, 0) + 1
+                eff = self.effective_provenance(r, reclass)
+                by_prov[eff] = by_prov.get(eff, 0) + 1
+                by_prov_original[r.provenance] = by_prov_original.get(r.provenance, 0) + 1
+                if eff != r.provenance:
+                    reclassified += 1
                 by_type["collab"] = by_type.get("collab", 0) + 1
             else:
                 by_type[r.type] = by_type.get(r.type, 0) + 1
@@ -331,7 +387,10 @@ class Ledger:
             "collaborations": by_type.get("collab", 0),
             "challenges": len(self.challenges),
             "open_challenges": sum(1 for c in self.challenges if c.status == "open"),
-            "by_provenance": by_prov,
+            "by_provenance": by_prov,                     # EFFECTIVE (post-correction)
+            "by_provenance_original": by_prov_original,   # as originally sealed
+            "reclassified_records": reclassified,
+            "provenance_rules_version": PROVENANCE_RULES_VERSION,
             "by_type": by_type,
             "chain_valid": self.verify_chain(),
             "head_hash": self._head,
@@ -397,29 +456,79 @@ def build_record_for_task(store: Any, t: dict[str, Any],
 
 
 def _classify(task, req, wrk, backed, atts, meta):
-    """Assign the strongest provenance class the evidence supports."""
+    """Assign the strongest provenance class the evidence supports (prov-v2).
+
+    INVARIANT (the production-truth rule): no record reaches `guild_mediated`
+    on the word of ONE party. The highest class requires at least one of:
+      (a) two-party cryptographic participation — the worker authenticated the
+          receipt with its OWN credential (custodial key auth or a signature
+          verified against its DID) AND the requester's verified attestation
+          backs it;
+      (b) a Guild-observed BOUND invocation — the Guild itself invoked the
+          worker's declared endpoint and observed the protocol response,
+          bound to this task (stamped internally, never client-suppliable);
+      (c) independent settlement proof — credits actually moved through Guild
+          escrow for this task (stamped internally by release_escrow).
+    The `signers` list only ever names DIDs that actually signed something.
+    """
     both_registered = bool(req) and bool(wrk)
     content_addressed = bool(task.get("deliverable_hash"))
-    paid = float(task.get("payment", 0.0) or 0.0) > 0
+    # Trusted, internally-stamped evidence (store strips these keys from any
+    # client-supplied metadata — see Store.create_task):
+    worker_participated = meta.get("receipt_auth") in ("worker_key", "worker_signature")
+    guild_observed = bool(meta.get("guild_observed_invocation"))
+    settlement = meta.get("settlement") if isinstance(meta.get("settlement"), dict) else None
+
     if meta.get("imported") or meta.get("external_import"):
         return "external_import", [], {"import_source": meta.get("import_source")}
-    # guild_mediated: full lifecycle through the Guild, both parties known, the
-    # receipt is content-addressed, AND a receipt-backed mutual attestation exists.
-    if both_registered and content_addressed and backed:
-        signers = [d for d in (req.get("did"), wrk.get("did")) if d]
-        return "guild_mediated", signers, {
-            "attestation_ids": [a["id"] for a in atts if a.get("verified")],
+
+    # Guild-seeded demonstration data is labelled at the lowest rung, always.
+    if meta.get("bootstrap_eval") or meta.get("seed_supply"):
+        return "first_party_bootstrap", [], {
             "receipt": task.get("deliverable_hash"),
+            "note": "guild-seeded demonstration cohort; not external evidence",
         }
-    # verifiable_outcome: content-addressed deliverable + economic skin (payment).
-    if content_addressed and paid:
-        return "verifiable_outcome", [wrk.get("did")] if wrk.get("did") else [], {
-            "receipt": task.get("deliverable_hash"),
-        }
-    # mutual_attestation: a receipt-backed attestation but weaker lifecycle proof.
+
+    # Signers = parties with actual cryptographic participation, never asserted.
+    signers: list[str] = []
+    if backed and req.get("did"):
+        signers.append(req["did"])            # verified attestation = requester signed
+    if worker_participated and wrk.get("did"):
+        signers.append(wrk["did"])            # authenticated/signed receipt = worker signed
+
+    evidence: dict[str, Any] = {"receipt": task.get("deliverable_hash")}
     if backed:
-        return "mutual_attestation", [], {
-            "attestation_ids": [a["id"] for a in atts if a.get("verified")],
-        }
-    # fallback: content-addressed but unbacked → still verifiable_outcome (low end)
-    return "verifiable_outcome", [], {"receipt": task.get("deliverable_hash")}
+        evidence["attestation_ids"] = [a["id"] for a in atts if a.get("verified")]
+    if meta.get("receipt_auth"):
+        evidence["receipt_auth"] = meta["receipt_auth"]
+    if guild_observed:
+        evidence["invocation_id"] = meta.get("guild_observed_invocation")
+    if settlement:
+        evidence["settlement"] = settlement
+
+    if both_registered and content_addressed:
+        if backed and worker_participated:
+            evidence["basis"] = "two_party_crypto"
+            return "guild_mediated", signers, evidence
+        if guild_observed:
+            evidence["basis"] = "guild_observed_invocation"
+            return "guild_mediated", signers, evidence
+        if settlement:
+            evidence["basis"] = "independent_settlement"
+            return "guild_mediated", signers, evidence
+
+    # verifiable_outcome: content-addressed + REAL economic skin. A `payment`
+    # float claimed by the requester is NOT proof — only settled escrow counts.
+    if content_addressed and settlement:
+        return "verifiable_outcome", signers, evidence
+    # ...or content-addressed with worker cryptographic participation.
+    if content_addressed and worker_participated:
+        return "verifiable_outcome", signers, evidence
+
+    # mutual_attestation: a participating agent's receipt-backed, VERIFIED
+    # attestation (one-party crypto — honest about which party).
+    if backed:
+        return "mutual_attestation", signers, evidence
+
+    # one-party, unbacked content-addressed claim: recorded, weighted near zero.
+    return "one_party_claim", signers, evidence

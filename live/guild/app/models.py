@@ -127,6 +127,14 @@ class ReceiptRequest(BaseModel):
     deliverable_hash: str = Field(..., description="Hash of the delivered artifact")
     deliverable_url: Optional[str] = Field(None, description="Optional pointer to the artifact")
     outcome: str = Field("delivered", description="delivered | accepted | disputed | rejected")
+    receipt_signature: Optional[str] = Field(
+        None,
+        description=(
+            "Self-sovereign workers: hex ed25519 signature over the JCS "
+            "canonicalisation of {\"deliverable_hash\":…,\"outcome\":…,\"task_id\":…} "
+            "made with the key behind the worker's did:key. Proves the WORKER "
+            "stands behind this receipt — one of the ways a record reaches "
+            "two-party (guild_mediated) provenance."))
 
 
 class EscrowRequest(BaseModel):

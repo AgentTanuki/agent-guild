@@ -48,6 +48,12 @@ W_PAYMENT_BONUS = 0.30  # the task carried a (simulated) payment
 W_STAKE_BONUS = 0.15    # the issuer staked reputation on the claim
 W_DISPUTED = 0.5    # multiplier if the receipt's outcome was disputed
 
+# Task-metadata keys that are trusted EVIDENCE STAMPS, written only by the
+# store's internal flows (worker-authenticated receipts, escrow settlement,
+# Guild-observed invocations). Stripped from any client-supplied metadata so a
+# requester can never elevate its own record's provenance (prov-v2 invariant).
+TRUSTED_TASK_META_KEYS = ("receipt_auth", "settlement", "guild_observed_invocation")
+
 
 class Store:
     def __init__(self, path: Optional[str] = None):
@@ -944,6 +950,16 @@ class Store:
                 return _terminal("protocol_failed")
             agent["reachability"] = _reach.invocation_verified_record(current, invocation_id)
             inv["result"] = "verified"
+            # Guild-observed BOUND invocation → provenance evidence (prov-v2):
+            # if this verified, AG-originated invocation references a known task
+            # for the SAME worker, stamp the task. Internal-only stamp (stripped
+            # from client metadata), one of the three paths to guild_mediated.
+            if receipt_ref and receipt_ref in self.tasks:
+                t = self.tasks[receipt_ref]
+                if t.get("worker_agent_id") == inv["agent_id"]:
+                    t.setdefault("metadata", {})["guild_observed_invocation"] = invocation_id
+                    if self.backend is not None:
+                        self._persist_task(t)
             self.record_event(self.account_for_agent(inv["agent_id"]),
                               "endpoint_invocation_verified",
                               agent_id=inv["agent_id"], invocation_id=invocation_id)
@@ -2253,15 +2269,19 @@ class Store:
         outcome: str, rating: float, *, deliverable: Optional[str] = None,
         deliverable_hash: Optional[str] = None, deliverable_url: Optional[str] = None,
         payment: float = 0.0, stake: float = 0.0,
+        settlement: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
-        """Record a COMPLETE, verifiable collaboration in one step: create the
-        task, content-address the deliverable, submit the graded receipt, and write
-        the requester's receipt-backed attestation — yielding a single
-        highest-provenance (`guild_mediated`) entry in the collaboration ledger.
+        """Record a collaboration in one step: create the task, content-address
+        the deliverable, submit the graded receipt, and write the requester's
+        receipt-backed attestation.
 
-        This is the low-friction write path the canonical ledger needs: every real
-        agent-to-agent interaction can land as a verifiable record in one call,
-        instead of the four-call register→task→receipt→attest dance."""
+        PROVENANCE TRUTH (prov-v2): this is a ONE-PARTY write path — only the
+        requester authenticates. The resulting ledger entry therefore classifies
+        as `mutual_attestation` (a participating agent's receipt-backed claim),
+        NOT `guild_mediated`. It reaches `guild_mediated` only with independent
+        proof: `settlement` (stamped internally by release_escrow — credits
+        actually moved), a Guild-observed bound invocation, or the worker later
+        countersigning the receipt via the two-party task flow."""
         worker = self.get_agent(worker_id)
         if worker is None:
             raise ValueError("worker not found")
@@ -2275,7 +2295,16 @@ class Store:
             deliverable_hash = "0x" + hashlib.sha256(deliverable.encode("utf-8")).hexdigest()
         task = self.create_task(requester["id"], worker_id, capability,
                                 payment=float(payment))
-        self.submit_receipt(task["id"], deliverable_hash, deliverable_url, outcome)
+        if settlement:
+            # trusted stamp: only internal callers (release_escrow) pass this —
+            # it is stripped from every client-supplied metadata dict.
+            with self.lock, self._txn():
+                t = self.tasks.get(task["id"])
+                t.setdefault("metadata", {})["settlement"] = dict(settlement)
+                if self.backend is not None:
+                    self._persist_task(t)
+        self.submit_receipt(task["id"], deliverable_hash, deliverable_url, outcome,
+                            receipt_auth="requester")
         att = self.add_custodial_attestation(
             requester, worker, capability, float(rating), task["id"],
             comment="collaboration", stake=float(stake))
@@ -2371,6 +2400,61 @@ class Store:
         from .ledger import Ledger
         self.ensure_ledger_backfilled()
         return Ledger.from_records(self.ledger_records)
+
+    def reclassify_ledger(self) -> dict[str, Any]:
+        """prov-v2 honesty pass: re-evaluate every sealed collaboration record
+        under the CURRENT classification rules and, where the sealed class is no
+        longer supportable, append an append-only `reclassification` entry.
+        Original bytes are never rewritten — verify_chain still passes on the
+        historical records; serving views compose the correction at read time.
+        Idempotent per PROVENANCE_RULES_VERSION."""
+        from .ledger import (Ledger, PROVENANCE_RULES_VERSION, _classify,
+                             CollaborationRecord)
+        with self.lock, self._txn():
+            self.ensure_ledger_backfilled()
+            led = Ledger.from_records(self.ledger_records)
+            done = {tid: b for tid, b in led.reclassifications().items()
+                    if b.get("rule_version") == PROVENANCE_RULES_VERSION}
+            appended = 0
+            for rec in led.collabs():
+                if rec.id in done:
+                    continue
+                task = self.tasks.get(rec.task_id)
+                if task is not None:
+                    req = self.agents.get(rec.requester_id) or {}
+                    wrk = self.agents.get(rec.worker_id) or {}
+                    atts = [a for a in self.attestations
+                            if a.get("task_id") == rec.task_id]
+                    backed = any(a.get("issuer_id") == rec.requester_id
+                                 and a.get("subject_id") == rec.worker_id
+                                 and a.get("verified") for a in atts)
+                    to, signers, _ev = _classify(task, req, wrk, backed, atts,
+                                                 task.get("metadata") or {})
+                    reason = "re-evaluated under prov-v2 rules from surviving task evidence"
+                else:
+                    # task evidence gone: the sealed class cannot be re-derived, so
+                    # fall to the strongest class ONE party's crypto supports.
+                    if rec.evidence.get("attestation_ids"):
+                        to, reason = "mutual_attestation", (
+                            "task evidence unavailable; requester attestation is the "
+                            "only surviving cryptographic participation")
+                    else:
+                        to, reason = "one_party_claim", (
+                            "task evidence unavailable; no surviving cryptographic "
+                            "participation from either party")
+                if to == rec.provenance:
+                    continue
+                self.append_ledger_event("reclassification", {
+                    "target_id": rec.id,
+                    "task_id": rec.task_id,
+                    "from": rec.provenance,
+                    "to": to,
+                    "reason": reason,
+                    "rule_version": PROVENANCE_RULES_VERSION,
+                }, actor_did=self.guild_did())
+                appended += 1
+            return {"rule_version": PROVENANCE_RULES_VERSION,
+                    "examined": len(led.collabs()), "appended": appended}
 
     # --- published checkpoints (stage-2: pinnable canonical commitments) -----
     def publish_checkpoint(self) -> dict[str, Any]:
@@ -2537,7 +2621,12 @@ class Store:
                         deliverable=deliverable,
                         deliverable_hash=deliverable_hash or ("0x" + hashlib.sha256(
                             escrow_id.encode()).hexdigest()),
-                        payment=float(amount))
+                        payment=float(amount),
+                        # independent settlement proof: credits actually moved
+                        # through Guild escrow — the internally-stamped evidence
+                        # that lets this record classify as guild_mediated.
+                        settlement={"escrow_id": escrow_id, "amount": amount,
+                                    "fee": fee, "settled_at": esc["settled_at"]})
                     esc["task_id"] = res.get("task_id")
                 except ValueError:
                     pass
@@ -2881,13 +2970,20 @@ class Store:
     ) -> dict[str, Any]:
         with self.lock, self._txn():
             task_id = "task_" + secrets.token_hex(6)
+            # Provenance-truth guard: these metadata keys are EVIDENCE STAMPS the
+            # store writes internally (worker-authenticated receipt, settled
+            # escrow, Guild-observed invocation). A client must never be able to
+            # supply them and elevate its own record's provenance class.
+            meta = dict(metadata or {})
+            for k in TRUSTED_TASK_META_KEYS:
+                meta.pop(k, None)
             rec = {
                 "id": task_id,
                 "requester_agent_id": requester_id,
                 "worker_agent_id": worker_id,
                 "task_type": task_type,
                 "payment": float(payment),     # simulated cost/payment
-                "metadata": metadata or {},
+                "metadata": meta,
                 "deliverable_hash": None,
                 "deliverable_url": None,
                 "outcome": "open",             # open -> delivered -> accepted/disputed
@@ -2918,7 +3014,18 @@ class Store:
         deliverable_hash: str,
         deliverable_url: Optional[str] = None,
         outcome: str = "delivered",
+        receipt_auth: str = "unauthenticated",
     ) -> dict[str, Any]:
+        """Record a task receipt. `receipt_auth` is the trusted evidence stamp of
+        WHO cryptographically stood behind this receipt — decided by the caller
+        from actual authentication, never from client-supplied data:
+          worker_key        — the worker authenticated with its own credential
+          worker_signature  — a signature verified against the worker's DID
+          requester         — the requester recorded it on the worker's behalf
+          unauthenticated   — nobody proved anything (classifies lowest)"""
+        if receipt_auth not in ("worker_key", "worker_signature",
+                                "requester", "unauthenticated"):
+            raise ValueError("invalid receipt_auth")
         with self.lock, self._txn():
             self._sync_task_from_db(task_id)       # authoritative current task
             task = self.tasks.get(task_id)
@@ -2928,6 +3035,7 @@ class Store:
             task["deliverable_url"] = deliverable_url
             task["outcome"] = outcome
             task["delivered_at"] = _now()
+            task.setdefault("metadata", {})["receipt_auth"] = receipt_auth
             if outcome != "rejected":
                 # First delivered work = first-time activation (worker side).
                 self.record_milestone(task["worker_agent_id"], "first_receipt",
@@ -2953,6 +3061,7 @@ class Store:
                 "outcome": outcome,
                 "deliverable_hash": deliverable_hash,
                 "payment": float(task.get("payment", 0.0) or 0.0),
+                "receipt_auth": receipt_auth,
                 "worker_config_hash": task.get("worker_config_hash"),
                 "requester_config_hash": task.get("requester_config_hash"),
             }, actor_did=worker.get("did", ""))

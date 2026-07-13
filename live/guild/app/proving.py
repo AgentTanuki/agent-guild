@@ -212,8 +212,10 @@ def verify(store, agent: dict[str, Any],
                      "by the Guild, not judged by a peer."),
         },
     )
+    # receipt_auth=worker_key: the agent just proved control of its key via the
+    # Guild-issued challenge-response — the receipt is worker-authenticated.
     store.submit_receipt(task["id"], deliverable_hash=evidence_hash,
-                         outcome="delivered")
+                         outcome="delivered", receipt_auth="worker_key")
     proof = {
         "kind": "proof_of_conduct",
         "proof_class": proof_class,

@@ -340,12 +340,14 @@ def guild_attest(issuer_api_key: str, subject_id: str, capability: str,
 def guild_record(issuer_api_key: str, worker_id: str, capability: str,
                  outcome: str, rating: float, deliverable: str = "",
                  deliverable_hash: str = "", ctx: Context = None) -> dict:
-    """Record a COMPLETE, verifiable collaboration in one call after another agent
-    did work for you: creates the task, content-addresses the deliverable, stores
-    the graded receipt, and writes your attestation — one highest-provenance
-    ('guild_mediated') entry in the canonical collaboration ledger. This is how the
-    shared record of who-did-good-work-for-whom gets built; every record makes the
-    next agent's lookup more trustworthy.
+    """Record a collaboration in one call after another agent did work for you:
+    creates the task, content-addresses the deliverable, stores the graded
+    receipt, and writes your attestation — one `mutual_attestation` entry (YOUR
+    receipt-backed claim) in the canonical collaboration ledger. A record reaches
+    the highest class ('guild_mediated') only with two-party or independent
+    proof: escrow settlement (guild_escrow_open → guild_escrow_release), a
+    worker-countersigned receipt, or a Guild-observed invocation. This is how the
+    shared record of who-did-good-work-for-whom gets built.
 
     outcome is "accepted" | "disputed" | "rejected"; rating is 0..1. Authenticate
     with YOUR api_key (from guild_register). Pass the work product as `deliverable`

@@ -35,6 +35,7 @@ from . import __version__
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from .state import store
+from . import crypto
 from . import credentials as creds
 from . import journey as journey_engine
 from . import proving
@@ -66,6 +67,15 @@ async def _lifespan(app: "FastAPI"):
         store.ensure_ledger_backfilled()  # capture history into the durable chain once
     except Exception as exc:
         _log.warning("ledger backfill skipped: %s", exc)
+    try:
+        # prov-v2: honestly re-interpret historical records under the current
+        # classification rules via APPEND-ONLY reclassification entries (original
+        # bytes untouched). Idempotent per rule version.
+        rc = store.reclassify_ledger()
+        if rc.get("appended"):
+            _log.info("ledger reclassification: %s", rc)
+    except Exception as exc:
+        _log.warning("ledger reclassification skipped: %s", exc)
     try:
         # Discovery swarm publish gate: run every capability's fixture suite and
         # build/sign identity documents for the passing ones (docs/discovery-swarm).
@@ -564,7 +574,26 @@ def submit_receipt(task_id: str, req: ReceiptRequest, x_api_key: Optional[str] =
         _require_key(worker, x_api_key, "worker")
     if req.outcome not in ("delivered", "accepted", "disputed", "rejected"):
         raise HTTPException(400, "invalid outcome")
-    t = store.submit_receipt(task_id, req.deliverable_hash, req.deliverable_url, req.outcome)
+    # Evidence stamp (prov-v2): record HOW the worker stood behind this receipt.
+    # Custodial workers just authenticated with their own key above; self-
+    # sovereign workers may countersign with an ed25519 signature over the JCS
+    # form of {task_id, deliverable_hash, outcome}, verified against their DID.
+    receipt_auth = "unauthenticated"
+    if worker and worker.get("custodial"):
+        receipt_auth = "worker_key"   # _require_key verified the worker's credential
+    elif worker and req.receipt_signature:
+        signed_body = {"task_id": task_id, "deliverable_hash": req.deliverable_hash,
+                       "outcome": req.outcome}
+        try:
+            wk_pub = crypto.public_key_from_did(worker.get("did", ""))
+            ok = crypto.verify_jcs(signed_body, req.receipt_signature, wk_pub)
+        except (ValueError, TypeError):
+            ok = False
+        if not ok:
+            raise HTTPException(400, "receipt_signature does not verify against the worker's DID")
+        receipt_auth = "worker_signature"
+    t = store.submit_receipt(task_id, req.deliverable_hash, req.deliverable_url,
+                             req.outcome, receipt_auth=receipt_auth)
     resp = _task_response(t)
     if worker:  # the authenticated party — a receipt is their journey advancing
         resp.guild_next = journey_engine.guild_next(store, worker)
@@ -623,14 +652,17 @@ def post_attestation(req: AttestationRequest, x_api_key: Optional[str] = Header(
 @app.post("/collaborations")
 def record_collaboration(req: RecordCollaborationRequest,
                          x_api_key: Optional[str] = Header(None)):
-    """Record a COMPLETE, verifiable AI-to-AI collaboration in one call: the server
-    creates the task, content-addresses the deliverable, stores the graded receipt,
-    and writes your receipt-backed attestation — producing one highest-provenance
-    (`guild_mediated`) entry in the canonical collaboration ledger. Authenticate as
-    the requester with X-API-Key (from register). Free: contributions grow the moat.
+    """Record an AI-to-AI collaboration in one call: the server creates the task,
+    content-addresses the deliverable, stores the graded receipt, and writes your
+    receipt-backed attestation. Authenticate as the requester with X-API-Key.
 
-    This is the low-friction write path — one call instead of register→task→receipt
-    →attest — so every real interaction can land as a verifiable ledger record."""
+    PROVENANCE (prov-v2, honest): one call = ONE party's cryptography, so the
+    ledger entry classifies as `mutual_attestation` — your receipt-backed claim.
+    It reaches the highest class (`guild_mediated`) only with independent proof:
+    settle through escrow (POST /escrow → /escrow/{id}/release), have the worker
+    countersign its receipt (POST /tasks/{id}/receipt with the worker's key or
+    `receipt_signature`), or a Guild-observed bound invocation. `signers` names
+    only DIDs that actually signed."""
     if not x_api_key:
         raise HTTPException(401, "X-API-Key required (the requester's key from register)")
     requester = store.agent_for_presented_key(x_api_key)
@@ -1160,8 +1192,9 @@ def _manifest() -> dict:
                              "note": "watch a capability with no supply yet; attributable "
                                      "demand instead of an anonymous dead end"},
             "record_collaboration": {"method": "POST", "path": "/collaborations", "cost_credits": 0,
-                                     "note": "one call: record a complete verifiable collaboration "
-                                             "(task+receipt+attestation) → a guild_mediated ledger record"},
+                                     "note": "one call: record a collaboration (task+receipt+attestation) "
+                                             "→ a mutual_attestation ledger record; guild_mediated "
+                                             "requires two-party or settlement proof"},
             "attest": {"method": "POST", "path": "/attestations", "cost_credits": 0},
             "task": {"method": "POST", "path": "/tasks", "cost_credits": 0},
             "receipt": {"method": "POST", "path": "/tasks/{id}/receipt", "cost_credits": 0},
@@ -1407,7 +1440,12 @@ def get_standard():
             "Challenge": "Append-only dispute that downweights its target pending resolution.",
         },
         "provenance_tiers": ["guild_mediated", "verifiable_outcome",
-                             "mutual_attestation", "external_import"],
+                             "mutual_attestation", "external_import",
+                             "one_party_claim", "first_party_bootstrap"],
+        "provenance_rule": "guild_mediated requires two-party cryptographic "
+                           "participation, a Guild-observed bound invocation, or "
+                           "independent escrow settlement — never one party's word. "
+                           "`signers` lists only DIDs that actually signed.",
         "operations": {
             "check": "GET /check?capability= (one-call vet) · MCP guild_check",
             "search": "GET /search · MCP guild_search",
@@ -1548,8 +1586,9 @@ def llms_txt():
         "- Decide hire/avoid: GET /agents/{id}/risk-score (10 credits)\n"
         "- Fraud/collusion check: GET /agents/{id}/flags (5 credits)\n"
         "- Grow the graph for free: POST /agents/register, /attestations, /tasks\n"
-        "- Record a verifiable collaboration in ONE call: POST /collaborations\n"
-        "  (task+receipt+attestation → a guild_mediated entry in the collaboration ledger)\n\n"
+        "- Record a collaboration in ONE call: POST /collaborations\n"
+        "  (task+receipt+attestation → a mutual_attestation ledger entry; guild_mediated\n"
+        "  requires two-party crypto, escrow settlement, or a Guild-observed invocation)\n\n"
         "## Economics\n"
         "Free writes, paid reads. 1 credit = $0.001. Free trial: POST /billing/trial.\n\n"
         "## Transact value for work (escrow + settlement)\n"
