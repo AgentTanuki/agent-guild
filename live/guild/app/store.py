@@ -752,6 +752,81 @@ class Store:
                 return out
             return rec
 
+    def register_external_provider(self, *, name: str, capabilities: list[str],
+                                   endpoint: str, did: Optional[str] = None,
+                                   agent_card: Optional[dict[str, Any]] = None,
+                                   registry_source: str = "",
+                                   terms: Optional[dict[str, Any]] = None,
+                                   discovered_by: str = "") -> dict[str, Any]:
+        """Register a THIRD-PARTY provider the Guild discovered on a public
+        registry (e.g. a2aregistry.org). The Guild holds NO key for it and can
+        never sign on its behalf — so work by this provider is only ever
+        verified through a GUILD-OBSERVED invocation of its real public
+        endpoint (never a self-claim). Marked provenance=external and
+        first_party=False (it is genuinely independent). Its published terms are
+        recorded and must be respected. Idempotent per (endpoint)."""
+        with self.lock, self._txn():
+            for a in self.agents.values():
+                if (a.get("metadata") or {}).get("endpoint") == endpoint and \
+                        (a.get("metadata") or {}).get("external_provider"):
+                    return a
+            agent_id = "agent_" + secrets.token_hex(6)
+            # Identity: if the provider's card carries a resolvable did we keep it;
+            # otherwise we mint a NON-CUSTODIAL did:key placeholder that the Guild
+            # cannot sign with (private key discarded) — its purpose is only to
+            # name the provider on the graph. Records never claim it signed.
+            if did and did.startswith("did:key:"):
+                pub_did = did
+                pub = None
+            else:
+                _priv, pub = generate_keypair()
+                pub_did = did_from_public_key(pub)
+                del _priv                              # Guild cannot authenticate as it
+            now = _now()
+            meta = {
+                "endpoint": endpoint,
+                "external_provider": True,
+                "registry_source": registry_source,
+                "provider_terms": terms or {},
+                "agent_card_sha256": (hashlib.sha256(
+                    canonicalize(agent_card).encode()).hexdigest()
+                    if agent_card else None),
+                "discovered_by": discovered_by,
+                "discovered_at": now,
+            }
+            rec = {
+                "id": agent_id, "did": pub_did, "name": name,
+                "capabilities": capabilities, "metadata": meta,
+                "public_key": pub or "", "private_key": None, "api_key": None,
+                "custodial": False,           # Guild holds no key
+                "external_provider": True,
+                "seed": False, "first_party": False,   # GENUINELY external
+                "credential_class": "external",
+                "referred_by": None, "principal": None,
+                "config": None, "config_hash": None, "config_history": [],
+                "created_at": now,
+                "milestones": {"registered": now},
+            }
+            self.agents[agent_id] = rec
+            # verify reachability immediately via the SSRF-safe protocol probe —
+            # this is a Guild-observed fact about a real endpoint, not a claim.
+            rec["reachability"] = _reach.liveness_probe(endpoint)
+            if self.backend is not None:
+                self._persist_agent(agent_id)
+            self._rep_cache = None
+            self.record_event(None, "external_provider_registered",
+                              agent_id=agent_id, registry_source=registry_source,
+                              agent_first_party=False)
+            self._save()
+            self.append_ledger_event("register", {
+                "agent_id": agent_id, "did": pub_did, "name": name,
+                "capabilities": capabilities, "custodial": False,
+                "external_provider": True, "first_party": False,
+                "registry_source": registry_source,
+                "endpoint_fingerprint": _reach.endpoint_fingerprint(endpoint),
+            }, actor_did=pub_did)
+            return rec
+
     def declare_configuration(self, agent_id: str, config: dict[str, Any]) -> dict[str, Any]:
         """Declare the agent's current behavioral configuration (or a change).
         Appends to the agent's config history; evidence written from now on is
@@ -3289,7 +3364,7 @@ class Store:
           requester         — the requester recorded it on the worker's behalf
           unauthenticated   — nobody proved anything (classifies lowest)"""
         if receipt_auth not in ("worker_key", "worker_signature",
-                                "requester", "unauthenticated"):
+                                "requester", "guild_observed", "unauthenticated"):
             raise ValueError("invalid receipt_auth")
         with self.lock, self._txn():
             self._sync_task_from_db(task_id)       # authoritative current task

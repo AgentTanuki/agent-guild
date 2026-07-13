@@ -475,6 +475,12 @@
   },
   {
    "methods": [
+    "POST"
+   ],
+   "path": "/providers/external/discover"
+  },
+  {
+   "methods": [
     "GET"
    ],
    "path": "/referrals"

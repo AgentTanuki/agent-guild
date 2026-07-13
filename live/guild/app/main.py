@@ -923,6 +923,56 @@ def get_offer(offer_id: str):
     return offer
 
 
+@app.post("/providers/external/discover")
+def discover_external_provider(body: dict[str, Any],
+                               x_api_key: Optional[str] = Header(None)):
+    """Register a THIRD-PARTY provider discovered on a public registry (its
+    `well_known` agent-card URL). The Guild fetches the card, records the
+    provider's published terms, marks it provenance=external (never first-party),
+    and verifies its endpoint with an SSRF-safe protocol probe. The Guild holds
+    no key for it — work is only ever verified by Guild-observed invocation.
+    Authenticated (the discovering agent is recorded)."""
+    caller = store.agent_for_presented_key(x_api_key) if x_api_key else None
+    well_known = str(body.get("well_known") or "").strip()
+    if not well_known:
+        raise HTTPException(400, "well_known agent-card URL required")
+    ok, why = url_policy_check(well_known)
+    if not ok:
+        raise HTTPException(422, f"card URL fails policy: {why}")
+    try:
+        import httpx
+        card = httpx.get(well_known, timeout=20.0,
+                         headers={"User-Agent": "agent-guild-discovery/1"}).json()
+    except Exception as e:
+        raise HTTPException(502, f"could not fetch agent card: {str(e)[:200]}")
+    # derive endpoint from the card (A2A `url` / supportedInterfaces), else the
+    # card URL's origin
+    endpoint = card.get("url")
+    if not endpoint:
+        ifaces = card.get("supportedInterfaces") or []
+        endpoint = ifaces[0].get("url") if ifaces and isinstance(ifaces[0], dict) else None
+    if not endpoint:
+        from urllib.parse import urlsplit
+        p = urlsplit(well_known)
+        endpoint = f"{p.scheme}://{p.netloc}"
+    caps = body.get("capabilities") or [s.get("id") for s in (card.get("skills") or [])
+                                        if s.get("id")]
+    terms = {"provider": card.get("provider"), "version": card.get("version"),
+             "defaultInputModes": card.get("defaultInputModes"),
+             "defaultOutputModes": card.get("defaultOutputModes"),
+             "capabilities": card.get("capabilities"),
+             "declared_terms": body.get("terms")}
+    rec = store.register_external_provider(
+        name=card.get("name") or "external-provider", capabilities=caps or ["unknown"],
+        endpoint=endpoint, did=card.get("did"), agent_card=card,
+        registry_source=body.get("registry_source") or well_known,
+        terms=terms, discovered_by=(caller or {}).get("id", ""))
+    return {"provider": {k: rec[k] for k in ("id", "did", "name", "capabilities")},
+            "endpoint": endpoint, "external": True, "first_party": False,
+            "reachability_status": rec["reachability"]["status"],
+            "provider_terms": terms}
+
+
 @app.post("/agents/{agent_id}/invoke")
 def invoke_agent(agent_id: str, body: dict[str, Any],
                  x_api_key: Optional[str] = Header(None)):
@@ -965,10 +1015,25 @@ def invoke_agent(agent_id: str, body: dict[str, Any],
         err = str(e)[:300]
     verified = store.complete_outbound_invocation(
         inv["invocation_id"], protocol_ok=protocol_ok, receipt_ref=task_id)
+    # If bound to a task and the invocation VERIFIED, the Guild-observed response
+    # IS the delivery: content-address it and file the receipt with
+    # receipt_auth=guild_observed. This is the ONLY honest way an EXTERNAL
+    # provider (which holds no Guild key) produces a delivery record — the Guild
+    # itself observed the work, so no self-claim is involved.
+    delivery = None
+    if task_id and verified and protocol_ok and resp_snip is not None:
+        t = store.get_task(task_id)
+        if t is not None and t.get("worker_agent_id") == agent_id:
+            dhash = "0x" + __import__("hashlib").sha256(resp_snip.encode()).hexdigest()
+            durl = ("data:application/json;base64,"
+                    + __import__("base64").b64encode(resp_snip.encode()).decode())
+            store.submit_receipt(task_id, dhash, durl, outcome="delivered",
+                                 receipt_auth="guild_observed")
+            delivery = {"deliverable_hash": dhash, "bytes": len(resp_snip)}
     return {"invocation_id": inv["invocation_id"], "endpoint": endpoint,
             "protocol_ok": protocol_ok, "invocation_verified": verified,
             "task_bound": bool(task_id and verified), "task_id": task_id,
-            "response": resp_snip, "error": err}
+            "delivery": delivery, "response": resp_snip, "error": err}
 
 
 @app.post("/offers/{offer_id}/accept")

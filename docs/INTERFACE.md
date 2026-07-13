@@ -85,6 +85,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET | POST /offers`
 - `GET /offers/{offer_id}`
 - `POST /offers/{offer_id}/accept`
+- `POST /providers/external/discover`
 - `GET /referrals`
 - `GET /sdk/agentguild_verify.mjs`
 - `GET /sdk/agentguild_verify.py`
