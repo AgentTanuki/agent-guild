@@ -75,6 +75,11 @@ class Store:
         self.guild_revenue: int = 0                        # settlement fees earned (credits)
         self.demand_watches: list[dict[str, Any]] = []     # attributable demand callbacks (Phase 0, G5)
         self.swarm_state: dict[str, Any] = {}              # discovery swarm: counters, actions, referral tokens, kill flag
+        # machine-market state (app/market.py): signed offers, bonded machine
+        # adjudicators, dispute cases — all persisted like swarm_state (kv)
+        self.offers: dict[str, dict[str, Any]] = {}
+        self.adjudicators: dict[str, dict[str, Any]] = {}
+        self.dispute_cases: dict[str, dict[str, Any]] = {}
         self._rep_cache: Optional[ScoringResult] = None
         # Append-only sidecar journal for instrumentation events. record_event
         # is deliberately cheap (no full-store _save on read paths), which used
@@ -348,6 +353,9 @@ class Store:
                 b.put_checkpoint(r)
             b.put_kv("identity", self.identity)
             b.put_kv("swarm_state", self.swarm_state)
+            b.put_kv("offers", self.offers)
+            b.put_kv("adjudicators", self.adjudicators)
+            b.put_kv("dispute_cases", self.dispute_cases)
             b.put_kv("guild_revenue", self.guild_revenue)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
@@ -383,6 +391,9 @@ class Store:
                 b.append_demand_watch(r)
             b.put_kv("identity", self.identity)
             b.put_kv("swarm_state", self.swarm_state)
+            b.put_kv("offers", self.offers)
+            b.put_kv("adjudicators", self.adjudicators)
+            b.put_kv("dispute_cases", self.dispute_cases)
             b.put_kv("guild_revenue", self.guild_revenue)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
@@ -419,6 +430,9 @@ class Store:
         self.guild_revenue = d["guild_revenue"]
         self.demand_watches = d["demand_watches"]
         self.swarm_state = d["swarm_state"]
+        self.offers = self.backend.fetch_kv("offers", {}) or {}
+        self.adjudicators = self.backend.fetch_kv("adjudicators", {}) or {}
+        self.dispute_cases = self.backend.fetch_kv("dispute_cases", {}) or {}
         if d["outbound_invocations"]:
             self.__dict__["outbound_invocations"] = d["outbound_invocations"]
 
@@ -453,6 +467,9 @@ class Store:
             self.guild_revenue = data.get("guild_revenue", 0)
             self.demand_watches = data.get("demand_watches", [])
             self.swarm_state = data.get("swarm_state", {})
+            self.offers = data.get("offers", {})
+            self.adjudicators = data.get("adjudicators", {})
+            self.dispute_cases = data.get("dispute_cases", {})
 
     def _migrate_plaintext_keys(self) -> None:
         """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
@@ -563,6 +580,9 @@ class Store:
                        "escrows": self.escrows,
                        "guild_revenue": self.guild_revenue,
                        "demand_watches": self.demand_watches,
+                       "offers": self.offers,
+                       "adjudicators": self.adjudicators,
+                       "dispute_cases": self.dispute_cases,
                        "swarm_state": self.swarm_state}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal
@@ -1270,6 +1290,29 @@ class Store:
     def get_account(self, key: str) -> Optional[dict[str, Any]]:
         resolved = self._account_key(key)
         return self.accounts.get(resolved) if resolved else None
+
+    def record_x402_payment(self, endpoint: str, cost_credits: int,
+                            settlement: dict[str, Any]) -> None:
+        """Record a REAL-RAIL (x402) payment in the billing ledger and on the
+        evidence chain. Sandbox credits are untouched — this is machine money
+        settled through the facilitator."""
+        entry = {"key": "x402", "type": "x402_payment", "endpoint": endpoint,
+                 "cost_credits_equivalent": cost_credits,
+                 "network": settlement.get("network"),
+                 "transaction": settlement.get("transaction"),
+                 "payer": settlement.get("payer"), "at": _now()}
+        with self.lock, self._txn():
+            self.billing_log.append(entry)
+            if self.backend is not None:
+                self._persist_billing(entry)
+            self._save()
+        self.append_ledger_event("escrow_event", {
+            "event": "x402_payment", "endpoint": endpoint,
+            "network": settlement.get("network"),
+            "transaction": settlement.get("transaction"),
+            "payer": settlement.get("payer"),
+            "cost_credits_equivalent": cost_credits,
+        }, actor_did="")
 
     def charge(self, key: str, cost: int, endpoint: str) -> dict[str, Any]:
         """Draw `cost` credits from an account. Raises UnknownAccount or
@@ -2047,6 +2090,39 @@ class Store:
         _all = self.shortlist(capability, limit=10_000)
         _reachable = [e for e in _all if e.get("has_declared_endpoint")]
         any_reachable = bool(_reachable)
+        # ROUTING GATE (market loop, 2026-07-13): a provider is recommended FOR
+        # ROUTING only when its endpoint is VERIFIED and currently reachable
+        # (fresh recently_reachable / invocation_verified record — TTL-expired
+        # or merely declared endpoints do NOT qualify) and the capability
+        # matches (shortlist is capability-filtered). Otherwise `routing`
+        # honestly says there is nothing to route to and what would change that.
+        _routable = [e for e in _all if e.get("recommended_for_routing")]
+        if _routable:
+            _r = _routable[0]
+            routing = {
+                "routable": True,
+                "provider_id": _r["id"], "name": _r["name"],
+                "endpoint": _r.get("contact"),
+                "trust": _r["trust"],
+                "reachability_status": _r["reachability_status"],
+                "verification_method": _r.get("verification_method"),
+                "last_verified_at": _r.get("last_verified_at"),
+                "verification_age_seconds": _r.get("verification_age_seconds"),
+                "invocation_supported": _r.get("invocation_supported", False),
+            }
+        else:
+            routing = {
+                "routable": False,
+                "provider_id": None,
+                "reason": ("no supplier of this capability has a VERIFIED, "
+                           "currently reachable endpoint"
+                           if any_reachable else
+                           "no supplier of this capability has declared an "
+                           "endpoint at all"),
+                "next_step": ("suppliers: declare + verify an endpoint "
+                              "(POST /agents/{id}/endpoint); buyers: register "
+                              "a demand watch (POST /demand/watch)"),
+            }
         # Demand telemetry: every /check is a demand signal for a capability.
         # Recording it (hit or miss) is what makes the be_first pitch honest —
         # a would-be supplier can see real, dated demand before registering.
@@ -2100,6 +2176,7 @@ class Store:
             "schema_version": 2,
             "capability": capability,
             "status": "supply" if best else "no_supply_yet",
+            "routing": routing,
             "decision": decision,
             "best_agent": best,
             "verdict": verdict,

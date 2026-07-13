@@ -159,6 +159,38 @@ class EscrowDisputeRequest(BaseModel):
     grounds: str = Field("", description="Why the transaction is being disputed")
 
 
+class OfferRequest(BaseModel):
+    """A SIGNED task offer: the first record of the machine market loop. The
+    core binds requester+worker DIDs, behavioral-config hashes, capability,
+    amount (sandbox credits), value-at-risk tier and a deadline. Custodial
+    requesters authenticate with X-API-Key (the Guild signs with the custodial
+    key); self-sovereign requesters supply `offer_signature` over the JCS core."""
+    worker_id: str = Field(..., description="Provider being offered the task")
+    capability: str = Field(..., description="Capability being commissioned")
+    amount: float = Field(0.0, ge=0.0, description="credits_sandbox to escrow (0 = unfunded)")
+    deadline_seconds: int = Field(3600, ge=30, description="Accept+deliver deadline")
+    terms: Optional[dict[str, Any]] = Field(None, description="Free-form machine terms")
+    offer_signature: Optional[str] = Field(None, description="Self-sovereign requesters: hex ed25519 over the JCS core")
+
+
+class OfferAcceptRequest(BaseModel):
+    acceptance_signature: Optional[str] = Field(
+        None, description="Self-sovereign workers: hex ed25519 over the JCS accept core")
+
+
+class AdjudicatorEnrollRequest(BaseModel):
+    """Post a bond (sandbox credits) to serve on dispute panels. Requires a live
+    proof_of_conduct. Wrong-side votes are slashed."""
+    agent_id: str
+    bond: int = Field(..., ge=1)
+
+
+class DisputeVoteRequest(BaseModel):
+    verdict: str = Field(..., description="release | refund")
+    rationale: str = Field("", description="Free text; only its sha256 goes on-chain")
+    vote_signature: Optional[str] = Field(None, description="Self-sovereign adjudicators: hex ed25519 over the JCS vote core")
+
+
 class RecordCollaborationRequest(BaseModel):
     """One-call recording of a complete, verifiable AI-to-AI collaboration: the
     requester commissions work, the deliverable is content-addressed, and the

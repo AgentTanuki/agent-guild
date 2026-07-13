@@ -114,6 +114,12 @@
    "methods": [
     "POST"
    ],
+   "path": "/adjudicators/enroll"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
    "path": "/admin/issuer/rotate"
   },
   {
@@ -299,6 +305,24 @@
   },
   {
    "methods": [
+    "GET"
+   ],
+   "path": "/disputes/{case_id}"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/disputes/{case_id}/appeal"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/disputes/{case_id}/vote"
+  },
+  {
+   "methods": [
     "POST"
    ],
    "path": "/escrow"
@@ -411,6 +435,30 @@
     "GET"
    ],
    "path": "/llms.txt"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/market/sweep"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/offers"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/offers/{offer_id}"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/offers/{offer_id}/accept"
   },
   {
    "methods": [

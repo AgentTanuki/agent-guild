@@ -26,6 +26,7 @@ from .models import (
     ReputationResponse, SearchResponse, SearchResultItem,
     CreateTaskRequest, TaskResponse, ReceiptRequest, RecordCollaborationRequest,
     EscrowRequest, EscrowReleaseRequest, EscrowDisputeRequest,
+    OfferRequest, OfferAcceptRequest, AdjudicatorEnrollRequest, DisputeVoteRequest,
     EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
     ReferralsResponse, HealthSnapshot, HealthHistoryResponse,
@@ -37,6 +38,8 @@ from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from .state import store
 from . import abuse
 from . import crypto
+from . import market
+from . import x402
 from . import credentials as creds
 from . import journey as journey_engine
 from . import proving
@@ -113,6 +116,15 @@ app.add_middleware(
 # Capture the caller's User-Agent per request so the activity feed can show who
 # is calling (a framework UA like "python-httpx" / "langchain" vs a browser).
 _ua: contextvars.ContextVar[str] = contextvars.ContextVar("ua", default="")
+# x402: the X-PAYMENT header travels via contextvar so meter() can settle paid
+# reads on the real rail without threading a parameter through every endpoint.
+_xpay: contextvars.ContextVar[str] = contextvars.ContextVar("xpay", default="")
+
+
+def _b64json(obj: Any) -> str:
+    import base64 as _b64
+    import json as _json
+    return _b64.b64encode(_json.dumps(obj).encode()).decode()
 
 
 # abuse-control routing: which mutating endpoints map to which limit bucket,
@@ -140,6 +152,7 @@ async def _capture_ua(request: Request, call_next):
         request.scope["path"] = "/mcp/"
         request.scope["raw_path"] = b"/mcp/"
     _ua.set(request.headers.get("user-agent", ""))
+    _xpay.set(request.headers.get("x-payment", ""))
     # --- abuse controls (registration flood / trial farming / read bursts /
     # --- storage exhaustion) — see app/abuse.py; GUILD_ABUSE_CONTROLS=0 disables
     if abuse.enabled():
@@ -255,19 +268,43 @@ def _rate_limit_key_op(agent_id: str) -> None:
 def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
     """Charge a paid read. Behaviour:
 
-      * a billing key is presented  -> charge it (402 if out of credits).
-      * no key, enforcement OFF      -> free (soft launch / local dev).
-      * no key, enforcement ON        -> 402 (a funded key is required).
+      * an x402 X-PAYMENT header      -> verify + settle via the facilitator
+        (the REAL machine-payment rail; no card, no browser, no human).
+      * a billing key is presented    -> charge it in SANDBOX credits
+        (402 if out of credits).
+      * no key, enforcement OFF       -> free (soft launch / local dev).
+      * no key, enforcement ON        -> 402 carrying x402 `accepts` +
+        sandbox-credit instructions.
 
     Cost and remaining balance are returned in X-Guild-* response headers.
     """
     cost = PRICING[endpoint]
     response.headers["X-Guild-Cost"] = str(cost)
+    # x402 real-rail: an X-PAYMENT header settles the read with machine money.
+    xp = _xpay.get()
+    if xp and x402.enabled():
+        try:
+            settled = x402.process_payment_header(xp, endpoint, cost)
+        except Exception as e:
+            raise HTTPException(402, {"error": "x402_payment_invalid",
+                                      "detail": str(e)[:200]})
+        if not settled.get("ok"):
+            raise HTTPException(402, {"error": "x402_payment_rejected",
+                                      "settlement": settled})
+        response.headers["X-PAYMENT-RESPONSE"] = _b64json(
+            {k: settled.get(k) for k in ("ok", "network", "transaction", "payer")})
+        store.record_x402_payment(endpoint, cost, settled)
+        store.record_event(None, "query", ua=_ua.get(), endpoint=endpoint,
+                           paid=True, rail="x402", network=settled.get("network"))
+        return
     # machine-readable description of how an agent acquires credits, no human.
     acquire = {
-        "trial": {"method": "POST", "path": "/billing/trial", "human_free": True},
+        "trial": {"method": "POST", "path": "/billing/trial", "human_free": True,
+                  "unit": "credits_sandbox (NOT money)"},
         "topup": {"method": "POST", "path": "/billing/topup"},
-        "x402": "see /.well-known/agent-guild.json economics.x402 (roadmap)",
+        "x402": ("active — retry with an X-PAYMENT header (see `accepts`)"
+                 if x402.enabled() else
+                 "protocol supported; rail awaiting a configured treasury"),
         "credit_usd": CREDIT_USD,
     }
     if x_api_key:
@@ -282,6 +319,7 @@ def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
             raise HTTPException(402, {
                 "error": "insufficient_credits", "balance": e.balance, "cost": e.cost,
                 "acquire": acquire,
+                **x402.payment_required_body(endpoint, cost),
             })
         response.headers["X-Guild-Balance"] = str(acct["balance"])
         store.record_event(x_api_key, "query", ua=_ua.get(), endpoint=endpoint, paid=True)
@@ -294,7 +332,10 @@ def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
     if billing.billing_enforced():
         raise HTTPException(402, {
             "error": "payment_required",
-            "detail": "present a funded X-API-Key", "cost": cost, "acquire": acquire,
+            "detail": "pay via x402 (X-PAYMENT header) or present a funded "
+                      "X-API-Key (sandbox credits)",
+            "cost": cost, "acquire": acquire,
+            **x402.payment_required_body(endpoint, cost),
         })
     store.record_event(None, "query", ua=_ua.get(), endpoint=endpoint, paid=False)
 
@@ -809,11 +850,145 @@ def refund_escrow(escrow_id: str, x_api_key: Optional[str] = Header(None)):
 @app.post("/escrow/{escrow_id}/dispute")
 def dispute_escrow(escrow_id: str, req: EscrowDisputeRequest,
                    x_api_key: Optional[str] = Header(None)):
-    """Flag a funded escrow as disputed; funds stay held pending resolution. Either
-    party may raise it."""
+    """Flag a funded escrow as disputed. NO PERMANENT LIMBO: this opens a
+    dispute CASE with a vote deadline — bonded machine adjudicators from
+    independent trust clusters vote, quorum decides, minority bonds are
+    slashed, one appeal is allowed, and a deterministic timeout rule settles
+    if no quorum forms. The Guild counts votes; it never judges."""
     key = _require_account(x_api_key)
     try:
-        return store.dispute_escrow(escrow_id, key, req.grounds)
+        out = store.dispute_escrow(escrow_id, key, req.grounds)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    esc = store.escrows.get(escrow_id) or {}
+    case = market.open_case(store, escrow_id,
+                            (esc.get("dispute") or {}).get("by") or "party",
+                            req.grounds)
+    return {**out, "case": {k: case[k] for k in
+                            ("id", "panel", "vote_deadline_at", "round", "status")}}
+
+
+# --- machine market: signed offers + bonded adjudication ---------------------
+@app.post("/offers")
+def post_offer(req: OfferRequest, x_api_key: Optional[str] = Header(None)):
+    """Open the machine market loop with a SIGNED task offer (see model docs).
+    Funded offers escrow `amount` credits_sandbox immediately. Deterministic
+    lifecycle: unaccepted offers expire and refund; accepted-but-undelivered
+    tasks refund after deadline+grace; authenticated deliveries the payer
+    ignores AUTO-SETTLE after grace. Nothing waits on a human."""
+    if not x_api_key:
+        raise HTTPException(401, "X-API-Key required (the requester's key)")
+    requester = store.agent_for_presented_key(x_api_key)
+    if not requester:
+        raise HTTPException(401, "invalid X-API-Key")
+    try:
+        offer = market.create_offer(
+            store, requester, req.worker_id, req.capability, req.amount,
+            req.deadline_seconds, terms=req.terms, requester_key=x_api_key,
+            offer_signature=req.offer_signature)
+    except (ValueError, UnknownAccount, InsufficientCredits) as e:
+        raise HTTPException(400, str(e))
+    return offer
+
+
+@app.get("/offers/{offer_id}")
+def get_offer(offer_id: str):
+    market.sweep(store)
+    offer = store.offers.get(offer_id)
+    if offer is None:
+        raise HTTPException(404, "offer not found")
+    return offer
+
+
+@app.post("/offers/{offer_id}/accept")
+def accept_offer(offer_id: str, req: OfferAcceptRequest,
+                 x_api_key: Optional[str] = Header(None)):
+    """Worker accepts a signed offer, countersigning the offer hash. Creates the
+    bound task (offer_id, offer_hash, value tier, deadline, escrow)."""
+    offer = store.offers.get(offer_id)
+    if offer is None:
+        raise HTTPException(404, "offer not found")
+    worker = store.get_agent(offer["core"]["worker_id"])
+    if worker is None:
+        raise HTTPException(404, "worker gone")
+    _require_key(worker, x_api_key, "worker")
+    try:
+        return market.accept_offer(store, offer_id, worker,
+                                   accept_signature=req.acceptance_signature)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/market/sweep")
+def market_sweep():
+    """Apply every deterministic market timeout rule (idempotent). Public: the
+    loop's liveness must not depend on the Guild's own scheduler — any
+    participant can crank it."""
+    return market.sweep(store)
+
+
+@app.post("/adjudicators/enroll")
+def enroll_adjudicator(req: AdjudicatorEnrollRequest,
+                       x_api_key: Optional[str] = Header(None)):
+    """Bond into the adjudicator pool (requires a live proof_of_conduct). Panel
+    selection is deterministic and cluster-independent; wrong-side votes are
+    slashed; bonds below the minimum deactivate."""
+    agent = store.get_agent(req.agent_id)
+    if not agent:
+        raise HTTPException(404, "agent not found")
+    _require_key(agent, x_api_key, "adjudicator")
+    try:
+        return market.enroll_adjudicator(store, agent, x_api_key, req.bond)
+    except (ValueError, UnknownAccount, InsufficientCredits) as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/disputes/{case_id}")
+def get_dispute(case_id: str):
+    market.maybe_resolve(store, case_id)
+    case = store.dispute_cases.get(case_id)
+    if case is None:
+        raise HTTPException(404, "case not found")
+    return case
+
+
+@app.post("/disputes/{case_id}/vote")
+def vote_dispute(case_id: str, req: DisputeVoteRequest,
+                 x_api_key: Optional[str] = Header(None)):
+    """Cast a signed panel vote (release | refund). Quorum majority resolves the
+    case and executes settlement; minority bonds are slashed."""
+    case = store.dispute_cases.get(case_id)
+    if case is None:
+        raise HTTPException(404, "case not found")
+    adjudicator = None
+    for aid in case["panel"]:
+        a = store.get_agent(aid)
+        if a and creds.verify_agent_key(a, x_api_key):
+            adjudicator = a
+            break
+    if adjudicator is None:
+        raise HTTPException(401, "authenticate as a panel adjudicator")
+    try:
+        return market.cast_vote(store, case_id, adjudicator, req.verdict,
+                                req.rationale, req.vote_signature)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/disputes/{case_id}/appeal")
+def appeal_dispute(case_id: str, x_api_key: Optional[str] = Header(None)):
+    """One appeal per dispute (a party only): fresh, larger panel excluding the
+    original panellists; its decision is final."""
+    if not x_api_key:
+        raise HTTPException(401, "X-API-Key required")
+    party = store.agent_for_presented_key(x_api_key)
+    if party is None:
+        acct = store.get_account(x_api_key)
+        party = store.get_agent(acct["owner_agent_id"]) if acct and acct.get("owner_agent_id") else None
+    if party is None:
+        raise HTTPException(401, "authenticate as a party to the dispute")
+    try:
+        return market.appeal(store, case_id, party)
     except ValueError as e:
         raise HTTPException(400, str(e))
 

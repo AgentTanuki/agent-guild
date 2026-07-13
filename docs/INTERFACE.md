@@ -25,6 +25,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /.well-known/agent-guild.json`
 - `GET /.well-known/ai-plugin.json`
 - `GET /.well-known/glama.json`
+- `POST /adjudicators/enroll`
 - `POST /admin/issuer/rotate`
 - `GET /agents`
 - `GET /agents.md`
@@ -56,6 +57,9 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /collaborations`
 - `POST /credentials/verify`
 - `POST /demand/watch`
+- `GET /disputes/{case_id}`
+- `POST /disputes/{case_id}/appeal`
+- `POST /disputes/{case_id}/vote`
 - `POST /escrow`
 - `GET /escrow/{escrow_id}`
 - `POST /escrow/{escrow_id}/dispute`
@@ -75,6 +79,10 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /ledger/reputation`
 - `GET /ledger/stats`
 - `GET /llms.txt`
+- `POST /market/sweep`
+- `POST /offers`
+- `GET /offers/{offer_id}`
+- `POST /offers/{offer_id}/accept`
 - `GET /referrals`
 - `GET /sdk/agentguild_verify.mjs`
 - `GET /sdk/agentguild_verify.py`
