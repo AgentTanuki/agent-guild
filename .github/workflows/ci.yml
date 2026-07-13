@@ -1,0 +1,95 @@
+# Agent Guild — production-truth CI matrix.
+# A clean checkout must pass every leg: both store backends, migrations +
+# concurrency (inside the pytest suite), strict credential-KDF policy,
+# offline verifiers, contract conformance (zero surface drift), and
+# independent third-party VC verification in Python AND Node.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        store: [json, sqlite]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r live/guild/requirements.txt
+      - name: pytest (GUILD_STORE=${{ matrix.store }})
+        working-directory: live/guild
+        env:
+          GUILD_STORE: ${{ matrix.store }}
+          GUILD_ALLOW_WEAK_KDF: "1"
+        run: python -m pytest tests -q
+
+  strict-kdf:
+    # hashed credentials at full production PBKDF2 cost — no weak-KDF escape hatch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r live/guild/requirements.txt
+      - working-directory: live/guild
+        run: python -m pytest tests/test_kdf_policy.py tests/test_credential_hardening.py tests/test_credential_lifecycle.py tests/test_credential_concurrency.py -q
+
+  contract:
+    # regenerating the canonical contract + derived artifacts must be a no-op
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r live/guild/requirements.txt
+      - working-directory: live/guild
+        run: python contract/generate.py
+      - run: |
+          git diff --exit-code live/guild/contract/contract.json server.json docs/INTERFACE.md \
+            || (echo "::error::contract drift — run 'make contract' and commit" && exit 1)
+
+  independent-vc-verification:
+    # third-party verification: Digital Bazaar (Node) + rfc8785/pyca (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -r live/guild/requirements.txt rfc8785 base58
+      - name: generate vector from issuer code
+        working-directory: live/guild
+        run: python ../../verifiers/gen_vector.py ../../verifiers/vector.json
+      - name: independent Python verification (rfc8785 + pyca)
+        run: python verifiers/verify_python_independent.py verifiers/vector.json
+      - name: independent Node verification (Digital Bazaar Data Integrity)
+        working-directory: verifiers
+        run: |
+          npm install --no-fund --no-audit
+          node verify_node_digitalbazaar.mjs vector.json
+
+  live-conformance:
+    # live service vs the committed contract — main-branch pushes only; the
+    # live world can flap, so this is informative, not gating for PRs
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python live/scripts/live_contract_probe.py

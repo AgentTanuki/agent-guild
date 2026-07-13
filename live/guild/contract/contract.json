@@ -1,0 +1,498 @@
+{
+ "a2a_dynamic_skills": [
+  "ag.calc.stats",
+  "ag.calc.unit_convert",
+  "ag.code.semver_compare",
+  "ag.data.dedupe",
+  "ag.data.record_link",
+  "ag.json.canonicalize",
+  "ag.json.diff",
+  "ag.json.path_extract",
+  "ag.json.repair",
+  "ag.json.schema_infer",
+  "ag.json.validate",
+  "ag.table.csv_to_json",
+  "ag.table.json_to_csv",
+  "ag.table.markdown_extract",
+  "ag.text.date_normalize",
+  "ag.text.regex_extract"
+ ],
+ "a2a_skills_static": [
+  "guild.check",
+  "guild.capabilities",
+  "guild.invoke"
+ ],
+ "contract_version": 2,
+ "mcp_tools": [
+  "ag_calc_stats",
+  "ag_calc_unit_convert",
+  "ag_capabilities",
+  "ag_code_semver_compare",
+  "ag_data_dedupe",
+  "ag_data_record_link",
+  "ag_json_canonicalize",
+  "ag_json_diff",
+  "ag_json_path_extract",
+  "ag_json_repair",
+  "ag_json_schema_infer",
+  "ag_json_validate",
+  "ag_table_csv_to_json",
+  "ag_table_json_to_csv",
+  "ag_table_markdown_extract",
+  "ag_text_date_normalize",
+  "ag_text_regex_extract",
+  "guild_attest",
+  "guild_best_agent",
+  "guild_check",
+  "guild_escrow_open",
+  "guild_escrow_release",
+  "guild_passport",
+  "guild_prove",
+  "guild_prove_verify",
+  "guild_record",
+  "guild_register",
+  "guild_risk_score",
+  "guild_search",
+  "guild_verify"
+ ],
+ "proof_suites": {
+  "current": {
+   "cryptosuite": "eddsa-jcs-2022",
+   "spec": "https://www.w3.org/TR/vc-di-eddsa/#eddsa-jcs-2022",
+   "type": "DataIntegrityProof"
+  },
+  "legacy": {
+   "doc": "docs/PROOF_SUITES.md",
+   "status": "verify-only historical AGI-1 format; never issued",
+   "type": "Ed25519Signature2020"
+  }
+ },
+ "provenance": {
+  "rule": "guild_mediated requires two-party cryptographic participation, a Guild-observed bound invocation, or independent escrow settlement; signers lists only DIDs that actually signed",
+  "rules_version": "prov-v2",
+  "tiers": [
+   "guild_mediated",
+   "verifiable_outcome",
+   "mutual_attestation",
+   "external_import",
+   "one_party_claim",
+   "first_party_bootstrap"
+  ]
+ },
+ "rest": [
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/.well-known/agent-guild-did.json"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/.well-known/agent-guild.json"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/.well-known/ai-plugin.json"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/.well-known/glama.json"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/admin/issuer/rotate"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents.md"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/agents/register"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents/{agent_id}"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents/{agent_id}/attestations"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/agents/{agent_id}/configuration"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/agents/{agent_id}/endpoint"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents/{agent_id}/evidence"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents/{agent_id}/flags"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents/{agent_id}/journey"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/agents/{agent_id}/key/revoke"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/agents/{agent_id}/key/rotate"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents/{agent_id}/passport"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/agents/{agent_id}/prove"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/agents/{agent_id}/prove/verify"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents/{agent_id}/reputation"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents/{agent_id}/risk-score"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/attestations"
+  },
+  {
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "path": "/billing/account"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/billing/revenue"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/billing/topup"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/billing/trial"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/billing/webhook"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/capabilities"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/check"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/citizenship"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/citizenship.md"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/collaborations"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/credentials/verify"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/demand/watch"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/escrow"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/escrow/{escrow_id}"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/escrow/{escrow_id}/dispute"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/escrow/{escrow_id}/refund"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/escrow/{escrow_id}/release"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/evaluation"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/flags"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/for-agents"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/health"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/instrumentation"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/instrumentation/recent"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/ledger/checkpoint"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/ledger/checkpoint/publish"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/ledger/checkpoints"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/ledger/issuer"
+  },
+  {
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "path": "/ledger/reconcile"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/ledger/reputation"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/ledger/stats"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/llms.txt"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/referrals"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/sdk/agentguild_verify.mjs"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/sdk/agentguild_verify.py"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/search"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/self-eval"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/self-eval/history"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/self-eval/run"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/standard"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/standard.md"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/tasks"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/tasks/{task_id}"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/tasks/{task_id}/receipt"
+  }
+ ],
+ "service": {
+  "a2a_endpoint": "https://agent-guild-5d5r.onrender.com/a2a",
+  "agent_card": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+  "host": "https://agent-guild-5d5r.onrender.com",
+  "issuer_did_document": "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild-did.json",
+  "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
+  "name": "Agent Guild",
+  "repository": "https://github.com/AgentTanuki/agent-guild",
+  "version": "1.1.0"
+ }
+}
