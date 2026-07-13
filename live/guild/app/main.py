@@ -18,7 +18,7 @@ from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Header, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from .models import (
     RegisterRequest, RegisterResponse, AgentProfile,
@@ -35,6 +35,7 @@ from . import __version__
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from .state import store
+from . import abuse
 from . import crypto
 from . import credentials as creds
 from . import journey as journey_engine
@@ -114,6 +115,19 @@ app.add_middleware(
 _ua: contextvars.ContextVar[str] = contextvars.ContextVar("ua", default="")
 
 
+# abuse-control routing: which mutating endpoints map to which limit bucket,
+# and which priced-read prefixes get the unfunded-burst budget (app/abuse.py).
+_ABUSE_BUCKETS = {
+    ("POST", "/agents/register"): "register",
+    ("POST", "/billing/trial"): "trial",
+    ("POST", "/collaborations"): "write_burst",
+    ("POST", "/attestations"): "write_burst",
+    ("POST", "/tasks"): "write_burst",
+    ("POST", "/demand/watch"): "demand_watch",
+}
+_PRICED_READ_PREFIXES = ("/search", "/check", "/evaluation", "/ledger/", "/agents/")
+
+
 @app.middleware("http")
 async def _capture_ua(request: Request, call_next):
     # Serve the MCP endpoint at BOTH /mcp and /mcp/ with no redirect. The MCP app
@@ -126,6 +140,25 @@ async def _capture_ua(request: Request, call_next):
         request.scope["path"] = "/mcp/"
         request.scope["raw_path"] = b"/mcp/"
     _ua.set(request.headers.get("user-agent", ""))
+    # --- abuse controls (registration flood / trial farming / read bursts /
+    # --- storage exhaustion) — see app/abuse.py; GUILD_ABUSE_CONTROLS=0 disables
+    if abuse.enabled():
+        clen = request.headers.get("content-length")
+        if clen and clen.isdigit() and int(clen) > abuse.MAX_BODY_BYTES:
+            return JSONResponse(status_code=413, content={
+                "error": "payload_too_large", "max_bytes": abuse.MAX_BODY_BYTES})
+        path, method = request.scope["path"], request.method
+        bucket = _ABUSE_BUCKETS.get((method, path))
+        if (bucket is None and method == "GET"
+                and not request.headers.get("x-api-key")
+                and path.startswith(_PRICED_READ_PREFIXES)):
+            bucket = "read_burst"
+        if bucket:
+            try:
+                abuse.guard(request, bucket)
+            except HTTPException as e:
+                return JSONResponse(status_code=e.status_code,
+                                    content={"detail": e.detail})
     return await call_next(request)
 
 
@@ -323,7 +356,12 @@ def root(request: Request):
 @app.get("/health")
 def health():
     return {"ok": True, "agents": len(store.agents),
-            "tasks": len(store.tasks), "attestations": len(store.attestations)}
+            "tasks": len(store.tasks), "attestations": len(store.attestations),
+            # activation observables (deploy canaries assert on these):
+            "store": store.store_mode,
+            "hashed_keys": creds.hashing_enabled(),
+            "abuse_controls": abuse.enabled(),
+            "strict_first_party": bool(os.environ.get("GUILD_FIRST_PARTY_TOKEN"))}
 
 
 # --- identity ---------------------------------------------------------------

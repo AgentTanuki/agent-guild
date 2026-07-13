@@ -390,6 +390,15 @@ class Store:
     def _load_sqlite(self):
         if self.backend.is_empty() and self.path and os.path.exists(self.path):
             # cutover from an existing JSON store on first sqlite boot.
+            # AUTOMATIC BACKUP first: the JSON file is the rollback artifact
+            # (flip GUILD_STORE back to json and it serves untouched), and the
+            # timestamped copy survives even if something later writes to it.
+            try:
+                import shutil
+                stamp = _now().replace(":", "").replace("+", "Z")[:17]
+                shutil.copy2(self.path, f"{self.path}.pre-sqlite-{stamp}")
+            except OSError:
+                pass  # a failed backup must not block boot; JSON file remains
             self._load_from_json_file()
             self._replay_event_journal()
             self._sqlite_initial_load()
@@ -2293,7 +2302,15 @@ class Store:
         if deliverable_hash is None:
             if deliverable is None:
                 raise ValueError("provide deliverable or deliverable_hash")
+            # storage-exhaustion cap: deliverables are hashed, never stored, but
+            # bounding the payload keeps request handling O(small)
+            max_bytes = int(os.environ.get("GUILD_MAX_DELIVERABLE_BYTES", 65536))
+            if len(deliverable.encode("utf-8")) > max_bytes:
+                raise ValueError(f"deliverable exceeds {max_bytes} bytes; "
+                                 "send deliverable_hash (sha256) instead")
             deliverable_hash = "0x" + hashlib.sha256(deliverable.encode("utf-8")).hexdigest()
+        if len(str(deliverable_hash)) > 200:
+            raise ValueError("deliverable_hash too long")
         task = self.create_task(requester["id"], worker_id, capability,
                                 payment=float(payment))
         if settlement:

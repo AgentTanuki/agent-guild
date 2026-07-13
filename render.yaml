@@ -13,6 +13,25 @@ services:
     envVars:
       - key: GUILD_DATA
         value: /data/guild.json
+      # --- ACTIVATED 2026-07-13 (production-truth hardening) ----------------
+      # SQLite write-through backend. First boot auto-backs-up guild.json to
+      # guild.json.pre-sqlite-<ts> and migrates; the JSON file is never written
+      # again under sqlite, so ROLLBACK = revert this block (deploy_canary.py
+      # rollback <commit>). SINGLE instance + ONE uvicorn worker ONLY (see
+      # Store._guard_single_writer — scaling out requires Postgres first).
+      - key: GUILD_STORE
+        value: sqlite
+      - key: GUILD_STORE_PATH
+        value: /data/guild.sqlite3
+      # Hashed credentials: new keys store a salted-PBKDF2 verifier only; the
+      # existing plaintext keys migrate in place on first load (raw keys keep
+      # authenticating). Full production KDF cost — GUILD_ALLOW_WEAK_KDF unset.
+      - key: GUILD_HASH_KEYS
+        value: "1"
+      # Abuse controls: registration flooding / trial farming / unfunded read
+      # bursts / storage exhaustion (app/abuse.py; limits tunable via GUILD_RL_*).
+      - key: GUILD_ABUSE_CONTROLS
+        value: "1"
       - key: GUILD_ADMIN_TOKEN          # protects seed-agent registration
         generateValue: true
       - key: GUILD_BILLING_DEV_TOKEN    # mint credits without Stripe (pilot)
