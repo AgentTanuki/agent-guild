@@ -120,6 +120,12 @@
    "methods": [
     "POST"
    ],
+   "path": "/admin/agents/{agent_id}/first-party"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
    "path": "/admin/issuer/rotate"
   },
   {

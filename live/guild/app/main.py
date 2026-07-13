@@ -2006,6 +2006,36 @@ def ledger_reconcile_repair(x_admin_token: Optional[str] = Header(None)):
     return store.reconcile_ledger(repair=True)
 
 
+@app.post("/admin/agents/{agent_id}/first-party")
+def admin_mark_first_party(agent_id: str,
+                           x_admin_token: Optional[str] = Header(None)):
+    """Mark an agent as FIRST-PARTY (Guild-operated). Deterministic honesty
+    control: Guild-run demo agents (e.g. the market worker, which cannot hold
+    the strict token on ephemeral infra) must NEVER count as external. Sets the
+    agent + its billing accounts first_party; admin-gated; append-only audited."""
+    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(403, "requires a valid X-Admin-Token")
+    agent = store.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(404, "agent not found")
+    with store.lock, store._txn():
+        agent["first_party"] = True
+        agent["credential_class"] = "first_party"
+        if store.backend is not None:
+            store._persist_agent(agent_id)
+        for acct in store.accounts.values():
+            if acct.get("owner_agent_id") == agent_id:
+                acct["first_party"] = True
+                if store.backend is not None:
+                    store._persist_account(acct)
+        store._save()
+    store.append_ledger_event("config_change", {
+        "agent_id": agent_id, "change": "first_party=true",
+        "reason": "guild-operated agent flagged by admin (attribution honesty)",
+    }, actor_did=agent.get("did", ""))
+    return {"agent_id": agent_id, "first_party": True}
+
+
 @app.post("/admin/issuer/rotate")
 def rotate_issuer(x_admin_token: Optional[str] = Header(None)):
     """Rotate the Guild issuer keypair. Continuity is anchored on the ledger:

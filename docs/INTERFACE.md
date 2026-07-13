@@ -26,6 +26,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /.well-known/ai-plugin.json`
 - `GET /.well-known/glama.json`
 - `POST /adjudicators/enroll`
+- `POST /admin/agents/{agent_id}/first-party`
 - `POST /admin/issuer/rotate`
 - `GET /agents`
 - `GET /agents.md`
