@@ -2888,9 +2888,13 @@ class Store:
                 # authoritative refresh of the derived-revenue cache after the
                 # settlement + ledger rows are sealed (idempotent by escrow_id).
                 self.guild_revenue = self.backend.guild_revenue_total()
+            _vcr = self.ledger_record_for_task(esc["task_id"]) if esc.get("task_id") else None
             return {"escrow_id": escrow_id, "status": "released", "amount": amount,
                     "fee": fee, "payout": payout, "worker_id": esc["worker_id"],
-                    "guild_revenue": self.guild_revenue, "task_id": esc["task_id"]}
+                    "guild_revenue": self.guild_revenue, "task_id": esc["task_id"],
+                    "collaboration": {"provenance": (_vcr or {}).get("provenance"),
+                                      "record_id": (_vcr or {}).get("id"),
+                                      "signers": (_vcr or {}).get("signers")}}
 
     def refund_escrow(self, escrow_id: str, requester_key: str) -> dict[str, Any]:
         """Cancel and refund a funded escrow back to the requester (no fee, since no

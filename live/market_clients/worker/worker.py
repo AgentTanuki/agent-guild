@@ -106,10 +106,23 @@ def ensure_identity() -> None:
 
 
 def work_loop() -> None:
+    last_verify = 0.0
     while True:
         try:
             with _client() as c:
                 h = {"X-API-Key": _state["api_key"]}
+                # Keep the endpoint FRESH: re-declare with a liveness probe every
+                # ~2 min so /check reports the worker as verified+reachable
+                # (routable) whenever it is actually up. Free-plan spindown makes
+                # a one-time boot probe go stale.
+                if PUBLIC_URL and time.time() - last_verify > 120:
+                    try:
+                        c.post(f"/agents/{_state['agent_id']}/endpoint",
+                               headers=h,
+                               json={"endpoint": PUBLIC_URL, "verify": True})
+                        last_verify = time.time()
+                    except Exception:
+                        pass
                 offers = c.get("/offers", params={
                     "worker_id": _state["agent_id"], "status": "open"}).json()
                 for offer in offers.get("offers", []):
