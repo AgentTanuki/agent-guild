@@ -148,3 +148,56 @@ def verify_jcs(payload: Any, signature_hex: str, public_hex: str) -> bool:
         return True
     except (InvalidSignature, ValueError):
         return False
+
+
+# --- W3C Data Integrity: eddsa-jcs-2022 -------------------------------------
+# The CONFORMING cryptosuite (https://www.w3.org/TR/vc-di-eddsa/#eddsa-jcs-2022):
+#   * canonicalisation: JCS (RFC 8785) — our canonicalize_jcs implements it
+#   * hashData = SHA256(JCS(proofConfig)) || SHA256(JCS(document-without-proof))
+#   * signature: raw Ed25519 over hashData; proofValue: base58btc multibase
+# This replaces the previous MISLABELED use of the name "Ed25519Signature2020"
+# (whose spec requires RDF canonicalisation we never performed). Historical
+# credentials keep their bytes and verify through the legacy path in vc.py.
+import hashlib as _hashlib
+
+
+def multibase_b58btc(data: bytes) -> str:
+    """base58btc multibase ('z' prefix) — Data Integrity proofValue encoding."""
+    return "z" + b58encode(data)
+
+
+def multibase_b58btc_decode(s: str) -> bytes:
+    if not s.startswith("z"):
+        raise ValueError("not base58btc multibase")
+    return b58decode(s[1:])
+
+
+def did_key_verification_method(did: str) -> str:
+    """The conforming did:key verification method id: did:key:zMB#zMB."""
+    mb = did[len("did:key:"):] if did.startswith("did:key:") else did
+    return f"did:key:{mb}#{mb}"
+
+
+def eddsa_jcs_hash_data(document: Any, proof_config: dict[str, Any]) -> bytes:
+    cfg = _hashlib.sha256(canonicalize_jcs(proof_config).encode("utf-8")).digest()
+    doc = _hashlib.sha256(canonicalize_jcs(document).encode("utf-8")).digest()
+    return cfg + doc
+
+
+def sign_eddsa_jcs(document: Any, proof_config: dict[str, Any],
+                   private_hex: str) -> str:
+    """Sign per eddsa-jcs-2022; returns the multibase proofValue."""
+    priv = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_hex))
+    sig = priv.sign(eddsa_jcs_hash_data(document, proof_config))
+    return multibase_b58btc(sig)
+
+
+def verify_eddsa_jcs(document: Any, proof_config: dict[str, Any],
+                     proof_value: str, public_hex: str) -> bool:
+    try:
+        pub = Ed25519PublicKey.from_public_bytes(bytes.fromhex(public_hex))
+        pub.verify(multibase_b58btc_decode(proof_value),
+                   eddsa_jcs_hash_data(document, proof_config))
+        return True
+    except (InvalidSignature, ValueError):
+        return False

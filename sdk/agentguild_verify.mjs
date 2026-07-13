@@ -73,9 +73,48 @@ function verifySig(payload, sigHex, raw32) {
   } catch { return false; }
 }
 
+function multibaseB58Decode(s) {
+  if (!s.startsWith("z")) throw new Error("not base58btc multibase");
+  return b58decode(s.slice(1));
+}
+
+// Conforming W3C Data Integrity, cryptosuite eddsa-jcs-2022
+// (https://www.w3.org/TR/vc-di-eddsa/#eddsa-jcs-2022): JCS canonicalisation,
+// hashData = SHA256(JCS(proofConfig)) || SHA256(JCS(document)), Ed25519,
+// base58btc-multibase proofValue.
+function verifyDataIntegrity(vc) {
+  const proof = vc.proof || {};
+  if (proof.cryptosuite !== "eddsa-jcs-2022" || !proof.proofValue) return false;
+  const { proofValue, ...proofConfig } = proof;
+  const { proof: _omit, ...document } = vc;
+  if ("@context" in proofConfig
+      && canon(proofConfig["@context"]) !== canon(document["@context"] ?? null)) return false;
+  const vm = proof.verificationMethod || "";
+  const did = vm ? vm.split("#", 1)[0] : (vc.issuer || "");
+  if (vc.issuer && did !== vc.issuer) return false;
+  const { createHash } = awaitlessCrypto();
+  const hashData = Buffer.concat([
+    createHash("sha256").update(Buffer.from(canon(proofConfig), "utf8")).digest(),
+    createHash("sha256").update(Buffer.from(canon(document), "utf8")).digest(),
+  ]);
+  try {
+    return edVerify(null, hashData, edKey(publicKeyFromDid(did)),
+                    multibaseB58Decode(proofValue));
+  } catch { return false; }
+}
+
+// node:crypto is already imported statically; tiny indirection keeps the
+// data-integrity path self-describing.
+import { createHash as _createHash } from "node:crypto";
+function awaitlessCrypto() { return { createHash: _createHash }; }
+
 export function verifyCredential(vc) {
   try {
     const proof = vc.proof || {};
+    // Conforming DataIntegrityProof (all newly issued credentials).
+    if (proof.type === "DataIntegrityProof") return verifyDataIntegrity(vc);
+    // AGI-1 legacy format (historical credentials only): hex signature over
+    // the credential with proof-sans-proofValue embedded.
     if (!proof.proofValue) return false;
     const { proofValue, ...proofRest } = proof;
     const { proof: _omit, ...rest } = vc;

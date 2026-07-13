@@ -86,11 +86,52 @@ def _verify_sig(payload: Any, signature_hex: str, public_key: bytes) -> bool:
 
 
 # --- credential verification (offline) --------------------------------------
+def _b58_multibase_decode(s: str) -> bytes:
+    if not s.startswith("z"):
+        raise ValueError("not base58btc multibase")
+    return _b58decode(s[1:])
+
+
+def _verify_data_integrity(vc: dict[str, Any]) -> bool:
+    """Conforming W3C Data Integrity, cryptosuite eddsa-jcs-2022
+    (https://www.w3.org/TR/vc-di-eddsa/#eddsa-jcs-2022): JCS canonicalisation,
+    hashData = SHA256(JCS(proofConfig)) || SHA256(JCS(document)), Ed25519,
+    base58btc-multibase proofValue."""
+    import hashlib
+    proof = vc.get("proof") or {}
+    if proof.get("cryptosuite") != "eddsa-jcs-2022":
+        return False
+    proof_value = proof.get("proofValue")
+    if not proof_value:
+        return False
+    proof_config = {k: v for k, v in proof.items() if k != "proofValue"}
+    document = {k: v for k, v in vc.items() if k != "proof"}
+    if "@context" in proof_config and proof_config["@context"] != document.get("@context"):
+        return False
+    vm = proof.get("verificationMethod") or ""
+    did = vm.split("#", 1)[0] if vm else vc.get("issuer", "")
+    if vc.get("issuer") and did != vc["issuer"]:
+        return False
+    hash_data = (hashlib.sha256(_canonical(proof_config).encode("utf-8")).digest()
+                 + hashlib.sha256(_canonical(document).encode("utf-8")).digest())
+    try:
+        Ed25519PublicKey.from_public_bytes(public_key_from_did(did)).verify(
+            _b58_multibase_decode(proof_value), hash_data)
+        return True
+    except (InvalidSignature, ValueError):
+        return False
+
+
 def verify_credential(vc: dict[str, Any]) -> bool:
     """True iff `vc` carries a valid Ed25519 proof from its declared issuer DID.
-    Pure, offline — no network. Tampering with any field breaks this."""
+    Pure, offline — no network. Tampering with any field breaks this.
+    Handles both the conforming DataIntegrityProof (eddsa-jcs-2022) used for
+    all current credentials and the immutable AGI-1 legacy format
+    (hex signature, historical credentials only)."""
     try:
         proof = vc.get("proof") or {}
+        if proof.get("type") == "DataIntegrityProof":
+            return _verify_data_integrity(vc)
         proof_value = proof.get("proofValue")
         if not proof_value:
             return False
