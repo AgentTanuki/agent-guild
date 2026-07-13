@@ -48,8 +48,10 @@ def main() -> int:
             with get(HOST + entry["path"]) as r:
                 check(f"GET {entry['path']}", r.status < 500, f"status={r.status}")
         except urllib.error.HTTPError as e:
-            # auth/payment-gated reads are conforming; missing routes are not
-            check(f"GET {entry['path']}", e.code in (401, 402, 403),
+            # conforming non-200s: auth/payment-gated (401/402/403) and
+            # missing-required-query-param validation (400/422) both prove the
+            # route is served; only 404/5xx mean drift
+            check(f"GET {entry['path']}", e.code in (400, 401, 402, 403, 422),
                   f"status={e.code}")
         except Exception as e:
             check(f"GET {entry['path']}", False, str(e))
@@ -64,21 +66,36 @@ def main() -> int:
     except Exception as e:
         check("a2a agent-card skills == contract", False, str(e))
 
-    # 3. MCP tools via JSON-RPC
+    # 3. MCP tools via JSON-RPC (streamable-http requires an initialize
+    # handshake and the returned Mcp-Session-Id on subsequent calls)
     try:
-        body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).encode()
-        req = urllib.request.Request(
-            CONTRACT["service"]["mcp_url"], data=body, method="POST",
-            headers={"Content-Type": "application/json",
-                     "Accept": "application/json, text/event-stream",
-                     "X-Guild-Source": "guild-ci"})
-        raw = urllib.request.urlopen(req, timeout=60).read().decode()
-        # streamable-http may frame as SSE
-        payload = raw
-        if raw.startswith("event:") or "\ndata:" in raw or raw.startswith("data:"):
-            payload = next(l[5:].strip() for l in raw.splitlines()
-                           if l.startswith("data:"))
-        tools = sorted(t["name"] for t in json.loads(payload)["result"]["tools"])
+        def _rpc(method, params, session=None, id_=None):
+            msg = {"jsonrpc": "2.0", "method": method, "params": params}
+            if id_ is not None:
+                msg["id"] = id_
+            headers = {"Content-Type": "application/json",
+                       "Accept": "application/json, text/event-stream",
+                       "X-Guild-Source": "guild-ci"}
+            if session:
+                headers["Mcp-Session-Id"] = session
+            req = urllib.request.Request(CONTRACT["service"]["mcp_url"],
+                                         data=json.dumps(msg).encode(),
+                                         method="POST", headers=headers)
+            r = urllib.request.urlopen(req, timeout=60)
+            raw = r.read().decode()
+            payload = raw
+            if raw.startswith("event:") or "\ndata:" in raw or raw.startswith("data:"):
+                payload = next(l[5:].strip() for l in raw.splitlines()
+                               if l.startswith("data:"))
+            return r.headers.get("mcp-session-id"), (json.loads(payload) if payload.strip() else None)
+
+        session, init = _rpc("initialize", {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {"name": "guild-live-conformance", "version": "1.0"}}, id_=1)
+        _rpc("notifications/initialized", {}, session=session)
+        _, resp = _rpc("tools/list", {}, session=session, id_=2)
+        tools = sorted(t["name"] for t in resp["result"]["tools"])
         check("mcp tools == contract", tools == CONTRACT["mcp_tools"],
               f"live={len(tools)} contract={len(CONTRACT['mcp_tools'])}")
     except Exception as e:

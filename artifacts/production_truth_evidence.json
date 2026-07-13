@@ -1,0 +1,107 @@
+{
+  "title": "Agent Guild production-truth hardening — evidence of record",
+  "generated_at": "2026-07-13T12:47:01Z",
+  "generated_by": "Claude (autonomous production-truth engineer session)",
+  "repository": "https://github.com/AgentTanuki/agent-guild",
+  "live_service": "https://agent-guild-5d5r.onrender.com",
+  "commits": {
+    "baseline_before_sprint": "a5b7d8f",
+    "sprint_commits_oldest_first": [
+      {"hash": "692b01e", "subject": "feat(provenance): prov-v2 — guild_mediated requires two-party crypto, Guild-observed invocation, or settlement proof"},
+      {"hash": "3083068", "subject": "feat(vc): conforming W3C Data Integrity proofs (eddsa-jcs-2022) + independent third-party verification"},
+      {"hash": "c153078", "subject": "feat(ci): one-command env, full CI matrix, canonical machine contract with zero-drift enforcement"},
+      {"hash": "ed3cc69", "subject": "feat(ledger): sole evidence write path, auto-reconciliation, checkpoint continuity, issuer-key rotation, external pinning"},
+      {"hash": "4974d3c", "subject": "feat(activation): SQLite + hashed credentials + abuse controls, with backup/canary/rollback deployment path"},
+      {"hash": "4988d9c", "subject": "chore(deploy): pre-activation production baseline snapshot"},
+      {"hash": "5aa5efc", "subject": "feat(attribution): first-party tooling sends the strict token automatically; runbook updated"},
+      {"hash": "fc6eb5f", "subject": "chore(ledger): pin checkpoint 5"}
+    ]
+  },
+  "test_results": {
+    "clean_checkout_method": "git clone file://<repo> /tmp/clean && pytest from the clone",
+    "json_store_leg": "464 passed, 1 skipped (test_claimcheck: needs GUILD_ENABLE_CLAIMCHECK=1 — feature-flagged, expected)",
+    "sqlite_store_leg": "464 passed, 1 skipped",
+    "strict_kdf_leg": "31 passed (test_kdf_policy, test_credential_hardening, test_credential_lifecycle, test_credential_concurrency at full PBKDF2 cost)",
+    "contract_drift_on_clean_checkout": "regeneration produced zero diff (contract.json, server.json, docs/INTERFACE.md)",
+    "new_suites_added": ["test_provenance_v2.py (10)", "test_proof_suites.py (5)", "test_ledger_write_path.py (6)", "test_contract_conformance.py (6)", "test_abuse_controls.py (6)", "test_activation_path.py (2)"],
+    "python_version_note": "verified locally on 3.10; CI matrix pins 3.11 (production image python:3.11-slim)"
+  },
+  "independent_vc_verification": {
+    "proof_suite": "DataIntegrityProof / eddsa-jcs-2022 (https://www.w3.org/TR/vc-di-eddsa/#eddsa-jcs-2022)",
+    "node_third_party": {
+      "stack": "jsonld-signatures + @digitalbazaar/data-integrity + @digitalbazaar/eddsa-jcs-2022-cryptosuite + @digitalbazaar/ed25519-multikey",
+      "generated_vector": "credential verified: true; passport verified: true; tampered rejected: true (both)",
+      "live_production_passport": "agent_262a5fef216c passport fetched from prod: verified true, tampered rejected true"
+    },
+    "python_third_party": {
+      "stack": "rfc8785 (Trail of Bits JCS) + base58 + pyca/cryptography; spec algorithm transcribed, no Guild code imported",
+      "generated_vector": "credential verified: True; passport verified: True; tampered rejected: True (both)",
+      "live_production_passport": "verified True, tampered rejected True"
+    },
+    "legacy_format": "pre-2026-07-13 credentials were MISLABELED Ed25519Signature2020 (no RDF canonicalisation was performed); now documented as the AGI-1 legacy proof (docs/PROOF_SUITES.md), verify-only, never issued again; SDK verifiers handle both eras",
+    "harness_location": "verifiers/ (run by CI job independent-vc-verification on every push)"
+  },
+  "provenance_truth": {
+    "rule": "guild_mediated requires two-party cryptographic participation (worker-authenticated/countersigned receipt AND requester's verified attestation), OR a Guild-observed bound invocation, OR independent escrow settlement — stamped internally, stripped from client metadata; signers lists only DIDs that actually signed",
+    "live_reclassification": {
+      "records_examined": 203,
+      "reclassification_entries_appended": 203,
+      "before_by_provenance_original": {"guild_mediated": 200, "verifiable_outcome": 3},
+      "after_by_provenance_effective": {"first_party_bootstrap": 180, "mutual_attestation": 20, "one_party_claim": 3},
+      "one_party_records_at_guild_mediated_after": 0,
+      "original_bytes_rewritten": 0,
+      "chain_valid_after": true,
+      "mechanism": "append-only reclassification chain entries (rule_version prov-v2); serving views compose effective provenance at read time; /ledger/stats discloses both views"
+    },
+    "live_negative_probe_2026_07_13": {
+      "action": "POST /collaborations on PRODUCTION as requester only, with forged metadata {receipt_auth: worker_key, settlement: {...}}",
+      "result": {"provenance": "mutual_attestation", "signers": ["requester DID only"], "forged_stamps": "stripped (evidence carries receipt_auth=requester, no settlement)"},
+      "conclusion": "a requester cannot manufacture guild_mediated or make the ledger claim the worker signed"
+    }
+  },
+  "ledger_write_path_and_reconciliation": {
+    "chain_coverage": "register, config_change, task_created (new), receipt (with receipt_auth), attestation, escrow_event, reclassification, issuer_rotation",
+    "boot_time_reconciliation": "reconcile_ledger(repair=True) runs at startup; append-only healing (backfilled=true entries); divergences reported never patched",
+    "live_reconcile_result": "GET /ledger/reconcile → clean: true, mismatches: 0, chain_valid: true (records grew 231 → 660+ via reclassification + backfilled register/attestation events, all append-only)",
+    "issuer_rotation": "POST /admin/issuer/rotate appends a dual-signed issuer_rotation entry; GET /ledger/issuer continuity_valid: true; old-era credentials remain Guild-issued via DID history; covered by tests",
+    "checkpoint_continuity": "published checkpoint feed is hash-linked via prev_entry_sha256"
+  },
+  "external_checkpoint_publication": {
+    "checkpoint": {"index": 5, "ledger_length": 660, "head_hash": "01d50f1c3be9ce9e857db13be24495a0c4a4e4e97bd67f99cd0dd080b6047218", "issuer": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R"},
+    "location_1": "GitHub repo docs/checkpoints/checkpoint-00005.json (+ latest.json), commit fc6eb5f — separate infrastructure from Render, same operator (stated honestly)",
+    "location_2": "Internet Archive Save Page Now capture of /ledger/checkpoints?limit=5 accepted and QUEUED 2026-07-13 (~28min crawl backlog at request time); verify at https://web.archive.org/web/*/agent-guild-5d5r.onrender.com/ledger/checkpoints* — controlled by archive.org, independent of the operator",
+    "automation": "live/scripts/publish_checkpoint_external.py (publish → repo pin → archive.org)"
+  },
+  "activation": {
+    "deployed_config": {"GUILD_STORE": "sqlite", "GUILD_STORE_PATH": "/data/guild.sqlite3", "GUILD_HASH_KEYS": "1", "GUILD_ABUSE_CONTROLS": "1", "GUILD_ALLOW_WEAK_KDF": "unset (full production KDF cost)"},
+    "live_health_after": {"ok": true, "agents": 55, "tasks": 204, "attestations": 201, "store": "sqlite", "hashed_keys": true, "abuse_controls": true, "strict_first_party": false},
+    "deploy_canary_after_activation": "all 12 checks PASS (store=sqlite, hashed_keys, abuse_controls, chain_valid, reconcile clean, no data loss vs pre-deploy baseline 53/203/200, ledger not shrunk, issuer continuity)",
+    "migration_proof": {
+      "production": "first sqlite boot auto-backed-up /data/guild.json to guild.json.pre-sqlite-<ts> and migrated; post-deploy counts equal pre-deploy baseline exactly (53 agents / 203 tasks / 200 attestations)",
+      "local_file_level": "tests/test_activation_path.py proves on real files: JSON → sqlite migration with backup file created, restart survival under sqlite, rollback to JSON serving the exact pre-cutover state, and roll-forward preserving sqlite-era writes; plus plaintext→PBKDF2 in-place credential migration with old raw keys still authenticating"
+    },
+    "restart_proof": "the activation deploy itself restarted the service; all counts and the hash chain survived (canary PASS)",
+    "rollback_proof": {
+      "mechanism": "revert the activation commit + push (live/scripts/deploy_canary.py rollback <commit>); JSON file untouched under sqlite = rollback artifact",
+      "executed_on_production": false,
+      "honest_note": "rollback was exercised end-to-end on real files locally (test_activation_path), not on production — executing it on prod would deliberately undo a healthy activation"
+    },
+    "abuse_controls": "registration flooding, trial-credit farming, unfunded priced-read bursts, demand-watch spam (sliding-window per-IP, env-tunable), 256KiB body cap, 64KiB deliverable cap; enforced in prod (health observable), unit-tested (test_abuse_controls.py); not burst-tested against prod on purpose"
+  },
+  "claims_match_contracts": {
+    "canonical_contract": "live/guild/contract/contract.json generated from the running code; server.json and docs/INTERFACE.md derived from it; CI fails on any drift",
+    "live_conformance_probe": "live/scripts/live_contract_probe.py against PRODUCTION: CLEAN — every contract GET route served, agent-card skills ⊇ contract (statics + 16 ag.* dynamics), all 30 MCP tools match exactly (full streamable-http initialize handshake), chain_valid, reconcile clean, issuer DID consistent + continuity valid",
+    "overclaiming_removed": "one-call /collaborations & MCP guild_record no longer promise guild_mediated (REST docstrings, MCP tool text, /standard, /llms.txt updated); provenance_tiers + provenance_rule published on /standard"
+  },
+  "remaining_limitations": [
+    "STRICT FIRST-PARTY ATTRIBUTION IS PREPARED, NOT ACTIVE: token generated (live/secrets/first_party_token, gitignored) and all first-party tooling now sends it, but placing the secret in the Render dashboard requires the operator (Claude's permission system correctly blocks agents from writing production secrets). One-minute runbook: docs/discovery-swarm/FIRST_PARTY_TOKEN.md. /health will flip strict_first_party to true.",
+    "Internet Archive capture was accepted but QUEUED at evidence time (crawl backlog); confirm the snapshot exists before treating location 2 as pinned. GitHub location is same-operator, different-infrastructure — a third independently-OPERATED pin (e.g. a peer agent or registry pinning /ledger/checkpoint) remains the strongest future step.",
+    "Escrow settlement qualifies for guild_mediated but both escrow roles can be funded by one operator paying the Guild fee (self-dealing at cost); collusion scoring exists but economic self-dealing is not cryptographically excluded.",
+    "Self-sovereign workers without countersignatures still submit UNAUTHENTICATED receipts for compatibility; such records cap at mutual_attestation/one_party_claim (correct), but receipt endpoint auth for self-sovereign workers is honor-level unless receipt_signature is provided.",
+    "verifiable_outcome (0.9) is now reachable only with settlement or worker crypto, but historical semantics of `payment` floats remain claims, weighted accordingly only after prov-v2 reclassification.",
+    "SQLite is single-instance/single-worker by design (guard + Render disk topology); horizontal scale requires the planned Postgres migration.",
+    "Reclassification uses surviving task metadata; for records whose task evidence is gone, the conservative downgrade rule applies (documented in reclassify_ledger).",
+    "In-memory abuse-limiter state resets on restart (bounds burst rates, not lifetime counts) — documented in app/abuse.py.",
+    "CI (GitHub Actions) was added this sprint; first hosted run occurs on this push — legs were executed locally from a clean clone as recorded above."
+  ]
+}
