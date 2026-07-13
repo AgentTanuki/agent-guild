@@ -1,0 +1,12 @@
+# Tested framework versions for the trust-plane interceptors (see
+# agentguild_trustplane/integrations/pins.py for the enforced ranges).
+# Core (always):
+cryptography>=42
+fastapi>=0.115
+uvicorn>=0.30
+# Framework extras (install the ones you integrate with):
+crewai==1.15.2
+langchain-core==1.4.9
+langgraph==1.2.9
+openai-agents==0.18.2
+mcp==1.28.1

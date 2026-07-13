@@ -1332,14 +1332,23 @@ def list_flags(response: Response, min_suspicion: float = Query(0.4, ge=0.0, le=
 def check(
     response: Response,
     capability: str = Query(..., description="Capability to vet before delegating"),
+    signed: bool = Query(False, description="Return a Guild-SIGNED AGD-1 decision "
+                         "(eddsa-jcs-2022 proof + validity window + checkpoint "
+                         "pin) — the offline-cacheable unit of the trust plane"),
+    ttl_seconds: int = Query(3600, ge=60, le=604800,
+                             description="Validity window for signed decisions"),
     x_api_key: Optional[str] = Header(None),
 ):
-    """START HERE (no SDK). One call to vet a capability before delegating: the
-    safest agent to hire, its hire/caution/avoid verdict, a ranked shortlist,
-    provenance-labelled PROOF the Guild improves outcomes, and how to contribute
-    back. Collapses search → risk-score → proof into a single request so
-    time-to-value is one call."""
+    """START HERE (no SDK). One call to vet a capability before delegating.
+    Returns the AGD-1 `decision` contract (identity, capability match,
+    estimate, confidence, staleness, reachability, value-at-risk support,
+    evidence provenance — callers own thresholds), a ranked shortlist,
+    provenance-labelled PROOF the Guild improves outcomes, and how to
+    contribute back. `signed=true` returns a Guild-signed, offline-verifiable
+    decision for gateway caching. hire/caution/avoid is legacy presentation."""
     meter("best_agent", x_api_key, response)
+    if signed:
+        return store.signed_decision(capability, ttl_seconds=ttl_seconds)
     result = store.check(capability)
     if x_api_key and result.get("best_agent"):
         store.note_recommendations(x_api_key, [r["id"] for r in result["shortlist"]])

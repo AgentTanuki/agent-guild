@@ -385,6 +385,32 @@ def _agent_card(base: str) -> dict[str, Any]:
             "streaming": False,
             "pushNotifications": False,
             "stateTransitionHistory": False,
+            # A2A trust extension (AGI-1): machine-discoverable declaration of
+            # how ANY a2a agent can obtain and verify Guild-signed trust
+            # evidence about a counterparty BEFORE delegating. Spec:
+            # docs/A2A_TRUST_EXTENSION.md (repo) / {base}/standard (live).
+            "extensions": [
+                {
+                    "uri": "https://agent-guild.ai/ext/trust/v1",
+                    "description": (
+                        "AGI-1 trust evidence: signed AGD-1 delegation "
+                        "decisions (GET /check?capability=<cap>&signed=true), "
+                        "offline-verifiable Agent Passports "
+                        "(GET /agents/{id}/passport), eddsa-jcs-2022 proofs, "
+                        "pinned checkpoint feed (GET /ledger/checkpoints) "
+                        "with fork detection."
+                    ),
+                    "required": False,
+                    "params": {
+                        "contract": "AGD-1/1.0",
+                        "proof_suite": "eddsa-jcs-2022",
+                        "decision_endpoint": f"{base}/check",
+                        "passport_endpoint": f"{base}/agents/{{id}}/passport",
+                        "checkpoint_feed": f"{base}/ledger/checkpoints",
+                        "conformance": f"{base}/standard",
+                    },
+                },
+            ],
         },
         "defaultInputModes": ["text/plain"],
         "defaultOutputModes": ["application/json", "text/plain"],

@@ -115,6 +115,26 @@ def derived_server_json(contract: dict) -> dict:
         "repository": {"url": s["repository"], "source": "github"},
         "websiteUrl": s["host"],
         "remotes": [{"type": "streamable-http", "url": s["mcp_url"]}],
+        # publisher-provided trust metadata (MCP registry _meta extension):
+        # how a consumer obtains SIGNED, offline-verifiable delegation
+        # evidence about agents before trusting them.
+        "_meta": {
+            "ai.agent-guild/trust": {
+                "contract": "AGD-1/1.0",
+                "proof_suite": "eddsa-jcs-2022",
+                "decision_endpoint": (s["host"] + "/check?capability="
+                                      "{capability}&signed=true"),
+                "passport_endpoint": s["host"] + "/agents/{id}/passport",
+                "checkpoint_feed": s["host"] + "/ledger/checkpoints",
+                "a2a_extension": "https://agent-guild.ai/ext/trust/v1",
+                "conformance": (s["repository"] + "/blob/main/live/"
+                                "trustplane/conformance/AGI1_CONFORMANCE.md"),
+                "note": ("Signed AGD-1 delegation decisions and offline-"
+                         "verifiable Agent Passports; callers own thresholds. "
+                         "Delegation gateway + framework interceptors: "
+                         "live/trustplane in the repository."),
+            },
+        },
     }
 
 

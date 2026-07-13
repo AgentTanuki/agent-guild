@@ -2149,6 +2149,88 @@ class Store:
             "deprecated": ["risk", "recommendation", "trust"],
         }
 
+    def provenance_summary(self, agent_id: str) -> dict[str, Any]:
+        """Evidence-provenance leg of the AGD-1 decision contract: counts of the
+        agent's ledger-committed collaborations by EFFECTIVE provenance class
+        (append-only reclassifications applied), the strongest class present,
+        and the checkpoint pin a verifier can anchor against. Never probes."""
+        from .ledger import PROVENANCE_WEIGHT
+        self.ensure_ledger_backfilled()
+        # Apply append-only reclassification entries (prov-v2 invariant): the
+        # effective class, not the sealed bytes, is what evidence-weighting uses.
+        reclass: dict[str, str] = {}
+        for d in self.ledger_records:
+            if d.get("type") == "reclassification":
+                body = d.get("body") or d
+                if body.get("target_id"):
+                    reclass[body["target_id"]] = body.get("to", "")
+        counts: dict[str, int] = {}
+        signer_dids: set[str] = set()
+        for d in self.ledger_records:
+            if d.get("worker_id") != agent_id:
+                continue
+            prov = reclass.get(d.get("id", ""), None) or d.get("provenance")
+            if not prov:
+                continue
+            counts[prov] = counts.get(prov, 0) + 1
+            for s in d.get("signers") or []:
+                signer_dids.add(s)
+        strongest = None
+        for p in sorted(counts, key=lambda p: -PROVENANCE_WEIGHT.get(p, 0.0)):
+            strongest = p
+            break
+        published = self.latest_checkpoint(publish_if_empty=False)
+        return {
+            "counts": counts,
+            "strongest": strongest,
+            "verifiable_collaborations": sum(counts.values()),
+            "signer_dids": sorted(signer_dids),
+            "rules_version": "prov-v2",
+            "checkpoint": {
+                "index": published["index"] if published else None,
+                "published_at": published["published_at"] if published else None,
+                "head_hash": (published["checkpoint"].get("head_hash")
+                              if published else None),
+            },
+        }
+
+    @staticmethod
+    def _value_at_risk_support(prov: dict[str, Any], confidence: float,
+                               staleness: Optional[dict[str, Any]]) -> dict[str, Any]:
+        """Which market value tiers (market.value_tier) the EVIDENCE honestly
+        supports delegating at. Documented, deterministic rules — the caller
+        still owns the final threshold; this is the Guild's evidence-depth
+        statement, not permission."""
+        counts = prov.get("counts") or {}
+        total = prov.get("verifiable_collaborations", 0)
+        strong = (counts.get("guild_mediated", 0)
+                  + counts.get("verifiable_outcome", 0))
+        days = None
+        if staleness and staleness.get("age_days") is not None:
+            days = staleness["age_days"]
+        fresh = days is not None and days <= 30
+        tiers = {
+            "micro": total >= 1,
+            "low": total >= 3 and confidence >= 0.2,
+            "medium": strong >= 3 and confidence >= 0.4 and fresh,
+            "high": counts.get("guild_mediated", 0) >= 5 and confidence >= 0.6 and fresh,
+        }
+        max_tier = None
+        for t in ("high", "medium", "low", "micro"):
+            if tiers[t]:
+                max_tier = t
+                break
+        return {
+            "tiers": tiers, "max_supported_tier": max_tier,
+            "basis": ("micro: any ledger evidence; low: >=3 verifiable "
+                      "collaborations, confidence>=0.2; medium: >=3 "
+                      "guild_mediated/verifiable_outcome records, "
+                      "confidence>=0.4, evidence<=30d; high: >=5 "
+                      "guild_mediated, confidence>=0.6, evidence<=30d. "
+                      "Evidence-depth statement, not permission — callers "
+                      "own thresholds."),
+        }
+
     def check(self, capability: str) -> dict[str, Any]:
         """One-call first contact: everything a brand-new agent needs to go from
         'never heard of the Guild' to a confident delegation decision *and* a
@@ -2223,11 +2305,46 @@ class Store:
         # scalars live on under `verdict` (deprecated) for v1 callers.
         decision: Optional[dict[str, Any]] = None
         if best and verdict:
+            agent_rec = self.get_agent(best["id"]) or {}
+            prov = self.provenance_summary(best["id"])
+            did = agent_rec.get("did", "")
             decision = {
+                # AGD-1 (2026-07-13): the STABLE machine contract for the trust
+                # plane. hire/caution/avoid is legacy presentation — callers own
+                # thresholds; the Guild presents verifiable evidence. Fields:
+                # identity, capability_match, estimate, confidence, staleness,
+                # reachability, value_at_risk, evidence_provenance, policy slot.
+                "contract": "AGD-1/1.0",
                 "agent_id": best["id"],
+                "identity": {
+                    "did": did,
+                    "did_method": ("did:key" if did.startswith("did:key:")
+                                   else (did.split(":")[1] if did.count(":") >= 2
+                                         else "unknown")),
+                    "custodial": bool(agent_rec.get("custodial")),
+                    # True only if this DID has cryptographically participated
+                    # in ledger-committed evidence (signed receipt/attestation/
+                    # offer) — never on self-assertion.
+                    "did_control_proven": did in set(prov.get("signer_dids") or []),
+                    "first_party": bool(agent_rec.get("first_party")),
+                },
+                "capability_match": {
+                    "requested": capability,
+                    "match": "exact",  # shortlist() is capability-filtered
+                    "agent_capabilities": agent_rec.get("capabilities", []),
+                },
                 "estimate": verdict["estimate"],
                 "confidence": verdict["confidence"],
                 "staleness": verdict["staleness"],
+                "value_at_risk": self._value_at_risk_support(
+                    prov, verdict["confidence"], verdict["staleness"]),
+                "evidence_provenance": prov,
+                # Policy is the CALLER's: the Guild never decides for you. A
+                # gateway/sidecar fills this slot after evaluating its owner's
+                # risk policy against the fields above.
+                "policy": {"result": None, "decided_by": "caller",
+                           "note": "filled by the caller's own policy engine "
+                                   "(e.g. the AG delegation gateway)"},
                 "top_evidence": verdict["explanation"][:3],
                 "interpretation": (
                     "This is an evidence estimate, not a guarantee: estimate is "
@@ -2253,6 +2370,13 @@ class Store:
             "status": "supply" if best else "no_supply_yet",
             "routing": routing,
             "decision": decision,
+            "contract_note": (
+                "`decision` (AGD-1) is the stable machine contract: identity, "
+                "capability match, estimate, confidence, staleness, "
+                "reachability, value-at-risk support, evidence provenance, and "
+                "a caller-owned policy slot. `verdict` and hire/caution/avoid "
+                "are LEGACY presentation retained for v1 callers — thresholds "
+                "belong to the caller, not the Guild."),
             "best_agent": best,
             "verdict": verdict,
             "shortlist": short,
@@ -2424,6 +2548,50 @@ class Store:
                         " on your next visit shows current supply",
             }
         return out
+
+    def signed_decision(self, capability: str,
+                        ttl_seconds: int = 3600) -> dict[str, Any]:
+        """A Guild-SIGNED AGD-1 decision: the offline-cacheable unit of the
+        trust plane. Carries an eddsa-jcs-2022 DataIntegrityProof (same suite
+        as passports), an explicit validity window, and the latest published
+        checkpoint pin — so a delegation gateway can keep making verifiable,
+        fresh-bounded decisions during a Guild outage, and any third party can
+        verify the bytes without contacting the Guild."""
+        from .crypto import sign_eddsa_jcs, did_key_verification_method
+        res = self.check(capability)
+        gid = self.guild_identity()
+        published = self.latest_checkpoint(publish_if_empty=False)
+        now = datetime.now(timezone.utc)
+        ttl_seconds = max(60, min(int(ttl_seconds), 7 * 86400))
+        unsigned: dict[str, Any] = {
+            "type": "AgentGuildDecision",
+            "contract": "AGD-1/1.0",
+            "issuer": gid["did"],
+            "capability": capability,
+            "status": res["status"],
+            "issued_at": now.isoformat(),
+            "valid_until": (now + timedelta(seconds=ttl_seconds)).isoformat(),
+            "decision": res["decision"],
+            "routing": res["routing"],
+            "checkpoint": {
+                "index": published["index"] if published else None,
+                "published_at": (published["published_at"]
+                                 if published else None),
+                "head_hash": (published["checkpoint"].get("head_hash")
+                              if published else None),
+            },
+        }
+        proof: dict[str, Any] = {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": now.isoformat(),
+            "verificationMethod": did_key_verification_method(gid["did"]),
+            "proofPurpose": "assertionMethod",
+        }
+        proof["proofValue"] = sign_eddsa_jcs(unsigned, proof, gid["private_key"])
+        signed = dict(unsigned)
+        signed["proof"] = proof
+        return signed
 
     # --- one-call verifiable-collaboration recording (fills the ledger) -----
     def record_collaboration(
