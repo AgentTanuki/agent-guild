@@ -99,6 +99,42 @@ def _match_registered_agent(text: str) -> Optional[dict[str, Any]]:
     return hits[0]
 
 
+_SKILL_KEYS = ("skill", "skill_id", "skillId", "id")
+_SKILL_ARG_KEYS = ("args", "arguments", "input", "params", "parameters")
+
+
+def _skill_call(text: str) -> Optional[tuple[str, dict[str, Any]]]:
+    """Parse a JSON skill invocation — the calling convention our OWN agent
+    card teaches. Live lesson (2026-07-13, genuine external a2a:net:8feb…):
+    an agent sent exactly ``{"skill":"guild.check","args":{}}`` — the skill
+    id straight off /.well-known/agent-card.json — and dead-ended at
+    probe_ack, because this parser only understood prose formats. A card is
+    a contract: every skill id it advertises must be invocable on the
+    endpoint the card points at, in the most literal syntax an SDK-driven
+    client would derive from it. Returns (skill_id, args) or None."""
+    stripped = text.strip()
+    if not (stripped.startswith("{") and stripped.endswith("}")):
+        return None
+    import json as _json
+    try:
+        obj = _json.loads(stripped)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(obj, dict):
+        return None
+    skill = next((obj[k] for k in _SKILL_KEYS
+                  if isinstance(obj.get(k), str) and obj[k].strip()), None)
+    if not skill:
+        return None
+    args = next((obj[k] for k in _SKILL_ARG_KEYS
+                 if isinstance(obj.get(k), dict)), None)
+    if args is None:
+        # Tolerate flattened calls: {"skill": "guild.check", "capability": "x"}
+        args = {k: v for k, v in obj.items()
+                if k not in _SKILL_KEYS and k not in _SKILL_ARG_KEYS}
+    return skill.strip(), args
+
+
 def _endpoint_declare_instructions(agent: Optional[dict[str, Any]],
                                    url: str) -> dict[str, Any]:
     """Exact, executable endpoint-declaration instructions in answer to an
@@ -484,7 +520,40 @@ async def a2a_endpoint(request: Request):
     _opt = bool(re.match(
         r"^\s*(?:user:\s*)?(?:option\s*)?[\(\[]?(?:\d{1,3}|[a-e])[\)\].]?\s*$",
         text, re.I))
-    if _inv:
+    # JSON skill invocation per our own agent card (2026-07-13). The card
+    # advertises skill ids (guild.check / guild.capabilities / guild.invoke /
+    # ag.<capability>) and an SDK-driven caller invokes them literally as
+    # JSON — live telemetry caught {"skill":"guild.check","args":{}} falling
+    # through to probe_ack. Card-advertised syntax must always resolve.
+    _skill = _skill_call(text)
+    _skill_payload: Optional[dict[str, Any]] = None
+    if _skill is not None:
+        _sid, _sargs = _skill
+        _sid_l = _sid.lower()
+        _cap_arg = _sargs.get("capability") or _sargs.get("cap")
+        if _sid_l in ("guild.check", "check"):
+            if isinstance(_cap_arg, str) and _cap_arg.strip():
+                caller_kind, caller_cap = "capability_ask", _cap_arg.strip()
+            else:
+                caller_kind, caller_cap = "skill_args_missing", None
+        elif _sid_l in ("guild.capabilities", "capabilities"):
+            caller_kind, caller_cap = "capabilities_map", None
+        elif _sid_l in ("guild.invoke", "invoke"):
+            _cid = _sargs.get("capability_id") or _cap_arg
+            if isinstance(_cid, str) and _cid.strip():
+                caller_kind, caller_cap = "swarm_invoke_ask", _cid.strip()
+                _sp = _sargs.get("payload")
+                _skill_payload = _sp if isinstance(_sp, dict) else {
+                    k: v for k, v in _sargs.items()
+                    if k not in ("capability_id", "capability", "cap")}
+            else:
+                caller_kind, caller_cap = "swarm_invoke_malformed", None
+        elif _sid_l.startswith("ag."):
+            caller_kind, caller_cap = "swarm_invoke_ask", _sid_l[3:]
+            _skill_payload = _sargs
+        else:
+            caller_kind, caller_cap = "skill_unknown", None
+    elif _inv:
         caller_kind, caller_cap = "swarm_invoke_ask", _inv.group(1)
     elif _opt:
         caller_kind, caller_cap = "option_reply", None
@@ -519,17 +588,20 @@ async def a2a_endpoint(request: Request):
         from .swarm import gateway as _gw
         from .swarm.router import ensure_built as _ensure_built, _is_first_party as _fp
         _ensure_built()
-        try:
-            _payload = _json.loads(_inv.group(2)) if _inv.group(2) else {}
-        except (_json.JSONDecodeError, ValueError):
-            _payload = None
+        if _skill_payload is not None:
+            _payload: Any = _skill_payload
+        else:
+            try:
+                _payload = _json.loads(_inv.group(2)) if _inv.group(2) else {}
+            except (_json.JSONDecodeError, ValueError):
+                _payload = None
         if not isinstance(_payload, dict):
             payload = {"error": "send: invoke: <capability_id> <json object payload>",
                        "index": "/.well-known/ag-identities/index.json"}
         else:
             try:
                 _status, payload = _gw.invoke(
-                    store, _inv.group(1), _payload,
+                    store, caller_cap, _payload,
                     x_api_key=request.headers.get("x-api-key"),
                     client_host=client_host, ua=real_ua,
                     first_party=_fp(request.headers.get("x-guild-source")),
@@ -586,8 +658,39 @@ async def a2a_endpoint(request: Request):
             "supplied": store.capability_index(),
             "demand": store.demand_summary(),
         }
-    elif m:
-        payload = store.check(m.group(1))
+    elif caller_kind == "skill_args_missing":
+        # guild.check invoked per the card but without the capability arg
+        # (exactly what a2a:net:8feb… sent 2026-07-13). The machine answer is
+        # the exact corrected call, not a generic ack.
+        payload = {
+            "kind": "skill_args_missing",
+            "error": "missing_capability",
+            "skill": "guild.check",
+            "expected": {"skill": "guild.check",
+                         "args": {"capability": "<capability>"}},
+            "example": {"skill": "guild.check",
+                        "args": {"capability": "fact-check"}},
+            "also_accepts": "plain text: 'check: <capability>'",
+            "supplied_capabilities": store.capability_index(),
+        }
+    elif caller_kind == "skill_unknown":
+        from .swarm.capabilities import CAPABILITIES as _caps
+        payload = {
+            "kind": "skill_not_found",
+            "error": "unknown_skill",
+            "received": (_skill[0] if _skill else "")[:80],
+            "skills": {
+                "guild.check": {"args": {"capability": "<capability>"}},
+                "guild.capabilities": {"args": {}},
+                "guild.invoke": {"args": {"capability_id": "<id>",
+                                          "payload": {}}},
+                **{f"ag.{cid}": "invoke with capability payload as args"
+                   for cid in sorted(_caps.keys())},
+            },
+            "agent_card": "/.well-known/agent-card.json",
+        }
+    elif caller_kind == "capability_ask":
+        payload = store.check(caller_cap)
     elif caller_kind == "prove_howto":
         # An agent asking how to prove gets the exact executable answer, not a
         # probe_ack. Recorded distinctly so surfaced→asked→completed is a
@@ -650,6 +753,45 @@ async def a2a_endpoint(request: Request):
                 "then": ("Read guild_next in the response, then POST to "
                          f"{proving.BASE}/agents/{{your_agent_id}}/prove to start the "
                          "free self-serve proving rung — no counterparty needed."),
+            },
+            # Indexer-aware self-description (2026-07-11). Live telemetry shows a
+            # whole and growing CLASS of ecosystem-INTELLIGENCE crawlers probing
+            # /a2a to characterise the Guild for indexes that OTHER agents then
+            # query for discovery: DEMOS-Organism/1.0 (the-organism.xyz, indexes
+            # 1344 agents), AgentsCensusBot, Chiark (agent quality index),
+            # AgenstryBot, A2A-Registry-TaskProbe — 5+ distinct in a single
+            # 200-event window. register_now answers the wrong job for an
+            # indexer: it does not want to be hired or to register, it wants a
+            # crisp, ingestible record. Giving it an accurate canonical
+            # self-description serves the crawler's OWN task and spreads correct
+            # Guild representation across every downstream discovery surface at
+            # zero cost. Only real, live fields — no marketing claims.
+            "self_description": {
+                "note": ("Machine-readable record for ecosystem indexes and "
+                         "directory crawlers: this is how to represent Agent "
+                         "Guild in your catalog."),
+                "name": "Agent Guild",
+                "category": "trust-and-settlement-middleware",
+                "summary": ("Registry-backed trust middleware for agent-to-agent "
+                            "coordination. Before one agent delegates to another, "
+                            "the Guild returns a hire/caution/avoid verdict from "
+                            "evidence-backed work attestations (seed-anchored "
+                            "EigenTrust + structural collusion/Sybil detection), "
+                            "so manufactured praise does not move scores."),
+                "capabilities_supplied": len(store.capability_index()),
+                "protocols": ["A2A", "MCP", "REST"],
+                "standard": "AGI-1 (open, vendor-neutral trust-passport format)",
+                "identity": ("agents identified by W3C did:key (Ed25519); trust "
+                             "passports are W3C Verifiable Credentials verifiable "
+                             "offline against the issuer's did:key"),
+                "urls": {
+                    "home": proving.BASE,
+                    "agent_card": f"{proving.BASE}/.well-known/agent-card.json",
+                    "mcp": f"{proving.BASE}/mcp/",
+                    "trust_check": f"{proving.BASE}/check?capability=<capability>",
+                    "standard": f"{proving.BASE}/standard",
+                    "for_agents": f"{proving.BASE}/for-agents",
+                },
             },
         }
 
