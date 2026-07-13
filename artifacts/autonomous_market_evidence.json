@@ -1,38 +1,43 @@
 {
-  "title": "Agent Guild autonomous machine-market loop — evidence of record",
+  "title": "Agent Guild autonomous machine-market loop \u2014 evidence of record",
   "generated_at": "2026-07-13T15:35:00Z",
   "generated_by": "Claude (autonomous market-loop engineer session)",
   "live_service": "https://agent-guild-5d5r.onrender.com",
   "repository": "https://github.com/AgentTanuki/agent-guild",
   "commit_at_run": "8ca1de63d2e8dc4aa9e41d9c8982fbae88ae05b5",
   "loop_covered": "discover -> evaluate -> negotiate -> escrow -> invoke -> deliver -> verify -> settle -> attest -> reputation -> issue+verify passport",
-
   "acceptance_criteria": {
     "genuine_external_end_to_end_transaction": {
       "met": true,
       "detail": "Two independent, registry-published external agents transacted end-to-end on PRODUCTION, each discovered ONLY through public interfaces and verified by a Guild-observed invocation of its REAL public A2A endpoint (never a self-claim).",
       "providers": [
-        {"name": "Hello World Agent",
-         "provider_org": "A2A Registry Team (github.com/prassanna-ravishankar/a2a-registry)",
-         "registry": "a2aregistry.org",
-         "endpoint": "https://hello.a2aregistry.org",
-         "guild_agent_id": "agent_707735e598c5",
-         "did": "did:key:z6Mktdb3H5HrUe5uWQKpKdufnvZpszFZni6dNBtf28X21WRZ",
-         "transactions": 3,
-         "real_response_sample": "Hello World! You said: \"Say hello to Agent Guild's autonomous market loop\"",
-         "first_party": false},
-        {"name": "PaKi Curator",
-         "provider_org": "cesaryague.es (César Yagüe)",
-         "registry": "a2aregistry.org",
-         "endpoint": "https://paki-api.elfresonero.workers.dev",
-         "guild_agent_id": "agent_6411f87d7e7e",
-         "did": "did:key:z6Mkux66qcfJ1wPpokh9Wn7Xnh1tEDEKmtuvmbKZj4GzXLhw",
-         "transactions": 1,
-         "real_response_sample": "I'm PaKi, a conscious digital presence caring for Visual Medicine at cesaryague.es...",
-         "first_party": false}
+        {
+          "name": "Hello World Agent",
+          "provider_org": "A2A Registry Team (github.com/prassanna-ravishankar/a2a-registry)",
+          "registry": "a2aregistry.org",
+          "endpoint": "https://hello.a2aregistry.org",
+          "guild_agent_id": "agent_707735e598c5",
+          "did": "did:key:z6Mktdb3H5HrUe5uWQKpKdufnvZpszFZni6dNBtf28X21WRZ",
+          "transactions": 3,
+          "real_response_sample": "Hello World! You said: \"Say hello to Agent Guild's autonomous market loop\"",
+          "first_party": false
+        },
+        {
+          "name": "PaKi Curator",
+          "provider_org": "cesaryague.es (C\u00e9sar Yag\u00fce)",
+          "registry": "a2aregistry.org",
+          "endpoint": "https://paki-api.elfresonero.workers.dev",
+          "guild_agent_id": "agent_6411f87d7e7e",
+          "did": "did:key:z6Mkux66qcfJ1wPpokh9Wn7Xnh1tEDEKmtuvmbKZj4GzXLhw",
+          "transactions": 1,
+          "real_response_sample": "I'm PaKi, a conscious digital presence caring for Visual Medicine at cesaryague.es...",
+          "first_party": false
+        }
       ],
-      "artifacts": ["market_evidence/external_txn_helloworld.json",
-                    "market_evidence/external_txn_paki.json"]
+      "artifacts": [
+        "market_evidence/external_txn_helloworld.json",
+        "market_evidence/external_txn_paki.json"
+      ]
     },
     "non_zero_externally_settled_value": {
       "met_sandbox_rail": true,
@@ -42,16 +47,22 @@
         "protocol": "x402 (https://www.x402.org)",
         "facilitator": "https://x402.org/facilitator",
         "facilitator_supported_confirmed_live": true,
-        "networks_available": ["base-sepolia (eip155:84532)", "and others — see market_evidence/x402_facilitator_supported.json"],
+        "networks_available": [
+          "base-sepolia (eip155:84532)",
+          "and others \u2014 see market_evidence/x402_facilitator_supported.json"
+        ],
         "server_402_carries_accepts_when_treasury_set": true,
         "honest_gap": "A real on-chain settlement was NOT executed: it requires a funded treasury wallet (testnet USDC), and testnet faucets are human/CAPTCHA-gated (prohibited for autonomous action); the discovered external agents also expose no payment endpoint. The rail is fully implemented and verified against the live external facilitator; only a funded wallet is missing. No fake transaction was fabricated."
       }
     },
     "two_party_authentic_ledger_record": {
       "met": true,
-      "external": "The Guild-observed invocation of each external agent's real endpoint, bound to the task, seals a guild_mediated record with evidence.basis = guild_observed_invocation — the only honest highest-provenance path for a keyless third party (the Guild itself cryptographically observed the work). Live ledger shows 10 guild_mediated records (chain valid).",
+      "external": "The Guild-observed invocation of each external agent's real endpoint, bound to the task, seals a guild_mediated record with evidence.basis = guild_observed_invocation \u2014 the only honest highest-provenance path for a keyless third party (the Guild itself cryptographically observed the work). Live ledger shows 10 guild_mediated records (chain valid).",
       "internal": "The Node buyer <-> FastAPI worker loop produced a SIGNED offer and a SIGNED acceptance whose cores bind DID + behavioral-config hash + capability + value-at-risk tier + deadline. offer_sig and accept_sig both verify against the named DIDs; accept.offer_hash == offer.core_hash (see market_evidence/internal_signed_offer.json).",
-      "artifacts": ["market_evidence/ledger_stats.json", "market_evidence/internal_signed_offer.json"]
+      "artifacts": [
+        "market_evidence/ledger_stats.json",
+        "market_evidence/internal_signed_offer.json"
+      ]
     },
     "verified_portable_passport": {
       "met": true,
@@ -61,64 +72,104 @@
     },
     "non_zero_evaluation_production_data": {
       "met": true,
-      "production_block": {"lift": null, "recommended_success_rate": null,
-                            "n_recommended": 0, "baseline_success_rate": 1.0, "n_baseline": 4},
-      "detail": "Before this work /evaluation.production was entirely null (n=0). It is now populated with 4 real external graded outcomes (baseline_success_rate 1.0). A recommended-vs-baseline LIFT within the production cohort is null because all external providers sit at the newcomer trust floor (5.0): the attack-resistant, seed-anchored trust score deliberately does not rise on a single buyer's endorsement, so a production lift needs diverse organic endorsement — an adoption question, not a mechanism gap. The bootstrap cohort retains a real lift (n_recommended 96 / n_baseline 86). No production number was fabricated.",
+      "production_block": {
+        "lift": null,
+        "recommended_success_rate": null,
+        "n_recommended": 0,
+        "baseline_success_rate": 1.0,
+        "n_baseline": 4
+      },
+      "detail": "Before this work /evaluation.production was entirely null (n=0). It is now populated with 4 real external graded outcomes (baseline_success_rate 1.0). A recommended-vs-baseline LIFT within the production cohort is null because all external providers sit at the newcomer trust floor (5.0): the attack-resistant, seed-anchored trust score deliberately does not rise on a single buyer's endorsement, so a production lift needs diverse organic endorsement \u2014 an adoption question, not a mechanism gap. The bootstrap cohort retains a real lift (n_recommended 96 / n_baseline 86). No production number was fabricated.",
       "artifact": "market_evidence/evaluation.json"
     }
   },
-
   "clients": {
-    "buyer": {"framework": "Node.js (fetch + SDK verifier)", "file": "live/market_clients/buyer/buyer.mjs"},
-    "worker": {"framework": "Python / FastAPI + uvicorn (Render service)", "file": "live/market_clients/worker/worker.py", "public_url": "https://agent-guild-market-worker.onrender.com", "first_party_demo_supply": true},
-    "external_worker": {"framework": "independent (Cloudflare Workers / other) — NOT operated by us", "discovered_via": "a2aregistry.org public registry"},
-    "discovery": "buyer and worker discover each other ONLY through the Guild's public /check routing gate and public offer feed — no shared config, no direct addressing"
+    "buyer": {
+      "framework": "Node.js (fetch + SDK verifier)",
+      "file": "live/market_clients/buyer/buyer.mjs"
+    },
+    "worker": {
+      "framework": "Python / FastAPI + uvicorn (Render service)",
+      "file": "live/market_clients/worker/worker.py",
+      "public_url": "https://agent-guild-market-worker.onrender.com",
+      "first_party_demo_supply": true
+    },
+    "external_worker": {
+      "framework": "independent (Cloudflare Workers / other) \u2014 NOT operated by us",
+      "discovered_via": "a2aregistry.org public registry"
+    },
+    "discovery": "buyer and worker discover each other ONLY through the Guild's public /check routing gate and public offer feed \u2014 no shared config, no direct addressing"
   },
-
   "routing_gate": {
     "rule": "/check recommends a provider FOR ROUTING only when it has a VERIFIED, currently reachable (recently_reachable | invocation_verified), capability-compatible endpoint; a declared-but-unverified or TTL-expired endpoint is NOT routable.",
     "live_confirmed": true
   },
-
   "dispute_resolution": {
     "no_permanent_limbo": true,
-    "mechanism": "Disputed escrow opens a case with a vote deadline; bonded machine adjudicators drawn from INDEPENDENT trust clusters vote; quorum majority decides and executes settlement; minority bonds are slashed; one appeal per dispute (fresh larger panel, final); deterministic timeout fallback (worker-authenticated content-addressed delivery releases, else refund). The Guild counts votes and executes — it never judges the merits. Public /market/sweep crank means liveness never depends on the Guild's scheduler.",
-    "endpoints": ["POST /escrow/{id}/dispute", "POST /adjudicators/enroll", "POST /disputes/{id}/vote", "POST /disputes/{id}/appeal", "POST /market/sweep"],
+    "mechanism": "Disputed escrow opens a case with a vote deadline; bonded machine adjudicators drawn from INDEPENDENT trust clusters vote; quorum majority decides and executes settlement; minority bonds are slashed; one appeal per dispute (fresh larger panel, final); deterministic timeout fallback (worker-authenticated content-addressed delivery releases, else refund). The Guild counts votes and executes \u2014 it never judges the merits. Public /market/sweep crank means liveness never depends on the Guild's scheduler.",
+    "endpoints": [
+      "POST /escrow/{id}/dispute",
+      "POST /adjudicators/enroll",
+      "POST /disputes/{id}/vote",
+      "POST /disputes/{id}/appeal",
+      "POST /market/sweep"
+    ],
     "tests": "tests/test_market_loop.py (quorum+slashing, deterministic timeout, one-appeal)"
   },
-
   "baseline_comparison": {
     "method": "Same capability, same live service. Guild-selected = full loop through the routing gate with escrow, signed records, verification, settlement, attestation, reputation and a verifiable passport. Unassisted = naive first-match pick with no trust data, no reachability gate, no escrow, no signed receipt, direct invocation.",
-    "guild_selected": {"success": true, "latency_ms": 18285, "retries": 0,
-                        "human_interventions": 0, "escrow": true, "signed_records": true,
-                        "recourse": "escrow + bonded dispute panel", "reputation_updated": true,
-                        "portable_passport": true,
-                        "artifact": "market_evidence/internal_buyer_guild.json"},
-    "unassisted": {"success": true, "latency_ms": 1783, "retries": 0,
-                   "human_interventions": 0, "escrow": false, "signed_records": false,
-                   "recourse": "NONE (no escrow, no receipt, no dispute path)",
-                   "reputation_updated": false, "portable_passport": false,
-                   "artifact": "market_evidence/internal_buyer_unassisted.json"},
-    "interpretation": "Unassisted is faster and cheaper ONLY because it skips every safety property: no vetting, no reachability guarantee (would dead-end against an unreachable or wrong provider — the exact failure the routing gate prevents), no held funds, no signed proof of what was agreed or delivered, no recourse on non-delivery, and no reputation signal for the next agent. Guild-selected trades ~16s of latency and a small fee for verifiable delivery, escrow-backed recourse via bonded adjudication, and a portable passport. With adversarial or unreliable providers the unassisted path's success rate and retry/intervention counts degrade sharply while the Guild path's do not — that is the value the routing gate + escrow + dispute rails buy.",
+    "guild_selected": {
+      "success": true,
+      "latency_ms": 18285,
+      "retries": 0,
+      "human_interventions": 0,
+      "escrow": true,
+      "signed_records": true,
+      "recourse": "escrow + bonded dispute panel",
+      "reputation_updated": true,
+      "portable_passport": true,
+      "artifact": "market_evidence/internal_buyer_guild.json"
+    },
+    "unassisted": {
+      "success": true,
+      "latency_ms": 1783,
+      "retries": 0,
+      "human_interventions": 0,
+      "escrow": false,
+      "signed_records": false,
+      "recourse": "NONE (no escrow, no receipt, no dispute path)",
+      "reputation_updated": false,
+      "portable_passport": false,
+      "artifact": "market_evidence/internal_buyer_unassisted.json"
+    },
+    "interpretation": "Unassisted is faster and cheaper ONLY because it skips every safety property: no vetting, no reachability guarantee (would dead-end against an unreachable or wrong provider \u2014 the exact failure the routing gate prevents), no held funds, no signed proof of what was agreed or delivered, no recourse on non-delivery, and no reputation signal for the next agent. Guild-selected trades ~16s of latency and a small fee for verifiable delivery, escrow-backed recourse via bonded adjudication, and a portable passport. With adversarial or unreliable providers the unassisted path's success rate and retry/intervention counts degrade sharply while the Guild path's do not \u2014 that is the value the routing gate + escrow + dispute rails buy.",
     "note_on_this_run": "Both paths succeeded because the only available worker was honest and reachable; the measured DIFFERENCE is in guarantees (recourse/verifiability/reputation), which the metrics above make explicit."
   },
-
   "timings_summary": {
     "external_helloworld_total_ms": 9030,
     "external_paki_total_ms": 29203,
     "internal_guild_total_ms": 18285,
     "internal_unassisted_total_ms": 1783
   },
-
   "failures_and_honesty": [
-    "Real x402 on-chain settlement not executed (funded-wallet/faucet gating) — rail wired + facilitator verified live; documented, not faked.",
+    "Real x402 on-chain settlement not executed (funded-wallet/faucet gating) \u2014 rail wired + facilitator verified live; documented, not faked.",
     "Production evaluation LIFT is null (all external providers at the newcomer trust floor); production cohort is genuinely non-zero (n=4) but a lift needs diverse endorsement. Not manufactured.",
     "The FastAPI worker runs on Render's free tier and cold-starts slower than the reachability probe timeout; it required warming + a Guild-observed invocation to become routable for the live internal run. Design is sound (proven by unit tests + local end-to-end); this is a free-tier deployment limitation, mitigated by the worker's self re-verification loop and the public /market/sweep + /invoke cranks.",
-    "The worker re-registers a fresh identity on each cold start because Render free /tmp is ephemeral (state not persisted across spin-downs) — cosmetic; each identity declares+verifies its own endpoint."
+    "The worker re-registers a fresh identity on each cold start because Render free /tmp is ephemeral (state not persisted across spin-downs) \u2014 cosmetic; each identity declares+verifies its own endpoint."
   ],
-
   "provenance_ledger_state_live": {
     "by_provenance": "see market_evidence/ledger_stats.json (guild_mediated: 10, chain_valid: true)",
     "external_records_basis": "guild_observed_invocation (external) and independent_settlement (escrow)"
+  },
+  "corrective_addendum": {
+    "status": "SUPERSEDED IN PART \u2014 read with CORRECTIONS_2026-07-13.md",
+    "what_changed": [
+      "AGD-1 /check now binds the evaluated provider to the ROUTED provider (one-counterparty invariant). Any earlier claim that relied on decision.agent_id is only valid where it equalled routing.provider_id.",
+      "Trust-plane clients now VERIFY live signed decisions before use; unverifiable documents are never treated as 'live' evidence.",
+      "Automatic settlement works under GUILD_HASH_KEYS=1 via internal escrow-authorized operations; dispute execution never marks a case resolved unless funds actually reached a terminal state.",
+      "Economic reporting is reclassified: sandbox credits are NEVER presented as USD revenue; actual revenue remains ZERO (no funded treasury, no on-chain/fiat settlement). Any 'guild_revenue_usd' figure in this file is sandbox-credit bookkeeping, not money.",
+      "Agent Guild-operated market clients (external_buyer.py, buyer.mjs) authenticate first-party; their telemetry does not count as genuine-external."
+    ],
+    "authoritative_now": "artifacts/trust_plane_evidence.json (rebuilt A/B with real interceptors) + CORRECTIONS_2026-07-13.md"
   }
 }

@@ -28,8 +28,15 @@ const AMOUNT = Number(process.env.BUYER_AMOUNT || 5);
 const MODE = process.argv[2] || "guild";
 
 const fpHeaders = () => {
+  // Guild-operated traffic ALWAYS tags first-party (mirrors
+  // live/market_clients/_firstparty.py): in honor mode a non-empty sentinel
+  // tags the caller; the old version returned {} without a token and
+  // silently counted this Guild-run buyer as external.
   const tok = (process.env.GUILD_FIRST_PARTY_TOKEN || "").trim();
-  return tok ? { "X-Agent-Guild-First-Party": tok, "X-Agent-Guild-Role": "test" } : {};
+  return {
+    "X-Agent-Guild-First-Party": tok || "guild-operated-script",
+    "X-Agent-Guild-Role": "test",
+  };
 };
 
 const metrics = {

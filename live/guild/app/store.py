@@ -40,6 +40,15 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def endpoint_fingerprint(endpoint: Optional[str]) -> Optional[str]:
+    """Stable fingerprint of a routed endpoint URL. Carried in both the AGD-1
+    decision and the routing gate so a delegation gateway can assert the two
+    concern the SAME destination and reject endpoint substitution."""
+    if not endpoint:
+        return None
+    return "sha256:" + hashlib.sha256(str(endpoint).encode("utf-8")).hexdigest()
+
+
 # --- evidence weighting -----------------------------------------------------
 # An attestation's influence is governed by the evidence behind it. These are
 # the only places "a real transaction happened" enters the score.
@@ -80,6 +89,9 @@ class Store:
         self.offers: dict[str, dict[str, Any]] = {}
         self.adjudicators: dict[str, dict[str, Any]] = {}
         self.dispute_cases: dict[str, dict[str, Any]] = {}
+        # journal of failed settlement/refund executions: recorded, surfaced,
+        # retried by market.sweep() — never swallowed (corrective 2026-07-13)
+        self.settlement_failures: dict[str, dict[str, Any]] = {}
         self._rep_cache: Optional[ScoringResult] = None
         # Append-only sidecar journal for instrumentation events. record_event
         # is deliberately cheap (no full-store _save on read paths), which used
@@ -356,6 +368,8 @@ class Store:
             b.put_kv("offers", self.offers)
             b.put_kv("adjudicators", self.adjudicators)
             b.put_kv("dispute_cases", self.dispute_cases)
+            b.put_kv("settlement_failures",
+                     getattr(self, "settlement_failures", {}))
             b.put_kv("guild_revenue", self.guild_revenue)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
@@ -433,6 +447,8 @@ class Store:
         self.offers = self.backend.fetch_kv("offers", {}) or {}
         self.adjudicators = self.backend.fetch_kv("adjudicators", {}) or {}
         self.dispute_cases = self.backend.fetch_kv("dispute_cases", {}) or {}
+        self.settlement_failures = self.backend.fetch_kv(
+            "settlement_failures", {}) or {}
         if d["outbound_invocations"]:
             self.__dict__["outbound_invocations"] = d["outbound_invocations"]
 
@@ -470,6 +486,7 @@ class Store:
             self.offers = data.get("offers", {})
             self.adjudicators = data.get("adjudicators", {})
             self.dispute_cases = data.get("dispute_cases", {})
+            self.settlement_failures = data.get("settlement_failures", {})
 
     def _migrate_plaintext_keys(self) -> None:
         """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
@@ -583,6 +600,8 @@ class Store:
                        "offers": self.offers,
                        "adjudicators": self.adjudicators,
                        "dispute_cases": self.dispute_cases,
+                       "settlement_failures": getattr(
+                           self, "settlement_failures", {}),
                        "swarm_state": self.swarm_state}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal
@@ -2156,41 +2175,72 @@ class Store:
         and the checkpoint pin a verifier can anchor against. Never probes."""
         from .ledger import PROVENANCE_WEIGHT
         self.ensure_ledger_backfilled()
+        # SUBSTANTIVE CHECKPOINT ANCHORING (corrective pass 2026-07-13): the
+        # decision cites a checkpoint, so the evidence it counts must be the
+        # evidence that checkpoint actually COMMITS. When evidence newer than
+        # the last published checkpoint exists, a fresh checkpoint is published
+        # FIRST (idempotent per ledger head, so publication rate is bounded by
+        # real evidence writes) — a decision never cites checkpoint N while
+        # counting evidence N does not commit. Records that still exceed the
+        # cited checkpoint (publish failure) are excluded from counts and
+        # value-tier support, and disclosed — a verifier can fetch an inclusion
+        # proof (GET /ledger/inclusion/{record_id}) for every counted record
+        # and recompute the path to the checkpoint's merkle root.
+        published = self.latest_checkpoint(publish_if_empty=False)
+        if published is None or \
+           int(published.get("ledger_length", 0)) < len(self.ledger_records):
+            try:
+                published = self.publish_checkpoint()
+            except Exception:   # publication failure -> serve committed-only
+                pass
+        committed_n = int(published.get("ledger_length", 0)) if published else 0
+        committed = self.ledger_records[:committed_n]
         # Apply append-only reclassification entries (prov-v2 invariant): the
-        # effective class, not the sealed bytes, is what evidence-weighting uses.
+        # effective class, not the sealed bytes, is what evidence-weighting
+        # uses. Only COMMITTED reclassifications compose — an uncommitted
+        # correction must not change what the cited checkpoint vouches for.
         reclass: dict[str, str] = {}
-        for d in self.ledger_records:
+        for d in committed:
             if d.get("type") == "reclassification":
                 body = d.get("body") or d
                 if body.get("target_id"):
                     reclass[body["target_id"]] = body.get("to", "")
         counts: dict[str, int] = {}
         signer_dids: set[str] = set()
-        for d in self.ledger_records:
+        record_ids: list[str] = []
+        for d in committed:
             if d.get("worker_id") != agent_id:
                 continue
             prov = reclass.get(d.get("id", ""), None) or d.get("provenance")
             if not prov:
                 continue
             counts[prov] = counts.get(prov, 0) + 1
+            record_ids.append(d.get("id", ""))
             for s in d.get("signers") or []:
                 signer_dids.add(s)
+        uncommitted = sum(
+            1 for d in self.ledger_records[committed_n:]
+            if d.get("worker_id") == agent_id and d.get("provenance"))
         strongest = None
         for p in sorted(counts, key=lambda p: -PROVENANCE_WEIGHT.get(p, 0.0)):
             strongest = p
             break
-        published = self.latest_checkpoint(publish_if_empty=False)
         return {
             "counts": counts,
             "strongest": strongest,
             "verifiable_collaborations": sum(counts.values()),
             "signer_dids": sorted(signer_dids),
+            "record_ids": record_ids,
             "rules_version": "prov-v2",
+            "anchoring": "checkpoint_committed_only",
+            "uncommitted_records_excluded": uncommitted,
+            "inclusion_proof": "GET /ledger/inclusion/{record_id}",
             "checkpoint": {
                 "index": published["index"] if published else None,
                 "published_at": published["published_at"] if published else None,
                 "head_hash": (published["checkpoint"].get("head_hash")
                               if published else None),
+                "ledger_length": committed_n if published else None,
             },
         }
 
@@ -2239,8 +2289,12 @@ class Store:
         call. This is the recommended entry point; the granular tools remain for
         fine-grained use."""
         short = self.shortlist(capability, limit=3)
-        best = short[0] if short else None
-        verdict = self.risk_for(best["id"]) if best else None
+        # `top_ranked` is the EVIDENCE-ranked #1 — informational only. The
+        # provider the decision EVALUATES is bound to the provider the routing
+        # gate ROUTES to (one-counterparty invariant, corrective pass
+        # 2026-07-13): a machine must never approve one identity and invoke
+        # another.
+        top_ranked = short[0] if short else None
         # Reachability is judged across ALL suppliers, not just the top 3:
         # a reachable rank-9 agent is a better answer than an uncontactable
         # rank-1, and "no route at all" must mean no route anywhere.
@@ -2256,10 +2310,14 @@ class Store:
         _routable = [e for e in _all if e.get("recommended_for_routing")]
         if _routable:
             _r = _routable[0]
+            _r_rec = self.get_agent(_r["id"]) or {}
             routing = {
                 "routable": True,
-                "provider_id": _r["id"], "name": _r["name"],
+                "provider_id": _r["id"],
+                "provider_did": _r_rec.get("did", ""),
+                "name": _r["name"],
                 "endpoint": _r.get("contact"),
+                "endpoint_sha256": endpoint_fingerprint(_r.get("contact")),
                 "trust": _r["trust"],
                 "reachability_status": _r["reachability_status"],
                 "verification_method": _r.get("verification_method"),
@@ -2267,6 +2325,7 @@ class Store:
                 "verification_age_seconds": _r.get("verification_age_seconds"),
                 "invocation_supported": _r.get("invocation_supported", False),
             }
+            best = _r          # the EVALUATED provider IS the ROUTED provider
         else:
             routing = {
                 "routable": False,
@@ -2280,6 +2339,8 @@ class Store:
                               "(POST /agents/{id}/endpoint); buyers: register "
                               "a demand watch (POST /demand/watch)"),
             }
+            best = top_ranked  # nothing routable: evaluate the evidence-top
+        verdict = self.risk_for(best["id"]) if best else None
         # Demand telemetry: every /check is a demand signal for a capability.
         # Recording it (hit or miss) is what makes the be_first pitch honest —
         # a would-be supplier can see real, dated demand before registering.
@@ -2356,6 +2417,12 @@ class Store:
                 # who reads only `decision` should never conclude "hire this
                 # agent" without learning whether it can be contacted at all.
                 "contact": best.get("contact"),
+                # one-counterparty binding: the decision's endpoint (and its
+                # fingerprint) are the endpoint work would be routed to — a
+                # gateway can assert decision.endpoint_sha256 ==
+                # routing.endpoint_sha256 and fail closed on any mismatch.
+                "endpoint": best.get("contact"),
+                "endpoint_sha256": endpoint_fingerprint(best.get("contact")),
                 "has_declared_endpoint": best.get("has_declared_endpoint", False),
                 "reachability_status": best.get("reachability_status", "no_endpoint"),
                 "verification_method": best.get("verification_method"),
@@ -2364,6 +2431,34 @@ class Store:
                 "invocation_supported": best.get("invocation_supported", False),
                 "recommended_for_routing": best.get("recommended_for_routing", False),
             }
+        # ONE-COUNTERPARTY INVARIANT (fail closed): when routing says routable,
+        # the decision MUST be about that exact provider — same agent id, same
+        # DID, same endpoint (and fingerprint), same requested capability. A
+        # violation here would let a machine approve one identity and invoke
+        # another, so the routing gate closes rather than serve a mismatch.
+        if routing.get("routable"):
+            _bound = (
+                decision is not None
+                and decision.get("agent_id") == routing.get("provider_id")
+                and (decision.get("identity") or {}).get("did")
+                    == routing.get("provider_did")
+                and decision.get("endpoint") == routing.get("endpoint")
+                and decision.get("endpoint_sha256")
+                    == routing.get("endpoint_sha256")
+                and (decision.get("capability_match") or {}).get("requested")
+                    == capability
+            )
+            if not _bound:
+                routing = {
+                    "routable": False,
+                    "provider_id": None,
+                    "reason": ("counterparty binding could not be established "
+                               "between the decision and the routed provider — "
+                               "failed closed (no route is served on a "
+                               "mismatched identity)"),
+                    "next_step": "retry; if this persists, report it — this "
+                                 "is a Guild-side invariant violation",
+                }
         out: dict[str, Any] = {
             "schema_version": 2,
             "capability": capability,
@@ -2374,9 +2469,13 @@ class Store:
                 "`decision` (AGD-1) is the stable machine contract: identity, "
                 "capability match, estimate, confidence, staleness, "
                 "reachability, value-at-risk support, evidence provenance, and "
-                "a caller-owned policy slot. `verdict` and hire/caution/avoid "
-                "are LEGACY presentation retained for v1 callers — thresholds "
-                "belong to the caller, not the Guild."),
+                "a caller-owned policy slot. decision, routing, best_agent and "
+                "verdict all concern ONE counterparty — the routed provider "
+                "when routable, else the evidence-top. `highest_ranked` (when "
+                "present) is informational only and never actionable. "
+                "`verdict` and hire/caution/avoid are LEGACY presentation "
+                "retained for v1 callers — thresholds belong to the caller, "
+                "not the Guild."),
             "best_agent": best,
             "verdict": verdict,
             "shortlist": short,
@@ -2393,6 +2492,24 @@ class Store:
                 "agent's lookup better, which is why writes are free."
             ),
         }
+        # Informational-only view of the evidence-ranked #1 when it is NOT the
+        # evaluated/routed provider. Deliberately shaped so a machine cannot
+        # mistake it for a routable answer: no endpoint, no DID, explicit
+        # actionable=False.
+        if top_ranked is not None and (best is None
+                                       or top_ranked["id"] != best["id"]):
+            out["highest_ranked"] = {
+                "agent_id": top_ranked["id"],
+                "name": top_ranked["name"],
+                "trust": top_ranked["trust"],
+                "confidence": top_ranked["confidence"],
+                "actionable": False,
+                "note": ("Highest evidence-ranked supplier for this "
+                         "capability. NOT the routed/evaluated provider: "
+                         "`decision` and `routing` do not concern this agent. "
+                         "Do not invoke, credit, or report outcomes against "
+                         "it on the basis of this object."),
+            }
         # Unreachable-supply honesty (2026-07-10). Live telemetry: a genuine
         # external agent asked `check: fact-check` ~29 times over 3 days. Every
         # reply said "hire Veritas-Prime" — an agent with NO declared endpoint
@@ -2821,6 +2938,11 @@ class Store:
                 "published_at": _now(),
                 "ledger_length": len(self.ledger_records),
                 "checkpoint": cp,
+                # feed_version 2 (corrective pass 2026-07-13): the ENTRY itself
+                # is signed (entry_proof), not only the inner checkpoint, so a
+                # verifier checks feed SIGNATURES and continuity, not only
+                # hashes.
+                "feed_version": 2,
                 # continuity: each published entry commits to its predecessor, so
                 # the FEED itself is a hash chain — removing or reordering a
                 # published checkpoint is detectable by anyone holding a later one.
@@ -2828,6 +2950,28 @@ class Store:
                     hashlib.sha256(canonicalize(self.checkpoints[-1]).encode("utf-8"))
                     .hexdigest() if self.checkpoints else "0" * 64),
             }
+            # LEGACY BRIDGE: earlier feed entries may predate predecessor
+            # commitments (no prev_entry_sha256) or entry signatures. History
+            # is never rewritten; instead the FIRST feed_version-2 entry after
+            # such entries carries a signed, versioned bridge committing to
+            # their exact bytes, so a verifier can pin legacy entries through
+            # the new epoch without trusting an unauthenticated prefix.
+            legacy = [e for e in self.checkpoints
+                      if "prev_entry_sha256" not in e or "entry_proof" not in e]
+            already_bridged = any(e.get("bridge") for e in self.checkpoints)
+            if legacy and not already_bridged:
+                entry["bridge"] = {
+                    "version": 1,
+                    "covers_indices": [e.get("index") for e in legacy],
+                    "legacy_entry_sha256": [
+                        hashlib.sha256(canonicalize(e).encode("utf-8")).hexdigest()
+                        for e in legacy],
+                    "note": ("signed epoch bridge: commits the exact bytes of "
+                             "feed entries published before entry signatures/"
+                             "predecessor commitments existed; legacy entries "
+                             "are NOT rewritten"),
+                }
+            entry["entry_proof"] = sign_jcs(entry, gid["private_key"])
             self.checkpoints.append(entry)
             if self.backend is not None:
                 self._persist_checkpoint(entry)
@@ -2841,6 +2985,139 @@ class Store:
         if not self.checkpoints and publish_if_empty:
             return self.publish_checkpoint()
         return self.checkpoints[-1] if self.checkpoints else None
+
+    def ledger_inclusion_proof(self, record_id: str,
+                               checkpoint_index: Optional[int] = None
+                               ) -> dict[str, Any]:
+        """Verifiable INCLUSION PROOF: the Merkle sibling path from one ledger
+        record to the merkle_root committed by a published checkpoint. This is
+        what makes checkpoint anchoring SUBSTANTIVE (corrective 2026-07-13):
+        a decision that cites a checkpoint counts only evidence a third party
+        can prove that checkpoint actually committed."""
+        from .ledger import Ledger
+        self.ensure_ledger_backfilled()
+        if checkpoint_index is not None:
+            if not (0 <= checkpoint_index < len(self.checkpoints)):
+                raise ValueError("unknown checkpoint index")
+            cp_entry = self.checkpoints[checkpoint_index]
+        else:
+            cp_entry = self.latest_checkpoint(publish_if_empty=False)
+        if cp_entry is None:
+            raise ValueError("no published checkpoint to prove against")
+        length = int(cp_entry.get("ledger_length",
+                                  cp_entry["checkpoint"].get("count", 0)))
+        committed = self.ledger_records[:length]
+        for i, d in enumerate(committed):
+            if d.get("id") == record_id:
+                led = Ledger.from_records(committed)
+                return {
+                    "record": d,
+                    "seq": i,
+                    "checkpoint_index": cp_entry["index"],
+                    "checkpoint_merkle_root":
+                        cp_entry["checkpoint"].get("merkle_root"),
+                    "checkpoint_head_hash":
+                        cp_entry["checkpoint"].get("head_hash"),
+                    "path": led.merkle_proof(i),
+                    "how_to_verify": (
+                        "recompute the record's content hash (sha256 of its "
+                        "canonicalised body minus hash/id), fold the sibling "
+                        "path (left/right) with sha256(a+b), and compare with "
+                        "checkpoint_merkle_root; verify the checkpoint's "
+                        "issuer proof independently"),
+                }
+        raise LookupError(
+            f"record {record_id} is NOT committed by checkpoint "
+            f"{cp_entry['index']} (ledger_length {length}) — it is either "
+            "unknown or newer than the checkpoint")
+
+    def ledger_record(self, record_id: str) -> Optional[dict[str, Any]]:
+        """Read back one sealed ledger entry by id (outcome-completion
+        verification path: a write only counts once it can be read back)."""
+        self.ensure_ledger_backfilled()
+        for d in self.ledger_records:
+            if d.get("id") == record_id:
+                return d
+        return None
+
+    # --- AGO-1: requester-signed delegation outcomes -------------------------
+    def record_signed_outcome(self, outcome: dict[str, Any]) -> dict[str, Any]:
+        """Verify and persist a requester-SIGNED delegation outcome (AGO-1).
+
+        Server-side contract (corrective pass 2026-07-13):
+          * the outcome core is signed by the REQUESTER's registered DID —
+            control of that DID is proven by the signature itself;
+          * the outcome is BOUND to the gate envelope hash, the provider's id
+            AND DID, the endpoint fingerprint, the task/invocation ref and the
+            deliverable hash — it can never be credited to another provider;
+          * the signed outcome is sealed on the append-only ledger; callers
+            must read the record back (GET /ledger/record/{id}) before
+            counting evidence as recorded."""
+        from .crypto import verify_jcs, public_key_from_did
+        required = ("type", "contract", "gate_envelope_sha256", "provider_id",
+                    "provider_did", "capability", "task_ref", "outcome",
+                    "reported_at", "requester_did", "proof")
+        missing = [k for k in required if not outcome.get(k)]
+        if missing:
+            raise ValueError(f"signed outcome missing fields: {missing}")
+        if outcome.get("type") != "AgentGuildOutcome" or \
+           outcome.get("contract") != "AGO-1/1.0":
+            raise ValueError("type must be AgentGuildOutcome, contract AGO-1/1.0")
+        if outcome["outcome"] not in ("accepted", "rejected", "disputed",
+                                      "blocked"):
+            raise ValueError("outcome must be accepted|rejected|disputed|blocked")
+        core = {k: v for k, v in outcome.items() if k != "proof"}
+        requester = next((a for a in self.agents.values()
+                          if a.get("did") == outcome["requester_did"]), None)
+        if requester is None:
+            raise ValueError("requester_did is not a registered agent — "
+                             "register (optionally self-sovereign with your "
+                             "own public key) before reporting outcomes")
+        try:
+            sig_ok = verify_jcs(core, outcome["proof"],
+                                public_key_from_did(outcome["requester_did"]))
+        except Exception:
+            sig_ok = False
+        if not sig_ok:
+            raise ValueError("outcome proof does not verify against the "
+                             "registered requester DID — signer does not "
+                             "control that identity")
+        provider = self.get_agent(outcome["provider_id"])
+        if provider is None:
+            raise ValueError("provider_id is not a registered agent")
+        if provider.get("did", "") != outcome["provider_did"]:
+            raise ValueError("provider DID mismatch: this outcome is bound to "
+                             "a different identity and cannot be credited to "
+                             f"agent {outcome['provider_id']}")
+        entry = self.append_ledger_event(
+            "signed_outcome", dict(outcome),
+            actor_did=outcome["requester_did"])
+        collaboration = None
+        if (outcome["outcome"] in ("accepted", "rejected", "disputed")
+                and requester["id"] != provider["id"]
+                and outcome.get("deliverable_sha256")
+                and requester.get("custodial") and requester.get("private_key")):
+            # custodial requesters also get the graded-collaboration write
+            # (reputation input); for self-sovereign requesters the sealed
+            # signed_outcome entry itself is the evidence.
+            try:
+                collaboration = self.record_collaboration(
+                    requester, provider["id"], outcome["capability"],
+                    outcome["outcome"],
+                    0.9 if outcome["outcome"] == "accepted" else 0.1,
+                    deliverable_hash=str(outcome["deliverable_sha256"]))
+            except (ValueError, TypeError):
+                collaboration = None
+        return {
+            "record_id": entry["id"],
+            "ledger_hash": entry["hash"],
+            "seq": entry["seq"],
+            "collaboration": ({"task_id": collaboration.get("task_id"),
+                               "attestation_id":
+                                   collaboration.get("attestation_id")}
+                              if collaboration else None),
+            "readback": f"/ledger/record/{entry['id']}",
+        }
 
     # --- issuer-key rotation (continuity anchored on the chain) --------------
     def rotate_guild_identity(self) -> dict[str, Any]:
@@ -3063,7 +3340,7 @@ class Store:
         """Accept delivery and settle: the worker is paid (amount − fee), the Guild
         keeps the fee, and the transaction is recorded as a payment-backed,
         guild_mediated collaboration (deepening the reputation moat). Only the payer
-        may release."""
+        may release — this public path requires the RAW requester credential."""
         with self.lock, self._txn():
             self._sync_escrow_from_db(escrow_id)   # authoritative status/amount
             esc = self.escrows.get(escrow_id)
@@ -3072,8 +3349,36 @@ class Store:
             requester_key = self._account_key(requester_key)
             if not requester_key or esc["requester_key"] != requester_key:
                 raise ValueError("only the funding party may release this escrow")
-            if esc["status"] != "funded":
-                raise ValueError(f"escrow is {esc['status']}, not funded")
+            return self.release_escrow_internal(
+                escrow_id, reason="requester_release",
+                deliverable=deliverable, deliverable_hash=deliverable_hash,
+                rating=rating)
+
+    def release_escrow_internal(self, escrow_id: str, *, reason: str,
+                                deliverable: Optional[str] = None,
+                                deliverable_hash: Optional[str] = None,
+                                rating: float = 1.0,
+                                expected_status: tuple = ("funded",)
+                                ) -> dict[str, Any]:
+        """INTERNAL settlement operation (corrective pass 2026-07-13).
+
+        Authorization comes from the escrow's own immutable ownership + state
+        (status == funded), never from replaying a stored credential: under
+        GUILD_HASH_KEYS=1 the store holds only public key ids, so deterministic
+        timeouts and dispute execution — rules both parties accepted when the
+        offer was signed — CANNOT and MUST NOT present a raw secret. This
+        method is never routed from HTTP; public callers go through
+        release_escrow(), which requires the raw requester credential.
+        `reason` records WHICH deterministic rule settled (audit trail)."""
+        with self.lock, self._txn():
+            self._sync_escrow_from_db(escrow_id)   # authoritative status/amount
+            esc = self.escrows.get(escrow_id)
+            if esc is None:
+                raise ValueError("escrow not found")
+            if esc["status"] not in expected_status:
+                raise ValueError(f"escrow is {esc['status']}, "
+                                 f"not in {expected_status}")
+            esc.setdefault("metadata", {})["settlement_reason"] = reason
             amount, fee = esc["amount"], esc["fee"]
             payout = amount - fee
             worker_key = self.account_for_agent(esc["worker_id"])
@@ -3126,6 +3431,7 @@ class Store:
                 "requester_id": esc["requester_id"], "worker_id": esc["worker_id"],
                 "capability": esc.get("capability", ""), "amount": amount,
                 "fee": fee, "payout": payout, "task_id": esc["task_id"],
+                "reason": reason,
             }, actor_did=(self.agents.get(esc["requester_id"]) or {}).get("did", ""))
             if self.backend is not None:
                 # authoritative refresh of the derived-revenue cache after the
@@ -3141,7 +3447,8 @@ class Store:
 
     def refund_escrow(self, escrow_id: str, requester_key: str) -> dict[str, Any]:
         """Cancel and refund a funded escrow back to the requester (no fee, since no
-        value was exchanged). Only the payer may refund, and only before release."""
+        value was exchanged). Only the payer may refund, and only before release —
+        this public path requires the RAW requester credential."""
         with self.lock, self._txn():
             self._sync_escrow_from_db(escrow_id)   # authoritative status
             esc = self.escrows.get(escrow_id)
@@ -3150,20 +3457,122 @@ class Store:
             requester_key = self._account_key(requester_key)
             if not requester_key or esc["requester_key"] != requester_key:
                 raise ValueError("only the funding party may refund this escrow")
-            if esc["status"] != "funded":
-                raise ValueError(f"escrow is {esc['status']}, not funded")
-            self.credit(requester_key, esc["amount"], reason="escrow_refund")
+            return self.refund_escrow_internal(escrow_id,
+                                               reason="requester_refund")
+
+    def refund_escrow_internal(self, escrow_id: str, *, reason: str,
+                               expected_status: tuple = ("funded",)
+                               ) -> dict[str, Any]:
+        """INTERNAL refund operation — authorization by escrow ownership/state
+        (status == funded), never by replaying a credential (see
+        release_escrow_internal). The refund is credited to the escrow's own
+        immutable `requester_key` account key; no secret is required or used."""
+        with self.lock, self._txn():
+            self._sync_escrow_from_db(escrow_id)   # authoritative status
+            esc = self.escrows.get(escrow_id)
+            if esc is None:
+                raise ValueError("escrow not found")
+            if esc["status"] not in expected_status:
+                raise ValueError(f"escrow is {esc['status']}, "
+                                 f"not in {expected_status}")
+            self.credit(esc["requester_key"], esc["amount"],
+                        reason="escrow_refund")
             esc["status"] = "refunded"
             esc["settled_at"] = _now()
+            esc.setdefault("metadata", {})["settlement_reason"] = reason
             if self.backend is not None:
                 self._persist_escrow(esc)
             self._save()
             self.append_ledger_event("escrow_event", {
                 "event": "refunded", "escrow_id": escrow_id,
                 "requester_id": esc["requester_id"], "worker_id": esc["worker_id"],
-                "amount": esc["amount"],
+                "amount": esc["amount"], "reason": reason,
             }, actor_did=(self.agents.get(esc["requester_id"]) or {}).get("did", ""))
-            return {"escrow_id": escrow_id, "status": "refunded", "amount": esc["amount"]}
+            return {"escrow_id": escrow_id, "status": "refunded",
+                    "amount": esc["amount"], "reason": reason}
+
+    def reverse_settlement_internal(self, escrow_id: str, *,
+                                    reason: str) -> dict[str, Any]:
+        """Reverse a settled escrow back into the DISPUTED state for an appeal
+        round (corrective pass 2026-07-13 — the previous appeal path re-armed
+        an already-settled escrow and would have paid twice).
+
+        released -> disputed: the worker's payout is clawed back and the
+        Guild's fee is surrendered; refunded -> disputed: the requester's
+        refund is re-held. If the funds are no longer available (payout
+        already spent), the reversal FAILS and the appeal is rejected — funds
+        never go negative and never move twice."""
+        with self.lock, self._txn():
+            self._sync_escrow_from_db(escrow_id)
+            esc = self.escrows.get(escrow_id)
+            if esc is None:
+                raise ValueError("escrow not found")
+            amount, fee = esc["amount"], esc["fee"]
+            if esc["status"] == "released":
+                worker_key = self.account_for_agent(esc["worker_id"])
+                acct = self.accounts.get(worker_key) if worker_key else None
+                payout = amount - fee
+                if acct is None or acct["balance"] < payout:
+                    raise ValueError(
+                        "cannot reverse settlement: the payout is no longer "
+                        "available in the worker's account — appeal rejected, "
+                        "round-1 verdict stands")
+                acct["balance"] -= payout
+                _entry = {"key": worker_key, "type": "settlement_reversal",
+                          "amount": -payout, "balance_after": acct["balance"],
+                          "at": _now(), "escrow_id": escrow_id}
+                self.billing_log.append(_entry)
+                if self.backend is not None:
+                    self._persist_account(acct)
+                    self._persist_billing(_entry)
+                if self.backend is None:
+                    self.guild_revenue -= fee
+            elif esc["status"] == "refunded":
+                racct = self.accounts.get(esc["requester_key"])
+                if racct is None or racct["balance"] < amount:
+                    raise ValueError(
+                        "cannot reverse refund: funds no longer available in "
+                        "the requester's account — appeal rejected")
+                racct["balance"] -= amount
+                _entry = {"key": esc["requester_key"],
+                          "type": "settlement_reversal", "amount": -amount,
+                          "balance_after": racct["balance"], "at": _now(),
+                          "escrow_id": escrow_id}
+                self.billing_log.append(_entry)
+                if self.backend is not None:
+                    self._persist_account(racct)
+                    self._persist_billing(_entry)
+            else:
+                raise ValueError(f"escrow is {esc['status']}: only a settled "
+                                 "escrow can be reversed for appeal")
+            prior = esc["status"]
+            esc["status"] = "disputed"
+            esc["settled_at"] = None
+            esc.setdefault("metadata", {})["reversed_from"] = prior
+            if self.backend is not None:
+                self._persist_escrow(esc)
+                self.guild_revenue = self.backend.guild_revenue_total()
+            self._save()
+            self.append_ledger_event("escrow_event", {
+                "event": "settlement_reversed", "escrow_id": escrow_id,
+                "from_status": prior, "reason": reason,
+                "amount": amount, "fee": fee,
+            }, actor_did="")
+            # the round-1 release wrote a guild_mediated (independent
+            # settlement) collaboration; that basis is now void. History is
+            # never rewritten — an append-only reclassification downgrades it.
+            if prior == "released" and esc.get("task_id"):
+                rec = self.ledger_record_for_task(esc["task_id"])
+                if rec and rec.get("provenance") == "guild_mediated":
+                    from .ledger import PROVENANCE_RULES_VERSION
+                    self.append_ledger_event("reclassification", {
+                        "target_id": rec["id"], "task_id": esc["task_id"],
+                        "from": "guild_mediated", "to": "one_party_claim",
+                        "reason": f"settlement reversed ({reason})",
+                        "rule_version": PROVENANCE_RULES_VERSION,
+                    }, actor_did=self.guild_did())
+            return {"escrow_id": escrow_id, "status": "disputed",
+                    "reversed_from": prior}
 
     def dispute_escrow(self, escrow_id: str, actor_key: str, grounds: str = ""
                        ) -> dict[str, Any]:
@@ -3201,37 +3610,83 @@ class Store:
         return self.escrows.get(escrow_id)
 
     def escrow_summary(self) -> dict[str, Any]:
-        """The economic dashboard: volume settled and revenue earned, split so
-        genuine third-party economic activity is isolated from first-party tests."""
-        def _external(esc: dict) -> bool:
+        """The economic dashboard — HONEST reporting classes (corrective pass
+        2026-07-13). All escrow settlement is in SANDBOX CREDITS: sandbox
+        credits are never presented as USD revenue. Actual revenue is zero
+        until an independently verifiable on-chain/fiat settlement exists.
+
+        Classes:
+          first_party_sandbox         — at least one party is Guild-operated
+          third_party_unconsented     — no Guild-operated party, but the
+                                        provider never accepted signed terms /
+                                        received a payout (e.g. Guild-observed
+                                        invocation of a public endpoint)
+          consenting_external_sandbox — no Guild-operated party AND the
+                                        provider accepted the offer/terms and
+                                        received the sandbox payout
+          real_settlement             — on-chain/fiat settlements (x402);
+                                        counted ONLY from recorded facilitator
+                                        transactions, none exist until the
+                                        treasury is funded."""
+        def _first_party(esc: dict) -> bool:
             req = self.agents.get(esc.get("requester_id")) or {}
             wrk = self.agents.get(esc.get("worker_id")) or {}
-            return not (req.get("first_party") or wrk.get("first_party"))
+            return bool(req.get("first_party") or wrk.get("first_party"))
+
+        def _provider_consented(esc: dict) -> bool:
+            # consent = the worker itself accepted the signed offer (two-party
+            # acceptance) AND an account of the worker's received the payout.
+            offer_id = (esc.get("metadata") or {}).get("offer_id")
+            offer = (self.__dict__.get("offers") or {}).get(offer_id or "")
+            accepted = bool(offer and offer.get("accept"))
+            paid_out = bool(self.account_for_agent(esc.get("worker_id") or ""))
+            return accepted and paid_out
+
         released = [e for e in self.escrows.values() if e["status"] == "released"]
-        ext = [e for e in released if _external(e)]
-        vol = sum(e["amount"] for e in released)
-        rev = sum(e["fee"] for e in released)
-        ext_vol = sum(e["amount"] for e in ext)
-        ext_rev = sum(e["fee"] for e in ext)
+        classes: dict[str, list] = {"first_party_sandbox": [],
+                                    "third_party_unconsented": [],
+                                    "consenting_external_sandbox": []}
+        for e in released:
+            if _first_party(e):
+                classes["first_party_sandbox"].append(e)
+            elif _provider_consented(e):
+                classes["consenting_external_sandbox"].append(e)
+            else:
+                classes["third_party_unconsented"].append(e)
         by_status: dict[str, int] = {}
         for e in self.escrows.values():
             by_status[e["status"]] = by_status.get(e["status"], 0) + 1
-        return {
+        x402_payments = [b for b in self.billing_log
+                         if b.get("type") == "x402_payment"]
+        out: dict[str, Any] = {
+            "currency": "credits_sandbox",
+            "honesty": ("sandbox credits are NOT money; nothing here is USD "
+                        "revenue. real_settlement counts only independently "
+                        "verifiable on-chain/fiat transactions."),
             "fee_bps": settlement_fee_bps(),
             "escrows": len(self.escrows),
             "by_status": by_status,
             "settled_count": len(released),
-            "settled_volume_credits": vol,
-            "settled_volume_usd": round(vol * CREDIT_USD, 4),
-            "guild_revenue_credits": rev,
-            "guild_revenue_usd": round(rev * CREDIT_USD, 4),
-            "external": {
-                "settled_count": len(ext),
-                "settled_volume_credits": ext_vol,
-                "guild_revenue_credits": ext_rev,
-                "guild_revenue_usd": round(ext_rev * CREDIT_USD, 4),
-            },
+            "settled_volume_credits": sum(e["amount"] for e in released),
+            "guild_fee_credits": sum(e["fee"] for e in released),
+            "unresolved_settlement_failures": len(
+                getattr(self, "settlement_failures", {}) or {}),
         }
+        for name, rows in classes.items():
+            out[name] = {
+                "settled_count": len(rows),
+                "settled_volume_credits": sum(e["amount"] for e in rows),
+                "guild_fee_credits": sum(e["fee"] for e in rows),
+            }
+        out["real_settlement"] = {
+            "transactions": len(x402_payments),
+            "revenue_usd": 0.0 if not x402_payments else None,
+            "note": ("x402 rail is READY BUT INACTIVE: no funded treasury, "
+                     "so no real settlement exists and actual revenue is "
+                     "zero" if not x402_payments else
+                     "verify each transaction independently on its network"),
+        }
+        return out
 
     # --- the Guild's own signing identity + portable passports --------------
     def guild_identity(self) -> dict[str, Any]:

@@ -87,6 +87,40 @@ def decision_fresh(signed_envelope: dict[str, Any]) -> tuple[bool, Optional[floa
     return within_validity(signed_envelope)
 
 
+def binding_violations(envelope: dict[str, Any]) -> list[str]:
+    """ONE-COUNTERPARTY INVARIANT (corrective pass 2026-07-13): when the
+    envelope's routing gate says routable, the decision MUST be about that
+    exact provider — same agent id, same DID, same endpoint and endpoint
+    fingerprint, same requested capability. Returns violations (empty == ok);
+    gateways FAIL CLOSED on any violation."""
+    errs: list[str] = []
+    routing = envelope.get("routing") or {}
+    if not routing.get("routable"):
+        return errs
+    decision = envelope.get("decision")
+    if not isinstance(decision, dict):
+        return ["routable=true but no decision object"]
+    if decision.get("agent_id") != routing.get("provider_id"):
+        errs.append(f"decision.agent_id {decision.get('agent_id')!r} != "
+                    f"routing.provider_id {routing.get('provider_id')!r}")
+    ident = decision.get("identity") or {}
+    if not routing.get("provider_did"):
+        errs.append("routing.provider_did missing")
+    elif ident.get("did") != routing.get("provider_did"):
+        errs.append("decision.identity.did != routing.provider_did")
+    if decision.get("endpoint") != routing.get("endpoint"):
+        errs.append("decision.endpoint != routing.endpoint")
+    if not routing.get("endpoint_sha256"):
+        errs.append("routing.endpoint_sha256 missing")
+    elif decision.get("endpoint_sha256") != routing.get("endpoint_sha256"):
+        errs.append("decision.endpoint_sha256 != routing.endpoint_sha256")
+    cap = (decision.get("capability_match") or {}).get("requested")
+    if envelope.get("capability") is not None and \
+       cap != envelope.get("capability"):
+        errs.append("decision capability != envelope capability")
+    return errs
+
+
 def staleness_days(decision: dict[str, Any]) -> Optional[float]:
     s = decision.get("staleness")
     if isinstance(s, dict):

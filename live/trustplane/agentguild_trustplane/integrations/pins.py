@@ -18,8 +18,11 @@ SUPPORTED: dict[str, dict[str, Any]] = {
                   "tested": "1.2.9"},
     "openai-agents": {"module": "agents", "min": (0, 18), "max": (0, 30),
                       "tested": "0.18.2"},
+    # crewai 1.15.2 pins mcp~=1.26.0, the proxy env tests 1.28.1 — BOTH are
+    # inside this supported range; the environments are installed separately
+    # (requirements/crewai.txt vs requirements/mcp.txt — they do NOT co-resolve).
     "mcp": {"module": "mcp", "min": (1, 20), "max": (2, 0),
-            "tested": "1.28.1"},
+            "tested": "1.26.0 (crewai env) / 1.28.1 (mcp-proxy env)"},
 }
 
 

@@ -7,7 +7,7 @@ append-only checkpoint feed, and the AGD-1 decision contract. Nothing in it
 requires the Agent Guild: any registry can be an issuer, any agent or
 framework can be a verifier.
 
-## Issuer requirements (I-1 … I-6)
+## Issuer requirements (I-1 … I-7)
 
 * **I-1 identity** — the issuer is a `did:key` (Ed25519). Key rotation is an
   append-only, signed ledger entry chaining old→new DID (verifiers check
@@ -24,10 +24,26 @@ framework can be a verifier.
   value-at-risk support, evidence provenance, and a CALLER-owned policy slot.
   Issuers MUST NOT make the hire/no-hire decision for callers.
 * **I-5 checkpoint feed** — the issuer publishes an append-only checkpoint
-  feed; each entry commits to its predecessor (`prev_entry_sha256`) and is
-  issuer-signed. Credentials cite the latest published checkpoint.
-* **I-6 provenance labelling** — evidence classes are explicit
-  (`guild_mediated` > `verifiable_outcome` > `mutual_attestation` >
+  feed; each entry commits to its predecessor (`prev_entry_sha256`) AND is
+  ISSUER-SIGNED at the entry level (`entry_proof`, feed_version ≥ 2), so a
+  verifier checks feed SIGNATURES and continuity, not only hashes (I-5b).
+  Legacy entries that predate entry signatures are acceptable ONLY when a
+  later signed entry carries a versioned `bridge` committing to their exact
+  bytes — immutable history is never rewritten.
+* **I-6 one-counterparty binding** — when a decision's routing gate is
+  routable, the decision it serves for that route MUST concern the SAME
+  provider: `decision.agent_id == routing.provider_id`, matching DID, matching
+  endpoint + `endpoint_sha256`, and the same requested capability. An issuer
+  that cannot establish this MUST fail closed (serve `routable=false`), never
+  a decision about one identity attached to a route to another. A separate
+  non-actionable `highest_ranked` object MAY be exposed but must never be
+  confused with the routed/evaluated provider.
+* **I-7 evidence-to-checkpoint inclusion** — a decision counts only evidence
+  its cited checkpoint actually COMMITS. The issuer exposes, for every counted
+  record, a verifiable Merkle inclusion proof to the cited checkpoint's root
+  (`GET /ledger/inclusion/{record_id}`); records newer than the checkpoint are
+  excluded from counts and value-tier support. Provenance labelling is
+  explicit (`guild_mediated` > `verifiable_outcome` > `mutual_attestation` >
   `external_import` > `one_party_claim`/`first_party_bootstrap`), and no
   record reaches the top class on one party's word.
 
@@ -49,10 +65,18 @@ framework can be a verifier.
   an automatic decision does so under ITS OWN policy (AGD-1 policy slot),
   never under a verdict shipped by the issuer.
 
+Verifiers additionally reject a CHANGED issuer unless a verified dual-signed
+rotation chain (`GET /ledger/rotations`) connects it to a pinned issuer, and
+persist their TOFU pins across restart (V-3).
+
 ## Running the suite
 
-    pytest conformance/ --issuer-base=<https://your-issuer>      # live issuer
-    pytest conformance/                                          # bundled vectors
+    pytest conformance/                                          # local issuer, booted for you
+    pytest conformance/ --issuer-base=<https://your-issuer>      # any live issuer
+    pytest conformance/ --issuer-base=https://agent-guild-5d5r.onrender.com --capability=hello
 
-The suite is issuer-agnostic: point it at any implementation of I-1…I-6.
-`suite.py` is dependency-light (cryptography only) and vendorable.
+The suite is issuer-agnostic: point it at any implementation of I-1…I-7. With
+no `--issuer-base` it boots the production Agent Guild app locally, seeds
+evidence, and runs against it, so `pytest conformance/` works offline out of
+the box. `suite.py` is dependency-light (cryptography only) and vendorable;
+CI runs it against both the local issuer and the live service.

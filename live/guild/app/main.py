@@ -2049,6 +2049,60 @@ def ledger_checkpoints(limit: int = Query(20, ge=1, le=200)):
     }
 
 
+@app.get("/ledger/rotations")
+def ledger_rotations():
+    """The Guild's issuer-rotation chain: every dual-signed `issuer_rotation`
+    ledger entry, oldest first. A verifier holding an OLD pinned issuer DID
+    walks these (each link: old key endorses successor, new key proves
+    possession) to decide whether documents signed by a NEWER key come from
+    the same authority. Trust-plane caches use this to accept a rotated
+    issuer WITHOUT re-TOFU."""
+    store.ensure_ledger_backfilled()
+    entries = [d for d in store.ledger_records
+               if d.get("type") == "issuer_rotation"]
+    return {"current_issuer": store.guild_identity()["did"],
+            "rotations": entries}
+
+
+@app.get("/ledger/record/{record_id}")
+def ledger_record(record_id: str):
+    """Read back ONE sealed ledger entry by id. Outcome-completion contract:
+    a write counts as recorded only after the caller reads the sealed record
+    back and verifies its hash — this is that readback path."""
+    rec = store.ledger_record(record_id)
+    if rec is None:
+        raise HTTPException(404, "no ledger record with that id")
+    return {"record": rec}
+
+
+@app.get("/ledger/inclusion/{record_id}")
+def ledger_inclusion(record_id: str,
+                     checkpoint_index: Optional[int] = Query(None, ge=0)):
+    """Merkle INCLUSION PROOF from one ledger record to a published checkpoint's
+    merkle_root — what makes a decision's checkpoint citation substantive. A
+    record newer than the cited checkpoint returns 409: it is NOT committed."""
+    try:
+        return store.ledger_inclusion_proof(record_id, checkpoint_index)
+    except LookupError as e:
+        raise HTTPException(409, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/outcomes")
+def post_signed_outcome(outcome: dict[str, Any]):
+    """AGO-1: record a requester-SIGNED delegation outcome. The signature must
+    verify against the REQUESTER's registered DID (control of the DID is the
+    authentication); the outcome is bound to the gate envelope hash, provider
+    id + DID, endpoint fingerprint, task ref and deliverable hash, and can
+    never be credited to a different provider. The signed outcome is sealed on
+    the append-only ledger; read it back at `readback` before counting it."""
+    try:
+        return store.record_signed_outcome(outcome)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
 @app.post("/ledger/checkpoint/publish")
 def publish_checkpoint(x_admin_token: Optional[str] = Header(None)):
     """Seal the current ledger head into the published checkpoint feed. Admin-token

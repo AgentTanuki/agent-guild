@@ -155,4 +155,5 @@ def test_generic_entry_types_are_closed_set():
         pass
     assert set(GENERIC_ENTRY_TYPES) == {
         "register", "config_change", "receipt", "attestation", "escrow_event",
-        "task_created", "reclassification", "issuer_rotation"}
+        "task_created", "reclassification", "issuer_rotation",
+        "signed_outcome"}

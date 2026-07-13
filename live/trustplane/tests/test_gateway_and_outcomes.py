@@ -16,13 +16,26 @@ def test_gate_allows_micro_and_reports_outcome(guild_server, seeded, gateway):
     gate = gateway.gate("tp-echo", value_at_risk=1.0)
     assert gate.allowed and gate.channel == "live"
     assert gate.worker_id == seeded["worker"]["id"]
-    before = len(guild_server["store"].tasks)
+    # binding: the gate is pinned to envelope hash + provider identity
+    b = gate.binding()
+    assert b["envelope_sha256"] and b["provider_did"].startswith("did:key:")
+    store = guild_server["store"]
+    before = sum(1 for d in store.ledger_records
+                 if d.get("type") == "signed_outcome")
     rec = gateway.report(gate, "accepted", deliverable="result-bytes",
                          latency_ms=12.0)
     assert rec["signature"]
-    assert len(guild_server["store"].tasks) > before   # evidence landed
+    outcomes = [d for d in store.ledger_records
+                if d.get("type") == "signed_outcome"]
+    assert len(outcomes) > before                      # evidence landed
+    body = outcomes[-1]["body"]
+    # the outcome is credited ONLY to the gate's evaluated provider
+    assert body["provider_id"] == gate.worker_id
+    assert body["provider_did"] == gate.provider_did
+    assert body["gate_envelope_sha256"] == b["envelope_sha256"]
     snap = gateway.snapshot()
     assert snap["outcomes"]["flushed"] >= 1
+    assert snap["outcomes"]["unresolved"] == 0         # verified by readback
 
 
 def test_gate_denies_high_tier_and_records_block(guild_server, seeded, gateway):
@@ -61,6 +74,15 @@ def test_sidecar_http_surface(guild_server, seeded, gateway):
     r = c.post("/report", json={"gate_id": g["gate_id"], "capability": "tp-echo",
                                 "outcome": "accepted", "deliverable": "x"})
     assert r.status_code == 200 and r.json()["signature"]
+    # unknown gate ids are rejected — no synthetic gate reconstruction
+    bad = c.post("/report", json={"gate_id": "gate_doesnotexist",
+                                  "outcome": "accepted"})
+    assert bad.status_code == 404
+    # identity substitution via /report is rejected
+    sub = c.post("/report", json={"gate_id": g["gate_id"],
+                                  "worker_id": "agent_somebody_else",
+                                  "outcome": "accepted"})
+    assert sub.status_code == 409
     m = c.get("/metrics").json()
     assert m["gates"] >= 1
     assert c.get("/policy").json()["policy_id"] == "default"

@@ -1,0 +1,4 @@
+# MCP proxy environment (latest tested mcp; NOT co-installable with crewai's
+# mcp~=1.26.0 pin — use the crewai environment for CrewAI work).
+-r core.txt
+mcp==1.28.1

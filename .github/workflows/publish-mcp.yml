@@ -50,7 +50,38 @@ jobs:
       - name: Publish
         run: ./mcp-publisher publish
 
-      - name: Confirm in registry
+      - name: Verify registry READBACK (hard gate)
+        # Publication is not "shipped" until the OFFICIAL registry serves it
+        # back: this step fails the workflow unless the readback contains our
+        # server at the just-published version WITH the trust _meta block.
         run: |
-          sleep 5
-          curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.agenttanuki/agent-guild" | head -c 2000 || true
+          set -euo pipefail
+          cat > /tmp/readback.py <<'PYEOF'
+          import json, sys, time, urllib.parse, urllib.request
+          spec = json.load(open("server.json"))
+          name, version = spec["name"], spec["version"]
+          url = ("https://registry.modelcontextprotocol.io/v0/servers?search="
+                 + urllib.parse.quote(name))
+          for attempt in range(12):
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as r:
+                      body = json.loads(r.read().decode())
+              except Exception as e:
+                  body = {}
+                  print(f"attempt {attempt+1}: fetch failed: {e}")
+              for s in body.get("servers", []):
+                  detail = s.get("server", s)
+                  if detail.get("name") == name and \
+                     detail.get("version") == version:
+                      meta = detail.get("_meta") or s.get("_meta") or {}
+                      if any("agent-guild" in k for k in meta):
+                          print(f"readback OK: {name}@{version} with trust _meta")
+                          sys.exit(0)
+                      print(f"{name}@{version} served WITHOUT trust _meta")
+                      sys.exit(3)
+              print(f"attempt {attempt+1}: not yet visible")
+              time.sleep(10)
+          print(f"::error::registry readback never served {name}@{version}")
+          sys.exit(1)
+          PYEOF
+          python3 /tmp/readback.py

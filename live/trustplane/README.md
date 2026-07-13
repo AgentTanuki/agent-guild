@@ -31,8 +31,8 @@ your agent ──► framework interceptor / sidecar / MCP proxy
 | `agentguild_trustplane/mcp_proxy.py` | MCP stdio proxy gating `tools/call` to any downstream server |
 | `agentguild_trustplane/integrations/` | CrewAI, LangChain/LangGraph, OpenAI Agents lifecycle interceptors (pinned versions: `pins.py`) |
 | `conformance/` | AGI-1 conformance spec + issuer-agnostic suite (multi-issuer, fork detection) |
-| `experiments/trust_plane_ab.py` | 120-delegation A/B harness (gateway vs direct) |
-| `tests/` | 27 tests incl. native-lifecycle integration tests against a real local Guild |
+| `experiments/trust_plane_ab.py` | A/B harness: the SAME unmodified tool run direct vs through each framework's REAL interceptor; self-fails on any unresolved outcome, deny-body-run, or route mismatch |
+| `tests/` | native-lifecycle integration tests + verify-before-use, destination-binding, and gateway/outcome readback tests against a real local Guild |
 
 ## Quick start (Python)
 

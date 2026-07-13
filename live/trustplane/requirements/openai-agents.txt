@@ -1,0 +1,3 @@
+# OpenAI Agents SDK integration environment (mcp >=1.19,<2 upstream).
+-r core.txt
+openai-agents==0.18.2

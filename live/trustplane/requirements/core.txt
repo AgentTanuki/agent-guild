@@ -1,0 +1,5 @@
+# Trust-plane core — always required. Verifier is stdlib + cryptography;
+# fastapi/uvicorn are for the sidecar HTTP surface.
+cryptography>=42
+fastapi>=0.115
+uvicorn>=0.30

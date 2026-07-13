@@ -31,17 +31,27 @@ class GuardedTool(BaseTool):
     gateway: Any
     capability: str
     value_at_risk: float = 0.0
+    expected_endpoint: Optional[str] = None
+    expected_provider_id: Optional[str] = None
+    expected_provider_did: Optional[str] = None
     # gate handles keyed by run_id so the callback can close the loop
     model_config = {"arbitrary_types_allowed": True}
 
     def __init__(self, inner: BaseTool, gateway: Gateway, *,
                  capability: Optional[str] = None,
-                 value_at_risk: float = 0.0, **kwargs: Any) -> None:
+                 value_at_risk: float = 0.0,
+                 expected_endpoint: Optional[str] = None,
+                 expected_provider_id: Optional[str] = None,
+                 expected_provider_did: Optional[str] = None,
+                 **kwargs: Any) -> None:
         super().__init__(
             name=inner.name, description=inner.description,
             args_schema=inner.args_schema, inner=inner, gateway=gateway,
             capability=capability or inner.name,
-            value_at_risk=value_at_risk, **kwargs)
+            value_at_risk=value_at_risk,
+            expected_endpoint=expected_endpoint,
+            expected_provider_id=expected_provider_id,
+            expected_provider_did=expected_provider_did, **kwargs)
         self._open_gates: dict[str, GateResult] = {}
 
     def _gate(self) -> GateResult:
@@ -51,6 +61,19 @@ class GuardedTool(BaseTool):
         if not gate.allowed:
             self.gateway.report(gate, "blocked")
             raise GateDenied(gate)
+        # DESTINATION BINDING: a declared destination must EXACTLY match the
+        # signed route; tools without a declaration read the routed endpoint
+        # from gateway.current_gate() inside the body.
+        if self.expected_endpoint or self.expected_provider_id \
+                or self.expected_provider_did:
+            try:
+                self.gateway.bind_destination(
+                    gate, endpoint=self.expected_endpoint,
+                    provider_id=self.expected_provider_id,
+                    provider_did=self.expected_provider_did)
+            except GateDenied:
+                self.gateway.report(gate, "blocked")
+                raise
         self._open_gates["last"] = gate
         return gate
 

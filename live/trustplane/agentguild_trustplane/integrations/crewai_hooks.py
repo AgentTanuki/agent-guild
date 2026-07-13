@@ -36,8 +36,18 @@ _GUARD_ATTR = "_agentguild_gate"
 
 def guard_tool(tool: Any, gateway: Gateway, *,
                capability: Optional[str] = None,
-               value_at_risk: float = 0.0) -> Any:
-    """Intercept ``tool.run`` with a policy gate. Returns the same instance."""
+               value_at_risk: float = 0.0,
+               expected_endpoint: Optional[str] = None,
+               expected_provider_id: Optional[str] = None,
+               expected_provider_did: Optional[str] = None) -> Any:
+    """Intercept ``tool.run`` with a policy gate. Returns the same instance.
+
+    DESTINATION BINDING (corrective 2026-07-13): a delegation tool must either
+    invoke the endpoint the SIGNED route selected — read it inside the tool
+    body via ``gateway.current_gate().endpoint`` — or declare its destination
+    up front (``expected_endpoint``/``expected_provider_id``/
+    ``expected_provider_did``), which is verified to EXACTLY match the signed
+    decision; any mismatch raises DestinationMismatch before the body runs."""
     cap = capability or getattr(tool, "name", tool.__class__.__name__)
     original_run = tool.run
 
@@ -49,6 +59,15 @@ def guard_tool(tool: Any, gateway: Gateway, *,
         if not gate.allowed:
             gateway.report(gate, "blocked")
             raise GateDenied(gate)
+        if expected_endpoint or expected_provider_id or expected_provider_did:
+            try:
+                gateway.bind_destination(
+                    gate, endpoint=expected_endpoint,
+                    provider_id=expected_provider_id,
+                    provider_did=expected_provider_did)
+            except GateDenied:
+                gateway.report(gate, "blocked")
+                raise
         t0 = time.perf_counter()
         try:
             result = original_run(*args, **kwargs)

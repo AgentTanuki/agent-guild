@@ -104,13 +104,13 @@ def derived_server_json(contract: dict) -> dict:
     s = contract["service"]
     return {
         "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
-        "name": "io.github.AgentTanuki/agent-guild",
-        "description": ("Trust layer + invocable utilities for autonomous AI agents: "
-                        "vet any agent before delegating (attack-resistant reputation), "
-                        "plus 16 deterministic fixture-verified guest tools (JSON "
-                        "repair/validate/diff, CSV-JSON, date normalization, dedupe, "
-                        "record linking, regex extract, unit convert, semver, stats), "
-                        "each returning Guild-signed provenance."),
+        # MUST be lowercase: GitHub OIDC maps this repo's owner to the
+        # `io.github.agenttanuki/*` namespace — a mixed-case name fails
+        # `mcp-publisher validate` / publication (corrective 2026-07-13).
+        "name": "io.github.agenttanuki/agent-guild",
+        # registry schema caps description at 100 chars — keep this short
+        "description": ("Trust layer for AI agents: signed delegation "
+                        "decisions, passports, and 16 verified guest tools."),
         "version": s["version"],
         "repository": {"url": s["repository"], "source": "github"},
         "websiteUrl": s["host"],

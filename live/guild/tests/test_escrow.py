@@ -52,7 +52,11 @@ def test_full_settlement_pays_worker_and_earns_guild_fee():
     rev = client.get("/billing/revenue").json()
     assert rev["settled_count"] == 1
     assert rev["settled_volume_credits"] == amount
-    assert rev["guild_revenue_credits"] == fee
+    assert rev["guild_fee_credits"] == fee
+    # sandbox credits are never presented as USD revenue
+    assert "guild_revenue_usd" not in rev
+    assert rev["currency"] == "credits_sandbox"
+    assert rev["real_settlement"]["transactions"] == 0
     # settlement produced a verifiable, payment-backed collaboration
     assert rel["task_id"] is not None
     assert client.get("/ledger/stats").json()["records"] >= 1

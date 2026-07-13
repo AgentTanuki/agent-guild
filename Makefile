@@ -15,9 +15,16 @@ VENV := .venv
 VPY := $(VENV)/bin/python
 GUILD := live/guild
 
-.PHONY: all setup test test-json test-sqlite test-kdf contract verify-independent live-conformance clean
+TP := live/trustplane
+# framework integration environments (independently resolvable — crewai pins
+# mcp~=1.26.0 while the mcp proxy tests 1.28.1, so they must NOT co-install)
+TP_ENVS := core crewai langchain openai-agents mcp
 
-all: setup test test-kdf contract verify-independent
+.PHONY: all setup test test-json test-sqlite test-kdf contract verify-independent live-conformance clean \
+	trustplane-test trustplane-conformance trustplane-conformance-live \
+	$(addprefix trustplane-install-,$(TP_ENVS)) $(addprefix trustplane-test-,$(TP_ENVS))
+
+all: setup test test-kdf contract verify-independent trustplane-test trustplane-conformance
 
 $(VENV)/bin/python:
 	$(PY) -m venv $(VENV)
@@ -55,5 +62,29 @@ verify-independent: setup
 live-conformance: setup
 	$(VPY) live/scripts/live_contract_probe.py
 
+# --- trust plane (live/trustplane) -------------------------------------------
+# ONE reproducible clean command per supported integration:
+#   make trustplane-install-crewai   → fresh venv resolving ONLY that extra
+#   make trustplane-test-crewai      → its native adapter tests in that venv
+trustplane-install-%:
+	$(PY) -m venv $(TP)/.venv-$*
+	$(TP)/.venv-$*/bin/pip install -q --upgrade pip
+	$(TP)/.venv-$*/bin/pip install -q -r $(TP)/requirements/$*.txt pytest
+
+trustplane-test-%: trustplane-install-%
+	cd $(TP) && .venv-$*/bin/python -m pytest tests -q
+
+# core trust-plane suite + conformance in the shared repo venv
+trustplane-test: setup
+	$(VPY) -m pip install -q -r $(TP)/requirements/core.txt pytest
+	cd $(TP) && ../../$(VPY) -m pytest tests -q
+
+trustplane-conformance: setup
+	cd $(TP) && ../../$(VPY) -m pytest conformance/ -q
+
+trustplane-conformance-live: setup
+	cd $(TP) && ../../$(VPY) -m pytest conformance/ -q \
+	  --issuer-base=https://agent-guild-5d5r.onrender.com --capability=hello
+
 clean:
-	rm -rf $(VENV) verifiers/node_modules verifiers/vector.json
+	rm -rf $(VENV) verifiers/node_modules verifiers/vector.json $(TP)/.venv-*

@@ -125,6 +125,48 @@ def verify_data_integrity(signed_doc: dict[str, Any],
                 "issuer_did": None}
 
 
+def verify_jcs_hex(payload: Any, signature_hex: str, did: str) -> bool:
+    """Verify a bare hex ed25519 signature over the JCS canonical form of
+    ``payload`` against a did:key — the Guild's ledger-entry signature format
+    (issuer rotations, feed entry proofs). Independent implementation."""
+    try:
+        pub = Ed25519PublicKey.from_public_bytes(public_key_from_did(did))
+        pub.verify(bytes.fromhex(signature_hex),
+                   canonicalize_jcs(payload).encode("utf-8"))
+        return True
+    except Exception:
+        return False
+
+
+def verify_rotation_chain(pinned_did: str, target_did: str,
+                          rotation_entries: list[dict[str, Any]]) -> bool:
+    """True iff a VERIFIED issuer-rotation chain connects ``pinned_did`` to
+    ``target_did``. Each link must be dual-signed over the same core
+    ({old_did, new_did, rotated_at}): the OLD key endorses the successor and
+    the NEW key proves possession. Any unverifiable or discontinuous link
+    fails the whole chain — a changed issuer without this proof is rejected."""
+    if pinned_did == target_did:
+        return True
+    did = pinned_did
+    for entry in rotation_entries:
+        body = entry.get("body") or entry
+        try:
+            core = {k: body[k] for k in ("old_did", "new_did", "rotated_at")}
+        except KeyError:
+            return False
+        if body.get("old_did") != did:
+            return False
+        if not (verify_jcs_hex(core, body.get("proof_old_key", ""),
+                               body["old_did"])
+                and verify_jcs_hex(core, body.get("proof_new_key", ""),
+                                   body["new_did"])):
+            return False
+        did = body["new_did"]
+        if did == target_did:
+            return True
+    return did == target_did
+
+
 def within_validity(doc: dict[str, Any],
                     now: Optional[datetime] = None) -> tuple[bool, Optional[float]]:
     """(still_valid, age_seconds) from issued_at/valid_until (or validFrom/

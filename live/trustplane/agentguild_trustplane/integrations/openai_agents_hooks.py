@@ -25,10 +25,18 @@ from ..gateway import Gateway, GateDenied
 def guard_function_tools(tools: Iterable[FunctionTool], gateway: Gateway, *,
                          value_at_risk: float = 0.0,
                          strict: bool = False,
-                         capability_map: Optional[dict[str, str]] = None
+                         capability_map: Optional[dict[str, str]] = None,
+                         expected_endpoint: Optional[str] = None,
+                         expected_provider_id: Optional[str] = None,
+                         expected_provider_did: Optional[str] = None
                          ) -> list[FunctionTool]:
     """Return gated copies of ``tools`` (FunctionTool is a dataclass; we
-    replace on_invoke_tool with the gated closure)."""
+    replace on_invoke_tool with the gated closure).
+
+    DESTINATION BINDING: either the tool body invokes the endpoint the signed
+    route selected (``gateway.current_gate().endpoint``), or the destination
+    is declared via ``expected_*`` and verified to EXACTLY match the signed
+    decision — mismatches are blocked before the body runs."""
     guarded: list[FunctionTool] = []
     cm = capability_map or {}
     for tool in tools:
@@ -48,6 +56,19 @@ def guard_function_tools(tools: Iterable[FunctionTool], gateway: Gateway, *,
                     "error": "delegation denied by caller policy",
                     "policy": gate.policy.to_json(),
                     "gate_id": gate.gate_id})
+            if expected_endpoint or expected_provider_id \
+                    or expected_provider_did:
+                try:
+                    gateway.bind_destination(
+                        gate, endpoint=expected_endpoint,
+                        provider_id=expected_provider_id,
+                        provider_did=expected_provider_did)
+                except GateDenied as e:
+                    gateway.report(gate, "blocked")
+                    if strict:
+                        raise
+                    return json.dumps({
+                        "error": str(e), "gate_id": gate.gate_id})
             t0 = time.perf_counter()
             try:
                 result = await _orig(ctx, args_json)

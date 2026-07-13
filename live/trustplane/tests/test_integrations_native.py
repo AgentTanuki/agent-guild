@@ -22,14 +22,22 @@ from agentguild_trustplane.gateway import GateDenied
 from agentguild_trustplane.integrations.pins import check_pins
 
 
+def _skip_unless(*mods):
+    for m in mods:
+        pytest.importorskip(m)
+
+
 def test_pins_installed_versions_supported():
     pins = check_pins()
     for fw in ("crewai", "langchain-core", "langgraph", "openai-agents", "mcp"):
+        if pins[fw]["installed"] is None:
+            pytest.skip(f"{fw} not installed in this environment")
         assert pins[fw]["supported"], f"{fw}: {pins[fw]}"
 
 
 # --------------------------------------------------------------------- crewai
 def test_crewai_guard_blocks_and_allows(guild_server, seeded, gateway):
+    _skip_unless("crewai")
     from crewai.tools import BaseTool
 
     class EchoTool(BaseTool):
@@ -55,6 +63,7 @@ def test_crewai_guard_blocks_and_allows(guild_server, seeded, gateway):
 
 
 def test_crewai_event_bus_listener_records(guild_server, seeded, gateway):
+    _skip_unless("crewai")
     from crewai.events import crewai_event_bus
     from crewai.events.types.tool_usage_events import ToolUsageFinishedEvent
     from crewai.tools import BaseTool
@@ -87,6 +96,7 @@ def test_crewai_event_bus_listener_records(guild_server, seeded, gateway):
 
 # ------------------------------------------------------------ langchain/graph
 def test_langchain_guarded_tool_native_invoke(guild_server, seeded, gateway):
+    _skip_unless("langchain_core")
     from langchain_core.tools import tool as lc_tool
     from agentguild_trustplane.integrations.langchain_hooks import GuardedTool
 
@@ -105,6 +115,7 @@ def test_langchain_guarded_tool_native_invoke(guild_server, seeded, gateway):
 
 
 def test_langgraph_toolnode_runs_guarded_tools(guild_server, seeded, gateway):
+    _skip_unless("langchain_core", "langgraph")
     from langchain_core.messages import AIMessage
     from langchain_core.tools import tool as lc_tool
     from langgraph.prebuilt import ToolNode
@@ -131,6 +142,7 @@ def test_langgraph_toolnode_runs_guarded_tools(guild_server, seeded, gateway):
 
 # ------------------------------------------------------------- openai-agents
 def test_openai_agents_function_tool_gated(guild_server, seeded, gateway):
+    _skip_unless("agents")
     from agents import function_tool
     from agentguild_trustplane.integrations.openai_agents_hooks import (
         guard_function_tools)
@@ -180,22 +192,47 @@ def tp_echo(text: str) -> str:
 mcp.run()
 """)
     from agentguild_trustplane.mcp_proxy import build_proxy
+
+    def drive(proxy):
+        async def _run():
+            import mcp.types as types
+            handler = proxy.request_handlers[types.CallToolRequest]
+            req = types.CallToolRequest(
+                method="tools/call",
+                params=types.CallToolRequestParams(name="tp_echo",
+                                                   arguments={"text": "hi"}))
+            return await handler(req)
+        return asyncio.get_event_loop().run_until_complete(_run())
+
+    # 1. downstream identity VERIFIED (matches the evaluated provider):
+    #    the decision applies and the call goes through.
     proxy = build_proxy(gateway, [sys.executable, str(downstream)],
                         value_at_risk=1.0,
-                        capability_map={"tp_echo": "tp-echo"})
-
-    async def drive():
-        handler = proxy.request_handlers[
-            __import__("mcp.types", fromlist=["CallToolRequest"]).CallToolRequest]
-        import mcp.types as types
-        req = types.CallToolRequest(
-            method="tools/call",
-            params=types.CallToolRequestParams(name="tp_echo",
-                                               arguments={"text": "hi"}))
-        return await handler(req)
-
-    result = asyncio.get_event_loop().run_until_complete(drive())
+                        capability_map={"tp_echo": "tp-echo"},
+                        downstream_provider_id=seeded["worker"]["id"],
+                        downstream_did=seeded["worker"]["did"])
+    result = drive(proxy)
     text = "".join(c.text for c in result.root.content
                    if hasattr(c, "text"))
     assert "echo:hi" in text
     assert gateway.snapshot()["gates"] >= 1
+
+    # 2. NO identity binding: reputation for the evaluated provider must not
+    #    authorize an unrelated downstream server -> unknown-counterparty
+    #    policy (deny_unknown_agents) denies, labelled unverified.
+    proxy_unbound = build_proxy(gateway, [sys.executable, str(downstream)],
+                                value_at_risk=1.0,
+                                capability_map={"tp_echo": "tp-echo"})
+    res2 = drive(proxy_unbound)
+    text2 = "".join(c.text for c in res2.root.content if hasattr(c, "text"))
+    assert res2.root.isError
+    assert "denied" in text2 and '"identity_bound": false' in text2
+
+    # 3. WRONG identity binding (identity substitution) is equally denied.
+    proxy_wrong = build_proxy(gateway, [sys.executable, str(downstream)],
+                              value_at_risk=1.0,
+                              capability_map={"tp_echo": "tp-echo"},
+                              downstream_provider_id="agent_imposter",
+                              downstream_did="did:key:zImposter")
+    res3 = drive(proxy_wrong)
+    assert res3.root.isError

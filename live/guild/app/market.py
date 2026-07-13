@@ -352,42 +352,111 @@ def _slash_minority(store, case: dict[str, Any], winning: str) -> list[dict[str,
     return slashes
 
 
+def _record_settlement_failure(store, op: str, escrow_id: str, case_id: str,
+                               err: str) -> None:
+    """Settlement/refund failures are NEVER swallowed: they are journalled
+    (persisted), surfaced via telemetry, and retried by sweep()."""
+    journal = store.__dict__.setdefault("settlement_failures", {})
+    key = f"{op}:{escrow_id}"
+    with store.lock, store._txn():
+        rec = journal.setdefault(key, {"op": op, "escrow_id": escrow_id,
+                                       "case_id": case_id, "attempts": 0,
+                                       "first_at": _iso(_now())})
+        rec["attempts"] += 1
+        rec["last_error"] = err
+        rec["last_at"] = _iso(_now())
+        if store.backend is not None:
+            store._persist_kv("settlement_failures", journal)
+        store._save()
+    store.record_event(None, "settlement_execution_failed", endpoint=op,
+                       escrow_id=escrow_id, error=err[:200])
+
+
+def _clear_settlement_failure(store, op: str, escrow_id: str) -> None:
+    journal = store.__dict__.get("settlement_failures") or {}
+    if journal.pop(f"{op}:{escrow_id}", None) is not None:
+        with store.lock, store._txn():
+            if store.backend is not None:
+                store._persist_kv("settlement_failures", journal)
+            store._save()
+
+
 def _execute(store, case: dict[str, Any], verdict: str, method: str) -> None:
     """Apply a decision to the escrow. The Guild executes the panel's (or the
-    deterministic rule's) decision — it never chooses the verdict itself."""
+    deterministic rule's) decision — it never chooses the verdict itself.
+
+    Execution invariants (corrective pass 2026-07-13):
+      * settlement uses the INTERNAL operations authorized by the escrow's own
+        immutable ownership/state — never a stored credential (which under
+        GUILD_HASH_KEYS=1 is a public key id, not a secret);
+      * the case is marked `resolved` ONLY when the funds actually reached a
+        terminal state; a failed execution leaves the case `execution_pending`
+        with the error recorded, and sweep() retries idempotently;
+      * minority slashing happens exactly once per round (guarded flag), so
+        retries cannot double-slash.
+    """
     esc = store.escrows.get(case["escrow_id"])
-    slashes = _slash_minority(store, case, verdict) if case["votes"] else []
+    slash_flag = f"slashed_round_{case['round']}"
+    if case["votes"] and not case.get(slash_flag):
+        slashes = _slash_minority(store, case, verdict)
+        case[slash_flag] = True
+        case["slashes"] = slashes
+    else:
+        slashes = case.get("slashes") or []
     outcome: dict[str, Any] = {"verdict": verdict, "method": method,
                                "slashes": slashes, "decided_at": _iso(_now()),
                                "round": case["round"]}
-    if esc is not None and esc.get("status") == "disputed":
-        with store.lock, store._txn():
-            esc["status"] = "funded"       # rearm so the normal paths can settle
-            if store.backend is not None:
-                store._persist_escrow(esc)
-        if verdict == "release":
-            try:
-                store.release_escrow(case["escrow_id"], esc["requester_key"],
-                                     rating=0.5)
-            except ValueError as e:
-                outcome["execution_error"] = str(e)
-        else:
-            try:
-                store.refund_escrow(case["escrow_id"], esc["requester_key"])
-            except ValueError as e:
-                outcome["execution_error"] = str(e)
-    case["status"] = "resolved"
-    case["resolution"] = outcome
+    executed = False
+    if esc is None:
+        outcome["execution_error"] = "escrow gone"
+    elif esc.get("status") in ("released", "refunded"):
+        # already terminal (idempotent retry after a crash mid-execution)
+        executed = ((verdict == "release" and esc["status"] == "released")
+                    or (verdict == "refund" and esc["status"] == "refunded"))
+        if not executed:
+            outcome["execution_error"] = (
+                f"escrow already terminal as {esc['status']} but verdict was "
+                f"{verdict} — operator attention required")
+    else:
+        op = ("dispute_release" if verdict == "release" else "dispute_refund")
+        try:
+            if verdict == "release":
+                store.release_escrow_internal(
+                    case["escrow_id"], reason=f"dispute:{method}", rating=0.5,
+                    expected_status=("funded", "disputed"))
+            else:
+                store.refund_escrow_internal(
+                    case["escrow_id"], reason=f"dispute:{method}",
+                    expected_status=("funded", "disputed"))
+            executed = True
+            _clear_settlement_failure(store, op, case["escrow_id"])
+        except Exception as e:  # noqa: BLE001 — journalled + retried, never lost
+            outcome["execution_error"] = str(e)
+            _record_settlement_failure(store, op, case["escrow_id"],
+                                       case["id"], str(e))
     cases = store.__dict__.get("dispute_cases", {})
     with store.lock, store._txn():
+        if executed:
+            case["status"] = "resolved"
+            case["resolution"] = outcome
+        else:
+            # NEVER mark a dispute resolved when the funds did not move.
+            case["status"] = "execution_pending"
+            case["pending_verdict"] = verdict
+            case["pending_method"] = method
+            case["resolution"] = None
+            case["execution_error"] = outcome.get("execution_error")
         if store.backend is not None:
             store._persist_kv("dispute_cases", cases)
         store._save()
     store.append_ledger_event("escrow_event", {
-        "event": "dispute_resolved", "case_id": case["id"],
+        "event": ("dispute_resolved" if executed
+                  else "dispute_execution_failed"),
+        "case_id": case["id"],
         "escrow_id": case["escrow_id"], "verdict": verdict, "method": method,
         "votes": {a: v["verdict"] for a, v in case["votes"].items()},
         "slashes": slashes, "round": case["round"],
+        "execution_error": outcome.get("execution_error"),
     }, actor_did="")
 
 
@@ -437,11 +506,17 @@ def appeal(store, case_id: str, party: dict[str, Any]) -> dict[str, Any]:
     esc = store.escrows.get(case["escrow_id"])
     if esc is None:
         raise ValueError("escrow gone")
-    # re-open the escrow as disputed for the appeal round
-    with store.lock, store._txn():
-        esc["status"] = "disputed"
-        if store.backend is not None:
-            store._persist_escrow(esc)
+    # Reverse the round-1 settlement so the appeal round can re-settle without
+    # ever paying twice. If the funds already left (payout spent), the
+    # reversal raises and the appeal is rejected — round-1 stands.
+    if esc.get("status") in ("released", "refunded"):
+        store.reverse_settlement_internal(case["escrow_id"],
+                                          reason=f"appeal:{case_id}")
+    elif esc.get("status") != "disputed":
+        with store.lock, store._txn():
+            esc["status"] = "disputed"
+            if store.backend is not None:
+                store._persist_escrow(esc)
     new_panel = select_panel(store, case_id + ":appeal", set(case["parties"]),
                              APPEAL_PANEL_SIZE, exclude=set(case["panel"]))
     with store.lock, store._txn():
@@ -467,9 +542,15 @@ def appeal(store, case_id: str, party: dict[str, Any]) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 
 def sweep(store) -> dict[str, Any]:
-    """Apply every deterministic timeout rule. Idempotent; anyone may crank."""
+    """Apply every deterministic timeout rule. Idempotent; anyone may crank.
+
+    Settlement uses the INTERNAL escrow operations (authorized by the escrow's
+    own immutable ownership/state) — the stored `requester_key` is a public
+    key id under GUILD_HASH_KEYS=1, never a spendable secret. Failures are
+    journalled and retried on the next crank; they are never swallowed."""
     out = {"offers_expired": 0, "tasks_auto_settled": 0,
-           "tasks_refunded_undelivered": 0, "cases_resolved": 0}
+           "tasks_refunded_undelivered": 0, "cases_resolved": 0,
+           "executions_retried": 0, "settlement_failures": 0}
     now = _now()
     for offer in list((store.__dict__.get("offers") or {}).values()):
         deadline = datetime.fromisoformat(offer["core"]["deadline_at"])
@@ -482,10 +563,32 @@ def sweep(store) -> dict[str, Any]:
                 esc = store.escrows.get(offer["escrow_id"])
                 if esc and esc.get("status") == "funded":
                     try:
-                        store.refund_escrow(offer["escrow_id"], esc["requester_key"])
-                    except ValueError:
-                        pass
+                        store.refund_escrow_internal(
+                            offer["escrow_id"], reason="offer_expired")
+                        _clear_settlement_failure(store, "expired_offer_refund",
+                                                  offer["escrow_id"])
+                    except Exception as e:  # noqa: BLE001 — journalled+retried
+                        _record_settlement_failure(
+                            store, "expired_offer_refund", offer["escrow_id"],
+                            "", str(e))
+                        out["settlement_failures"] += 1
             out["offers_expired"] += 1
+        elif offer["status"] == "expired" and offer.get("escrow_id"):
+            # retry a previously-failed expired-offer refund (idempotent: only
+            # a still-funded escrow refunds; terminal escrows are skipped)
+            esc = store.escrows.get(offer["escrow_id"])
+            if esc and esc.get("status") == "funded":
+                try:
+                    store.refund_escrow_internal(
+                        offer["escrow_id"], reason="offer_expired")
+                    _clear_settlement_failure(store, "expired_offer_refund",
+                                              offer["escrow_id"])
+                    out["executions_retried"] += 1
+                except Exception as e:  # noqa: BLE001
+                    _record_settlement_failure(
+                        store, "expired_offer_refund", offer["escrow_id"],
+                        "", str(e))
+                    out["settlement_failures"] += 1
         elif offer["status"] == "accepted" and offer.get("task_id"):
             task = store.tasks.get(offer["task_id"])
             esc = store.escrows.get(offer["escrow_id"]) if offer["escrow_id"] else None
@@ -498,21 +601,41 @@ def sweep(store) -> dict[str, Any]:
             if delivered and now >= grace_end:
                 # payer silence after authenticated delivery -> auto-settle
                 try:
-                    store.release_escrow(offer["escrow_id"], esc["requester_key"],
-                                         deliverable_hash=task["deliverable_hash"],
-                                         rating=0.75)
+                    store.release_escrow_internal(
+                        offer["escrow_id"], reason="authenticated_delivery_auto_release",
+                        deliverable_hash=task["deliverable_hash"], rating=0.75)
+                    _clear_settlement_failure(store, "auto_release",
+                                              offer["escrow_id"])
                     out["tasks_auto_settled"] += 1
-                except ValueError:
-                    pass
+                except Exception as e:  # noqa: BLE001
+                    _record_settlement_failure(store, "auto_release",
+                                               offer["escrow_id"], "", str(e))
+                    out["settlement_failures"] += 1
             elif not delivered and now >= grace_end:
                 try:
-                    store.refund_escrow(offer["escrow_id"], esc["requester_key"])
+                    store.refund_escrow_internal(
+                        offer["escrow_id"], reason="undelivered_timeout")
+                    _clear_settlement_failure(store, "undelivered_refund",
+                                              offer["escrow_id"])
                     out["tasks_refunded_undelivered"] += 1
-                except ValueError:
-                    pass
+                except Exception as e:  # noqa: BLE001
+                    _record_settlement_failure(store, "undelivered_refund",
+                                               offer["escrow_id"], "", str(e))
+                    out["settlement_failures"] += 1
     for case_id in list((store.__dict__.get("dispute_cases") or {}).keys()):
-        before = store.dispute_cases[case_id]["status"]
-        maybe_resolve(store, case_id)
-        if before == "open" and store.dispute_cases[case_id]["status"] == "resolved":
+        case = store.dispute_cases[case_id]
+        before = case["status"]
+        if before == "execution_pending":
+            # retry a failed dispute execution (idempotent; resolves only when
+            # the funds actually reach the verdict's terminal state)
+            _execute(store, case, case["pending_verdict"],
+                     case["pending_method"])
+            out["executions_retried"] += 1
+        else:
+            maybe_resolve(store, case_id)
+        if before != "resolved" and \
+           store.dispute_cases[case_id]["status"] == "resolved":
             out["cases_resolved"] += 1
+    out["unresolved_settlement_failures"] = len(
+        store.__dict__.get("settlement_failures") or {})
     return out

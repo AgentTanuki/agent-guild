@@ -421,6 +421,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/ledger/inclusion/{record_id}"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/ledger/issuer"
   },
   {
@@ -434,7 +440,19 @@
    "methods": [
     "GET"
    ],
+   "path": "/ledger/record/{record_id}"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/ledger/reputation"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/ledger/rotations"
   },
   {
    "methods": [
@@ -472,6 +490,12 @@
     "POST"
    ],
    "path": "/offers/{offer_id}/accept"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/outcomes"
   },
   {
    "methods": [
@@ -560,6 +584,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "1.1.0"
+  "version": "1.2.0"
  }
 }

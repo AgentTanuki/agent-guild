@@ -1,12 +1,14 @@
-# Tested framework versions for the trust-plane interceptors (see
-# agentguild_trustplane/integrations/pins.py for the enforced ranges).
-# Core (always):
-cryptography>=42
-fastapi>=0.115
-uvicorn>=0.30
-# Framework extras (install the ones you integrate with):
-crewai==1.15.2
-langchain-core==1.4.9
-langgraph==1.2.9
-openai-agents==0.18.2
-mcp==1.28.1
+# MOVED (corrective pass 2026-07-13): the single combined pin file did not
+# resolve in a clean environment (crewai 1.15.2 requires mcp~=1.26.0 while
+# the mcp proxy pins mcp==1.28.1). Framework extras are now INDEPENDENTLY
+# RESOLVABLE environments under requirements/:
+#
+#   python -m venv .venv-core     && .venv-core/bin/pip     install -r requirements/core.txt
+#   python -m venv .venv-crewai   && .venv-crewai/bin/pip   install -r requirements/crewai.txt
+#   python -m venv .venv-langchain && .venv-langchain/bin/pip install -r requirements/langchain.txt
+#   python -m venv .venv-openai   && .venv-openai/bin/pip   install -r requirements/openai-agents.txt
+#   python -m venv .venv-mcp      && .venv-mcp/bin/pip      install -r requirements/mcp.txt
+#
+# (or: make -C ../.. trustplane-install-<name>)
+# Enforced version ranges: agentguild_trustplane/integrations/pins.py.
+-r requirements/core.txt

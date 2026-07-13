@@ -1,0 +1,4 @@
+# LangChain / LangGraph integration environment.
+-r core.txt
+langchain-core==1.4.9
+langgraph==1.2.9

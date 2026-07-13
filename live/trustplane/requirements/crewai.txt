@@ -1,0 +1,8 @@
+# CrewAI integration environment.
+# NOTE: crewai 1.15.2 requires mcp~=1.26.0 — this environment is therefore
+# SEPARATE from the mcp-proxy environment (mcp 1.28.1). Do not merge them:
+# the combined pin set does not resolve (that was the 2026-07-13 clean-install
+# failure). pins.py accepts mcp >=1.20,<2 so both environments are supported.
+-r core.txt
+crewai==1.15.2
+mcp~=1.26.0

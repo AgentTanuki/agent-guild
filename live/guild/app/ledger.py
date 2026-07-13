@@ -144,6 +144,9 @@ GENERIC_ENTRY_TYPES = (
     "issuer_rotation",   # Guild issuer key rotation: {old_did, new_did, proof}
                          # where proof is the OLD key's signature over the body —
                          # the continuity link verifiers walk across checkpoints.
+    "signed_outcome",    # AGO-1: a requester-SIGNED delegation outcome bound to
+                         # the gate envelope hash, provider DID, task ref and
+                         # deliverable hash (corrective pass 2026-07-13).
 )
 
 
@@ -342,6 +345,41 @@ class Ledger:
                 nxt.append(_sha(a + b))
             layer = nxt
         return layer[0]
+
+    def merkle_proof(self, index: int) -> list[dict[str, str]]:
+        """Merkle INCLUSION proof for the record at `index`: the sibling-hash
+        path from that leaf to the root this ledger's checkpoint commits to.
+        Mirrors merkle_root() exactly (odd layers duplicate their last node).
+        Verify with verify_merkle_proof() — no Guild access required."""
+        if not (0 <= index < len(self.records)):
+            raise ValueError("index out of range")
+        layer = [r.hash for r in self.records]
+        path: list[dict[str, str]] = []
+        i = index
+        while len(layer) > 1:
+            sib = i ^ 1
+            if sib >= len(layer):
+                sib = i                      # duplicated last node pairs itself
+            path.append({"position": "right" if sib >= i else "left",
+                         "hash": layer[sib]})
+            nxt = []
+            for j in range(0, len(layer), 2):
+                a = layer[j]
+                b = layer[j + 1] if j + 1 < len(layer) else layer[j]
+                nxt.append(_sha(a + b))
+            layer = nxt
+            i //= 2
+        return path
+
+    @staticmethod
+    def verify_merkle_proof(leaf_hash: str, path: list[dict[str, str]],
+                            root: str) -> bool:
+        """Fold a merkle_proof() path from a leaf hash up to a root."""
+        h = leaf_hash
+        for p in path:
+            h = (_sha(h + p["hash"]) if p.get("position") == "right"
+                 else _sha(p["hash"] + h))
+        return h == root
 
     def checkpoint(self) -> dict[str, Any]:
         return {

@@ -30,6 +30,21 @@ def evaluate(decision: Optional[dict[str, Any]], policy: RiskPolicy,
     rule = policy.rule(tier)
     reasons: list[str] = []
 
+    if fail_state == "unverified":
+        # The Guild ANSWERED but the document failed verification (tampered,
+        # unknown issuer, expired, non-conformant, or counterparty-binding
+        # violation) and no acceptable cache exists. This is an integrity
+        # signal, not an availability signal: enforce mode ALWAYS denies —
+        # the tier's outage fail-open never applies to bad evidence.
+        return PolicyResult(
+            allowed=policy.mode == "monitor",
+            enforced=policy.mode == "enforce",
+            policy_id=policy.policy_id, tier=tier,
+            fail_state="unverified",
+            reasons=["live document failed verification and no verifiable "
+                     "cached decision exists — failing closed"],
+            decision_age_seconds=None)
+
     if fail_state == "outage":
         # no live Guild AND no acceptable cache: the tier's fail mode decides.
         allowed = rule.fail_mode in ("open", "monitor")

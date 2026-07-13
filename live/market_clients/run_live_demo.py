@@ -31,11 +31,11 @@ TOKEN_FILE = HERE.parent / "secrets" / "first_party_token"
 
 
 def _fp_headers() -> dict:
-    tok = os.environ.get("GUILD_FIRST_PARTY_TOKEN", "").strip()
-    if not tok and TOKEN_FILE.exists():
-        tok = TOKEN_FILE.read_text().strip()
-    return ({"X-Agent-Guild-First-Party": tok, "X-Agent-Guild-Role": "test"}
-            if tok else {})
+    # shared helper: Guild-operated traffic ALWAYS tags first-party (the old
+    # copy returned {} without a token and silently counted as external)
+    sys.path.insert(0, str(HERE))
+    from _firstparty import firstparty_headers
+    return firstparty_headers(role="test")
 
 
 def _get(url: str, timeout=30):

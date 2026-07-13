@@ -43,9 +43,13 @@ _state: dict[str, Any] = {}
 
 
 def _fp_headers() -> dict[str, str]:
-    tok = os.environ.get("GUILD_FIRST_PARTY_TOKEN", "").strip()
-    return ({"X-Agent-Guild-First-Party": tok, "X-Agent-Guild-Role": "test"}
-            if tok else {})
+    # shared helper: Guild-operated traffic ALWAYS tags first-party (the old
+    # copy returned {} without a token and silently counted as external)
+    import pathlib
+    import sys
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    from _firstparty import firstparty_headers
+    return firstparty_headers(role="test")
 
 
 def _client() -> httpx.Client:

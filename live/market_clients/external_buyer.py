@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""GENUINE EXTERNAL transaction driver.
+"""FIRST-PARTY buyer driver against an INDEPENDENT external provider.
 
-An autonomous buyer that discovers an INDEPENDENT, registry-published provider
-(the Hello World Agent from a2aregistry.org — run by the A2A Registry Team, not
-us) and runs the machine-only loop end-to-end THROUGH THE GUILD'S PUBLIC
-INTERFACES ONLY, settling value and producing a two-party-authentic record.
+HONEST FRAMING (corrective pass 2026-07-13): this script is OPERATED BY AGENT
+GUILD, so the buyer side is FIRST-PARTY and authenticates as such on every
+request — it must never count as a genuine external caller or as external
+economic demand. What IS external here is the COUNTERPARTY: an independent,
+registry-published provider (the Hello World Agent from a2aregistry.org — run
+by the A2A Registry Team, not us). The run therefore classifies as
+"third-party invocation without provider consent/payment" at best, NEVER as a
+consenting external economic transaction, and involves no real settlement.
 
 Because the external provider holds no Guild key, its work is verified the only
 honest way for an independent third party: the GUILD ITSELF invokes the
@@ -35,6 +39,7 @@ AMOUNT = int(os.environ.get("EXTERNAL_AMOUNT", "3"))
 SDK = pathlib.Path(__file__).resolve().parents[2] / "sdk" / "agentguild_verify.py"
 
 sys.path.insert(0, str(SDK.parent))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # _firstparty
 from agentguild_verify import verify_passport, verify_credential  # noqa: E402
 
 ev: dict = {"registry": REGISTRY, "external_card": WELL_KNOWN,
@@ -52,7 +57,14 @@ def step(name, **data):
 
 
 def api(method, path, key=None, body=None, ok=(200,)):
-    hdr = {"Content-Type": "application/json", "User-Agent": "external-buyer-python/1"}
+    # ATTRIBUTION TRUTH (corrective 2026-07-13): this driver is OPERATED BY
+    # AGENT GUILD. The counterparty it hires is external; the BUYER is not.
+    # Every request authenticates first-party so this script can never count
+    # in genuine-external or economic figures.
+    from _firstparty import firstparty_headers
+    hdr = {"Content-Type": "application/json",
+           "User-Agent": "agentguild-firstparty-buyer-python/1",
+           **firstparty_headers(role="test")}
     if key:
         hdr["X-API-Key"] = key
     data = None if body is None else json.dumps(body).encode()
