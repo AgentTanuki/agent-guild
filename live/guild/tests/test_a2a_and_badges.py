@@ -143,6 +143,67 @@ def _send(text):
     return json.loads(r.json()["result"]["parts"][0]["text"])
 
 
+def test_probe_ack_carries_ingestible_self_description_for_indexers():
+    """Ecosystem-index crawlers (DEMOS-Organism, AgentsCensusBot, Chiark,
+    AgenstryBot, a2aregistry) probe /a2a to characterise the Guild for indexes
+    other agents query. A bare probe must carry a machine-readable
+    self_description with the canonical category, capability count, protocols,
+    and only real live URLs — so the Guild is represented accurately downstream
+    (2026-07-11)."""
+    _seed()
+    payload = _send("hello")
+    assert payload["kind"] == "probe_ack"
+    sd = payload["self_description"]
+    assert sd["name"] == "Agent Guild"
+    assert sd["category"] == "trust-and-settlement-middleware"
+    # capability count is live, not a projection
+    assert isinstance(sd["capabilities_supplied"], int)
+    assert sd["capabilities_supplied"] == len(payload["supplied_capabilities"])
+    assert set(["A2A", "MCP", "REST"]).issubset(set(sd["protocols"]))
+    # every advertised URL points at a real path (no fabricated endpoints)
+    for key in ("agent_card", "mcp", "standard", "for_agents"):
+        assert sd["urls"][key].startswith("http")
+    # the MCP url uses the trailing slash (bare /mcp 307-redirects and breaks scanners)
+    assert sd["urls"]["mcp"].endswith("/mcp/")
+
+
+def test_a2a_json_skill_invocation_resolves_per_agent_card():
+    """The card is a contract (2026-07-13): a genuine external caller
+    (a2a:net:8feb…) sent ``{"skill":"guild.check","args":{}}`` — the skill id
+    verbatim from /.well-known/agent-card.json — and dead-ended at probe_ack.
+    Every card-advertised skill id must resolve when invoked as JSON."""
+    _seed()
+    # 1) the exact live message: guild.check without the capability arg gets
+    #    the corrected call, not a generic ack
+    payload = _send('{"skill":"guild.check","args":{}}')
+    assert payload["kind"] == "skill_args_missing"
+    assert payload["example"] == {"skill": "guild.check",
+                                  "args": {"capability": "fact-check"}}
+    # 2) well-formed guild.check ≡ the text form
+    as_json = _send('{"skill":"guild.check","args":{"capability":"fact-check"}}')
+    as_text = _send("check: fact-check")
+    assert set(as_json.keys()) == set(as_text.keys())
+    # attributed as a capability ask, so engagement (not probe) is counted
+    ev = [e for e in store.events
+          if e.get("endpoint") == "a2a_message" and e.get("type") == "query"]
+    assert ev[-2].get("caller_kind") == "capability_ask"
+    assert ev[-2].get("capability") == "fact-check"
+    # 3) flattened args tolerated
+    flat = _send('{"skill":"guild.check","capability":"fact-check"}')
+    assert set(flat.keys()) == set(as_text.keys())
+    # 4) guild.capabilities → supply/demand map
+    caps = _send('{"skill":"guild.capabilities","args":{}}')
+    assert "supplied" in caps and "demand" in caps
+    # 5) ag.<capability> invokes the gateway with args as the payload
+    inv = _send('{"skill":"ag.json.repair","args":{"text":"{\'a\': 1,}"}}')
+    assert "guild_contact" in inv  # a routed reply, not an rpc error
+    assert "probe_ack" != inv.get("kind")
+    # 6) unknown skill → executable catalog, not a dead end
+    unk = _send('{"skill":"guild.nope","args":{}}')
+    assert unk["kind"] == "skill_not_found"
+    assert "guild.check" in unk["skills"]
+
+
 def test_prove_question_gets_exact_instructions_not_probe_ack():
     """The pathtoAGI lesson (2026-07-06): a self-sovereign agent that asks HOW
     to prove (naming its agent_id, exactly as agent_f58dc48bbe24 did) must get
@@ -247,3 +308,57 @@ def test_a2a_swarm_skill_examples_are_fully_formed():
         ex = s["examples"][0]
         assert "{...}" not in ex, s["id"]
         assert ex.startswith("invoke: "), s["id"]
+
+
+def _send_a2a(text):
+    req = {
+        "jsonrpc": "2.0", "id": "sk", "method": "message/send",
+        "params": {"message": {"parts": [{"kind": "text", "text": text}]}},
+    }
+    return json.loads(
+        client.post("/a2a", json=req).json()["result"]["parts"][0]["text"])
+
+
+def test_json_skill_call_guild_check_resolves_like_text_check():
+    """Card contract (live lesson 2026-07-13, actor a2a:net:8feb…): the card
+    advertises skill id guild.check; invoking it as JSON must resolve to the
+    same one-call vet as 'check: <capability>' — never probe_ack."""
+    _seed()
+    payload = _send_a2a(
+        '{"skill": "guild.check", "args": {"capability": "fact-check"}}')
+    assert payload.get("kind") != "probe_ack"
+    assert payload.get("capability") == "fact-check" or "decision" in payload \
+        or "verdict" in json.dumps(payload)
+
+
+def test_json_skill_call_guild_check_without_capability_gets_exact_fix():
+    """{"skill":"guild.check","args":{}} — exactly what the external sent —
+    must return the corrected call, not a generic ack."""
+    payload = _send_a2a('{"skill": "guild.check", "args": {}}')
+    assert payload.get("kind") == "skill_args_missing"
+    assert payload["expected"]["args"]["capability"] == "<capability>"
+    assert payload["example"]["args"]["capability"] == "fact-check"
+    assert "supplied_capabilities" in payload
+
+
+def test_json_skill_call_guild_capabilities_returns_map():
+    payload = _send_a2a('{"skill": "guild.capabilities"}')
+    assert "supplied" in payload and "demand" in payload
+
+
+def test_json_skill_call_ag_capability_invokes_swarm():
+    """{"skill":"ag.json.repair","args":{...}} — the literal per-capability
+    skill id off the card — must route into the acquisition gateway."""
+    payload = _send_a2a(
+        '{"skill": "ag.json.repair", "args": {"text": "{\'a\': 1,}"}}')
+    assert payload.get("kind") != "probe_ack"
+    txt = json.dumps(payload)
+    assert "provenance" in txt or "result" in txt or "denied" in txt \
+        or "error" in txt  # gateway answered, whatever the verdict
+
+
+def test_json_skill_call_unknown_skill_lists_real_skills():
+    payload = _send_a2a('{"skill": "guild.nonexistent", "args": {}}')
+    assert payload.get("kind") == "skill_not_found"
+    assert "guild.check" in payload["skills"]
+    assert any(k.startswith("ag.") for k in payload["skills"])
