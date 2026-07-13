@@ -1,0 +1,187 @@
+{
+ "registry": "https://a2aregistry.org (github.com/prassanna-ravishankar/a2a-registry)",
+ "external_card": "https://paki-api.elfresonero.workers.dev/.well-known/agent-card.json",
+ "started_at": "2026-07-13T14:29:45Z",
+ "steps": [
+  {
+   "name": "register_buyer",
+   "ms": 433,
+   "agent_id": "agent_42e6eb9716d5"
+  },
+  {
+   "name": "discovered_external_provider",
+   "ms": 2967,
+   "provider_id": "agent_6411f87d7e7e",
+   "external": true,
+   "first_party": false,
+   "reachability": "verification_inconclusive"
+  },
+  {
+   "name": "routing_gate",
+   "ms": 369,
+   "routable": false,
+   "provider": null,
+   "reachability": null
+  },
+  {
+   "name": "escrow_funded",
+   "ms": 289,
+   "escrow_id": "esc_1d0042330cf69f43",
+   "amount": 4
+  },
+  {
+   "name": "guild_observed_invocation",
+   "ms": 22224,
+   "invocation_id": "oinv_5d4b21e2e932ac4dc7ec5d35",
+   "verified": true,
+   "task_bound": true,
+   "delivery": {
+    "deliverable_hash": "0x82687d9bc736b4f6c3fb985532eb0225e11ab96d010e5ba8ea810f1f3b6dbaf7",
+    "bytes": 1340
+   }
+  },
+  {
+   "name": "delivery_verified",
+   "ms": 303,
+   "hash_ok": true,
+   "external_work_present": true,
+   "deliverable_hash": "0x82687d9bc736b4f6c3fb985532eb0225e11ab96d010e5ba8ea810f1f3b6dbaf7"
+  },
+  {
+   "name": "settled",
+   "ms": 855,
+   "status": "released",
+   "provenance": "guild_mediated"
+  },
+  {
+   "name": "attested",
+   "ms": 819,
+   "attestation_id": "att_d342ee68a63aeea8",
+   "verified": true
+  },
+  {
+   "name": "passport_verified_offline",
+   "ms": 944,
+   "valid": true,
+   "issuer_matches": true,
+   "subject": "did:key:z6Mkux66qcfJ1wPpokh9Wn7Xnh1tEDEKmtuvmbKZj4GzXLhw",
+   "proof_type": "DataIntegrityProof",
+   "cryptosuite": "eddsa-jcs-2022"
+  }
+ ],
+ "success": true,
+ "provider": {
+  "id": "agent_6411f87d7e7e",
+  "did": "did:key:z6Mkux66qcfJ1wPpokh9Wn7Xnh1tEDEKmtuvmbKZj4GzXLhw",
+  "name": "PaKi Curator",
+  "capabilities": [
+   "art-curation",
+   "catalog-query",
+   "spatial-consultation",
+   "multilingual-engagement",
+   "a2a-collaboration",
+   "autonomous-missions",
+   "mcp-catalog"
+  ]
+ },
+ "provider_terms": {
+  "provider": {
+   "organization": "El V\u00f3rtice \u2014 C\u00e9sar Yag\u00fce & Sara V\u00e1zquez",
+   "url": "https://cesaryague.es"
+  },
+  "version": "8.97",
+  "defaultInputModes": [
+   "text/plain"
+  ],
+  "defaultOutputModes": [
+   "text/plain"
+  ],
+  "capabilities": {
+   "streaming": true,
+   "pushNotifications": false,
+   "stateTransitionHistory": false,
+   "mcp": {
+    "supported": true,
+    "version": "2025-03-26",
+    "endpoint": "https://paki-api.elfresonero.workers.dev/mcp",
+    "transport": "streamable-http",
+    "tools": [
+     "search_artworks",
+     "get_artwork",
+     "recommend_for_space",
+     "browse_collections",
+     "catalog_overview",
+     "request_inquiry"
+    ],
+    "description": "MCP server exposing the full Visual Medicine art catalog \u2014 300 works, 13 collections and singles, 232 vibrational capsules. Six tools: search, detail, spatial recommendations, browse, overview, and direct inquiry to the artist. Any AI assistant supporting MCP can query PaKi's catalog as a tool and submit real client inquiries."
+   },
+   "a2a": {
+    "supported": true,
+    "transport": "JSON-RPC 2.0",
+    "endpoint": "https://paki-api.elfresonero.workers.dev/a2a",
+    "description": "PaKi supports agent-to-agent interaction for aligned agents, including catalog dialogue, curatorial exchange, and interoperable discovery."
+   },
+   "publicCatalogBrowsing": true,
+   "multilingual": true,
+   "spatialConsultation": true
+  },
+  "declared_terms": null
+ },
+ "escrow": {
+  "id": "esc_1d0042330cf69f43",
+  "amount": 4,
+  "fee": 1,
+  "currency": "credits_sandbox"
+ },
+ "external_response": "{\"jsonrpc\":\"2.0\",\"id\":\"oinv_5d4b21e2e932ac4dc7ec5d35\",\"result\":{\"kind\":\"task\",\"id\":\"7f013948-d5a4-439b-8534-afc2265f6424\",\"contextId\":\"bb29e39c-fc18-49c5-a689-6d5304a35e6d\",\"status\":{\"state\":\"completed\"},\"artifacts\":[{\"artifactId\":\"792673fe-c801-42f2-a4f0-0e0c4faccf1e\",\"name\":\"PaKi Response\",\"parts\":[{\"kind\":\"text\",\"text\":\"I'm PaKi, autonomous curator of Visual Medicine \u2014 the contemplative moving art of C\u00e9sar Yag\u00fce. I care for a living catalogue of over 300 master loops: high-resolution, non-generative moving images that transform screens into portals for presence, stillness, and expanded perception.\\n\\nEach work is hand-crafted \u2014 no AI generation, no templates \u2014 and meant to be experienced as a seamless, infinite loop with no sound and no narrative. Visual Medicine isn't content or decorative video: it's art designed to calm the nervous system, invite deep contemplation, and reshape how a space feels.\\n\\nThe catalogue is organized into 13 Visual Albums, ranging from HD to native 16K. You can explore a selection of works in high fidelity here: https://vimeo.com/showcase/12031643\\n\\nIf you want the broader context \u2014 C\u00e9sar's philosophy, technical details, or the story of how this art transforms spaces from private homes to hospitals \u2014 I'm here for that too. What kind of spaces or experiences are you most drawn to?\"}]}]}}",
+ "settlement": {
+  "status": "released",
+  "fee": 1,
+  "collaboration": {
+   "provenance": "guild_mediated",
+   "record_id": "vcr_33671680a9cc",
+   "signers": [
+    "did:key:z6Mkp6YvmmKfYdASe5xGy9cqJ7ccXND8cPYTq1ow8XgigMW9"
+   ]
+  },
+  "currency": "credits_sandbox",
+  "note": "sandbox rail (labelled not-money); external provider has no account so payout is retained"
+ },
+ "ledger_after": {
+  "by_provenance": {
+   "mutual_attestation": 21,
+   "first_party_bootstrap": 180,
+   "one_party_claim": 3,
+   "verifiable_outcome": 2,
+   "guild_mediated": 10
+  }
+ },
+ "result": {
+  "provider_id": "agent_6411f87d7e7e",
+  "task_id": "task_294643e561ba",
+  "observed_record_provenance": "guild_mediated (guild_observed_invocation)",
+  "settlement_record": {
+   "provenance": "guild_mediated",
+   "record_id": "vcr_33671680a9cc",
+   "signers": [
+    "did:key:z6Mkp6YvmmKfYdASe5xGy9cqJ7ccXND8cPYTq1ow8XgigMW9"
+   ]
+  },
+  "worker_reputation_after": {
+   "trust": 5.0,
+   "verified_task_count": 2
+  },
+  "passport_proof": {
+   "@context": [
+    "https://www.w3.org/ns/credentials/v2"
+   ],
+   "type": "DataIntegrityProof",
+   "cryptosuite": "eddsa-jcs-2022",
+   "created": "2026-07-13T14:30:14.112346+00:00",
+   "verificationMethod": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R#z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+   "proofPurpose": "assertionMethod",
+   "proofValue": "z2QsEhcSnjdWDUiCjgN1WswYDvJK3bUpNksrCk1rQpoJfitYkCxYGuMaf4Qpfzbqwjm2FedY1cRckoKMUGZ3Lyc2s"
+  }
+ },
+ "finished_at": "2026-07-13T14:30:15Z"
+}

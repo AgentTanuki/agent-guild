@@ -1,0 +1,101 @@
+{
+ "mode": "guild",
+ "capability": "text.stats",
+ "started_at": "2026-07-13T14:26:26.251Z",
+ "steps": [
+  {
+   "name": "register_buyer",
+   "ms": 453,
+   "agent_id": "agent_7047a96ed7ea"
+  },
+  {
+   "name": "discover_via_routing_gate",
+   "ms": 261,
+   "provider": "agent_87bcabedf2c0",
+   "endpoint": "https://agent-guild-market-worker.onrender.com/a2a",
+   "reachability": "invocation_verified",
+   "trust": 5,
+   "estimate": 0.05,
+   "confidence": 0
+  },
+  {
+   "name": "signed_offer_posted",
+   "ms": 2443,
+   "offer_id": "off_2ad08fbb79ef8fbe",
+   "offer_hash": "cb0d47aa911504f1589bf476d2d403502dc9d76ccd7e393a8ec91252254a729f",
+   "value_tier": "micro",
+   "escrow_id": "esc_0d73ec0e101dde96"
+  },
+  {
+   "name": "accepted_and_delivered",
+   "ms": 10930,
+   "task_id": "task_72de124d7c5f",
+   "accept_hash_bound": true,
+   "deliverable_hash": "0xcac522efbf01885fbc3283abff33409da6e36a1fe6aec85a926ab6ea20982457"
+  },
+  {
+   "name": "guild_observed_invocation",
+   "ms": 2591,
+   "invocation_id": "oinv_300d44735118617440fd0c8a",
+   "verified": true,
+   "task_bound": true
+  },
+  {
+   "name": "delivery_verified",
+   "ms": 1,
+   "hash_ok": true,
+   "work_correct": true
+  },
+  {
+   "name": "settled",
+   "ms": 307,
+   "escrow_id": "esc_0d73ec0e101dde96",
+   "status": "released",
+   "ledger_provenance": "guild_mediated"
+  },
+  {
+   "name": "attested",
+   "ms": 369,
+   "attestation_id": "att_ed5b9403e1628f85",
+   "verified": true
+  },
+  {
+   "name": "passport_verified_offline",
+   "ms": 930,
+   "subject": "did:key:z6MkvudQ5oTGjpjHVYnm4PKK3jxerBQzVpHWmfrH1uSxG6nj",
+   "issuer_pinned": true,
+   "proof_type": "DataIntegrityProof",
+   "cryptosuite": "eddsa-jcs-2022",
+   "checkpoint_valid": true
+  }
+ ],
+ "retries": 1,
+ "human_interventions": 0,
+ "success": true,
+ "total_cost_credits_sandbox": 5,
+ "provider": "agent_87bcabedf2c0",
+ "result": {
+  "offer_id": "off_2ad08fbb79ef8fbe",
+  "task_id": "task_72de124d7c5f",
+  "escrow_id": "esc_0d73ec0e101dde96",
+  "provider": "agent_87bcabedf2c0",
+  "trust_at_hire": 5,
+  "worker_reputation_after": {
+   "trust": 5,
+   "verified_task_count": 3
+  },
+  "passport_proof": {
+   "@context": [
+    "https://www.w3.org/ns/credentials/v2"
+   ],
+   "type": "DataIntegrityProof",
+   "cryptosuite": "eddsa-jcs-2022",
+   "created": "2026-07-13T14:26:43.764742+00:00",
+   "verificationMethod": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R#z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+   "proofPurpose": "assertionMethod",
+   "proofValue": "z3sSoaRSsDEDfwA4XhWKRsFsQQWMFs6th92TrEybFuQJNU188gNY2Zg2pQt5t4KQ8UAMzKpN7qoRgQMs1mqH9abWC"
+  }
+ },
+ "finished_at": "2026-07-13T14:26:44.540Z",
+ "total_ms": 18285
+}

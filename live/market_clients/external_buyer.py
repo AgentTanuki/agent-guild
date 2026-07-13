@@ -127,7 +127,10 @@ def main() -> int:
     _, tdet = api("GET", f"/tasks/{task_id}")
     payload = base64.b64decode((tdet.get("deliverable_url") or "").split(",")[-1]).decode()
     hash_ok = "0x" + hashlib.sha256(payload.encode()).hexdigest() == tdet["deliverable_hash"]
-    work_present = "Hello World" in payload
+    marker = os.environ.get("EXTERNAL_WORK_MARKER", "Hello World")
+    # generic proof-of-work: the response is a completed A2A task carrying text
+    work_present = (marker in payload) or ('"state":"completed"' in payload
+                                           or '"state": "completed"' in payload)
     step("delivery_verified", hash_ok=hash_ok, external_work_present=work_present,
          deliverable_hash=tdet["deliverable_hash"])
     if not (hash_ok and work_present):

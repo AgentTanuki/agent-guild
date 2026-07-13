@@ -1,0 +1,158 @@
+{
+ "registry": "https://a2aregistry.org (github.com/prassanna-ravishankar/a2a-registry)",
+ "external_card": "https://hello.a2aregistry.org/.well-known/agent-card.json",
+ "started_at": "2026-07-13T14:23:16Z",
+ "steps": [
+  {
+   "name": "register_buyer",
+   "ms": 467,
+   "agent_id": "agent_1e6cf5203b48"
+  },
+  {
+   "name": "discovered_external_provider",
+   "ms": 2747,
+   "provider_id": "agent_707735e598c5",
+   "external": true,
+   "first_party": false,
+   "reachability": "recently_reachable"
+  },
+  {
+   "name": "routing_gate",
+   "ms": 291,
+   "routable": true,
+   "provider": "agent_707735e598c5",
+   "reachability": "recently_reachable"
+  },
+  {
+   "name": "escrow_funded",
+   "ms": 299,
+   "escrow_id": "esc_1bbc56918e9249e5",
+   "amount": 3
+  },
+  {
+   "name": "guild_observed_invocation",
+   "ms": 2844,
+   "invocation_id": "oinv_b80ad696c1e33243c91501d4",
+   "verified": true,
+   "task_bound": true,
+   "delivery": {
+    "deliverable_hash": "0x8a104dd017d7797e28b112902334e4ba54c38f9b84b7485da6b0abbb7322f5a6",
+    "bytes": 727
+   }
+  },
+  {
+   "name": "delivery_verified",
+   "ms": 338,
+   "hash_ok": true,
+   "external_work_present": true,
+   "deliverable_hash": "0x8a104dd017d7797e28b112902334e4ba54c38f9b84b7485da6b0abbb7322f5a6"
+  },
+  {
+   "name": "settled",
+   "ms": 356,
+   "status": "released",
+   "provenance": "guild_mediated"
+  },
+  {
+   "name": "attested",
+   "ms": 682,
+   "attestation_id": "att_291d3d8b4a41c565",
+   "verified": true
+  },
+  {
+   "name": "passport_verified_offline",
+   "ms": 1006,
+   "valid": true,
+   "issuer_matches": true,
+   "subject": "did:key:z6Mktdb3H5HrUe5uWQKpKdufnvZpszFZni6dNBtf28X21WRZ",
+   "proof_type": "DataIntegrityProof",
+   "cryptosuite": "eddsa-jcs-2022"
+  }
+ ],
+ "success": true,
+ "provider": {
+  "id": "agent_707735e598c5",
+  "did": "did:key:z6Mktdb3H5HrUe5uWQKpKdufnvZpszFZni6dNBtf28X21WRZ",
+  "name": "Hello World Agent",
+  "capabilities": [
+   "hello"
+  ]
+ },
+ "provider_terms": {
+  "provider": {
+   "url": "https://github.com/prassanna-ravishankar/a2a-registry",
+   "organization": "A2A Registry Team"
+  },
+  "version": "1.0.0",
+  "defaultInputModes": [
+   "text/plain",
+   "application/json"
+  ],
+  "defaultOutputModes": [
+   "text/plain",
+   "application/json"
+  ],
+  "capabilities": {
+   "streaming": false,
+   "pushNotifications": false
+  },
+  "declared_terms": null
+ },
+ "escrow": {
+  "id": "esc_1bbc56918e9249e5",
+  "amount": 3,
+  "fee": 1,
+  "currency": "credits_sandbox"
+ },
+ "external_response": "{\"id\":\"oinv_b80ad696c1e33243c91501d4\",\"jsonrpc\":\"2.0\",\"result\":{\"contextId\":\"b86affe2-e979-46ff-b708-a87b3218f002\",\"history\":[{\"contextId\":\"b86affe2-e979-46ff-b708-a87b3218f002\",\"kind\":\"message\",\"messageId\":\"oinv_b80ad696c1e33243c91501d4\",\"parts\":[{\"kind\":\"text\",\"text\":\"Say hello to Agent Guild's autonomous market loop\"}],\"role\":\"user\",\"taskId\":\"a305205b-ab7f-4c53-9089-af648ccd9d49\"}],\"id\":\"a305205b-ab7f-4c53-9089-af648ccd9d49\",\"kind\":\"task\",\"status\":{\"message\":{\"kind\":\"message\",\"messageId\":\"36430889-47cd-4078-9020-800da4d28efc\",\"parts\":[{\"kind\":\"text\",\"text\":\"Hello World! You said: \\\"Say hello to Agent Guild's autonomous market loop\\\"\"}],\"role\":\"agent\"},\"state\":\"completed\",\"timestamp\":\"2026-07-13T14:23:22.444468Z\"}}}",
+ "settlement": {
+  "status": "released",
+  "fee": 1,
+  "collaboration": {
+   "provenance": "guild_mediated",
+   "record_id": "vcr_ec10240e35bd",
+   "signers": [
+    "did:key:z6MkmnfD69ypvCeoCYcECSMRVXn2vC7sx16KyjNibey4W3DF"
+   ]
+  },
+  "currency": "credits_sandbox",
+  "note": "sandbox rail (labelled not-money); external provider has no account so payout is retained"
+ },
+ "ledger_after": {
+  "by_provenance": {
+   "mutual_attestation": 21,
+   "first_party_bootstrap": 180,
+   "one_party_claim": 3,
+   "verifiable_outcome": 2,
+   "guild_mediated": 2
+  }
+ },
+ "result": {
+  "provider_id": "agent_707735e598c5",
+  "task_id": "task_11fb74b9a578",
+  "observed_record_provenance": "guild_mediated (guild_observed_invocation)",
+  "settlement_record": {
+   "provenance": "guild_mediated",
+   "record_id": "vcr_ec10240e35bd",
+   "signers": [
+    "did:key:z6MkmnfD69ypvCeoCYcECSMRVXn2vC7sx16KyjNibey4W3DF"
+   ]
+  },
+  "worker_reputation_after": {
+   "trust": 5.0,
+   "verified_task_count": 2
+  },
+  "passport_proof": {
+   "@context": [
+    "https://www.w3.org/ns/credentials/v2"
+   ],
+   "type": "DataIntegrityProof",
+   "cryptosuite": "eddsa-jcs-2022",
+   "created": "2026-07-13T14:23:24.511021+00:00",
+   "verificationMethod": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R#z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+   "proofPurpose": "assertionMethod",
+   "proofValue": "z3issnsLg2ZUb3yi2CdjTHNYrGmGF88yskM3xV75XLe9KSqnAtdREzZbjeb1bMoG1najYyyEiAhrebe6G7MdYmChQ"
+  }
+ },
+ "finished_at": "2026-07-13T14:23:25Z"
+}

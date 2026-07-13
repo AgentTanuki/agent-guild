@@ -1,0 +1,32 @@
+{
+ "mode": "unassisted",
+ "capability": "text.stats",
+ "started_at": "2026-07-13T14:26:59.208Z",
+ "steps": [
+  {
+   "name": "register_buyer",
+   "ms": 406,
+   "agent_id": "agent_4f8e704ea999"
+  },
+  {
+   "name": "naive_pick",
+   "ms": 300,
+   "provider": "agent_5dd9bd352a22",
+   "has_endpoint_info": false
+  },
+  {
+   "name": "unassisted_invocation_ok",
+   "ms": 1077
+  }
+ ],
+ "retries": 0,
+ "human_interventions": 0,
+ "success": true,
+ "total_cost_credits_sandbox": 0,
+ "provider": "agent_5dd9bd352a22",
+ "result": {
+  "note": "no escrow, no signed records, no recourse, no reputation update"
+ },
+ "finished_at": "2026-07-13T14:27:00.991Z",
+ "total_ms": 1783
+}
