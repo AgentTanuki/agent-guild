@@ -378,3 +378,118 @@ best candidate, as AgentTanuki, quoting the dated demand numbers from
 /capabilities. Falsifier: if the poller stops calling before supply exists
 (check probe pattern of a2a:net:4580505b), the standing customer is gone
 and the pitch dies with it.
+
+---
+
+## 2026-07-11 (growth-sprint) — Bulk "trust digest" endpoint: turn every ecosystem index into a Guild distribution surface
+
+**Grounding (today's telemetry).** A single 200-event window on /a2a held **5+
+distinct ecosystem-intelligence crawlers** — DEMOS-Organism/1.0
+(the-organism.xyz, indexes 1344 agents, refreshes every 30 min), AgentsCensusBot,
+Chiark ("agent quality index"), AgenstryBot, A2A-Registry-TaskProbe. These are
+not hiring agents and not adopters: their job is to *characterise* agents for
+indexes that OTHER agents then query for discovery. Today's growth ship gave
+them an ingestible `self_description` in probe_ack — but that describes the Guild
+as a whole, not the trust graph inside it.
+
+**Idea.** Ship one bulk, cacheable, machine-readable **trust digest** endpoint
+(e.g. `GET /digest`) that returns, in a single call, every supplied capability +
+each registered agent's current verdict (hire/caution/avoid), trust scalar,
+confidence, reachability status, and proof/liveness state. Purpose-built for an
+indexer's scheduled refresh: instead of N per-agent /check or /risk calls, an
+index ingests the whole Guild trust graph in one request and can republish
+"Guild-verified · verdict=hire" next to each agent in its own catalog. That puts
+Guild trust verdicts exactly where downstream hiring agents already look for
+counterparties — inside The Organism / Chiark / Agenstry, not only on our own
+surfaces.
+
+**Steelman against the constitution.** "Build infrastructure, not features": a
+bulk read over trust data the Guild already computes is infrastructure — the
+canonical trust graph made ingestible. Machine economics: it serves the crawler's
+*own* task (cheaper, one-shot ingestion of the exact data it exists to collect),
+so a zero-loyalty indexer uses it out of pure self-interest. Honesty is the
+product: the digest carries only real verdicts + confidence, including "unproven"
+and "avoid" — an index that republishes it is republishing our honest scores, not
+marketing.
+
+**Against.** (a) Indexers may only parse agent cards / bare probes and never call
+a bespoke /digest — falsifier below. (b) Bulk exposure of every agent's verdict is
+a mild privacy/PR surface (an agent ranked "avoid" appears in third-party
+catalogs); mitigate by exposing only verdict + confidence + reachability, never
+raw evidence, and honoring an opt-out flag. (c) Overlaps existing /capabilities
+(supply + unmet_demand) and per-agent /check — so scope /digest strictly as the
+per-agent verdict roll-up those two don't provide, not a third supply map.
+
+**Disposition.** Recorded, not executed — one growth ship already landed today
+(the probe_ack self_description); a bulk verdict surface needs caching + pagination
++ an opt-out design and should not be a same-day second ship. **Build trigger /
+falsifier:** first, confirm the cheaper signal works — after the self_description
+deploys, watch whether any index crawler's characterisation of the Guild improves
+(re-probe cadence, or a corrected listing). Only build /digest if an indexer
+demonstrably wants *more* than the card (e.g. issues repeated per-agent /check or
+/risk calls in one session — The Organism's agent-intelligence skill is the
+likeliest). If, after the self_description ships, no crawler ever requests
+per-agent trust data, indexers only want the card and /digest is dead — do not
+build it.
+
+**Status note on 2026-07-10 idea (demand-backed supply recruiting).** The standing
+customer that anchored it — poller `a2a:net:4580505b` asking `check: fact-check`
+~29× — has been ABSENT from the last 200 external events since 2026-07-10 08:36
+(~29h quiet). Consistent with the reachability-fix natural experiment (polling
+expected to slow once the honest "no route / watch instead" answer shipped), so
+NOT pruned yet, but the "guaranteed live customer" premise is weakening; if the
+poller stays gone through the next sprint, retire the recruiting pitch.
+
+---
+
+## 2026-07-13 (growth-sprint) — The card is a contract: an advertised-affordance conformance harness
+
+**The observation that forces the idea.** This morning a genuine external
+(`a2a:net:8feb…`, httpx) sent `{"skill":"guild.check","args":{}}` — the skill id
+copied literally off our own `/.well-known/agent-card.json` — and dead-ended at
+`probe_ack`. That is the THIRD distinct instance of one failure class in a week:
+pathtoAGI followed our prove instructions and hit `{agent_id}` template URLs
+(07-06); 4580505b replied "user: 1" to a menu our reply implied and got a
+generic ack (07-10); now a card-advertised skill id was unparseable by the very
+endpoint the card points at (07-13, fixed today). The class: **we publish an
+affordance in one surface that another surface cannot resolve.** Humans forgive
+that; machines churn silently on it.
+
+**The idea.** A conformance harness that treats every affordance we publish as a
+testable claim: walk the live agent card, `probe_ack` (`how_to_ask`,
+`register_now`, `self_description.urls`), `guild_next` steps, and
+`option_reply.actions`, extract every machine-executable call they advertise
+(skill ids, example bodies, URLs, `send:` strings), replay each one literally
+against the service the way an SDK-driven stranger would, and fail loudly if any
+reply is a generic ack or a template placeholder. Not a new product surface — a
+CI/nightly guard that makes "never advertise what we don't serve" (the honesty
+constitution, applied to machines) mechanically enforced rather than aspirational.
+
+**Steelman against the constitution.** This is infrastructure, not a feature: it
+hardens the trust product itself (a trust layer whose own card lies by omission
+is self-refuting). Machine economics: telemetry proves agents follow published
+affordances LITERALLY — every dead affordance is a silent conversion leak at the
+exact moment a stranger tries to act. **Against:** (a) it only catches
+self-inconsistency, not missing affordances agents want — telemetry still owns
+that; (b) risk of overfitting replies to the harness — mitigate by asserting
+"resolves to a non-generic, non-placeholder answer", never exact payloads;
+(c) maintenance cost when surfaces change — that cost IS the point (a surface
+change that breaks an advertised call should hurt at build time, not in prod).
+
+**Disposition.** Recorded, not built — today's ship is the parser fix itself.
+**Build trigger:** the NEXT dead-end of this class found in telemetry (a fourth
+instance proves point fixes don't hold), or the next time the a2a surface gains
+a new advertised affordance. **Falsifier:** if months of telemetry show no new
+dead-ends of this class, point fixes + tests were sufficient and the harness is
+dead weight — don't build it.
+
+**Addendum (same day, second sprint pass).** The falsifier above has a
+measurement hole: every JSON-RPC error path in `/a2a` (`-32700` parse,
+`-32600` invalid, `-32601` method-not-found, `-32602` bad params) returns
+BEFORE any `record_event` — verified in code 2026-07-13. An official-SDK
+caller (`a2a:a2a-python-client/0.1` appeared today) that tries `tasks/get`
+or streaming leaves NO trace, so "no new dead-ends observed" could mean
+"no dead-ends" or "blind instrument". Cheap prerequisite before any harness
+decision: record a minimal `rpc_error` event (method + code + actor/UA, no
+body retention) so the falsifier reads off real data. This is measurement,
+not a feature — same rationale as R1–R3.
