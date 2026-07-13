@@ -1,0 +1,38 @@
+{
+ "at": "2026-07-13T12:25:15Z",
+ "health": {
+  "ok": true,
+  "agents": 53,
+  "tasks": 203,
+  "attestations": 200
+ },
+ "ledger_stats": {
+  "status": "preview",
+  "durable": true,
+  "records": 231,
+  "collaborations": 203,
+  "challenges": 0,
+  "open_challenges": 0,
+  "by_provenance": {
+   "guild_mediated": 200,
+   "verifiable_outcome": 3
+  },
+  "by_type": {
+   "collab": 203,
+   "register": 24,
+   "config_change": 1,
+   "receipt": 3
+  },
+  "chain_valid": true,
+  "head_hash": "aa01456adb75bbfde16084432a30c517de18612f4beff7c2501960d30a60659a"
+ },
+ "checkpoint": {
+  "count": 231,
+  "head_hash": "aa01456adb75bbfde16084432a30c517de18612f4beff7c2501960d30a60659a",
+  "merkle_root": "6bf1a15e6d16cee8f993dce2cb9053c3f3b268780913347f60e3f4772bf80a50",
+  "chain_valid": true,
+  "issuer": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+  "created_at": "",
+  "proof": "2db121e1a714af9ac4b93a5e7651641bcb3ae39b30ddb2b1bbe8a554bf05990891f3f4332a573119480fcc8c2f435ab1992ba7144c0bd4f2f4479ed32de6de0b"
+ }
+}
