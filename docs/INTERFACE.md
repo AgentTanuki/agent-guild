@@ -36,6 +36,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /agents/{agent_id}/endpoint`
 - `GET /agents/{agent_id}/evidence`
 - `GET /agents/{agent_id}/flags`
+- `POST /agents/{agent_id}/invoke`
 - `GET /agents/{agent_id}/journey`
 - `POST /agents/{agent_id}/key/revoke`
 - `POST /agents/{agent_id}/key/rotate`
@@ -80,7 +81,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /ledger/stats`
 - `GET /llms.txt`
 - `POST /market/sweep`
-- `POST /offers`
+- `GET | POST /offers`
 - `GET /offers/{offer_id}`
 - `POST /offers/{offer_id}/accept`
 - `GET /referrals`

@@ -60,3 +60,25 @@ services:
       name: guild-data
       mountPath: /data
       sizeGB: 1
+
+  # --- market demo WORKER (first-party demo supply; never counted external) --
+  # The FastAPI half of the machine-only market loop (the buyer is Node.js and
+  # discovers this worker exclusively through the Guild's public /check routing
+  # gate). Free instance: sleeps when idle; the Guild's probe/invoke wakes it.
+  - type: web
+    name: agent-guild-market-worker
+    runtime: python
+    rootDir: live/market_clients/worker
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn worker:app --host 0.0.0.0 --port $PORT
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GUILD_URL
+        value: https://agent-guild-5d5r.onrender.com
+      - key: WORKER_PUBLIC_URL
+        value: https://agent-guild-market-worker.onrender.com/a2a
+      - key: GUILD_FIRST_PARTY_TOKEN   # classification only; set with the main
+        sync: false                    # service's token when Ross activates it

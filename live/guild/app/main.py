@@ -36,6 +36,7 @@ from . import __version__
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from .state import store
+from .reachability import url_policy_check
 from . import abuse
 from . import crypto
 from . import market
@@ -891,6 +892,28 @@ def post_offer(req: OfferRequest, x_api_key: Optional[str] = Header(None)):
     return offer
 
 
+@app.get("/offers")
+def list_offers(worker_id: Optional[str] = Query(None),
+                requester_id: Optional[str] = Query(None),
+                status: Optional[str] = Query(None),
+                limit: int = Query(50, ge=1, le=200)):
+    """Machine-public offer feed (workers poll this to find work addressed to
+    them). Filter by worker_id / requester_id / status."""
+    market.sweep(store)
+    out = []
+    for o in reversed(list(store.offers.values())):
+        if worker_id and o["core"]["worker_id"] != worker_id:
+            continue
+        if requester_id and o["core"]["requester_id"] != requester_id:
+            continue
+        if status and o["status"] != status:
+            continue
+        out.append(o)
+        if len(out) >= limit:
+            break
+    return {"count": len(out), "offers": out}
+
+
 @app.get("/offers/{offer_id}")
 def get_offer(offer_id: str):
     market.sweep(store)
@@ -898,6 +921,54 @@ def get_offer(offer_id: str):
     if offer is None:
         raise HTTPException(404, "offer not found")
     return offer
+
+
+@app.post("/agents/{agent_id}/invoke")
+def invoke_agent(agent_id: str, body: dict[str, Any],
+                 x_api_key: Optional[str] = Header(None)):
+    """Guild-observed BOUND invocation: the Guild itself sends one A2A
+    message/send to the agent's VERIFIED declared endpoint, observing the
+    protocol response. Pass `task_id` to bind the invocation to a task — the
+    binding is the `guild_observed_invocation` evidence that lets the task's
+    ledger record reach guild_mediated without the worker holding a Guild key.
+    Authenticated (any registered agent) and rate-limited."""
+    caller = store.agent_for_presented_key(x_api_key) if x_api_key else None
+    if caller is None:
+        raise HTTPException(401, "X-API-Key of a registered agent required")
+    _rate_limit_key_op(caller["id"])
+    target = store.get_agent(agent_id)
+    if not target:
+        raise HTTPException(404, "agent not found")
+    inv = store.begin_outbound_invocation(agent_id)
+    if inv is None:
+        raise HTTPException(409, "agent has no declared endpoint")
+    endpoint = inv["endpoint"]
+    ok, why = url_policy_check(endpoint)
+    if not ok:
+        raise HTTPException(422, f"endpoint fails URL policy: {why}")
+    message = body.get("message") or {"text": "ping"}
+    task_id = body.get("task_id")
+    rpc = {"jsonrpc": "2.0", "id": inv["invocation_id"], "method": "message/send",
+           "params": {"message": {
+               "role": "user", "messageId": inv["invocation_id"],
+               "parts": [{"kind": "text",
+                          "text": (message if isinstance(message, str)
+                                   else __import__("json").dumps(message))}]}}}
+    protocol_ok, resp_snip, err = False, None, None
+    try:
+        import httpx
+        r = httpx.post(endpoint, json=rpc, timeout=30.0, follow_redirects=False,
+                       headers={"User-Agent": "agent-guild-invoker/1"})
+        protocol_ok = 200 <= r.status_code < 300
+        resp_snip = r.text[:4000]
+    except Exception as e:
+        err = str(e)[:300]
+    verified = store.complete_outbound_invocation(
+        inv["invocation_id"], protocol_ok=protocol_ok, receipt_ref=task_id)
+    return {"invocation_id": inv["invocation_id"], "endpoint": endpoint,
+            "protocol_ok": protocol_ok, "invocation_verified": verified,
+            "task_bound": bool(task_id and verified), "task_id": task_id,
+            "response": resp_snip, "error": err}
 
 
 @app.post("/offers/{offer_id}/accept")

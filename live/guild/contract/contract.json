@@ -178,6 +178,12 @@
   },
   {
    "methods": [
+    "POST"
+   ],
+   "path": "/agents/{agent_id}/invoke"
+  },
+  {
+   "methods": [
     "GET"
    ],
    "path": "/agents/{agent_id}/journey"
@@ -444,6 +450,7 @@
   },
   {
    "methods": [
+    "GET",
     "POST"
    ],
    "path": "/offers"
