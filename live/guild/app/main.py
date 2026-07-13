@@ -77,6 +77,18 @@ async def _lifespan(app: "FastAPI"):
     except Exception as exc:
         _log.warning("ledger reclassification skipped: %s", exc)
     try:
+        # automatic reconciliation: heal any serving-view evidence missing from
+        # the chain (append-only) and log divergences. The chain is the write
+        # path; the store dicts are replayable caches.
+        rec = store.reconcile_ledger(repair=True)
+        if not rec.get("clean"):
+            _log.warning("ledger reconcile: %s", rec)
+        else:
+            _log.info("ledger reconcile clean: records=%s repaired=%s",
+                      rec["records"], rec["repaired"])
+    except Exception as exc:
+        _log.warning("ledger reconcile skipped: %s", exc)
+    try:
         # Discovery swarm publish gate: run every capability's fixture suite and
         # build/sign identity documents for the passing ones (docs/discovery-swarm).
         swarm_ensure_built()
@@ -1689,6 +1701,57 @@ def publish_checkpoint(x_admin_token: Optional[str] = Header(None)):
         raise HTTPException(403, "publication requires a valid X-Admin-Token")
     entry = store.publish_checkpoint()
     return {"status": "published", "checkpoint": entry}
+
+
+@app.get("/ledger/reconcile")
+def ledger_reconcile():
+    """Read-only reconciliation audit: does the hash chain verify, is every
+    piece of serving-view evidence on the chain, and do sealed collaboration
+    records agree with the serving task cache? Repairs nothing — see the
+    admin POST for append-only healing (which also runs automatically at boot)."""
+    return store.reconcile_ledger(repair=False)
+
+
+@app.post("/ledger/reconcile")
+def ledger_reconcile_repair(x_admin_token: Optional[str] = Header(None)):
+    """Append-only healing: any evidence present in the serving views but
+    missing from the chain is appended (backfilled=true). Never rewrites or
+    deletes chain entries. Admin-gated because it writes canonical evidence."""
+    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(403, "reconcile-repair requires a valid X-Admin-Token")
+    return store.reconcile_ledger(repair=True)
+
+
+@app.post("/admin/issuer/rotate")
+def rotate_issuer(x_admin_token: Optional[str] = Header(None)):
+    """Rotate the Guild issuer keypair. Continuity is anchored on the ledger:
+    an `issuer_rotation` entry dual-signed by the old and new keys is appended,
+    so any verifier can walk from the original DID to the current one. Old
+    credentials keep verifying against their historical issuer DID."""
+    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(403, "issuer rotation requires a valid X-Admin-Token")
+    out = store.rotate_guild_identity()
+    # a rotation invalidates nothing, but the next checkpoint should carry the
+    # new signature immediately so pinners see the succession in the feed
+    cp = store.publish_checkpoint()
+    return {"status": "rotated", **{k: v for k, v in out.items() if k != "ledger_entry"},
+            "rotation_entry_id": out["ledger_entry"]["id"],
+            "next_checkpoint_index": cp["index"]}
+
+
+@app.get("/ledger/issuer")
+def ledger_issuer():
+    """The Guild's issuer DID, its full rotation history, and whether the
+    on-chain rotation entries form a valid continuity chain from the first
+    issuer DID to the current one."""
+    led = store.durable_ledger()
+    history = store.guild_did_history()
+    return {
+        "did": store.guild_did(),
+        "history": history,
+        "rotations": [r.body for r in led.issuer_rotations()],
+        "continuity_valid": led.verify_issuer_continuity(history[0], history[-1]),
+    }
 
 
 @app.get("/ledger/stats")

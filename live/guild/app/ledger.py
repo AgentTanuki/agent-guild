@@ -274,6 +274,37 @@ class Ledger:
         return (PROVENANCE_WEIGHT.get(self.effective_provenance(rec, _reclass), 0.0)
                 * CHALLENGE_MULTIPLIER.get(rec.challenge_status, 1.0))
 
+    # --- issuer-key rotation continuity ------------------------------------
+    def issuer_rotations(self) -> list["GenericEntry"]:
+        return [r for r in self.records
+                if isinstance(r, GenericEntry) and r.type == "issuer_rotation"]
+
+    @staticmethod
+    def verify_rotation_entry(body: dict[str, Any]) -> bool:
+        """A rotation is valid iff the OLD key endorsed the successor and the
+        NEW key proved possession — both over the same core statement."""
+        try:
+            core = {k: body[k] for k in ("old_did", "new_did", "rotated_at")}
+            return (verify_jcs(core, body["proof_old_key"],
+                               public_key_from_did(body["old_did"]))
+                    and verify_jcs(core, body["proof_new_key"],
+                                   public_key_from_did(body["new_did"])))
+        except (KeyError, ValueError, TypeError):
+            return False
+
+    def verify_issuer_continuity(self, root_did: str, current_did: str) -> bool:
+        """Walk the on-chain rotation entries from the original issuer DID; True
+        iff each link is dual-signed and the walk ends at `current_did`. This is
+        how a verifier holding an OLD pinned checkpoint decides whether a newer
+        checkpoint signed by a different key is the same authority."""
+        did = root_did
+        for r in self.issuer_rotations():
+            b = r.body
+            if b.get("old_did") != did or not self.verify_rotation_entry(b):
+                return False
+            did = b["new_did"]
+        return did == current_did
+
     def challenge(self, target_id: str, challenger_did: str, grounds: str,
                   stake: float = 0.0, created_at: str = "") -> Challenge:
         ch = Challenge(

@@ -21,7 +21,8 @@ from contextlib import nullcontext
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
-from .crypto import generate_keypair, did_from_public_key, canonicalize
+from .crypto import (generate_keypair, did_from_public_key, canonicalize,
+                     sign_jcs)
 from . import reachability as _reach
 from .reachability import reachability_fields, url_policy_check
 from . import credentials as creds
@@ -2483,6 +2484,12 @@ class Store:
                 "published_at": _now(),
                 "ledger_length": len(self.ledger_records),
                 "checkpoint": cp,
+                # continuity: each published entry commits to its predecessor, so
+                # the FEED itself is a hash chain — removing or reordering a
+                # published checkpoint is detectable by anyone holding a later one.
+                "prev_entry_sha256": (
+                    hashlib.sha256(canonicalize(self.checkpoints[-1]).encode("utf-8"))
+                    .hexdigest() if self.checkpoints else "0" * 64),
             }
             self.checkpoints.append(entry)
             if self.backend is not None:
@@ -2497,6 +2504,150 @@ class Store:
         if not self.checkpoints and publish_if_empty:
             return self.publish_checkpoint()
         return self.checkpoints[-1] if self.checkpoints else None
+
+    # --- issuer-key rotation (continuity anchored on the chain) --------------
+    def rotate_guild_identity(self) -> dict[str, Any]:
+        """Rotate the Guild's issuer keypair. Continuity is a LEDGER FACT, not a
+        promise: an `issuer_rotation` entry carrying the old DID, the new DID and
+        signatures from BOTH keys (old endorses successor; new proves possession)
+        is appended to the hash chain. Verifiers walk these entries from the
+        original issuer DID to trust checkpoints signed by the current key. The
+        retired PRIVATE key is dropped (public half stays derivable from its DID)."""
+        with self.lock, self._txn():
+            old = self.guild_identity()
+            priv, pub = generate_keypair()
+            rotated_at = _now()
+            core = {"old_did": old["did"],
+                    "new_did": did_from_public_key(pub),
+                    "rotated_at": rotated_at}
+            body = dict(core)
+            body["proof_old_key"] = sign_jcs(core, old["private_key"])
+            body["proof_new_key"] = sign_jcs(core, priv)
+            entry = self.append_ledger_event("issuer_rotation", body,
+                                             actor_did=old["did"])
+            history = list(self.identity.get("history") or [])
+            history.append({"did": old["did"], "public_key": old["public_key"],
+                            "created_at": old.get("created_at"),
+                            "retired_at": rotated_at})
+            self.identity = {
+                "did": core["new_did"], "public_key": pub, "private_key": priv,
+                "name": "Agent Guild", "created_at": rotated_at,
+                "history": history,
+            }
+            if self.backend is not None:
+                self._persist_kv("identity", self.identity)
+            self._save()
+            return {"old_did": core["old_did"], "new_did": core["new_did"],
+                    "rotated_at": rotated_at, "ledger_entry": entry}
+
+    def guild_did_history(self) -> list[str]:
+        """Every DID that has ever been the Guild issuer, oldest→current."""
+        gid = self.guild_identity()
+        return [h["did"] for h in (gid.get("history") or [])] + [gid["did"]]
+
+    # --- automatic reconciliation: chain ↔ serving views ---------------------
+    def reconcile_ledger(self, repair: bool = True) -> dict[str, Any]:
+        """The ledger is the evidence write path; the store dicts are REPLAYABLE
+        serving caches. This audit proves (or restores) that relationship:
+
+          * chain integrity — every hash + linkage recomputed
+          * completeness — every graded, content-addressed task has a sealed
+            collaboration record; every agent has a register event; every
+            attestation has an attestation event (repairable: missing chain
+            entries are appended — append-only healing, never rewrites)
+          * consistency — sealed collaboration records agree with the serving
+            task on parties/outcome/deliverable (divergence is REPORTED, never
+            patched: a sealed record is evidence, the serving row is cache)
+
+        Runs at boot and on demand (GET /ledger/reconcile)."""
+        with self.lock, self._txn():
+            self.ensure_ledger_backfilled()
+            from .ledger import Ledger
+            led = Ledger.from_records(self.ledger_records)
+            report: dict[str, Any] = {
+                "chain_valid": led.verify_chain(),
+                "records": len(self.ledger_records),
+                "repaired": {"collab_records": 0, "register_events": 0,
+                             "attestation_events": 0},
+                "mismatches": [],
+            }
+            # completeness: graded tasks → collab records
+            have_collab = {d.get("task_id") for d in self.ledger_records
+                           if d.get("task_id") and "type" not in d}
+            graded = [t for t in self.tasks.values()
+                      if t.get("outcome") in ("accepted", "disputed", "rejected",
+                                              "delivered")
+                      and t.get("deliverable_hash")]
+            for t in graded:
+                if t["id"] not in have_collab:
+                    if repair:
+                        self.append_task_to_ledger(t["id"])
+                        report["repaired"]["collab_records"] += 1
+                    else:
+                        report["mismatches"].append(
+                            {"kind": "missing_collab_record", "task_id": t["id"]})
+            # completeness: agents → register events; attestations → events
+            reg_dids = {d.get("body", {}).get("did") for d in self.ledger_records
+                        if d.get("type") == "register"}
+            for a in self.agents.values():
+                if a.get("did") and a["did"] not in reg_dids and not a.get("seed"):
+                    if repair:
+                        self.append_ledger_event("register", {
+                            "agent_id": a["id"], "name": a.get("name", ""),
+                            "did": a["did"], "capabilities": a.get("capabilities", []),
+                            "custodial": a.get("custodial", True),
+                            "backfilled": True,
+                        }, actor_did=a["did"])
+                        report["repaired"]["register_events"] += 1
+                    else:
+                        report["mismatches"].append(
+                            {"kind": "missing_register_event", "agent_id": a["id"]})
+            att_ids = {d.get("body", {}).get("attestation_id")
+                       for d in self.ledger_records if d.get("type") == "attestation"}
+            for att in self.attestations:
+                if att["id"] not in att_ids:
+                    if repair:
+                        issuer_did = (self.agents.get(att.get("issuer_id")) or {}).get("did", "")
+                        self.append_ledger_event("attestation", {
+                            "attestation_id": att["id"],
+                            "issuer_id": att.get("issuer_id"),
+                            "subject_id": att.get("subject_id"),
+                            "capability": att.get("capability", ""),
+                            "rating": float(att.get("rating", 0.0) or 0.0),
+                            "task_id": att.get("task_id"),
+                            "verified": bool(att.get("verified")),
+                            "credential_sha256": hashlib.sha256(canonicalize(
+                                att.get("credential") or {}).encode("utf-8")).hexdigest(),
+                            "backfilled": True,
+                        }, actor_did=issuer_did)
+                        report["repaired"]["attestation_events"] += 1
+                    else:
+                        report["mismatches"].append(
+                            {"kind": "missing_attestation_event", "attestation_id": att["id"]})
+            # consistency: sealed collab records vs serving tasks
+            for d in self.ledger_records:
+                if "type" in d or not d.get("task_id"):
+                    continue
+                t = self.tasks.get(d["task_id"])
+                if t is None:
+                    report["mismatches"].append(
+                        {"kind": "collab_record_without_task", "record_id": d.get("id"),
+                         "task_id": d["task_id"]})
+                    continue
+                for chain_key, task_key in (("worker_id", "worker_agent_id"),
+                                            ("requester_id", "requester_agent_id"),
+                                            ("outcome", "outcome"),
+                                            ("deliverable_hash", "deliverable_hash")):
+                    if d.get(chain_key) != t.get(task_key):
+                        report["mismatches"].append(
+                            {"kind": "collab_task_divergence", "record_id": d.get("id"),
+                             "task_id": d["task_id"], "field": chain_key,
+                             "chain": d.get(chain_key), "serving": t.get(task_key)})
+            report["chain_valid_after"] = Ledger.from_records(
+                self.ledger_records).verify_chain()
+            report["clean"] = (report["chain_valid"] and report["chain_valid_after"]
+                               and not report["mismatches"])
+            return report
 
     # --- escrow + settlement (the economic layer) ---------------------------
     def open_escrow(self, requester_key: str, worker_id: str, amount: int,
@@ -2839,7 +2990,9 @@ class Store:
         LIVE reputation so a stale snapshot can't mislead."""
         valid = verify_credential(vc)
         issuer = (vc.get("issuer") or "")
-        is_guild = bool(issuer) and issuer == self.guild_did()
+        # a credential issued by ANY historical Guild key is Guild-issued; the
+        # rotation chain on the ledger proves the succession (issuer_rotation)
+        is_guild = bool(issuer) and issuer in self.guild_did_history()
         subj = (vc.get("credentialSubject") or {})
         subject_did = subj.get("id", "")
         subject = self.agent_by_did(subject_did) if subject_did else None
@@ -2999,6 +3152,20 @@ class Store:
             self.tasks[task_id] = rec
             if self.backend is not None:
                 self._persist_task(rec)
+            # dual-write: task creation is chain evidence too — with this, every
+            # evidence-bearing mutation (register, config_change, task_created,
+            # receipt, attestation, escrow_event) lands on the chain, making the
+            # serving views REPLAYABLE caches (see reconcile_ledger).
+            req_did = (self.agents.get(requester_id) or {}).get("did", "")
+            self.append_ledger_event("task_created", {
+                "task_id": task_id,
+                "requester_id": requester_id,
+                "worker_id": worker_id,
+                "task_type": task_type,
+                "payment": float(payment),
+                "worker_config_hash": rec["worker_config_hash"],
+                "requester_config_hash": rec["requester_config_hash"],
+            }, actor_did=req_did)
             # First engagement (either role) is the stage-1→2 transition — the
             # broken-link metric this whole instrument panel exists to bend.
             self.record_milestone(requester_id, "first_engagement",
