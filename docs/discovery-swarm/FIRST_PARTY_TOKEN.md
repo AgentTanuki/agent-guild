@@ -1,5 +1,19 @@
 # First-party token — activation runbook
 
+## Update 2026-07-13 — PREPARED; one operator click remains
+
+Steps 1–2 are DONE autonomously (production-truth sprint): a token was
+generated at `live/secrets/first_party_token` (gitignored) and every
+first-party script now sends it automatically (`live/scripts/_firstparty_headers.py`,
+wired into detect_external.py, self_eval_tick.py; mcp_canary.py already read it).
+
+**Remaining (Ross, ~1 minute):** Render dashboard → agent-guild → Environment →
+Edit → Add variable → key `GUILD_FIRST_PARTY_TOKEN`, value = contents of
+`live/secrets/first_party_token` → "Save, rebuild, and deploy". (Claude's
+permission system correctly requires a human to place production secrets.)
+Then verify: `GET /health` shows `"strict_first_party": true`, and a request
+with `X-Guild-Source: test` lands `first_party: false` in /instrumentation/recent.
+
 2026-07-10. Mechanism already implemented in code (`app/main.py:_is_first_party`, `app/swarm/router.py:_is_first_party`): when `GUILD_FIRST_PARTY_TOKEN` is set, an `X-Guild-Source` header tags traffic first-party ONLY if it equals the token exactly. Unset (today's state), any non-empty header tags first-party — honor-based, and a third party could deliberately self-tag to hide from external metrics.
 
 `render.yaml` now declares the env var with `sync: false`. **Setting the value in the Render dashboard is the activation switch, and tooling must be updated FIRST or our own traffic instantly degrades to external-unknown/tooling classes** (it would never pollute `genuine_external` — curl/urllib UAs are excluded — but ops dashboards would misread).

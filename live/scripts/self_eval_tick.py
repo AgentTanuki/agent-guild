@@ -23,6 +23,13 @@ import json
 import os
 import sys
 import urllib.request
+try:
+    from _firstparty_headers import first_party_headers as _fp_headers
+except ImportError:  # run from another cwd
+    import sys as _sys, pathlib as _pl
+    _sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))
+    from _firstparty_headers import first_party_headers as _fp_headers
+
 import urllib.error
 from datetime import datetime, timezone
 
@@ -45,7 +52,7 @@ DISPLAY = [
 
 def _get(url: str, timeout: float = 25.0):
     try:
-        req = urllib.request.Request(url, headers={"accept": "application/json"})
+        req = urllib.request.Request(url, headers={"accept": "application/json", **_fp_headers()})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode())
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError):
