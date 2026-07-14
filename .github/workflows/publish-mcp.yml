@@ -1,10 +1,20 @@
 name: Publish to MCP Registry
 
 # Publishes server.json to the official MCP registry
-# (registry.modelcontextprotocol.io) automatically — no human auth needed.
-# Authentication is via GitHub Actions OIDC, which maps this repo's owner
-# (AgentTanuki) to the `io.github.agenttanuki/*` namespace declared in
-# server.json. Runs whenever server.json changes, or on manual dispatch.
+# (registry.modelcontextprotocol.io) via GitHub Actions OIDC.
+#
+# Determinism + honesty guarantees (docs/CORRECTIONS_2026-07-14.md):
+#   * mcp-publisher is PINNED and checksum-verified — a new publisher release
+#     can never silently change publish behaviour.
+#   * the server name MUST be `io.github.AgentTanuki/agent-guild` — the exact
+#     (case-sensitive) namespace the repo's OIDC identity is granted; this is
+#     the same identity as the published 1.0.0/1.1.0 listing, so legacy
+#     consumers see 1.2.0 as a new `isLatest` version of the same server.
+#   * every step fails the workflow loudly; nothing is reported published
+#     until the OFFICIAL registry serves the exact release back
+#     (live/scripts/registry_readback.py — unit-tested parser).
+#   * concurrency: one publish at a time, newest wins; an older run can never
+#     race a newer one into certifying the wrong version.
 
 on:
   push:
@@ -12,7 +22,18 @@ on:
     paths:
       - "server.json"
       - ".github/workflows/publish-mcp.yml"
+      - "live/scripts/registry_readback.py"
   workflow_dispatch:
+
+concurrency:
+  group: publish-mcp-registry
+  cancel-in-progress: true
+
+env:
+  # Pinned publisher release + its official SHA-256 (from
+  # registry_1.8.0_checksums.txt on the v1.8.0 release, verified 2026-07-14).
+  MCP_PUBLISHER_VERSION: v1.8.0
+  MCP_PUBLISHER_SHA256: 1370446bbe74d562608e8005a6ccce02d146a661fbd78674e11cc70b9618d6cf
 
 jobs:
   publish:
@@ -24,22 +45,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Install mcp-publisher
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install mcp-publisher (pinned + checksum-verified)
         run: |
-          set -euxo pipefail
-          # Use the authenticated gh CLI (preinstalled on runners) to grab the
-          # latest linux/amd64 release asset — avoids unauthenticated API rate
-          # limits and asset-name guesswork.
-          gh release download --repo modelcontextprotocol/registry \
-            --pattern 'mcp-publisher_linux_amd64.tar.gz' \
-            --output mcp-publisher.tar.gz
-          # Fail loudly if we somehow didn't get a gzip.
-          file mcp-publisher.tar.gz
+          set -euo pipefail
+          curl -fsSL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
           tar xzf mcp-publisher.tar.gz mcp-publisher
           chmod +x mcp-publisher
-          ./mcp-publisher --help >/dev/null 2>&1 || true
+          ./mcp-publisher --version
+
+      - name: Guard — server.json name matches the OIDC-granted namespace
+        # The registry grants io.github.<repository_owner>/* with the owner's
+        # EXACT GitHub casing and matches case-sensitively. Catch drift here,
+        # before burning a publish attempt (root cause of run 29274449452).
+        run: |
+          set -euo pipefail
+          name=$(python3 -c "import json;print(json.load(open('server.json'))['name'])")
+          expected="io.github.${{ github.repository_owner }}/agent-guild"
+          if [ "$name" != "$expected" ]; then
+            echo "::error::server.json name '$name' != OIDC-publishable '$expected'"
+            exit 1
+          fi
 
       - name: Validate server.json
         run: ./mcp-publisher validate
@@ -51,37 +78,10 @@ jobs:
         run: ./mcp-publisher publish
 
       - name: Verify registry READBACK (hard gate)
-        # Publication is not "shipped" until the OFFICIAL registry serves it
-        # back: this step fails the workflow unless the readback contains our
-        # server at the just-published version WITH the trust _meta block.
+        # Not "published" until the official registry serves the exact
+        # name+version+repository+remote (and the publisher-provided trust
+        # _meta) back. Exit codes: 1 never served, 2 served-but-mismatched,
+        # 3 malformed responses — all fail the workflow.
         run: |
-          set -euo pipefail
-          cat > /tmp/readback.py <<'PYEOF'
-          import json, sys, time, urllib.parse, urllib.request
-          spec = json.load(open("server.json"))
-          name, version = spec["name"], spec["version"]
-          url = ("https://registry.modelcontextprotocol.io/v0/servers?search="
-                 + urllib.parse.quote(name))
-          for attempt in range(12):
-              try:
-                  with urllib.request.urlopen(url, timeout=30) as r:
-                      body = json.loads(r.read().decode())
-              except Exception as e:
-                  body = {}
-                  print(f"attempt {attempt+1}: fetch failed: {e}")
-              for s in body.get("servers", []):
-                  detail = s.get("server", s)
-                  if detail.get("name") == name and \
-                     detail.get("version") == version:
-                      meta = detail.get("_meta") or s.get("_meta") or {}
-                      if any("agent-guild" in k for k in meta):
-                          print(f"readback OK: {name}@{version} with trust _meta")
-                          sys.exit(0)
-                      print(f"{name}@{version} served WITHOUT trust _meta")
-                      sys.exit(3)
-              print(f"attempt {attempt+1}: not yet visible")
-              time.sleep(10)
-          print(f"::error::registry readback never served {name}@{version}")
-          sys.exit(1)
-          PYEOF
-          python3 /tmp/readback.py
+          python3 live/scripts/registry_readback.py \
+            --server-json server.json --attempts 30 --interval 10

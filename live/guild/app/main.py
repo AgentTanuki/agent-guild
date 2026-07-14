@@ -17,6 +17,8 @@ import contextvars
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Header, Query, Request, Response
+from datetime import datetime, timezone
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
@@ -117,9 +119,11 @@ app.add_middleware(
 # Capture the caller's User-Agent per request so the activity feed can show who
 # is calling (a framework UA like "python-httpx" / "langchain" vs a browser).
 _ua: contextvars.ContextVar[str] = contextvars.ContextVar("ua", default="")
-# x402: the X-PAYMENT header travels via contextvar so meter() can settle paid
+# x402: the payment headers travel via contextvars so meter() can settle paid
 # reads on the real rail without threading a parameter through every endpoint.
-_xpay: contextvars.ContextVar[str] = contextvars.ContextVar("xpay", default="")
+# v2 = PAYMENT-SIGNATURE (primary); v1 = X-PAYMENT (deprecated legacy).
+_xpay_sig: contextvars.ContextVar[str] = contextvars.ContextVar("xpay_sig", default="")
+_xpay_v1: contextvars.ContextVar[str] = contextvars.ContextVar("xpay_v1", default="")
 
 
 def _b64json(obj: Any) -> str:
@@ -153,7 +157,8 @@ async def _capture_ua(request: Request, call_next):
         request.scope["path"] = "/mcp/"
         request.scope["raw_path"] = b"/mcp/"
     _ua.set(request.headers.get("user-agent", ""))
-    _xpay.set(request.headers.get("x-payment", ""))
+    _xpay_sig.set(request.headers.get("payment-signature", ""))
+    _xpay_v1.set(request.headers.get("x-payment", ""))
     # --- abuse controls (registration flood / trial farming / read bursts /
     # --- storage exhaustion) — see app/abuse.py; GUILD_ABUSE_CONTROLS=0 disables
     if abuse.enabled():
@@ -266,44 +271,99 @@ def _rate_limit_key_op(agent_id: str) -> None:
     _key_op_hits[agent_id] = hits
 
 
+def _x402_402_headers(endpoint: str, cost: int) -> dict[str, str]:
+    """Every 402 carries the v2 PAYMENT-REQUIRED header (base64
+    PaymentRequired) per the x402 v2 HTTP transport."""
+    try:
+        return {x402.PAYMENT_REQUIRED_HEADER:
+                x402.payment_required_header_value(endpoint, cost)}
+    except Exception:                                    # never mask the 402
+        return {}
+
+
+def _serve_x402_payment(xsig: str, xp1: str, endpoint: str, cost: int,
+                        response: Response) -> None:
+    """Settle one x402 payment (v2 PAYMENT-SIGNATURE preferred; v1 X-PAYMENT
+    deprecated). Raises HTTPException(402) unless settlement SUCCEEDS —
+    the protected result is never served on a failed or replayed payment."""
+    hdrs = _x402_402_headers(endpoint, cost)
+
+    def _reject(payload_extra: dict) -> None:
+        # payload_extra wins the merge: its `error` (the machine-readable
+        # rejection reason) must not be clobbered by the challenge body's
+        # generic "header is required" error string.
+        raise HTTPException(402, {**x402.payment_required_body(endpoint, cost),
+                                  **payload_extra},
+                            headers=hdrs)
+
+    try:
+        if xsig:
+            payload, proto = x402.decode_payment_signature(xsig), "v2"
+        else:
+            payload = x402.v1_payload_to_v2(
+                x402.decode_v1_payment_header(xp1), endpoint, cost)
+            proto = "v1"
+    except x402.PaymentBindingError as e:
+        _reject({"error": "x402_payment_invalid", "reason": e.reason,
+                 "detail": e.detail[:300]})
+    except Exception as e:
+        _reject({"error": "x402_payment_invalid", "detail": str(e)[:200]})
+
+    # persisted double-settlement guard: a payment identity that already has a
+    # SETTLED record can never buy a second read, even across restarts.
+    inner = payload.payload if isinstance(payload.payload, dict) else {}
+    auth = inner.get("authorization")
+    if isinstance(auth, dict) and store.x402_identity_settled(
+            x402.replay_guard.identity(auth)):
+        _reject({"error": "x402_payment_rejected",
+                 "reason": "double_settlement_rejected",
+                 "detail": "this payment identity was already settled"})
+    try:
+        settled = x402.process_payment(payload, endpoint, cost, protocol=proto)
+    except x402.PaymentBindingError as e:
+        _reject({"error": "x402_payment_invalid", "reason": e.reason,
+                 "detail": e.detail[:300]})
+    if not settled.get("ok"):
+        _reject({"error": "x402_payment_rejected", "settlement": settled})
+    response.headers[x402.PAYMENT_RESPONSE_HEADER] = \
+        x402.settle_response_header_value(settled)
+    if proto == "v1":
+        response.headers["Deprecation"] = "true"   # v1 rail is deprecated
+    store.record_x402_payment(endpoint, cost, settled)
+    store.record_event(None, "query", ua=_ua.get(), endpoint=endpoint,
+                       paid=True, rail="x402", network=settled.get("network"),
+                       x402_protocol=proto)
+
+
 def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
     """Charge a paid read. Behaviour:
 
-      * an x402 X-PAYMENT header      -> verify + settle via the facilitator
-        (the REAL machine-payment rail; no card, no browser, no human).
+      * an x402 v2 PAYMENT-SIGNATURE header -> verify + settle via the
+        facilitator (the REAL machine-payment rail; no card, no browser,
+        no human). Legacy v1 X-PAYMENT still accepted, deprecated.
       * a billing key is presented    -> charge it in SANDBOX credits
         (402 if out of credits).
       * no key, enforcement OFF       -> free (soft launch / local dev).
-      * no key, enforcement ON        -> 402 carrying x402 `accepts` +
-        sandbox-credit instructions.
+      * no key, enforcement ON        -> 402 carrying the PAYMENT-REQUIRED
+        header + x402 `accepts` + sandbox-credit instructions.
 
     Cost and remaining balance are returned in X-Guild-* response headers.
     """
     cost = PRICING[endpoint]
     response.headers["X-Guild-Cost"] = str(cost)
-    # x402 real-rail: an X-PAYMENT header settles the read with machine money.
-    xp = _xpay.get()
-    if xp and x402.enabled():
-        try:
-            settled = x402.process_payment_header(xp, endpoint, cost)
-        except Exception as e:
-            raise HTTPException(402, {"error": "x402_payment_invalid",
-                                      "detail": str(e)[:200]})
-        if not settled.get("ok"):
-            raise HTTPException(402, {"error": "x402_payment_rejected",
-                                      "settlement": settled})
-        response.headers["X-PAYMENT-RESPONSE"] = _b64json(
-            {k: settled.get(k) for k in ("ok", "network", "transaction", "payer")})
-        store.record_x402_payment(endpoint, cost, settled)
-        store.record_event(None, "query", ua=_ua.get(), endpoint=endpoint,
-                           paid=True, rail="x402", network=settled.get("network"))
+    # x402 real-rail: a payment header settles the read with machine money.
+    xsig, xp1 = _xpay_sig.get(), _xpay_v1.get()
+    if (xsig or xp1) and x402.enabled():
+        _serve_x402_payment(xsig, xp1, endpoint, cost, response)
         return
     # machine-readable description of how an agent acquires credits, no human.
     acquire = {
         "trial": {"method": "POST", "path": "/billing/trial", "human_free": True,
                   "unit": "credits_sandbox (NOT money)"},
         "topup": {"method": "POST", "path": "/billing/topup"},
-        "x402": ("active — retry with an X-PAYMENT header (see `accepts`)"
+        "x402": ("active (v2) — retry with a PAYMENT-SIGNATURE header built "
+                 "from the PAYMENT-REQUIRED challenge (see `accepts`); "
+                 "legacy v1 X-PAYMENT deprecated but accepted"
                  if x402.enabled() else
                  "protocol supported; rail awaiting a configured treasury"),
         "credit_usd": CREDIT_USD,
@@ -318,10 +378,10 @@ def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
             return  # unrecognised key on a soft-launch service: let it through free
         except InsufficientCredits as e:
             raise HTTPException(402, {
-                "error": "insufficient_credits", "balance": e.balance, "cost": e.cost,
-                "acquire": acquire,
                 **x402.payment_required_body(endpoint, cost),
-            })
+                "error": "insufficient_credits", "balance": e.balance,
+                "cost": e.cost, "acquire": acquire,
+            }, headers=_x402_402_headers(endpoint, cost))
         response.headers["X-Guild-Balance"] = str(acct["balance"])
         store.record_event(x_api_key, "query", ua=_ua.get(), endpoint=endpoint, paid=True)
         # Paying for a read is an activation event — if this agent was referred,
@@ -332,12 +392,13 @@ def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
         return
     if billing.billing_enforced():
         raise HTTPException(402, {
+            **x402.payment_required_body(endpoint, cost),
             "error": "payment_required",
-            "detail": "pay via x402 (X-PAYMENT header) or present a funded "
+            "detail": "pay via x402 v2 (PAYMENT-SIGNATURE header; see the "
+                      "PAYMENT-REQUIRED challenge) or present a funded "
                       "X-API-Key (sandbox credits)",
             "cost": cost, "acquire": acquire,
-            **x402.payment_required_body(endpoint, cost),
-        })
+        }, headers=_x402_402_headers(endpoint, cost))
     store.record_event(None, "query", ua=_ua.get(), endpoint=endpoint, paid=False)
 
 
@@ -404,6 +465,32 @@ def health():
             "hashed_keys": creds.hashing_enabled(),
             "abuse_controls": abuse.enabled(),
             "strict_first_party": bool(os.environ.get("GUILD_FIRST_PARTY_TOKEN"))}
+
+
+# Captured once at import: when this process (i.e. this deployment) started.
+_PROCESS_STARTED_AT = datetime.now(timezone.utc).isoformat()
+
+
+@app.get("/release")
+def release():
+    """Non-secret release identity: WHICH build is actually serving traffic.
+    The deployment-aware release gate (live/scripts/release_gate.py) polls
+    this until `git_sha` equals the pushed commit — a green source-test run
+    can no longer conceal a stale or failed production deployment. Render
+    injects RENDER_GIT_COMMIT into every deploy; GUILD_GIT_SHA is the
+    platform-agnostic override; absent both, the SHA is honestly `unknown`
+    (which the gate treats as NOT verified, never as a pass)."""
+    return {
+        "service": "Agent Guild",
+        "version": __version__,
+        "git_sha": (os.environ.get("RENDER_GIT_COMMIT")
+                    or os.environ.get("GUILD_GIT_SHA") or "unknown"),
+        "deployed_at": _PROCESS_STARTED_AT,
+        "build": {
+            "render_service": os.environ.get("RENDER_SERVICE_NAME"),
+            "render_git_branch": os.environ.get("RENDER_GIT_BRANCH"),
+        },
+    }
 
 
 # --- identity ---------------------------------------------------------------
@@ -1622,10 +1709,73 @@ def _manifest() -> dict:
                 "trial": {"method": "POST", "path": "/billing/trial", "human_free": True,
                           "grant_credits": billing.TRIAL_CREDITS},
                 "topup": {"method": "POST", "path": "/billing/topup"},
-                "x402": {"status": "roadmap",
-                         "note": "HTTP 402 + stablecoin micropayments for fully autonomous settlement"},
+                "x402": ("v2 rail ACTIVE — see `payments`"
+                         if x402.enabled() else
+                         "x402 v2 protocol supported; rail awaiting a "
+                         "configured treasury — see `payments`"),
             },
             "enforced": billing.billing_enforced(),
+        },
+        "payments": {
+            # Exactly how every operation class is funded — no human guide
+            # needed. Writes are free; priced reads take sandbox credits
+            # (trial- or topup-funded) or x402 v2 machine money.
+            "operation_funding": {
+                "free": ["register", "attest", "task", "receipt", "passport",
+                         "verify", "citizenship", "demand_watch",
+                         "record_collaboration", "invoke (guest capabilities)",
+                         "escrow", "escrow_release"],
+                "trial_funded": ("POST /billing/trial grants "
+                                 f"{billing.TRIAL_CREDITS} sandbox credits "
+                                 "(NOT money) — funds any priced read below"),
+                "credit_funded": sorted(PRICING),
+                "x402_funded": sorted(x402.RESOURCE_PATHS),
+            },
+            "x402": {
+                "protocol": "x402",
+                "version": 2,
+                "status": ("active" if x402.enabled() else
+                           "supported; awaiting treasury configuration"),
+                "network": x402.network(),
+                "networks_supported": [x402.network()],
+                "network_value_warning": (
+                    None if x402.is_mainnet(x402.network()) else
+                    f"{x402.network()} is a TESTNET — settlement is "
+                    "value-less and never counted as revenue"),
+                "scheme": "exact",
+                "asset": x402.asset(),
+                "facilitator": x402.facilitator_url(),
+                "retry_instructions": {
+                    "1": "GET any priced read without payment → HTTP 402 with "
+                         "a base64 `PAYMENT-REQUIRED` header (PaymentRequired: "
+                         "x402Version 2, resource, accepts[], extensions.bazaar)",
+                    "2": "pick a PaymentRequirements from `accepts`; build an "
+                         "exact-scheme EIP-3009 authorization for exactly "
+                         "`amount` of `asset` to `payTo`, expiring within "
+                         "`maxTimeoutSeconds`; sign EIP-712",
+                    "3": "retry the SAME method+URL with a base64 "
+                         "`PAYMENT-SIGNATURE` header (PaymentPayload v2, "
+                         "echoing the quoted `resource` and chosen "
+                         "requirements as `accepted`)",
+                    "4": "on success the response carries a base64 "
+                         "`PAYMENT-RESPONSE` header (SettleResponse: success, "
+                         "transaction, network, payer) — verify the "
+                         "transaction independently on its network",
+                    "binding": "payments are bound to method+resource URL+"
+                               "amount+asset+network+recipient+expiry+nonce; "
+                               "replay, substitution and double settlement "
+                               "are rejected",
+                    "v1_legacy": "X-PAYMENT (x402Version 1) still accepted, "
+                                 "DEPRECATED — same guards apply",
+                },
+                "discovery_extension": "bazaar (in every 402 challenge's "
+                                       "`extensions`, per x402 "
+                                       "specs/extensions/bazaar.md)",
+            },
+            "revenue_honesty": "GET /billing/revenue — real_settlement counts "
+                               "ONLY independently verifiable mainnet "
+                               "transactions; sandbox credits and testnet "
+                               "settlements are never revenue",
         },
         "invocable_capabilities": {
             "what": "16 narrow, deterministic, fixture-verified utility capabilities "

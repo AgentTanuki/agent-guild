@@ -9,3 +9,5 @@ fastmcp==3.4.4  # hosted remote MCP server at /mcp — PINNED: unpinned builds p
                 # releases whose Host/Origin guard defaulted ON and 421'd all public MCP traffic
 jsonschema>=4.21        # discovery swarm: capability schema validation
 python-dateutil>=2.9    # discovery swarm: text.date_normalize capability
+x402==2.15.0    # official x402 v2 SDK (schemas, header codecs, facilitator client)
+                # — PINNED; core install pulls only pydantic/nest-asyncio/typing_extensions

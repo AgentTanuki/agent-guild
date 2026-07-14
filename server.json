@@ -1,6 +1,6 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
-  "name": "io.github.agenttanuki/agent-guild",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.AgentTanuki/agent-guild",
   "description": "Trust layer for AI agents: signed delegation decisions, passports, and 16 verified guest tools.",
   "version": "1.2.0",
   "repository": {
@@ -15,15 +15,17 @@
     }
   ],
   "_meta": {
-    "ai.agent-guild/trust": {
-      "contract": "AGD-1/1.0",
-      "proof_suite": "eddsa-jcs-2022",
-      "decision_endpoint": "https://agent-guild-5d5r.onrender.com/check?capability={capability}&signed=true",
-      "passport_endpoint": "https://agent-guild-5d5r.onrender.com/agents/{id}/passport",
-      "checkpoint_feed": "https://agent-guild-5d5r.onrender.com/ledger/checkpoints",
-      "a2a_extension": "https://agent-guild.ai/ext/trust/v1",
-      "conformance": "https://github.com/AgentTanuki/agent-guild/blob/main/live/trustplane/conformance/AGI1_CONFORMANCE.md",
-      "note": "Signed AGD-1 delegation decisions and offline-verifiable Agent Passports; callers own thresholds. Delegation gateway + framework interceptors: live/trustplane in the repository."
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "ai.agent-guild/trust": {
+        "contract": "AGD-1/1.0",
+        "proof_suite": "eddsa-jcs-2022",
+        "decision_endpoint": "https://agent-guild-5d5r.onrender.com/check?capability={capability}&signed=true",
+        "passport_endpoint": "https://agent-guild-5d5r.onrender.com/agents/{id}/passport",
+        "checkpoint_feed": "https://agent-guild-5d5r.onrender.com/ledger/checkpoints",
+        "a2a_extension": "https://agent-guild.ai/ext/trust/v1",
+        "conformance": "https://github.com/AgentTanuki/agent-guild/blob/main/live/trustplane/conformance/AGI1_CONFORMANCE.md",
+        "note": "Signed AGD-1 delegation decisions and offline-verifiable Agent Passports; callers own thresholds. Delegation gateway + framework interceptors: live/trustplane in the repository."
+      }
     }
   }
 }

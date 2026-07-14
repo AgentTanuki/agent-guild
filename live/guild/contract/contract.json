@@ -513,6 +513,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/release"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/sdk/agentguild_verify.mjs"
   },
   {

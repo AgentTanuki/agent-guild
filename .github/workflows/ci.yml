@@ -124,22 +124,61 @@ jobs:
         working-directory: live/trustplane
         run: ../../.venv-${{ matrix.extra }}/bin/python -m pytest tests -q
 
-  live-conformance:
-    # live service vs the committed contract AND the AGI-1 conformance suite —
-    # main-branch pushes only; the live world can flap, so this is
-    # informative, not gating for PRs
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  x402-interop:
+    # x402 v2 interoperability in a CLEAN environment: the OFFICIAL x402
+    # client SDK (with a real EVM signer) makes the paid request end-to-end
+    # over real HTTP against the Guild server + a deterministic local fake
+    # facilitator that cryptographically verifies the EIP-3009 authorization.
+    # No mainnet, no funds, no gating on external networks.
     runs-on: ubuntu-latest
-    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: clean install (official x402 client + EVM signer deps)
+        run: |
+          python -m venv .venv-x402
+          .venv-x402/bin/pip install --upgrade pip
+          .venv-x402/bin/pip install -r live/guild/requirements.txt \
+            'x402[httpx,evm]==2.15.0' 'eth-account>=0.13' pytest
+      - name: x402 v2 interop (independent official client)
+        working-directory: live/guild
+        env:
+          GUILD_ALLOW_WEAK_KDF: "1"
+        run: ../../.venv-x402/bin/python -m pytest tests_x402_interop -q
+
+  release-gate:
+    # THE deployment-aware gate: a release is not green unless production
+    # serves the exact pushed SHA and that running build passes the live
+    # contract probe, live AGI-1 conformance, signed-decision verification
+    # (incl. decision.agent_id == routing.provider_id) and issuer/checkpoint
+    # continuity. NO continue-on-error: a red gate is a red release.
+    # Concurrency: newest push wins; an older run can never certify a newer
+    # deployment (and the SHA equality check makes cross-certification
+    # structurally impossible in the other direction).
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test, contract, trustplane]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-gate-production
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install -r live/guild/requirements.txt -r live/trustplane/requirements/core.txt
-      - run: python live/scripts/live_contract_probe.py
-      - name: AGI-1 conformance against the LIVE service
-        working-directory: live/trustplane
+      - name: wait for production to serve THIS SHA, then verify the live release
         run: |
-          python -m pytest conformance/ -q \
-            --issuer-base=https://agent-guild-5d5r.onrender.com --capability=hello
+          python live/scripts/release_gate.py \
+            --sha "${{ github.sha }}" \
+            --timeout 900 --interval 20 \
+            --attestation release_attestation.json
+      - name: upload release attestation (machine-readable)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-attestation-${{ github.sha }}
+          path: release_attestation.json
+          if-no-files-found: warn

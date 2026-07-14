@@ -178,32 +178,28 @@ def test_one_appeal_with_fresh_larger_panel():
         market.appeal(s, case["id"], r)   # appeal limit: one, final
 
 
-def test_x402_402_body_and_stubbed_settlement(monkeypatch):
+def test_x402_v2_402_body_and_stubbed_settlement(monkeypatch):
     monkeypatch.setenv("GUILD_X402_ENABLED", "1")
     monkeypatch.setenv("GUILD_X402_PAY_TO", "0x" + "11" * 20)
     from app import x402
     body = x402.payment_required_body("best_agent", 10)
+    assert body["x402Version"] == 2
     assert body["accepts"][0]["scheme"] == "exact"
+    assert body["accepts"][0]["network"].startswith("eip155:")   # CAIP-2
     assert body["accepts"][0]["payTo"] == "0x" + "11" * 20
-    assert body["accepts"][0]["maxAmountRequired"] == "10000"  # 10 credits @ 6dp
+    assert body["accepts"][0]["amount"] == "10000"  # 10 credits @ 6dp
+    assert body["resource"]["url"].endswith("/check")
     assert body["sandbox"]["unit"] == "credits_sandbox"
     assert "NOT money" in body["sandbox"]["note"] or "not money" in body["sandbox"]["note"]
-    # stub the facilitator: verify ok, settle ok
-    calls = {}
-    def _post(path, payload, timeout=30.0):
-        calls[path] = payload
-        if path == "/verify":
-            return {"isValid": True}
-        return {"success": True, "transaction": "0xdeadbeef",
-                "network": "base-sepolia", "payer": "0x" + "22" * 20}
-    monkeypatch.setattr(x402, "_post", _post)
-    import base64, json as _json
-    header = base64.b64encode(_json.dumps(
-        {"x402Version": 1, "scheme": "exact", "network": "base-sepolia",
-         "payload": {"signature": "0x..", "authorization": {}}}).encode()).decode()
-    out = x402.process_payment_header(header, "best_agent", 10)
-    assert out["ok"] and out["transaction"] == "0xdeadbeef"
-    assert calls["/verify"]["paymentRequirements"]["payTo"] == "0x" + "11" * 20
+    assert body["v1_compat"]["status"] == "deprecated"
+    # stub the facilitator: verify ok, settle ok (v2 shapes) — the full
+    # binding/replay security suite lives in tests/test_x402_v2.py
+    from tests.test_x402_v2 import FakeFacilitator, make_payload
+    monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
+    out = x402.process_payment(make_payload("best_agent", 10), "best_agent", 10)
+    assert out["ok"] and out["transaction"].startswith("0x")
+    assert out["network"] == "eip155:84532" and out["mainnet"] is False
+    assert out["recipient"] == "0x" + "11" * 20
 
 
 def test_check_routing_gate_requires_verified_reachability():

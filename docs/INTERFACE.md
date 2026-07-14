@@ -91,6 +91,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /outcomes`
 - `POST /providers/external/discover`
 - `GET /referrals`
+- `GET /release`
 - `GET /sdk/agentguild_verify.mjs`
 - `GET /sdk/agentguild_verify.py`
 - `GET /search`

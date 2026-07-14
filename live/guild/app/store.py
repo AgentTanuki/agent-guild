@@ -1387,14 +1387,29 @@ class Store:
 
     def record_x402_payment(self, endpoint: str, cost_credits: int,
                             settlement: dict[str, Any]) -> None:
-        """Record a REAL-RAIL (x402) payment in the billing ledger and on the
-        evidence chain. Sandbox credits are untouched — this is machine money
-        settled through the facilitator."""
+        """Record an x402 payment in the billing ledger and on the evidence
+        chain. Sandbox credits are untouched — this is the facilitator rail.
+        The full settlement identity is persisted (facilitator, network,
+        asset, raw amount, payer, recipient, tx hash, status, payment
+        identity, mainnet flag) so (a) double settlement is rejectable across
+        restarts and (b) real revenue is counted ONLY from independently
+        verifiable mainnet transactions."""
         entry = {"key": "x402", "type": "x402_payment", "endpoint": endpoint,
                  "cost_credits_equivalent": cost_credits,
+                 "protocol": settlement.get("protocol"),
+                 "facilitator": settlement.get("facilitator"),
+                 "scheme": settlement.get("scheme"),
                  "network": settlement.get("network"),
+                 "asset": settlement.get("asset"),
+                 "amount_atomic": settlement.get("amount_atomic"),
+                 "payer": settlement.get("payer"),
+                 "recipient": settlement.get("recipient"),
                  "transaction": settlement.get("transaction"),
-                 "payer": settlement.get("payer"), "at": _now()}
+                 "status": settlement.get("status"),
+                 "payment_identity": settlement.get("payment_identity"),
+                 "mainnet": bool(settlement.get("mainnet")),
+                 "resource": settlement.get("resource"),
+                 "at": _now()}
         with self.lock, self._txn():
             self.billing_log.append(entry)
             if self.backend is not None:
@@ -1405,8 +1420,23 @@ class Store:
             "network": settlement.get("network"),
             "transaction": settlement.get("transaction"),
             "payer": settlement.get("payer"),
+            "recipient": settlement.get("recipient"),
+            "amount_atomic": settlement.get("amount_atomic"),
+            "asset": settlement.get("asset"),
+            "mainnet": bool(settlement.get("mainnet")),
             "cost_credits_equivalent": cost_credits,
         }, actor_did="")
+
+    def x402_identity_settled(self, payment_identity: str) -> bool:
+        """True iff this (payer, nonce) payment identity already has a
+        SETTLED x402 record — the persisted double-settlement guard."""
+        if not payment_identity:
+            return False
+        with self.lock:
+            return any(b.get("type") == "x402_payment"
+                       and b.get("payment_identity") == payment_identity
+                       and b.get("status") == "settled"
+                       for b in self.billing_log)
 
     def charge(self, key: str, cost: int, endpoint: str) -> dict[str, Any]:
         """Draw `cost` credits from an account. Raises UnknownAccount or
@@ -3658,6 +3688,13 @@ class Store:
             by_status[e["status"]] = by_status.get(e["status"], 0) + 1
         x402_payments = [b for b in self.billing_log
                          if b.get("type") == "x402_payment"]
+        # REAL revenue = successful settlement on a MAINNET network with a
+        # transaction hash that anyone can verify independently on-chain.
+        # Testnet/mocked settlements are value-less and listed separately.
+        x402_mainnet = [b for b in x402_payments
+                        if b.get("mainnet") and b.get("status") == "settled"
+                        and b.get("transaction")]
+        x402_testnet = [b for b in x402_payments if b not in x402_mainnet]
         out: dict[str, Any] = {
             "currency": "credits_sandbox",
             "honesty": ("sandbox credits are NOT money; nothing here is USD "
@@ -3679,12 +3716,21 @@ class Store:
                 "guild_fee_credits": sum(e["fee"] for e in rows),
             }
         out["real_settlement"] = {
-            "transactions": len(x402_payments),
-            "revenue_usd": 0.0 if not x402_payments else None,
-            "note": ("x402 rail is READY BUT INACTIVE: no funded treasury, "
-                     "so no real settlement exists and actual revenue is "
-                     "zero" if not x402_payments else
-                     "verify each transaction independently on its network"),
+            "transactions": len(x402_mainnet),
+            "revenue_usd": round(sum(
+                int(b.get("amount_atomic") or 0) for b in x402_mainnet) / 1e6, 6),
+            "networks": sorted({b.get("network") for b in x402_mainnet}),
+            "transaction_hashes": [b.get("transaction") for b in x402_mainnet],
+            "note": ("counts ONLY successful mainnet settlements with an "
+                     "independently verifiable transaction hash"
+                     if x402_mainnet else
+                     "zero: no independently verifiable mainnet settlement "
+                     "exists (testnet/sandbox activity is value-less and "
+                     "listed under testnet_settlement)"),
+        }
+        out["testnet_settlement"] = {
+            "transactions": len(x402_testnet),
+            "value": "NONE — testnet/failed records are never revenue",
         }
         return out
 

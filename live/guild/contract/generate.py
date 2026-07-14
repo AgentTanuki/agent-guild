@@ -103,11 +103,15 @@ def build_contract() -> dict:
 def derived_server_json(contract: dict) -> dict:
     s = contract["service"]
     return {
-        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
-        # MUST be lowercase: GitHub OIDC maps this repo's owner to the
-        # `io.github.agenttanuki/*` namespace — a mixed-case name fails
-        # `mcp-publisher validate` / publication (corrective 2026-07-13).
-        "name": "io.github.agenttanuki/agent-guild",
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        # MUST match the OIDC-granted namespace EXACTLY (case-sensitive):
+        # GitHub OIDC grants `io.github.<repository_owner>/*` with the owner's
+        # canonical GitHub casing (registry github_oidc.go:293 + jwt.go
+        # isResourceMatch). There is NO lowercase canonicalization in the
+        # registry; the 2026-07-13 lowercase change caused the 403 in run
+        # 29274449452. Same identity as the published 1.0.0/1.1.0 listing.
+        # See docs/CORRECTIONS_2026-07-14.md.
+        "name": "io.github.AgentTanuki/agent-guild",
         # registry schema caps description at 100 chars — keep this short
         "description": ("Trust layer for AI agents: signed delegation "
                         "decisions, passports, and 16 verified guest tools."),
@@ -115,11 +119,23 @@ def derived_server_json(contract: dict) -> dict:
         "repository": {"url": s["repository"], "source": "github"},
         "websiteUrl": s["host"],
         "remotes": [{"type": "streamable-http", "url": s["mcp_url"]}],
-        # publisher-provided trust metadata (MCP registry _meta extension):
-        # how a consumer obtains SIGNED, offline-verifiable delegation
-        # evidence about agents before trusting them.
+        # Publisher-provided trust metadata. The official registry serves back
+        # ONLY `_meta["io.modelcontextprotocol.registry/publisher-provided"]`
+        # (pkg/api/v0/types.go — any other top-level _meta key is silently
+        # dropped; 4KB limit). Our trust block therefore nests under it.
         "_meta": {
-            "ai.agent-guild/trust": {
+            "io.modelcontextprotocol.registry/publisher-provided": {
+                "ai.agent-guild/trust": _trust_meta(s),
+            },
+        },
+    }
+
+
+def _trust_meta(s: dict) -> dict:
+    """Machine-readable pointer set: how a consumer obtains SIGNED,
+    offline-verifiable delegation evidence about agents before trusting them.
+    Kept well under the registry's 4KB publisher-provided limit."""
+    return {
                 "contract": "AGD-1/1.0",
                 "proof_suite": "eddsa-jcs-2022",
                 "decision_endpoint": (s["host"] + "/check?capability="
@@ -133,8 +149,6 @@ def derived_server_json(contract: dict) -> dict:
                          "verifiable Agent Passports; callers own thresholds. "
                          "Delegation gateway + framework interceptors: "
                          "live/trustplane in the repository."),
-            },
-        },
     }
 
 
