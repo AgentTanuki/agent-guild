@@ -580,6 +580,12 @@
     "POST"
    ],
    "path": "/tasks/{task_id}/receipt"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/x402/readiness"
   }
  ],
  "service": {

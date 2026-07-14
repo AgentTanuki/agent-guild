@@ -1408,6 +1408,8 @@ class Store:
                  "status": settlement.get("status"),
                  "payment_identity": settlement.get("payment_identity"),
                  "mainnet": bool(settlement.get("mainnet")),
+                 "confirmed": bool(settlement.get("confirmed")),
+                 "confirmation": settlement.get("confirmation"),
                  "resource": settlement.get("resource"),
                  "at": _now()}
         with self.lock, self._txn():
@@ -1427,15 +1429,44 @@ class Store:
             "cost_credits_equivalent": cost_credits,
         }, actor_did="")
 
+    _X402_SERVED_STATUSES = ("settled", "settled_confirmed")
+
     def x402_identity_settled(self, payment_identity: str) -> bool:
         """True iff this (payer, nonce) payment identity already has a
-        SETTLED x402 record — the persisted double-settlement guard."""
+        SERVED x402 record (testnet `settled` or mainnet
+        `settled_confirmed`) — the persisted double-settlement guard."""
         if not payment_identity:
             return False
         with self.lock:
             return any(b.get("type") == "x402_payment"
                        and b.get("payment_identity") == payment_identity
-                       and b.get("status") == "settled"
+                       and b.get("status") in self._X402_SERVED_STATUSES
+                       for b in self.billing_log)
+
+    def x402_latest_for_identity(self, payment_identity: str) -> Optional[dict[str, Any]]:
+        """Latest x402 record for a payment identity — the idempotent
+        recovery hook: a mainnet settlement that could not be independently
+        confirmed (status `settled_unconfirmed`) may be re-presented and
+        re-confirmed without paying twice, across restarts."""
+        if not payment_identity:
+            return None
+        with self.lock:
+            for b in reversed(self.billing_log):
+                if (b.get("type") == "x402_payment"
+                        and b.get("payment_identity") == payment_identity):
+                    return dict(b)
+        return None
+
+    def x402_transaction_served(self, tx_hash: str) -> bool:
+        """True iff this on-chain transaction hash already backed a SERVED
+        settlement — one transaction can never buy two results (duplicate-
+        transaction guard, e.g. a facilitator replaying an old tx hash)."""
+        if not tx_hash:
+            return False
+        with self.lock:
+            return any(b.get("type") == "x402_payment"
+                       and b.get("transaction") == tx_hash
+                       and b.get("status") in self._X402_SERVED_STATUSES
                        for b in self.billing_log)
 
     def charge(self, key: str, cost: int, endpoint: str) -> dict[str, Any]:
@@ -3688,12 +3719,15 @@ class Store:
             by_status[e["status"]] = by_status.get(e["status"], 0) + 1
         x402_payments = [b for b in self.billing_log
                          if b.get("type") == "x402_payment"]
-        # REAL revenue = successful settlement on a MAINNET network with a
-        # transaction hash that anyone can verify independently on-chain.
-        # Testnet/mocked settlements are value-less and listed separately.
+        # REAL revenue = mainnet settlement that this service INDEPENDENTLY
+        # confirmed on-chain (receipt status + USDC Transfer event with the
+        # exact contract, recipient and amount — app/x402_confirm.py). A
+        # facilitator response alone NEVER counts; testnet/mocked/unconfirmed
+        # settlements are value-less and listed separately.
         x402_mainnet = [b for b in x402_payments
-                        if b.get("mainnet") and b.get("status") == "settled"
-                        and b.get("transaction")]
+                        if b.get("mainnet")
+                        and b.get("status") == "settled_confirmed"
+                        and b.get("confirmed") and b.get("transaction")]
         x402_testnet = [b for b in x402_payments if b not in x402_mainnet]
         out: dict[str, Any] = {
             "currency": "credits_sandbox",
@@ -3721,16 +3755,18 @@ class Store:
                 int(b.get("amount_atomic") or 0) for b in x402_mainnet) / 1e6, 6),
             "networks": sorted({b.get("network") for b in x402_mainnet}),
             "transaction_hashes": [b.get("transaction") for b in x402_mainnet],
-            "note": ("counts ONLY successful mainnet settlements with an "
-                     "independently verifiable transaction hash"
+            "note": ("counts ONLY mainnet settlements independently "
+                     "CONFIRMED on-chain (receipt status, USDC contract, "
+                     "recipient and exact amount) — never a facilitator "
+                     "response alone"
                      if x402_mainnet else
-                     "zero: no independently verifiable mainnet settlement "
-                     "exists (testnet/sandbox activity is value-less and "
-                     "listed under testnet_settlement)"),
+                     "zero: no independently confirmed mainnet settlement "
+                     "exists (testnet/sandbox/unconfirmed activity is "
+                     "value-less and listed under testnet_settlement)"),
         }
         out["testnet_settlement"] = {
             "transactions": len(x402_testnet),
-            "value": "NONE — testnet/failed records are never revenue",
+            "value": "NONE — testnet/failed/unconfirmed records are never revenue",
         }
         return out
 

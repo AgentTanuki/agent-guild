@@ -101,6 +101,18 @@ async def _lifespan(app: "FastAPI"):
         swarm_ensure_built()
     except Exception as exc:
         _log.warning("swarm identity build skipped: %s", exc)
+    # x402 rail: FAIL CLOSED at startup. A MAINNET rail that is misconfigured
+    # (unauthenticated facilitator, missing CDP credentials, wrong USDC
+    # contract, invalid recipient, local resource origin, no independent
+    # confirmation RPC) must never boot — a booted-but-broken payments rail
+    # is worse than a down service. Testnet misconfigurations degrade to
+    # payment-time 402s instead of blocking the whole service.
+    if x402.enabled() and x402.is_mainnet(x402.network()):
+        x402.assert_config_valid()   # raises with NON-SECRET reasons only
+    _x402_cfg_errs = x402.config_errors()
+    if _x402_cfg_errs:
+        _log.warning("x402 rail misconfigured (fails closed at payment "
+                     "time): %s", "; ".join(_x402_cfg_errs))
     async with mcp_app.lifespan(app):
         yield
 
@@ -309,22 +321,67 @@ def _serve_x402_payment(xsig: str, xp1: str, endpoint: str, cost: int,
     except Exception as e:
         _reject({"error": "x402_payment_invalid", "detail": str(e)[:200]})
 
-    # persisted double-settlement guard: a payment identity that already has a
-    # SETTLED record can never buy a second read, even across restarts.
+    # persisted guards + idempotent recovery (all survive restarts):
+    #   * an identity that already bought a result can never buy another;
+    #   * a mainnet settlement that could not be INDEPENDENTLY confirmed
+    #     (status settled_unconfirmed) may be RE-PRESENTED: confirmation is
+    #     re-run against the recorded tx — the payer is never charged twice
+    #     and never loses a paid-but-unconfirmed result to a transient RPC
+    #     outage.
     inner = payload.payload if isinstance(payload.payload, dict) else {}
     auth = inner.get("authorization")
-    if isinstance(auth, dict) and store.x402_identity_settled(
-            x402.replay_guard.identity(auth)):
+    ident = (x402.replay_guard.identity(auth) if isinstance(auth, dict)
+             else "")
+    prior = store.x402_latest_for_identity(ident) if ident else None
+    if prior and prior.get("status") in store._X402_SERVED_STATUSES:
         _reject({"error": "x402_payment_rejected",
                  "reason": "double_settlement_rejected",
                  "detail": "this payment identity was already settled"})
-    try:
-        settled = x402.process_payment(payload, endpoint, cost, protocol=proto)
-    except x402.PaymentBindingError as e:
-        _reject({"error": "x402_payment_invalid", "reason": e.reason,
-                 "detail": e.detail[:300]})
-    if not settled.get("ok"):
-        _reject({"error": "x402_payment_rejected", "settlement": settled})
+    if prior and prior.get("status") == "settled_unconfirmed":
+        conf = x402.x402_confirm.confirm_settlement(
+            prior.get("transaction") or "",
+            asset=prior.get("asset") or "",
+            recipient=prior.get("recipient") or "",
+            amount_atomic=prior.get("amount_atomic") or "0")
+        if not conf.get("confirmed"):
+            _reject({"error": "x402_payment_rejected",
+                     "reason": "settlement_unconfirmed",
+                     "transaction": prior.get("transaction"),
+                     "detail": "settlement is not independently confirmed "
+                               f"on-chain yet: {conf.get('reason')}"[:300]})
+        settled = {**prior, "ok": True, "status": "settled_confirmed",
+                   "confirmed": True,
+                   "confirmation": {k: conf.get(k) for k in
+                                    ("confirmed", "reason", "block_number")}}
+    else:
+        try:
+            settled = x402.process_payment(payload, endpoint, cost,
+                                           protocol=proto)
+        except x402.PaymentBindingError as e:
+            _reject({"error": "x402_payment_invalid", "reason": e.reason,
+                     "detail": e.detail[:300]})
+        if settled.get("status") == "settled_unconfirmed":
+            # the facilitator claims settlement but the chain does not (yet)
+            # prove it: record for recovery/reconciliation, serve NOTHING.
+            store.record_x402_payment(endpoint, cost, settled)
+            _reject({"error": "x402_payment_rejected",
+                     "reason": "settlement_unconfirmed",
+                     "transaction": settled.get("transaction"),
+                     "detail": "settlement is not independently confirmed "
+                               "on-chain; re-present the same payment to "
+                               "retry confirmation — you will not be "
+                               "charged twice"})
+        if not settled.get("ok"):
+            _reject({"error": "x402_payment_rejected", "settlement": settled})
+        # one on-chain transaction can never buy two results
+        if store.x402_transaction_served(settled.get("transaction") or ""):
+            store.record_x402_payment(endpoint, cost,
+                                      {**settled, "ok": False,
+                                       "status": "duplicate_transaction_rejected"})
+            _reject({"error": "x402_payment_rejected",
+                     "reason": "duplicate_transaction",
+                     "detail": "this transaction hash already settled a "
+                               "previous request"})
     response.headers[x402.PAYMENT_RESPONSE_HEADER] = \
         x402.settle_response_header_value(settled)
     if proto == "v1":
@@ -491,6 +548,15 @@ def release():
             "render_git_branch": os.environ.get("RENDER_GIT_BRANCH"),
         },
     }
+
+
+@app.get("/x402/readiness")
+def x402_readiness():
+    """Non-secret machine-readable payment readiness: whether the x402 rail
+    is enabled, which network/asset/recipient/facilitator it would use, and
+    whether the configuration is valid (with fail-closed reasons). NEVER
+    exposes credentials or key material — asserted by tests."""
+    return x402.readiness()
 
 
 # --- identity ---------------------------------------------------------------

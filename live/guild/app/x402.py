@@ -67,11 +67,27 @@ from x402.schemas import (
     SettleResponse,
 )
 
+from . import x402_cdp
+from . import x402_confirm
+
 X402_VERSION = 2
 DEFAULT_NETWORK = "eip155:84532"            # Base Sepolia (CAIP-2)
-# Circle USDC on Base Sepolia
-DEFAULT_ASSET = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
-DEFAULT_FACILITATOR = "https://x402.org/facilitator"
+# Canonical USDC contracts (verified against the x402 SDK's NETWORK_CONFIGS
+# and Circle's deployments, 2026-07-14). The mainnet address is the FULL
+# 40-hex-char contract — beware truncated copies in prose.
+USDC_BY_NETWORK = {
+    "eip155:84532": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # Base Sepolia
+    "eip155:8453": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",   # Base mainnet
+}
+DEFAULT_ASSET = USDC_BY_NETWORK["eip155:84532"]
+# The unauthenticated x402.org facilitator is TESTNET-ONLY (official x402
+# docs); Base mainnet uses the authenticated Coinbase CDP facilitator.
+TESTNET_FACILITATOR = "https://x402.org/facilitator"
+DEFAULT_FACILITATOR = TESTNET_FACILITATOR
+DEFAULT_FACILITATOR_BY_NETWORK = {
+    "eip155:84532": TESTNET_FACILITATOR,
+    "eip155:8453": x402_cdp.CDP_FACILITATOR_URL,
+}
 DEFAULT_HOST = "https://agent-guild-5d5r.onrender.com"
 
 # Networks whose successful settlement is REAL value. Everything else
@@ -129,11 +145,125 @@ def is_mainnet(net: str) -> bool:
 
 
 def asset() -> str:
-    return os.environ.get("GUILD_X402_ASSET", DEFAULT_ASSET)
+    return os.environ.get("GUILD_X402_ASSET",
+                          USDC_BY_NETWORK.get(network(), DEFAULT_ASSET))
 
 
 def facilitator_url() -> str:
-    return os.environ.get("GUILD_X402_FACILITATOR", DEFAULT_FACILITATOR).rstrip("/")
+    return os.environ.get(
+        "GUILD_X402_FACILITATOR",
+        DEFAULT_FACILITATOR_BY_NETWORK.get(network(), DEFAULT_FACILITATOR),
+    ).rstrip("/")
+
+
+def _facilitator_host(url: str = "") -> str:
+    from urllib.parse import urlparse
+    return urlparse(url or facilitator_url()).hostname or ""
+
+
+_ADDRESS_RE = None
+
+
+def _valid_evm_address(addr: str) -> bool:
+    global _ADDRESS_RE
+    if _ADDRESS_RE is None:
+        import re
+        _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+    return bool(_ADDRESS_RE.match(addr)) and int(addr, 16) != 0
+
+
+def config_errors() -> list[str]:
+    """Fail-closed configuration validation for the x402 rail. Empty list ==
+    valid. Called at startup (app lifespan refuses to boot a misconfigured
+    MAINNET rail) and again at payment time. Mainnet (real money) demands:
+
+      * the authenticated CDP facilitator — never the testnet x402.org one;
+      * CDP API credentials present (never validated by echoing them);
+      * a structurally valid, non-zero receiving address;
+      * the canonical Base-mainnet USDC contract — never the testnet one;
+      * an https public resource origin that is not local/private;
+      * an https Base RPC endpoint for INDEPENDENT settlement confirmation.
+    """
+    if not enabled():
+        return []
+    errs: list[str] = []
+    net = network()
+    pay = pay_to()
+    if not _valid_evm_address(pay):
+        errs.append("GUILD_X402_PAY_TO is not a valid non-zero EVM address")
+    if not is_mainnet(net):
+        return errs
+    # --- mainnet-only hard requirements --------------------------------
+    fac_host = _facilitator_host()
+    if fac_host != x402_cdp.CDP_FACILITATOR_HOST:
+        errs.append(
+            f"mainnet facilitator must be the authenticated CDP facilitator "
+            f"({x402_cdp.CDP_FACILITATOR_HOST}); configured host is "
+            f"{fac_host or 'invalid'} — the x402.org facilitator is "
+            "testnet-only")
+    if not facilitator_url().startswith("https://"):
+        errs.append("mainnet facilitator URL must be https")
+    if not x402_cdp.credentials_configured():
+        errs.append("CDP_API_KEY_ID / CDP_API_KEY_SECRET are not configured "
+                    "— the CDP facilitator authenticates every /verify and "
+                    "/settle request")
+    expected_usdc = USDC_BY_NETWORK["eip155:8453"]
+    if asset().lower() != expected_usdc.lower():
+        detail = ("the TESTNET USDC contract"
+                  if asset().lower() == USDC_BY_NETWORK["eip155:84532"].lower()
+                  else f"{asset()!r}")
+        errs.append(f"mainnet asset must be Base USDC {expected_usdc}; "
+                    f"configured asset is {detail}")
+    host = public_host()
+    from urllib.parse import urlparse
+    parsed = urlparse(host)
+    if parsed.scheme != "https" or not parsed.hostname:
+        errs.append(f"public resource origin {host!r} must be a valid https "
+                    "origin on mainnet")
+    elif (parsed.hostname in ("localhost", "0.0.0.0")
+          or parsed.hostname.startswith(("127.", "10.", "192.168."))):
+        errs.append(f"public resource origin {host!r} is local/private — "
+                    "mainnet payments would be bound to unreachable "
+                    "resource URLs")
+    if not x402_confirm.rpc_url().startswith("https://"):
+        errs.append("GUILD_X402_BASE_RPC must be an https JSON-RPC endpoint "
+                    "— independent mainnet confirmation is mandatory")
+    return errs
+
+
+def assert_config_valid() -> None:
+    """Raise (fail closed) if the enabled rail is misconfigured."""
+    errs = config_errors()
+    if errs:
+        raise RuntimeError("x402 rail misconfigured: " + "; ".join(errs))
+
+
+def readiness() -> dict[str, Any]:
+    """Non-secret, machine-readable payment-readiness. NEVER includes
+    credentials, key material, or the RPC/facilitator beyond their hosts."""
+    from urllib.parse import urlparse
+    errs = config_errors()
+    return {
+        "rail": "x402",
+        "version": X402_VERSION,
+        "enabled": enabled(),
+        "network": network(),
+        "mainnet": is_mainnet(network()),
+        "asset": asset(),
+        "recipient": pay_to() or None,
+        "facilitator_host": _facilitator_host() or None,
+        "facilitator_authenticated": (
+            _facilitator_host() == x402_cdp.CDP_FACILITATOR_HOST
+            and x402_cdp.credentials_configured()),
+        "independent_confirmation_rpc_host": (
+            urlparse(x402_confirm.rpc_url()).hostname
+            if is_mainnet(network()) else None),
+        "config_valid": not errs,
+        "config_errors": errs,
+        "revenue_policy": ("real revenue counts ONLY mainnet settlements "
+                           "independently confirmed on-chain (receipt status, "
+                           "USDC contract, recipient, exact amount)"),
+    }
 
 
 def public_host() -> str:
@@ -364,7 +494,16 @@ def check_binding(payload: PaymentPayload, endpoint: str, credits_cost: int,
 # --- facilitator (official SDK client) ---------------------------------------
 
 def _facilitator() -> HTTPFacilitatorClientSync:
-    return HTTPFacilitatorClientSync(FacilitatorConfig(url=facilitator_url()))
+    """The facilitator client. The CDP facilitator is AUTHENTICATED: every
+    /verify and /settle carries a fresh request-bound Bearer JWT via the
+    x402 SDK's AuthProvider hook (app/x402_cdp.py). The unauthenticated
+    x402.org facilitator remains for testnet only — config_errors() rejects
+    it for mainnet."""
+    url = facilitator_url()
+    if _facilitator_host(url) == x402_cdp.CDP_FACILITATOR_HOST:
+        return HTTPFacilitatorClientSync(FacilitatorConfig(
+            url=url, auth_provider=x402_cdp.auth_provider()))
+    return HTTPFacilitatorClientSync(FacilitatorConfig(url=url))
 
 
 def decode_payment_signature(header: str) -> PaymentPayload:
@@ -382,10 +521,15 @@ def decode_payment_signature(header: str) -> PaymentPayload:
 def process_payment(payload: PaymentPayload, endpoint: str,
                     credits_cost: int, method: str = RESOURCE_METHOD,
                     protocol: str = "v2") -> dict[str, Any]:
-    """Full server-side flow for one payment: binding guards → replay
-    reservation → facilitator verify → facilitator settle. Returns a
-    settlement record; the protected result must be served ONLY when
-    record["ok"] is True."""
+    """Full server-side flow for one payment: config fail-closed → binding
+    guards → replay reservation → facilitator verify → facilitator settle →
+    (mainnet) INDEPENDENT on-chain confirmation. Returns a settlement
+    record; the protected result must be served ONLY when record["ok"] is
+    True — and on mainnet ok requires the independent confirmation, never
+    the facilitator's word alone."""
+    cfg_errs = config_errors()
+    if cfg_errs:
+        raise PaymentBindingError("x402_misconfigured", "; ".join(cfg_errs))
     check_binding(payload, endpoint, credits_cost, method=method)
     auth = payload.payload["authorization"]
     ident = replay_guard.check_and_reserve(auth)
@@ -413,6 +557,14 @@ def process_payment(payload: PaymentPayload, endpoint: str,
             pass
     ok = bool(getattr(s, "success", False))
     net = getattr(s, "network", None) or offered.network
+    tx = getattr(s, "transaction", "") or ""
+    if ok and not (isinstance(tx, str) and tx.startswith("0x") and len(tx) == 66):
+        # a "successful" settlement without a well-formed transaction hash is
+        # a malformed facilitator response — fail closed
+        ok, tx = False, tx if isinstance(tx, str) else ""
+        malformed = "facilitator claimed success without a valid tx hash"
+    else:
+        malformed = None
     record = {
         "ok": ok,
         "stage": "settle",
@@ -427,13 +579,38 @@ def process_payment(payload: PaymentPayload, endpoint: str,
         "amount_atomic": offered.amount,
         "payer": getattr(s, "payer", None) or auth.get("from"),
         "recipient": offered.pay_to,
-        "transaction": getattr(s, "transaction", "") or "",
-        "status": "settled" if ok else (getattr(s, "error_reason", None) or "failed"),
+        "transaction": tx,
+        "status": ("settled" if ok else
+                   malformed or getattr(s, "error_reason", None) or "failed"),
         "payment_identity": ident,
         "mainnet": is_mainnet(net),
-        "value_note": ("REAL mainnet settlement" if is_mainnet(net) and ok else
-                       "TESTNET/valueless — never counted as revenue"),
+        "confirmed": False,
+        "value_note": "TESTNET/valueless — never counted as revenue",
     }
+    if ok and is_mainnet(net):
+        # A mainnet facilitator response alone is NEVER sufficient: confirm
+        # the Base transaction receipt and the USDC Transfer event
+        # (status, contract, recipient, exact amount) on an independent RPC.
+        conf = x402_confirm.confirm_settlement(
+            tx, asset=offered.asset, recipient=offered.pay_to,
+            amount_atomic=offered.amount)
+        record["confirmation"] = {k: conf.get(k) for k in
+                                  ("confirmed", "reason", "block_number")}
+        if conf.get("confirmed"):
+            record["status"] = "settled_confirmed"
+            record["confirmed"] = True
+            record["value_note"] = ("REAL mainnet settlement — independently "
+                                    "confirmed on-chain")
+        else:
+            # fail closed: the identity stays reserved (the authorization may
+            # have settled on-chain); the caller can re-present the SAME
+            # payment and recovery re-runs confirmation (see main.py).
+            record["ok"] = False
+            record["status"] = "settled_unconfirmed"
+            record["value_note"] = ("mainnet settlement NOT independently "
+                                    "confirmed — result withheld, never "
+                                    "counted as revenue")
+        return record
     if not ok:
         replay_guard.release(ident)          # failed settlement may retry
     return record

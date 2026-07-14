@@ -324,26 +324,43 @@ def test_v1_payload_rejected_on_v2_header():
 def test_testnet_settlement_never_counts_as_real_revenue(monkeypatch):
     monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
     from app.state import store
+    before = store.escrow_summary()
     settled = x402.process_payment(make_payload("best_agent", 10),
                                    "best_agent", 10)
     assert settled["ok"] and settled["mainnet"] is False
     store.record_x402_payment("best_agent", 10, settled)
     rev = store.escrow_summary()
-    assert rev["real_settlement"]["transactions"] == 0
-    assert rev["real_settlement"]["revenue_usd"] == 0.0
-    assert rev["testnet_settlement"]["transactions"] >= 1
+    assert (rev["real_settlement"]["transactions"]
+            == before["real_settlement"]["transactions"])   # unmoved
+    assert (rev["real_settlement"]["revenue_usd"]
+            == before["real_settlement"]["revenue_usd"])
+    assert (rev["testnet_settlement"]["transactions"]
+            == before["testnet_settlement"]["transactions"] + 1)
 
 
-def test_only_verifiable_mainnet_settlement_counts(monkeypatch):
-    # facilitator settling on Base MAINNET with a tx hash → counted
+def test_only_independently_confirmed_mainnet_settlement_counts(monkeypatch):
+    # facilitator settling on Base MAINNET + INDEPENDENT on-chain
+    # confirmation (fake RPC receipt with the exact USDC contract,
+    # recipient and amount) → counted. The facilitator response alone is
+    # NEVER sufficient (tests/test_x402_cdp_settlement.py proves the
+    # unconfirmed cases).
+    from app import x402_confirm
+    from app.state import store
+    monkeypatch.setenv("GUILD_X402_NETWORK", "eip155:8453")
+    monkeypatch.setenv("CDP_API_KEY_ID", "test-key-id")
+    from tests.test_x402_cdp_settlement import FAKE_SECRET, _receipt
+    monkeypatch.setenv("CDP_API_KEY_SECRET", FAKE_SECRET)
     monkeypatch.setattr(x402, "_facilitator",
                         lambda: FakeFacilitator(network="eip155:8453"))
-    from app.state import store
+    monkeypatch.setattr(x402_confirm, "_get_receipt",
+                        lambda tx, timeout=15.0: _receipt())
+    before = store.escrow_summary()["real_settlement"]
     settled = x402.process_payment(make_payload("best_agent", 10),
                                    "best_agent", 10)
     assert settled["mainnet"] is True and settled["transaction"]
+    assert settled["status"] == "settled_confirmed" and settled["confirmed"]
     store.record_x402_payment("best_agent", 10, settled)
-    rev = store.escrow_summary()
-    assert rev["real_settlement"]["transactions"] == 1
-    assert rev["real_settlement"]["revenue_usd"] == pytest.approx(0.01)
-    assert rev["real_settlement"]["transaction_hashes"] == [settled["transaction"]]
+    rev = store.escrow_summary()["real_settlement"]
+    assert rev["transactions"] == before["transactions"] + 1
+    assert rev["revenue_usd"] == pytest.approx(before["revenue_usd"] + 0.01)
+    assert settled["transaction"] in rev["transaction_hashes"]
