@@ -36,8 +36,8 @@ services:
         generateValue: true
       - key: GUILD_BILLING_DEV_TOKEN    # mint credits without Stripe (pilot)
         generateValue: true
-      - key: GUILD_BILLING_ENFORCED     # "1" to require a funded key on reads
-        value: "0"
+      - key: GUILD_BILLING_ENFORCED     # require sandbox credits or x402 on paid reads
+        value: "1"
       - key: GUILD_BOOTSTRAP_EVAL       # "1" self-seeds a labelled, first-party
         value: "1"                      # bootstrap /evaluation cohort on boot
       # Strict first-party tagging (Pilot A instrumentation audit, 2026-07-10):
