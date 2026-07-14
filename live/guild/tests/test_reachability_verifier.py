@@ -276,3 +276,86 @@ def test_tls_pinning_sni_and_hostname_validation():
                                    "127.0.0.1", port, "/", method="HEAD")
     finally:
         srv.shutdown()
+
+
+# --- keepalive event dedup (2026-07-14) ---------------------------------------
+# A worker that re-declares the SAME endpoint on a timer (verify=True) must not
+# flood the journal: within KEEPALIVE_EVENT_WINDOW_S an unchanged endpoint with
+# an unchanged probe outcome records NO new events. Endpoint changes, status
+# transitions, and verify=False declarations always record.
+
+def _ev(s, etype):
+    return [e for e in s.events if e.get("type") == etype]
+
+
+def _probe_ok():
+    card = b'{"protocolVersion":"0.3.0","skills":[{"id":"x"}]}'
+    return (mock.patch.object(R.socket, "getaddrinfo",
+                              return_value=_ai("93.184.216.34")),
+            mock.patch.object(R, "_http_request_pinned", return_value=(200, card)))
+
+
+def test_keepalive_repeat_declare_same_outcome_records_no_new_events():
+    s = _fresh(); a = s.register_agent("KA", ["x"], {})
+    g, h = _probe_ok()
+    with g, h:
+        s.set_agent_endpoint(a["id"], "https://w.example/a2a", verify=True)
+        base_d = len(_ev(s, "endpoint_declared"))
+        base_v = len(_ev(s, "endpoint_verification"))
+        assert base_d == 1 and base_v == 1
+        for _ in range(5):   # the 2-minute keepalive pattern
+            out = s.set_agent_endpoint(a["id"], "https://w.example/a2a", verify=True)
+    # freshness still served on every call…
+    assert out["reachability_status"] == "recently_reachable"
+    assert s.get_agent(a["id"])["reachability"]["status"] == "recently_reachable"
+    # …but zero additional journal events
+    assert len(_ev(s, "endpoint_declared")) == base_d
+    assert len(_ev(s, "endpoint_verification")) == base_v
+
+
+def test_keepalive_status_transition_is_never_hidden():
+    s = _fresh(); a = s.register_agent("KT", ["x"], {})
+    g, h = _probe_ok()
+    with g, h:
+        s.set_agent_endpoint(a["id"], "https://w.example/a2a", verify=True)
+    # worker goes DOWN inside the window: verification event MUST record
+    with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", side_effect=socket.timeout()):
+        s.set_agent_endpoint(a["id"], "https://w.example/a2a", verify=True)
+    vs = _ev(s, "endpoint_verification")
+    assert [v["reachability_status"] for v in vs] == \
+        ["recently_reachable", "currently_unreachable"]
+    # recovery inside the window records again (transition, not a repeat)
+    with g, h:
+        s.set_agent_endpoint(a["id"], "https://w.example/a2a", verify=True)
+    vs = _ev(s, "endpoint_verification")
+    assert vs[-1]["reachability_status"] == "recently_reachable"
+    assert len(vs) == 3
+
+
+def test_endpoint_change_and_expired_window_always_record():
+    import app.store as store_mod
+    s = _fresh(); a = s.register_agent("KC", ["x"], {})
+    g, h = _probe_ok()
+    with g, h:
+        s.set_agent_endpoint(a["id"], "https://one.example/a2a", verify=True)
+        # CHANGED endpoint inside the window → full pair records
+        s.set_agent_endpoint(a["id"], "https://two.example/a2a", verify=True)
+        assert len(_ev(s, "endpoint_declared")) == 2
+        assert len(_ev(s, "endpoint_verification")) == 2
+        # window EXPIRED → repeat records again (the ≤4-pairs/day heartbeat)
+        with mock.patch.object(store_mod, "KEEPALIVE_EVENT_WINDOW_S", 0.0):
+            s.set_agent_endpoint(a["id"], "https://two.example/a2a", verify=True)
+        assert len(_ev(s, "endpoint_declared")) == 3
+        assert len(_ev(s, "endpoint_verification")) == 3
+
+
+def test_unverified_redeclaration_still_records():
+    s = _fresh(); a = s.register_agent("KU", ["x"], {})
+    g, h = _probe_ok()
+    with g, h:
+        s.set_agent_endpoint(a["id"], "https://w.example/a2a", verify=True)
+    # verify=False re-declare downgrades evidence — that is a state change and
+    # must stay visible regardless of the window
+    s.set_agent_endpoint(a["id"], "https://w.example/a2a")
+    assert len(_ev(s, "endpoint_declared")) == 2

@@ -40,6 +40,33 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _iso_age_seconds(ts: Optional[str]) -> float:
+    """Seconds since an ISO timestamp; +inf if absent/unparseable (never
+    suppress on bad data — fail toward recording)."""
+    if not ts:
+        return float("inf")
+    try:
+        return (datetime.now(timezone.utc)
+                - datetime.fromisoformat(ts)).total_seconds()
+    except (ValueError, TypeError):
+        return float("inf")
+
+
+# Keepalive event dedup window (seconds). Agents that re-declare the SAME
+# endpoint on a timer (e.g. the market worker re-verifies every ~2 min so
+# /check freshness never goes stale) were emitting an endpoint_declared +
+# endpoint_verification pair per tick — ~1,440 journal events/day from ONE
+# well-behaved worker, drowning the external-only recent window that the
+# external watch reads (241 of the last 250 events on 2026-07-14). Within this
+# rolling window an unchanged endpoint re-verified with an unchanged outcome
+# records NO new events; the reachability record and freshness timestamps
+# still update on every call. Endpoint changes, status transitions, and plain
+# (verify=False) declarations ALWAYS record. No state transition is ever
+# hidden — only literal repeats are elided.
+KEEPALIVE_EVENT_WINDOW_S = float(
+    os.environ.get("GUILD_KEEPALIVE_EVENT_WINDOW_S", "21600"))
+
+
 def endpoint_fingerprint(endpoint: Optional[str]) -> Optional[str]:
     """Stable fingerprint of a routed endpoint URL. Carried in both the AGD-1
     decision and the routing gate so a delegation gateway can assert the two
@@ -944,11 +971,26 @@ class Store:
             agent = self.agents.get(agent_id)
             if agent is None:
                 raise ValueError("agent not found")
+            prev_endpoint = (agent.get("metadata") or {}).get("endpoint")
+            event_meta = agent.get("reachability_event_meta") or {}
+            # keepalive dedup (see KEEPALIVE_EVENT_WINDOW_S): suppress the
+            # journal event pair ONLY for a verify=True re-declaration of the
+            # SAME endpoint inside the window — the keepalive pattern. The
+            # verification event below still fires if the probe OUTCOME changed.
+            suppress_repeat = (
+                verify and prev_endpoint == endpoint
+                and event_meta.get("endpoint") == endpoint
+                and _iso_age_seconds(event_meta.get("at"))
+                    < KEEPALIVE_EVENT_WINDOW_S)
             agent.setdefault("metadata", {})["endpoint"] = endpoint
             agent.pop("reachability", None)
-            self.record_event(self.account_for_agent(agent_id), "endpoint_declared",
-                              agent_id=agent_id, endpoint=endpoint, verified=False,
-                              reachability_status="declared_unverified")
+            if not suppress_repeat:
+                self.record_event(self.account_for_agent(agent_id), "endpoint_declared",
+                                  agent_id=agent_id, endpoint=endpoint, verified=False,
+                                  reachability_status="declared_unverified")
+                agent["reachability_event_meta"] = {
+                    "endpoint": endpoint, "status": "declared_unverified",
+                    "at": _now()}
             if self.backend is not None:
                 self._persist_agent(agent_id)
             self._save()
@@ -990,11 +1032,24 @@ class Store:
                 # only apply if the endpoint hasn't changed under us
                 if agent and (agent.get("metadata") or {}).get("endpoint") == endpoint:
                     agent["reachability"] = record
-                    self.record_event(self.account_for_agent(agent_id),
-                                      "endpoint_verification",
-                                      agent_id=agent_id,
-                                      reachability_status=record["status"],
-                                      evidence_level=record["evidence_level"])
+                    status = record["status"]
+                    # a suppressed keepalive still records its verification if
+                    # the OUTCOME changed (reachable↔unreachable transitions are
+                    # never hidden). "verification_inconclusive" (in-flight dup /
+                    # probe saturation) is no-new-evidence — not a transition.
+                    status_changed = (
+                        status != (agent.get("reachability_event_meta") or {})
+                        .get("status")
+                        and status != "verification_inconclusive")
+                    if not suppress_repeat or status_changed:
+                        self.record_event(self.account_for_agent(agent_id),
+                                          "endpoint_verification",
+                                          agent_id=agent_id,
+                                          reachability_status=status,
+                                          evidence_level=record["evidence_level"])
+                        agent["reachability_event_meta"] = {
+                            "endpoint": endpoint, "status": status,
+                            "at": _now()}
                     if self.backend is not None:
                         self._persist_agent(agent_id)
                     self._save()
