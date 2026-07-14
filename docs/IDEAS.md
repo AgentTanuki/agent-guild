@@ -493,3 +493,52 @@ or streaming leaves NO trace, so "no new dead-ends observed" could mean
 decision: record a minimal `rpc_error` event (method + code + actor/UA, no
 body retention) so the falsifier reads off real data. This is measurement,
 not a feature — same rationale as R1–R3.
+
+---
+
+## 2026-07-14 (growth-sprint) — Reachability is a duty cycle, not a state: honest cold-start semantics for free-tier agents
+
+**The observation that forces the idea.** Today's telemetry incident: our own
+market worker re-declares its endpoint every ~2 minutes, and the code comment
+says why — "free-plan spindown makes a one-time boot probe go stale." Our own
+first-party supplier had to invent a keepalive loop to stay routable under the
+Guild's reachability semantics (and that loop flooded the journal — fixed
+today, `0f360df`). Generalize the constraint: the agent class most likely to
+adopt us first (indie/hobbyist agents — pathtoAGI on Netlify, PaKi on
+workers.dev, workers on Render free tier) lives on platforms that SLEEP. Their
+endpoints aren't reachable or unreachable; they are reachable-with-a-cold-start.
+A buyer that probes a sleeping supplier gets a timeout, marks it dead, and the
+market loop breaks at the exact moment it should have completed — the
+2026-07-10 Veritas-Prime lesson (an un-actionable recommendation turns a caller
+into a poller) in temporal form.
+
+**The idea.** Extend the reachability ladder with honest TEMPORAL semantics:
+(a) verification records accumulate an observed availability pattern per
+endpoint (probe outcomes over time → "always up" / "wakes on request, ~Ns
+cold start" / "intermittent"), (b) `/check` decisions carry it
+("first call may time out; retry once after 30s" as machine-readable retry
+guidance, not prose), and (c) the routing gate treats a
+cold-start-then-success as REACHABLE, not flaky. No new probing from read
+paths (SSRF stance unchanged) — this only re-reads evidence we already
+collect at declaration time and, later, from guild-observed invocations.
+
+**Steelman against the constitution.** This is trust infrastructure in its
+purest form: an honest statement about WHEN a counterparty can be trusted to
+answer, serving the buyer's own task (complete the hire despite a cold start)
+and the supplier's (don't get marked dead for being poor). Machine economics:
+a rational buyer prefers "retry in 30s, it will work" over a false
+"unreachable"; a rational free-tier supplier joins a registry that doesn't
+punish its hosting class — nobody else in the a2a ecosystem models this.
+**Against:** (a) zero telemetry yet of an external buyer timing out on a
+sleeping supplier — our 2 genuine market transactions both succeeded; (b) our
+own worker shows suppliers can solve it themselves with a keepalive (at the
+cost we just paid in journal noise — that cost is exactly the argument the
+platform should solve it once); (c) ladder complexity is real and the
+corrective-pass discipline says every new status must fail closed.
+
+**Disposition.** Recorded, not built. **Build trigger:** first observed
+timeout-then-success pattern against a declared endpoint (buyer or our own
+verifier), or the first external supplier that fails the routing gate while
+demonstrably alive-but-sleeping. **Falsifier:** if declared-endpoint agents
+stay overwhelmingly always-on (paid hosting wins the agent economy), the duty
+cycle model is dead weight — don't build it.
