@@ -80,6 +80,13 @@ USDC_BY_NETWORK = {
     "eip155:8453": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",   # Base mainnet
 }
 DEFAULT_ASSET = USDC_BY_NETWORK["eip155:84532"]
+# The dedicated Agent Guild treasury (`agent-guild-treasury`, provisioned in
+# CDP 2026-07-14). This is a PUBLIC address, not a secret. Mainnet payments
+# are PINNED to it: any other GUILD_X402_PAY_TO on eip155:8453 fails closed,
+# so a mistyped or maliciously swapped Render env var can never redirect
+# real settlements. Rotating the treasury is a reviewed code change on
+# purpose.
+MAINNET_TREASURY = "0xaa4E3ba0Eb5f564cAb54dDC08f5BaAfb3D4cA8E5"
 # The unauthenticated x402.org facilitator is TESTNET-ONLY (official x402
 # docs); Base mainnet uses the authenticated Coinbase CDP facilitator.
 TESTNET_FACILITATOR = "https://x402.org/facilitator"
@@ -207,6 +214,10 @@ def config_errors() -> list[str]:
         errs.append("CDP_API_KEY_ID / CDP_API_KEY_SECRET are not configured "
                     "— the CDP facilitator authenticates every /verify and "
                     "/settle request")
+    if pay and pay.lower() != MAINNET_TREASURY.lower():
+        errs.append("mainnet recipient is PINNED to the agent-guild-treasury "
+                    f"address {MAINNET_TREASURY}; GUILD_X402_PAY_TO is set "
+                    "to a different address")
     expected_usdc = USDC_BY_NETWORK["eip155:8453"]
     if asset().lower() != expected_usdc.lower():
         detail = ("the TESTNET USDC contract"
@@ -251,6 +262,9 @@ def readiness() -> dict[str, Any]:
         "mainnet": is_mainnet(network()),
         "asset": asset(),
         "recipient": pay_to() or None,
+        "recipient_is_pinned_treasury": (
+            pay_to().lower() == MAINNET_TREASURY.lower()
+            if is_mainnet(network()) and pay_to() else None),
         "facilitator_host": _facilitator_host() or None,
         "facilitator_authenticated": (
             _facilitator_host() == x402_cdp.CDP_FACILITATOR_HOST

@@ -41,7 +41,7 @@ on-chain, and the service itself enforces that definition
 | `CDP_API_KEY_ID` | CDP Secret API key ID | create at portal.cdp.coinbase.com (Ed25519 recommended) |
 | `CDP_API_KEY_SECRET` | CDP Secret API key material | base64 Ed25519 (or PEM EC); never logged/served |
 | `GUILD_X402_ENABLED` | `1` | master switch |
-| `GUILD_X402_PAY_TO` | dedicated Agent Guild receiving address | a fresh wallet Ross controls; NOT an exchange deposit address |
+| `GUILD_X402_PAY_TO` | `0xaa4E3ba0Eb5f564cAb54dDC08f5BaAfb3D4cA8E5` | the dedicated `agent-guild-treasury` wallet (public address). Mainnet is **PINNED in code** to this address (`x402.MAINNET_TREASURY`) — any other value fails closed, so a mistyped/swapped env var can never redirect settlements. Rotating the treasury is a reviewed code change. |
 | `GUILD_X402_NETWORK` | `eip155:84532` for stage 2, `eip155:8453` for stage 3+ | CAIP-2 |
 | `GUILD_X402_BASE_RPC` | e.g. `https://mainnet.base.org` (default) | independent confirmation endpoint; https required |
 | `GUILD_X402_CONFIRM_TIMEOUT` | optional, default 45 (seconds) | receipt-poll bound |
@@ -69,10 +69,24 @@ Base-Sepolia test wallet against a paid read. Gate: 402 → pay → result →
 `PAYMENT-RESPONSE`; `/billing/revenue` shows the settlement ONLY under
 `testnet_settlement`; real revenue stays 0.
 
-**Stage 3 — one $0.001 mainnet canary.** Set `GUILD_X402_NETWORK=eip155:8453`
-plus `CDP_API_KEY_ID`/`CDP_API_KEY_SECRET` in Render (service must boot —
-if it doesn't, the fail-closed validation says why in the logs, without
-secrets). An **independent buyer** (not Guild-operated, e.g. Ross's own
+**Stage 2.5 — local preflight (read-only, secret-silent).** On the machine
+holding the CDP key, run:
+
+```
+python live/scripts/x402_preflight.py --key-file <path to CDP key JSON>
+```
+
+It proves — without settling anything or printing any secret — that the
+credentials produce valid request-bound JWTs, the AUTHENTICATED CDP
+facilitator accepts them (`GET /supported`), exact/eip155:8453 is supported,
+the recipient matches the pinned treasury, the confirmation RPC answers with
+chainId 8453, and the service's own fail-closed validation passes.
+Gate: `PREFLIGHT CLEAN`. A clean preflight is NOT a payment and NOT revenue.
+
+**Stage 3 — one mainnet canary (~$0.005–0.01).** Set
+`GUILD_X402_NETWORK=eip155:8453` plus `CDP_API_KEY_ID`/`CDP_API_KEY_SECRET`
+in Render (service must boot — if it doesn't, the fail-closed validation
+says why in the logs, without secrets). An **independent buyer** (not Guild-operated, e.g. Ross's own
 separate machine with its own funded wallet, clearly labelled first-party
 in any adoption metrics) pays one 10-credit read (= 0.01 USDC… note: one
 `best_agent` read is $0.01; use `reputation`/`fraud_check` at 5 credits or

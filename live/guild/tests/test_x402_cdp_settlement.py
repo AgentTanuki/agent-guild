@@ -31,7 +31,8 @@ from fastapi.testclient import TestClient
 from app import x402, x402_cdp, x402_confirm
 from tests.test_x402_v2 import FakeFacilitator, make_payload, sig_header
 
-PAY_TO = "0x" + "11" * 20
+# mainnet recipients are PINNED to the dedicated treasury (public address)
+PAY_TO = x402.MAINNET_TREASURY
 MAINNET = "eip155:8453"
 MAINNET_USDC = x402.USDC_BY_NETWORK[MAINNET]
 TESTNET_USDC = x402.USDC_BY_NETWORK["eip155:84532"]
@@ -198,6 +199,9 @@ def test_startup_failure_message_carries_no_secret(mainnet_env):
     (lambda m: m.delenv("CDP_API_KEY_SECRET"), "CDP_API_KEY_ID"),
     (lambda m: m.setenv("GUILD_X402_PAY_TO", "0x1234"), "valid non-zero EVM"),
     (lambda m: m.setenv("GUILD_X402_PAY_TO", "0x" + "00" * 20), "valid non-zero EVM"),
+    # a VALID address that is not the treasury must still fail closed
+    (lambda m: m.setenv("GUILD_X402_PAY_TO", "0x" + "11" * 20),
+     "PINNED to the agent-guild-treasury"),
     (lambda m: m.setenv("GUILD_PUBLIC_HOST", "http://agent-guild.example"),
      "must be a valid https origin"),
     (lambda m: m.setenv("GUILD_PUBLIC_HOST", "https://127.0.0.1:8000"),
@@ -389,3 +393,46 @@ def test_readiness_endpoint_is_public_and_secretless(mainnet_env):
         j = body.json()
         assert j["config_valid"] is True and j["mainnet"] is True
         assert j["facilitator_host"] == "api.cdp.coinbase.com"
+        assert j["recipient"] == x402.MAINNET_TREASURY
+        assert j["recipient_is_pinned_treasury"] is True
+
+
+# --- preflight script (secret-silent credential loading) ------------------------
+
+def _preflight_module():
+    import importlib.util
+    import pathlib
+    path = (pathlib.Path(__file__).resolve().parents[2]
+            / "scripts" / "x402_preflight.py")
+    spec = importlib.util.spec_from_file_location("x402_preflight", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_preflight_loads_portal_key_file_without_printing(tmp_path, monkeypatch,
+                                                          capsys):
+    monkeypatch.delenv("CDP_API_KEY_ID", raising=False)
+    monkeypatch.delenv("CDP_API_KEY_SECRET", raising=False)
+    key_file = tmp_path / "cdp_api_key.json"
+    key_file.write_text(json.dumps({"id": FAKE_KEY_ID,
+                                    "privateKey": FAKE_SECRET}))
+    pf = _preflight_module()
+    assert pf.load_credentials(str(key_file)) is True
+    import os
+    assert os.environ["CDP_API_KEY_ID"] == FAKE_KEY_ID
+    out = capsys.readouterr()
+    assert FAKE_SECRET not in out.out + out.err
+    assert FAKE_KEY_ID not in out.out + out.err
+    # generated headers work off the loaded credentials
+    assert x402_cdp.create_cdp_headers()["verify"]["Authorization"].startswith("Bearer ")
+
+
+def test_preflight_rejects_malformed_key_file(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("CDP_API_KEY_ID", raising=False)
+    monkeypatch.delenv("CDP_API_KEY_SECRET", raising=False)
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"something": "else"}))
+    pf = _preflight_module()
+    assert pf.load_credentials(str(bad)) is False
+    assert "privateKey" in capsys.readouterr().out   # explains shape, no secrets

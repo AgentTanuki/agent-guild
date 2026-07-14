@@ -347,6 +347,7 @@ def test_only_independently_confirmed_mainnet_settlement_counts(monkeypatch):
     from app import x402_confirm
     from app.state import store
     monkeypatch.setenv("GUILD_X402_NETWORK", "eip155:8453")
+    monkeypatch.setenv("GUILD_X402_PAY_TO", x402.MAINNET_TREASURY)
     monkeypatch.setenv("CDP_API_KEY_ID", "test-key-id")
     from tests.test_x402_cdp_settlement import FAKE_SECRET, _receipt
     monkeypatch.setenv("CDP_API_KEY_SECRET", FAKE_SECRET)
