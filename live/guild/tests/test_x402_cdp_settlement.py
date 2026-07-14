@@ -152,6 +152,17 @@ def test_facilitator_factory_authenticates_cdp_but_not_testnet(mainnet_env):
     assert x402._facilitator()._auth_provider is None
 
 
+def test_usdc_eip712_domain_is_bound_to_network(mainnet_env):
+    """Circle's mainnet token signs as ``USD Coin``; Sepolia signs as
+    ``USDC``.  Quoting the testnet name on mainnet passes local recovery but
+    fails at the real token contract during settlement."""
+    assert x402.requirements("best_agent", 10).extra == {
+        "name": "USD Coin", "version": "2"}
+    mainnet_env.setenv("GUILD_X402_NETWORK", "eip155:84532")
+    assert x402.requirements("best_agent", 10).extra == {
+        "name": "USDC", "version": "2"}
+
+
 def test_missing_credentials_fail_closed_not_open(mainnet_env):
     mainnet_env.delenv("CDP_API_KEY_ID")
     with pytest.raises(RuntimeError) as e:

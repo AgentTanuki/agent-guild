@@ -79,6 +79,14 @@ USDC_BY_NETWORK = {
     "eip155:84532": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # Base Sepolia
     "eip155:8453": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",   # Base mainnet
 }
+# EIP-712 domain names are contract metadata and differ between Circle's
+# testnet and mainnet USDC deployments.  A client and facilitator can agree on
+# the wrong string and still recover a signature, but the token contract will
+# reject it at settlement.  Keep this network-bound just like the asset.
+USDC_EIP712_NAME_BY_NETWORK = {
+    "eip155:84532": "USDC",
+    "eip155:8453": "USD Coin",
+}
 DEFAULT_ASSET = USDC_BY_NETWORK["eip155:84532"]
 # The dedicated Agent Guild treasury (`agent-guild-treasury`, provisioned in
 # CDP 2026-07-14). This is a PUBLIC address, not a secret. Mainnet payments
@@ -290,14 +298,16 @@ def resource_url(endpoint: str) -> str:
 
 def requirements(endpoint: str, credits_cost: int) -> PaymentRequirements:
     """The v2 payment requirements the Guild quotes for one capability."""
+    net = network()
     return PaymentRequirements(
         scheme="exact",
-        network=network(),
+        network=net,
         amount=str(credits_cost * ATOMIC_PER_CREDIT),
         asset=asset(),
         pay_to=pay_to(),
         max_timeout_seconds=300,
-        extra={"name": "USDC", "version": "2"},
+        extra={"name": USDC_EIP712_NAME_BY_NETWORK.get(net, "USDC"),
+               "version": "2"},
     )
 
 
