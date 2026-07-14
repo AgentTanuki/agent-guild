@@ -11,6 +11,7 @@ live service.
 from __future__ import annotations
 
 import json
+import os
 import socket
 import sys
 import urllib.parse
@@ -92,7 +93,11 @@ def issuer(request):
 @pytest.fixture(scope="session")
 def fetch(issuer):
     def _fetch(path):
-        with urllib.request.urlopen(issuer["base"] + path, timeout=30) as r:
+        api_key = os.environ.get("AGI1_API_KEY", "")
+        req = urllib.request.Request(
+            issuer["base"] + path,
+            headers={"X-API-Key": api_key} if api_key else {})
+        with urllib.request.urlopen(req, timeout=30) as r:
             return json.loads(r.read().decode())
     return _fetch
 

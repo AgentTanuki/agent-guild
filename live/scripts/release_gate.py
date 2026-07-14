@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -42,11 +43,38 @@ sys.path.insert(0, str(REPO / "live" / "trustplane"))
 DEFAULT_HOST = "https://agent-guild-5d5r.onrender.com"
 
 
-def _get(host: str, path: str, timeout: float = 45.0) -> dict:
-    req = urllib.request.Request(host + path, headers={
-        "User-Agent": "guild-release-gate", "X-Guild-Source": "guild-ci"})
+def _headers(api_key: str = "") -> dict[str, str]:
+    return {
+        "User-Agent": "guild-release-gate",
+        "X-Guild-Source": "guild-ci",
+        **({"X-API-Key": api_key} if api_key else {}),
+    }
+
+
+def _get(host: str, path: str, timeout: float = 45.0,
+         api_key: str = "") -> dict:
+    req = urllib.request.Request(host + path, headers=_headers(api_key))
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
+
+
+def provision_machine_key(host: str, timeout: float = 45.0) -> tuple[str, int]:
+    """Acquire the same human-free trial credential any clean machine can.
+
+    The raw key is returned only in memory.  Callers must never print it or
+    place it in the release attestation.
+    """
+    req = urllib.request.Request(
+        host + "/billing/trial", data=b"", headers=_headers(), method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        body = json.loads(r.read().decode())
+    key = body.get("key")
+    balance = body.get("balance")
+    if not isinstance(key, str) or not key:
+        raise RuntimeError("trial response did not contain a machine credential")
+    if not isinstance(balance, int) or balance <= 0:
+        raise RuntimeError("trial response did not contain a positive balance")
+    return key, balance
 
 
 def wait_for_sha(host: str, expected_sha: str, timeout_s: float,
@@ -75,14 +103,16 @@ def wait_for_sha(host: str, expected_sha: str, timeout_s: float,
     raise TimeoutError(json.dumps(last))
 
 
-def check_signed_decision(host: str, capability: str = "hello") -> list[str]:
+def check_signed_decision(host: str, capability: str = "hello",
+                          api_key: str = "") -> list[str]:
     """Verify one live signed AGD-1 decision end to end. Returns a list of
     failures (empty == pass)."""
     from agentguild_trustplane import contract as tp_contract
     from agentguild_trustplane import verify as tp_verify
 
     fails: list[str] = []
-    env = _get(host, f"/check?capability={capability}&signed=true")
+    env = _get(host, f"/check?capability={capability}&signed=true",
+               api_key=api_key)
     didd = _get(host, "/.well-known/agent-guild-did.json")
     issuer_did = didd.get("did")
     if env.get("issuer") != issuer_did:
@@ -137,9 +167,10 @@ def check_checkpoint_continuity(host: str) -> list[str]:
     return fails
 
 
-def run_subprocess_check(name: str, cmd: list[str], cwd: pathlib.Path) -> dict:
+def run_subprocess_check(name: str, cmd: list[str], cwd: pathlib.Path,
+                         env: dict[str, str] | None = None) -> dict:
     print(f"\n=== {name}: {' '.join(cmd)} (cwd={cwd})")
-    p = subprocess.run(cmd, cwd=cwd)
+    p = subprocess.run(cmd, cwd=cwd, env=env)
     return {"name": name, "command": " ".join(cmd), "passed": p.returncode == 0,
             "exit_code": p.returncode}
 
@@ -189,7 +220,25 @@ def main() -> int:
               "pipeline failure, NOT (yet) evidence the release is defective")
         return _finish("deployment_not_arrived", 3)
 
-    # 2. live checks — only meaningful now that the SHA matches --------------
+    # 2. machine-authenticated live checks -----------------------------------
+    # Billing enforcement must apply to CI too.  The gate therefore follows
+    # the public, human-free machine journey instead of carrying a privileged
+    # bypass or requiring an operator-managed GitHub secret.
+    try:
+        machine_key, starting_balance = provision_machine_key(args.host)
+    except Exception as e:
+        attestation["checks"].append({
+            "name": "machine_self_provision", "passed": False,
+            "detail": f"human-free trial provisioning failed: {e}"})
+        return _finish("machine_self_provision_failed", 1)
+    attestation["checks"].append({
+        "name": "machine_self_provision", "passed": True,
+        "detail": f"ephemeral CI machine received {starting_balance} sandbox credits; "
+                  "credential intentionally omitted"})
+    check_env = os.environ.copy()
+    check_env["AGI1_API_KEY"] = machine_key
+
+    # 3. live checks — only meaningful now that the SHA matches --------------
     attestation["checks"].append(run_subprocess_check(
         "live_contract_probe",
         [sys.executable, "live/scripts/live_contract_probe.py"], REPO))
@@ -197,10 +246,11 @@ def main() -> int:
         "agi1_conformance_live",
         [sys.executable, "-m", "pytest", "conformance/", "-q",
          f"--issuer-base={args.host}", f"--capability={args.capability}"],
-        REPO / "live" / "trustplane"))
+        REPO / "live" / "trustplane", env=check_env))
 
     for name, fn in (("signed_decision_verification",
-                      lambda: check_signed_decision(args.host, args.capability)),
+                      lambda: check_signed_decision(
+                          args.host, args.capability, machine_key)),
                      ("issuer_checkpoint_continuity",
                       lambda: check_checkpoint_continuity(args.host))):
         try:
