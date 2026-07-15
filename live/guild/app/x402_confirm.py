@@ -27,14 +27,42 @@ from typing import Any, Optional
 import httpx
 
 DEFAULT_BASE_RPC = "https://mainnet.base.org"
+# Public default RPCs per CAIP-2 network, for the crash-recovery nonce oracle
+# (find_authorization_used). Mainnet keeps its dedicated env override.
+DEFAULT_RPC_BY_NETWORK = {
+    "eip155:8453": DEFAULT_BASE_RPC,
+    "eip155:84532": "https://sepolia.base.org",
+}
 # keccak256("Transfer(address,address,uint256)") — the canonical ERC-20
 # Transfer event signature topic.
 TRANSFER_TOPIC = ("0xddf252ad1be2c89b69c2b068"
                   "fc378daa952ba7f163c4a11628f55a4df523b3ef")
+# keccak256("AuthorizationUsed(address,bytes32)") — the EIP-3009 event USDC
+# emits when an authorization nonce is consumed (FiatTokenV2). Derived
+# 2026-07-15 with pycryptodome keccak-256; the Transfer topic above was
+# re-derived by the same method as a cross-check and matched.
+AUTHORIZATION_USED_TOPIC = ("0x98de503528ee59b575ef0c0a2576a824"
+                            "97bfc029a5685b209e9ec333479b10a5")
+# 4-byte selector of authorizationState(address,bytes32) — EIP-3009's
+# definitive nonce-consumed view (same derivation + cross-check).
+AUTHORIZATION_STATE_SELECTOR = "0xe94a0102"
+# Bounded look-back for locating the AuthorizationUsed tx hash: public RPCs
+# reject unbounded eth_getLogs ranges. 90k blocks ≈ 2 days on Base.
+_LOG_LOOKBACK_BLOCKS = 90_000
+_LOG_CHUNK_BLOCKS = 9_000
 
 
 def rpc_url() -> str:
     return os.environ.get("GUILD_X402_BASE_RPC", DEFAULT_BASE_RPC).strip()
+
+
+def rpc_url_for(network: Optional[str]) -> str:
+    """RPC endpoint for a CAIP-2 network. The mainnet env override wins for
+    mainnet; other known networks use their public default. Unknown networks
+    return "" — callers must treat that as 'oracle unavailable', never guess."""
+    if not network or network == "eip155:8453":
+        return rpc_url()
+    return DEFAULT_RPC_BY_NETWORK.get(network, "")
 
 
 def confirm_timeout() -> float:
@@ -42,6 +70,91 @@ def confirm_timeout() -> float:
         return float(os.environ.get("GUILD_X402_CONFIRM_TIMEOUT", "45"))
     except ValueError:
         return 45.0
+
+
+def _rpc_call(url: str, method: str, params: list[Any],
+              timeout: float = 15.0) -> Any:
+    r = httpx.post(url, json={"jsonrpc": "2.0", "id": 1,
+                              "method": method, "params": params},
+                   timeout=timeout)
+    r.raise_for_status()
+    body = r.json()
+    if "error" in body:
+        raise RuntimeError(f"RPC error: {body['error']}")
+    return body.get("result")
+
+
+def _pad_address_topic(addr: str) -> str:
+    return "0x" + addr.lower().removeprefix("0x").rjust(64, "0")
+
+
+def find_authorization_used(payer: str, nonce: str, *, asset: str,
+                            network: Optional[str] = None,
+                            timeout: float = 15.0) -> dict[str, Any]:
+    """The crash-recovery nonce oracle: has this EIP-3009 (payer, nonce)
+    authorization been consumed on-chain?
+
+    Consulted ONLY when a durable payment-identifier record was left in the
+    ambiguous `settling` state by a crash — the one situation where the
+    facilitator may or may not have settled and neither retrying blindly nor
+    failing forever is acceptable.
+
+    Returns (never raises):
+      {"used": True,  "definitive": True, "transaction": "0x…"|None}
+      {"used": False, "definitive": True}
+      {"used": None,  "definitive": False, "reason": "…"}   # oracle unavailable
+
+    Method: `authorizationState(address,bytes32)` eth_call on the USDC
+    contract (EIP-3009's canonical consumed-nonce view) decides used/unused
+    definitively; when used, a bounded eth_getLogs scan over the
+    AuthorizationUsed(payer, nonce) event recovers the transaction hash so
+    the settlement can be independently confirmed and receipted. A missing
+    hash inside the bounded window degrades to used-without-tx — the caller
+    decides what that is enough for."""
+    url = rpc_url_for(network)
+    if not url:
+        return {"used": None, "definitive": False,
+                "reason": f"no RPC configured for network {network!r}"}
+    if not (isinstance(nonce, str) and nonce.startswith("0x")
+            and len(nonce) == 66):
+        return {"used": None, "definitive": False,
+                "reason": f"malformed nonce {str(nonce)[:80]!r}"}
+    try:
+        data = (AUTHORIZATION_STATE_SELECTOR
+                + _pad_address_topic(payer)[2:]
+                + nonce[2:].lower())
+        state = _rpc_call(url, "eth_call",
+                          [{"to": asset, "data": data}, "latest"],
+                          timeout=timeout)
+        used = bool(int(str(state or "0x0"), 16))
+    except Exception as e:
+        return {"used": None, "definitive": False,
+                "reason": f"rpc_unavailable: {type(e).__name__}: {e}"}
+    if not used:
+        return {"used": False, "definitive": True}
+    # nonce consumed — recover the tx hash from the AuthorizationUsed event
+    tx: Optional[str] = None
+    try:
+        latest = int(str(_rpc_call(url, "eth_blockNumber", [],
+                                   timeout=timeout)), 16)
+        lo = max(0, latest - _LOG_LOOKBACK_BLOCKS)
+        frm = latest
+        while frm > lo and tx is None:
+            chunk_from = max(lo, frm - _LOG_CHUNK_BLOCKS + 1)
+            logs = _rpc_call(url, "eth_getLogs", [{
+                "address": asset,
+                "fromBlock": hex(chunk_from), "toBlock": hex(frm),
+                "topics": [AUTHORIZATION_USED_TOPIC,
+                           _pad_address_topic(payer), nonce.lower()],
+            }], timeout=timeout)
+            for log in logs or []:
+                if isinstance(log, dict) and log.get("transactionHash"):
+                    tx = str(log["transactionHash"])
+                    break
+            frm = chunk_from - 1
+    except Exception:
+        tx = None                       # used is still definitive without it
+    return {"used": True, "definitive": True, "transaction": tx}
 
 
 def _get_receipt(tx_hash: str, timeout: float = 15.0) -> Optional[dict[str, Any]]:

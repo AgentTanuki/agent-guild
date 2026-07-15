@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AgentTanuki/agent-guild",
   "description": "Trust layer for AI agents: signed delegation decisions, passports, and 16 verified guest tools.",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "repository": {
     "url": "https://github.com/AgentTanuki/agent-guild",
     "source": "github"
@@ -25,6 +25,26 @@
         "a2a_extension": "https://agent-guild.ai/ext/trust/v1",
         "conformance": "https://github.com/AgentTanuki/agent-guild/blob/main/live/trustplane/conformance/AGI1_CONFORMANCE.md",
         "note": "Signed AGD-1 delegation decisions and offline-verifiable Agent Passports; callers own thresholds. Delegation gateway + framework interceptors: live/trustplane in the repository."
+      },
+      "ai.agent-guild/payments": {
+        "mechanism": "x402",
+        "x402_version": 2,
+        "priced_mcp_tools": [
+          "guild_check",
+          "guild_search",
+          "guild_best_agent",
+          "guild_risk_score"
+        ],
+        "pricing_credits": {
+          "best_agent": 10,
+          "evidence": 5,
+          "fraud_check": 5,
+          "reputation": 5,
+          "risk_score": 10
+        },
+        "mcp_flow": "payment-required tool error + _meta['x402/payment']",
+        "sandbox": "credits_sandbox via X-API-Key (not money)",
+        "readiness": "https://agent-guild-5d5r.onrender.com/x402/readiness"
       }
     }
   }

@@ -47,6 +47,7 @@ def build_contract() -> dict:
     from app.main import app
     from app.mcp_server import mcp
     from app import __version__
+    from app.billing import PRICING
 
     rest = {}
     for r in _iter_routes(app.routes):
@@ -75,7 +76,31 @@ def build_contract() -> dict:
             "a2a_endpoint": f"{HOST}/a2a",
             "agent_card": f"{HOST}/.well-known/agent-card.json",
             "issuer_did_document": f"{HOST}/.well-known/agent-guild-did.json",
+            "did_web_document": f"{HOST}/.well-known/did.json",
             "repository": "https://github.com/AgentTanuki/agent-guild",
+        },
+        # Machine-visible payment contract: which semantic operations are
+        # priced, in what unit, over which mechanism — the reason 2.0.0 is a
+        # MAJOR version (payment enforcement on previously-free MCP/A2A
+        # operations is a breaking change for machine consumers).
+        "payments": {
+            "mechanism": "x402",
+            "x402_version": 2,
+            "transports": {
+                "http": "PAYMENT-REQUIRED/PAYMENT-SIGNATURE/PAYMENT-RESPONSE",
+                "mcp": "payment-required tool error + _meta['x402/payment']",
+                "a2a": "x402 extension v0.1 payment task at POST /a2a",
+            },
+            "sandbox": "credits_sandbox via X-API-Key (not money)",
+            "priced_operations": {
+                op: {"credits": cost,
+                     "usdc_atomic": cost * 1000}
+                for op, cost in sorted(PRICING.items())
+            },
+            "priced_mcp_tools": ["guild_check", "guild_search",
+                                 "guild_best_agent", "guild_risk_score"],
+            "priced_a2a_skills": ["guild.check"],
+            "offer_receipt_kid_profile": "did:web (/.well-known/did.json)",
         },
         "proof_suites": {
             "current": {"type": "DataIntegrityProof",
@@ -126,8 +151,27 @@ def derived_server_json(contract: dict) -> dict:
         "_meta": {
             "io.modelcontextprotocol.registry/publisher-provided": {
                 "ai.agent-guild/trust": _trust_meta(s),
+                "ai.agent-guild/payments": _payments_meta(contract),
             },
         },
+    }
+
+
+def _payments_meta(contract: dict) -> dict:
+    """Machine-readable payment declaration for the MCP Registry listing:
+    a consumer discovers BEFORE connecting that trust reads are x402-priced
+    and exactly which tools challenge for payment. Kept compact (the
+    registry's publisher-provided blob is limited to 4KB total)."""
+    p = contract["payments"]
+    return {
+        "mechanism": p["mechanism"],
+        "x402_version": p["x402_version"],
+        "priced_mcp_tools": p["priced_mcp_tools"],
+        "pricing_credits": {op: v["credits"]
+                            for op, v in p["priced_operations"].items()},
+        "mcp_flow": p["transports"]["mcp"],
+        "sandbox": p["sandbox"],
+        "readiness": contract["service"]["host"] + "/x402/readiness",
     }
 
 

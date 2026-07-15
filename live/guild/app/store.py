@@ -17,6 +17,7 @@ import secrets
 import statistics
 import sys
 import threading
+import time
 from contextlib import nullcontext
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
@@ -1545,10 +1546,30 @@ class Store:
                        for b in self.billing_log)
 
     # --- x402 payment-identifier records (official idempotency extension) ----
-    # Reserved (persisted) BEFORE settlement; completed with the settlement
-    # identity, the exact served result and its hash; bound to payer + request
-    # hash + payload fingerprint so reuse with ANY different element fails
-    # closed. See app/payments.py.
+    # A durable per-identifier STATE MACHINE (crash-recovery pass 2026-07-15):
+    #
+    #   reserved -> settling -> settled -> completed
+    #
+    #   reserved   binding persisted, facilitator NOT yet contacted — a crash
+    #              here is safely retryable (no settlement can exist);
+    #   settling   the facilitator call is (or was) in flight — a crash here
+    #              is AMBIGUOUS: settlement may or may not have occurred, so
+    #              the record must never be deleted or blindly retried
+    #              (recovery consults the on-chain nonce oracle, payments.py);
+    #   settled    settlement is durable (full record in `settlement_record`)
+    #              but the response bytes/receipt were never finalised — a
+    #              retry serves the result WITHOUT touching the facilitator;
+    #   completed  the exact served bytes + receipt are cached — replays are
+    #              byte-identical, never a second settlement.
+    #
+    # Every transition is persisted (write-through under sqlite, atomic
+    # whole-file replace under json) with `state_changed_at` (epoch) so a
+    # recovery lease can distinguish live work from a crashed process. Legacy
+    # records written before this pass carry status "pending", which spanned
+    # the whole reserve→complete window and is therefore treated as
+    # AMBIGUOUS (== settling) by recovery. Bound to payer + request hash +
+    # payload fingerprint so reuse with ANY different element fails closed.
+    # See app/payments.py.
 
     def x402_payment_id_get(self, pid: str) -> Optional[dict[str, Any]]:
         with self.lock:
@@ -1562,17 +1583,40 @@ class Store:
         with self.lock, self._txn():
             self.x402_payment_ids[pid] = {
                 "payment_id": pid,
-                "status": "pending",
+                "status": "reserved",
                 "payer": payer,
                 "request_hash": request_hash,
                 "resource": resource,
                 "operation": operation,
                 "payload_fingerprint": payload_fingerprint,
                 "reserved_at": _now(),
+                "state_changed_at": time.time(),
             }
             if self.backend is not None:
                 self._persist_kv("x402_payment_ids", self.x402_payment_ids)
             self._save()
+
+    def x402_payment_id_transition(self, pid: str, status: str,
+                                   **fields: Any) -> bool:
+        """Durably move an identifier to `status`, merging extra fields
+        (e.g. payment_identity at settling, settlement_record at settled).
+        Returns False if the record does not exist. A `completed` record is
+        never downgraded."""
+        with self.lock, self._txn():
+            rec = self.x402_payment_ids.get(pid)
+            if rec is None:
+                return False
+            if rec.get("status") == "completed" and status != "completed":
+                return False
+            rec["status"] = status
+            rec.setdefault("state_changed_at", 0.0)
+            rec["state_changed_at"] = float(
+                fields.pop("state_changed_at", time.time()))
+            rec.update(fields)
+            if self.backend is not None:
+                self._persist_kv("x402_payment_ids", self.x402_payment_ids)
+            self._save()
+            return True
 
     def x402_payment_id_complete(self, pid: str, *, result_body: str,
                                  result_sha256: str, settle_header: str,
@@ -1590,22 +1634,119 @@ class Store:
                 "settle_extensions": settle_extensions,
                 "settlement": settlement,
                 "completed_at": _now(),
+                "state_changed_at": time.time(),
             })
             if self.backend is not None:
                 self._persist_kv("x402_payment_ids", self.x402_payment_ids)
             self._save()
 
     def x402_payment_id_release(self, pid: str) -> None:
-        """Drop a PENDING reservation whose payment definitively failed before
-        settlement, so the client may retry with the same identifier. A
-        completed record is never released."""
+        """Drop a reservation whose payment DEFINITIVELY failed before
+        settlement (binding/verify failure, definitive facilitator
+        rejection), so the client may retry with the same identifier.
+        Callers must never release an AMBIGUOUS record — payments.py only
+        calls this on paths where no settlement can exist. A completed
+        record is never released."""
         with self.lock, self._txn():
             rec = self.x402_payment_ids.get(pid)
-            if rec is not None and rec.get("status") == "pending":
+            if rec is not None and rec.get("status") in (
+                    "pending", "reserved", "settling"):
                 del self.x402_payment_ids[pid]
                 if self.backend is not None:
                     self._persist_kv("x402_payment_ids", self.x402_payment_ids)
                 self._save()
+
+    # --- bounded retention for abandoned payment state ----------------------
+
+    _GC_MIN_INTERVAL_S = 3600.0
+    _last_x402_gc: float = 0.0
+
+    def x402_gc(self, now: Optional[float] = None) -> dict[str, int]:
+        """Bounded retention for ABANDONED payment identifiers and A2A
+        payment tasks. Reaped after GUILD_X402_PID_RETENTION_S /
+        GUILD_X402_TASK_RETENTION_S (default 7 days):
+
+          * `reserved` identifiers — no settlement can exist (the facilitator
+            was never contacted), safe to delete;
+          * A2A payment tasks never completed (`payment-required`,
+            `payment-submitted`, `payment-failed`) — the money-side truth
+            lives in the payment-identifier record and billing log.
+
+        NEVER deleted, at any age:
+          * `completed` identifiers (financial evidence: settlement identity,
+            result hash, receipt header);
+          * `settling`/legacy-`pending` identifiers (settlement MAY have
+            occurred; they are flagged `abandoned` and stay recoverable);
+          * `payment-completed` A2A tasks (they carry receipts).
+        """
+        now = time.time() if now is None else now
+
+        def _retention(env: str) -> float:
+            try:
+                return float(os.environ.get(env) or 604800)
+            except ValueError:
+                return 604800.0
+
+        pid_keep_s = _retention("GUILD_X402_PID_RETENTION_S")
+        task_keep_s = _retention("GUILD_X402_TASK_RETENTION_S")
+
+        def _age(rec: dict[str, Any]) -> float:
+            ts = rec.get("state_changed_at") or rec.get("created_at_epoch")
+            if ts:
+                return now - float(ts)
+            raw = rec.get("reserved_at") or rec.get("created_at") or ""
+            try:
+                from datetime import datetime
+                return now - datetime.fromisoformat(
+                    str(raw).replace("Z", "+00:00")).timestamp()
+            except (ValueError, TypeError):
+                return float("inf")     # unknown age == abandoned long ago
+
+        pids_reaped = tasks_reaped = flagged = 0
+        with self.lock, self._txn():
+            for pid, rec in list(self.x402_payment_ids.items()):
+                status = rec.get("status")
+                if status == "completed" or _age(rec) < pid_keep_s:
+                    continue
+                if status == "reserved":
+                    del self.x402_payment_ids[pid]
+                    pids_reaped += 1
+                elif status in ("settling", "pending", "settled"):
+                    # settlement may exist (or does): keep, flag, stay
+                    # recoverable — bounded because flagged records are
+                    # excluded from active accounting, never re-flagged.
+                    if not rec.get("abandoned"):
+                        rec["abandoned"] = True
+                        flagged += 1
+            for tid, task in list(self.x402_tasks.items()):
+                if task.get("status") == "payment-completed":
+                    continue
+                if _age(task) >= task_keep_s:
+                    del self.x402_tasks[tid]
+                    tasks_reaped += 1
+            if pids_reaped or flagged:
+                if self.backend is not None:
+                    self._persist_kv("x402_payment_ids", self.x402_payment_ids)
+            if tasks_reaped:
+                if self.backend is not None:
+                    self._persist_kv("x402_tasks", self.x402_tasks)
+            if pids_reaped or flagged or tasks_reaped:
+                self._save()
+        return {"payment_ids_reaped": pids_reaped,
+                "payment_ids_flagged_abandoned": flagged,
+                "tasks_reaped": tasks_reaped}
+
+    def x402_gc_maybe(self) -> None:
+        """Opportunistic GC, at most once per hour, called from the payment
+        hot path (cheap time check; never raises)."""
+        now = time.time()
+        if now - self._last_x402_gc < self._GC_MIN_INTERVAL_S:
+            return
+        self._last_x402_gc = now
+        try:
+            self.x402_gc(now)
+        except Exception:
+            pass
 
     # --- A2A x402 extension v0.1 payment tasks -------------------------------
 

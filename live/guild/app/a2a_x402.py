@@ -31,6 +31,7 @@ payment-required Task, never the complete paid trust payload.
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from typing import Any, Optional
 
@@ -106,7 +107,9 @@ def build_payment_required_task(preq: PaidRequest, credits_cost: int,
         "capability": dict(preq.query).get("capability"),
         "required": required,
         "receipts": [],
+        "created_at_epoch": time.time(),
     })
+    store.x402_gc_maybe()
     return {
         "kind": "task",
         "id": task_id,

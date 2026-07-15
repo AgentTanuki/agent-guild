@@ -51,6 +51,7 @@ from x402.schemas import PaymentPayload, PaymentRequired
 from . import billing
 from . import x402
 from . import x402_artifacts as artifacts
+from . import x402_confirm
 from .billing import PRICING, InsufficientCredits, UnknownAccount
 from .crypto import canonicalize_jcs
 
@@ -239,6 +240,12 @@ class Settled:
         return {header, extensions, settle_response}."""
         if self._finalized:
             return self._finalized
+        try:
+            return self._finalize_inner(response_bytes)
+        finally:
+            _inflight_discard(self.payment_id)
+
+    def _finalize_inner(self, response_bytes: bytes) -> dict[str, Any]:
         from .state import store
         identity = store.guild_identity()
         receipt = artifacts.signed_receipt(identity, artifacts.receipt_payload(
@@ -332,10 +339,41 @@ def challenge_model(preq: PaidRequest) -> PaymentRequired:
 
 
 # ---------------------------------------------------------------------------
-# payment-identifier idempotency (official extension semantics)
+# payment-identifier idempotency (official extension semantics) + the durable
+# crash-recovery state machine: reserved -> settling -> settled -> completed
 # ---------------------------------------------------------------------------
 
 _pid_lock = threading.Lock()
+# Payment identifiers THIS process is actively working on. A record on disk
+# whose id is NOT here belongs to a crashed/previous process and is a
+# recovery candidate (subject to the recovery lease); one that IS here is a
+# live concurrent duplicate and conflicts.
+_INFLIGHT_PIDS: set[str] = set()
+
+
+def _inflight_reset_for_process_restart() -> None:
+    """Test hook: what a real process restart does to process memory."""
+    with _pid_lock:
+        _INFLIGHT_PIDS.clear()
+
+
+def _inflight_discard(pid: Optional[str]) -> None:
+    if pid:
+        with _pid_lock:
+            _INFLIGHT_PIDS.discard(pid)
+
+
+def _recovery_lease_s() -> float:
+    """How long a stale non-completed record is presumed owned by a live
+    worker before this process may recover it. In the supported topology
+    (single instance, single worker) any on-disk record not in
+    _INFLIGHT_PIDS is already orphaned; the lease is defence in depth
+    against an unsupported second writer."""
+    import os
+    try:
+        return float(os.environ.get("GUILD_X402_RECOVERY_LEASE_S") or 90.0)
+    except ValueError:
+        return 90.0
 
 
 def _payload_fingerprint(payload: PaymentPayload) -> str:
@@ -343,18 +381,32 @@ def _payload_fingerprint(payload: PaymentPayload) -> str:
         payload.model_dump(by_alias=True, exclude_none=True)).encode("utf-8"))
 
 
+# recovery modes for an existing record (binding already verified):
+#   fresh            no record existed — reserved now;
+#   resume_reserved  crashed before the facilitator was ever contacted;
+#   resume_settling  crashed while settlement was (maybe) in flight — the
+#                    AMBIGUOUS window; resolved via evidence + nonce oracle;
+#   resume_settled   settlement durable but the result was never served.
+_STATUS_TO_MODE = {"reserved": "resume_reserved",
+                   "settling": "resume_settling",
+                   "pending": "resume_settling",     # legacy: ambiguous span
+                   "settled": "resume_settled"}
+
+
 def _handle_payment_identifier(payload: PaymentPayload, preq: PaidRequest,
-                               ) -> tuple[Optional[str], str]:
+                               ) -> tuple[Optional[str], str, str,
+                                          Optional[dict[str, Any]]]:
     """Extract + enforce the payment-identifier extension. Returns
-    (payment_id or None, payload_fingerprint). Raises CachedPaidResult for an
-    idempotent replay, PaymentIdConflict for any mismatch or in-flight
-    duplicate. Reserves the id (persisted) BEFORE settlement so a crash
-    between settlement and serving can never pay twice."""
+    (payment_id or None, payload_fingerprint, mode, existing_record). Raises
+    CachedPaidResult for an idempotent replay, PaymentIdConflict for any
+    binding mismatch or live in-flight duplicate. Reserves the id (persisted)
+    BEFORE settlement so a crash at ANY later point is recoverable without a
+    second settlement."""
     from .state import store
     fingerprint = _payload_fingerprint(payload)
     pid = extract_payment_identifier(payload, validate=False)
     if pid is None:
-        return None, fingerprint
+        return None, fingerprint, "fresh", None
     if not is_valid_payment_id(pid):
         raise PaymentIdConflict("invalid_payment_identifier",
                                 "id must be 16-128 chars of [A-Za-z0-9_-]",
@@ -372,32 +424,134 @@ def _handle_payment_identifier(payload: PaymentPayload, preq: PaidRequest,
                                           resource=preq.resource_url,
                                           operation=preq.operation,
                                           payload_fingerprint=fingerprint)
-            return pid, fingerprint
-    # existing record — enforce exact binding before anything else
-    if rec.get("payer") != payer:
-        raise PaymentIdConflict(
-            "payment_identifier_payer_mismatch",
-            "this identifier is bound to a different payer", payment_id=pid)
-    if rec.get("request_hash") != preq.request_hash:
-        raise PaymentIdConflict(
-            "payment_identifier_resource_mismatch",
-            "this identifier is bound to a different resource/request",
-            payment_id=pid)
-    if rec.get("payload_fingerprint") != fingerprint:
-        raise PaymentIdConflict(
-            "payment_identifier_payload_mismatch",
-            "same identifier, different payment payload", payment_id=pid)
-    if rec.get("status") == "completed":
-        raise CachedPaidResult(rec)          # idempotent replay, no settlement
-    raise PaymentIdConflict(
-        "payment_identifier_in_flight",
-        "a request with this identifier is currently being settled; retry "
-        "shortly to receive the cached result", payment_id=pid)
+            _INFLIGHT_PIDS.add(pid)
+            store.x402_gc_maybe()
+            return pid, fingerprint, "fresh", None
+        # existing record — enforce exact binding before anything else
+        if rec.get("payer") != payer:
+            raise PaymentIdConflict(
+                "payment_identifier_payer_mismatch",
+                "this identifier is bound to a different payer",
+                payment_id=pid)
+        if rec.get("request_hash") != preq.request_hash:
+            raise PaymentIdConflict(
+                "payment_identifier_resource_mismatch",
+                "this identifier is bound to a different resource/request",
+                payment_id=pid)
+        if rec.get("payload_fingerprint") != fingerprint:
+            raise PaymentIdConflict(
+                "payment_identifier_payload_mismatch",
+                "same identifier, different payment payload", payment_id=pid)
+        if rec.get("status") == "completed":
+            raise CachedPaidResult(rec)      # idempotent replay, no settlement
+        if pid in _INFLIGHT_PIDS:
+            raise PaymentIdConflict(
+                "payment_identifier_in_flight",
+                "a request with this identifier is currently being settled; "
+                "retry shortly to receive the cached result", payment_id=pid)
+        # A record from a previous life of the service. Respect the recovery
+        # lease before assuming its owner is dead — stale, not stuck.
+        age = time.time() - float(rec.get("state_changed_at") or 0.0)
+        if age < _recovery_lease_s():
+            raise PaymentIdConflict(
+                "payment_identifier_in_flight",
+                "a request with this identifier may still be settling; retry "
+                f"after {int(_recovery_lease_s())}s to trigger recovery",
+                payment_id=pid)
+        mode = _STATUS_TO_MODE.get(str(rec.get("status")), "resume_settling")
+        _INFLIGHT_PIDS.add(pid)
+        return pid, fingerprint, mode, rec
 
 
 # ---------------------------------------------------------------------------
 # The x402 settle path (shared by every transport)
 # ---------------------------------------------------------------------------
+
+
+def _resolve_settling(rec: dict[str, Any], preq: PaidRequest, ident: str,
+                      payer: str, nonce: str,
+                      ) -> Optional[dict[str, Any]]:
+    """Resolve the AMBIGUOUS crash window: a durable record says settlement
+    was in flight when the process died. Never guesses:
+
+      1. durable local evidence (billing log by payment identity) wins;
+      2. otherwise the on-chain EIP-3009 nonce oracle decides — `used` means
+         the payment settled (adopt it; recover the tx for confirmation),
+         definitive `unused` means it never settled (safe to settle fresh);
+      3. an unavailable oracle FAILS CLOSED with a retryable challenge — the
+         record is neither deleted nor blindly retried.
+
+    Returns the adopted settlement record, or None when a fresh settlement
+    is proven safe."""
+    from .state import store
+    prior = store.x402_latest_for_identity(ident) if ident else None
+    if prior and prior.get("status") in store._X402_SERVED_STATUSES:
+        return {**prior, "ok": True, "recovered": True}
+    lookup = x402_confirm.find_authorization_used(
+        payer, nonce, asset=x402.asset(), network=x402.network())
+    if lookup.get("definitive") and lookup.get("used") is False:
+        return None                                  # provably never settled
+    if lookup.get("definitive") and lookup.get("used"):
+        tx = lookup.get("transaction") or ""
+        offered = x402.requirements(preq.cost)
+        record: dict[str, Any] = {
+            "ok": True, "stage": "settle", "protocol": "v2",
+            "recovered": True,
+            "endpoint": preq.operation, "resource": preq.resource_url,
+            "request_hash": preq.request_hash,
+            "facilitator": x402.facilitator_url(),
+            "scheme": offered.scheme, "network": x402.network(),
+            "asset": offered.asset, "amount_atomic": offered.amount,
+            "payer": payer, "recipient": offered.pay_to,
+            "transaction": tx, "status": "settled",
+            "payment_identity": ident,
+            "mainnet": x402.is_mainnet(x402.network()),
+            "confirmed": False,
+            "value_note": ("settlement recovered from the on-chain "
+                           "authorization state after a crash"),
+        }
+        if record["mainnet"]:
+            if not tx:
+                # used on-chain but the tx is outside the bounded log window:
+                # cannot independently confirm — fail closed, retryable.
+                raise PaymentChallenge(preq, extra={
+                    "error": "x402_payment_rejected",
+                    "reason": "settlement_state_unknown",
+                    "detail": "the authorization nonce is consumed on-chain "
+                              "but the settling transaction could not be "
+                              "located for independent confirmation; "
+                              "re-present the same payment to retry — you "
+                              "will not be charged twice"})
+            conf = x402_confirm.confirm_settlement(
+                tx, asset=offered.asset, recipient=offered.pay_to,
+                amount_atomic=offered.amount)
+            record["confirmation"] = {k: conf.get(k) for k in
+                                      ("confirmed", "reason", "block_number")}
+            if not conf.get("confirmed"):
+                raise PaymentChallenge(preq, extra={
+                    "error": "x402_payment_rejected",
+                    "reason": "settlement_unconfirmed",
+                    "transaction": tx,
+                    "detail": "recovered settlement is not independently "
+                              "confirmed on-chain yet; re-present the same "
+                              "payment to retry — you will not be charged "
+                              "twice"})
+            record["status"] = "settled_confirmed"
+            record["confirmed"] = True
+            record["value_note"] = ("REAL mainnet settlement — recovered "
+                                    "after crash, independently confirmed "
+                                    "on-chain")
+        return record
+    # oracle unavailable: settlement MAY have occurred — fail closed.
+    raise PaymentChallenge(preq, extra={
+        "error": "x402_payment_rejected",
+        "reason": "settlement_state_unknown",
+        "detail": ("a previous attempt with this payment identifier may "
+                   "have settled; the on-chain state could not be "
+                   "consulted (" + str(lookup.get("reason"))[:160] + "). "
+                   "Re-present the same payment later — it will never be "
+                   "settled twice."),
+        "retryable": True})
 
 
 def settle_x402(payload: PaymentPayload, preq: PaidRequest,
@@ -410,92 +564,171 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
       PaymentChallenge      — settlement failed (rejection wrapped in a fresh
                               challenge so the caller can retry properly)
     Returns a Settled whose .finalize(bytes) issues receipt + evidence and
-    completes the payment-identifier record."""
+    completes the payment-identifier record.
+
+    Durability contract (crash-recovery pass 2026-07-15): the payment
+    identifier record transitions reserved → settling → settled → completed,
+    each transition persisted BEFORE the action it precedes, so a process
+    crash at any boundary is recoverable with at most ONE settlement and the
+    buyer eventually receiving exactly one result (see
+    tests/test_payment_crash_recovery.py)."""
     from .state import store
     cost = preq.cost
     if x402.config_errors():
         raise x402.PaymentBindingError("x402_misconfigured",
                                        "; ".join(x402.config_errors()))
     x402.check_binding(payload, preq, cost, method=method)
-    pid, fingerprint = _handle_payment_identifier(payload, preq)
+    pid, fingerprint, mode, rec = _handle_payment_identifier(payload, preq)
 
     def _fail_pid() -> None:
+        # ONLY on definitive no-settlement paths (binding/verify failures,
+        # definitive facilitator rejection) — never on ambiguity.
         if pid:
             store.x402_payment_id_release(pid)
+        _inflight_discard(pid)
 
-    # persisted guards + idempotent recovery (all survive restarts):
-    #   * an identity that already bought a result can never buy another;
-    #   * a mainnet settlement that could not be INDEPENDENTLY confirmed
-    #     (status settled_unconfirmed) may be RE-PRESENTED: confirmation is
-    #     re-run against the recorded tx — the payer is never charged twice
-    #     and never loses a paid-but-unconfirmed result to a transient RPC
-    #     outage.
     inner = payload.payload if isinstance(payload.payload, dict) else {}
     auth = inner.get("authorization")
     ident = (x402.replay_guard.identity(auth) if isinstance(auth, dict) else "")
-    prior = store.x402_latest_for_identity(ident) if ident else None
-    if prior and prior.get("status") in store._X402_SERVED_STATUSES:
-        _fail_pid()
-        raise PaymentChallenge(preq, extra={
-            "error": "x402_payment_rejected",
-            "reason": "double_settlement_rejected",
-            "detail": "this payment identity was already settled"})
-    if prior and prior.get("status") == "settled_unconfirmed":
-        conf = x402.x402_confirm.confirm_settlement(
-            prior.get("transaction") or "",
-            asset=prior.get("asset") or "",
-            recipient=prior.get("recipient") or "",
-            amount_atomic=prior.get("amount_atomic") or "0")
-        if not conf.get("confirmed"):
+    payer = str(auth.get("from") or "").lower() if isinstance(auth, dict) else ""
+    nonce = str(auth.get("nonce") or "") if isinstance(auth, dict) else ""
+
+    try:
+        # --- recovery paths (a durable record from a crashed process) -------
+        if mode == "resume_settled" and isinstance(
+                rec.get("settlement_record"), dict):
+            # settlement is durable; the result was never served. Serve it
+            # now WITHOUT touching the facilitator.
+            return Settled(preq=preq, record=dict(rec["settlement_record"]),
+                           protocol=protocol, payment_id=pid,
+                           payload_fingerprint=fingerprint)
+        adopted: Optional[dict[str, Any]] = None
+        if mode == "resume_settling" or (mode == "resume_settled"
+                                         and adopted is None):
+            adopted = _resolve_settling(rec or {}, preq, ident, payer, nonce)
+            if adopted is not None:
+                if pid:
+                    store.x402_payment_id_transition(
+                        pid, "settled", payment_identity=ident,
+                        settlement_record=adopted)
+                if not store.x402_transaction_served(
+                        adopted.get("transaction") or "") and not (
+                        store.x402_latest_for_identity(ident) or {}
+                        ).get("status") in store._X402_SERVED_STATUSES:
+                    store.record_x402_payment(preq.operation, cost, adopted)
+                return Settled(preq=preq, record=adopted, protocol=protocol,
+                               payment_id=pid,
+                               payload_fingerprint=fingerprint)
+            # provably never settled → fall through to a fresh settlement
+
+        # --- fresh settlement path ------------------------------------------
+        # persisted guards + idempotent recovery (all survive restarts):
+        #   * an identity that already bought a result can never buy another;
+        #   * a mainnet settlement that could not be INDEPENDENTLY confirmed
+        #     (status settled_unconfirmed) may be RE-PRESENTED: confirmation
+        #     is re-run against the recorded tx — the payer is never charged
+        #     twice and never loses a paid-but-unconfirmed result to a
+        #     transient RPC outage.
+        prior = store.x402_latest_for_identity(ident) if ident else None
+        if prior and prior.get("status") in store._X402_SERVED_STATUSES:
             _fail_pid()
             raise PaymentChallenge(preq, extra={
                 "error": "x402_payment_rejected",
-                "reason": "settlement_unconfirmed",
-                "transaction": prior.get("transaction"),
-                "detail": ("settlement is not independently confirmed "
-                           "on-chain yet: " + str(conf.get("reason")))[:300]})
-        settled = {**prior, "ok": True, "status": "settled_confirmed",
-                   "confirmed": True,
-                   "confirmation": {k: conf.get(k) for k in
-                                    ("confirmed", "reason", "block_number")}}
-    else:
-        try:
-            settled = x402.process_payment(payload, preq, cost,
-                                           method=method, protocol=protocol)
-        except x402.PaymentBindingError:
-            _fail_pid()
-            raise
-        if settled.get("status") == "settled_unconfirmed":
-            # the facilitator claims settlement but the chain does not (yet)
-            # prove it: record for recovery/reconciliation, serve NOTHING.
-            store.record_x402_payment(preq.operation, cost, settled)
-            _fail_pid()
-            raise PaymentChallenge(preq, extra={
-                "error": "x402_payment_rejected",
-                "reason": "settlement_unconfirmed",
-                "transaction": settled.get("transaction"),
-                "detail": "settlement is not independently confirmed "
-                          "on-chain; re-present the same payment to retry "
-                          "confirmation — you will not be charged twice"})
-        if not settled.get("ok"):
-            _fail_pid()
-            raise PaymentChallenge(preq, extra={
-                "error": "x402_payment_rejected", "settlement": settled})
-        # one on-chain transaction can never buy two results
-        if store.x402_transaction_served(settled.get("transaction") or ""):
-            store.record_x402_payment(
-                preq.operation, cost,
-                {**settled, "ok": False,
-                 "status": "duplicate_transaction_rejected"})
-            _fail_pid()
-            raise PaymentChallenge(preq, extra={
-                "error": "x402_payment_rejected",
-                "reason": "duplicate_transaction",
-                "detail": "this transaction hash already settled a "
-                          "previous request"})
-    store.record_x402_payment(preq.operation, cost, settled)
-    return Settled(preq=preq, record=settled, protocol=protocol,
-                   payment_id=pid, payload_fingerprint=fingerprint)
+                "reason": "double_settlement_rejected",
+                "detail": "this payment identity was already settled"})
+        if prior and prior.get("status") == "settled_unconfirmed":
+            conf = x402.x402_confirm.confirm_settlement(
+                prior.get("transaction") or "",
+                asset=prior.get("asset") or "",
+                recipient=prior.get("recipient") or "",
+                amount_atomic=prior.get("amount_atomic") or "0")
+            if not conf.get("confirmed"):
+                _fail_pid()
+                raise PaymentChallenge(preq, extra={
+                    "error": "x402_payment_rejected",
+                    "reason": "settlement_unconfirmed",
+                    "transaction": prior.get("transaction"),
+                    "detail": ("settlement is not independently confirmed "
+                               "on-chain yet: "
+                               + str(conf.get("reason")))[:300]})
+            settled = {**prior, "ok": True, "status": "settled_confirmed",
+                       "confirmed": True,
+                       "confirmation": {k: conf.get(k) for k in
+                                        ("confirmed", "reason",
+                                         "block_number")}}
+        else:
+            # durable settling transition BEFORE the facilitator is
+            # contacted: from here on, a crash is ambiguous and must be
+            # resolved by recovery — never by a blind retry.
+            if pid:
+                store.x402_payment_id_transition(pid, "settling",
+                                                 payment_identity=ident)
+            try:
+                settled = x402.process_payment(payload, preq, cost,
+                                               method=method,
+                                               protocol=protocol)
+            except x402.PaymentBindingError:
+                _fail_pid()
+                raise
+            if settled.get("status") == "settled_unconfirmed":
+                # the facilitator claims settlement but the chain does not
+                # (yet) prove it: record for recovery/reconciliation, serve
+                # NOTHING. The pid record stays (ambiguous — recoverable).
+                store.record_x402_payment(preq.operation, cost, settled)
+                _inflight_discard(pid)
+                raise PaymentChallenge(preq, extra={
+                    "error": "x402_payment_rejected",
+                    "reason": "settlement_unconfirmed",
+                    "transaction": settled.get("transaction"),
+                    "detail": "settlement is not independently confirmed "
+                              "on-chain; re-present the same payment to "
+                              "retry confirmation — you will not be charged "
+                              "twice"})
+            if not settled.get("ok"):
+                if settled.get("stage") == "settle_exception":
+                    # transport failure DURING settle: ambiguous — keep the
+                    # settling record for recovery, fail closed retryably.
+                    _inflight_discard(pid)
+                    raise PaymentChallenge(preq, extra={
+                        "error": "x402_payment_rejected",
+                        "reason": "settlement_state_unknown",
+                        "detail": "the facilitator call failed mid-settle; "
+                                  "re-present the same payment — recovery "
+                                  "will never settle it twice",
+                        "settlement": settled})
+                _fail_pid()
+                raise PaymentChallenge(preq, extra={
+                    "error": "x402_payment_rejected", "settlement": settled})
+            # one on-chain transaction can never buy two results
+            if store.x402_transaction_served(settled.get("transaction") or ""):
+                store.record_x402_payment(
+                    preq.operation, cost,
+                    {**settled, "ok": False,
+                     "status": "duplicate_transaction_rejected"})
+                _fail_pid()
+                raise PaymentChallenge(preq, extra={
+                    "error": "x402_payment_rejected",
+                    "reason": "duplicate_transaction",
+                    "detail": "this transaction hash already settled a "
+                              "previous request"})
+        store.record_x402_payment(preq.operation, cost, settled)
+        if pid:
+            # durable settled transition BEFORE serving: a crash between here
+            # and finalize re-serves from this record, never re-settles.
+            store.x402_payment_id_transition(pid, "settled",
+                                             payment_identity=ident,
+                                             settlement_record=settled)
+        return Settled(preq=preq, record=settled, protocol=protocol,
+                       payment_id=pid, payload_fingerprint=fingerprint)
+    except (PaymentChallenge, PaymentIdConflict, CachedPaidResult,
+            x402.PaymentBindingError):
+        raise
+    except BaseException:
+        # unexpected failure (or simulated crash): release process-local
+        # ownership so the durable record is recoverable, but never delete
+        # it — settlement may have occurred.
+        _inflight_discard(pid)
+        raise
 
 
 # ---------------------------------------------------------------------------

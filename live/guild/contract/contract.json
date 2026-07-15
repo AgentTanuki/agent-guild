@@ -55,6 +55,48 @@
   "guild_search",
   "guild_verify"
  ],
+ "payments": {
+  "mechanism": "x402",
+  "offer_receipt_kid_profile": "did:web (/.well-known/did.json)",
+  "priced_a2a_skills": [
+   "guild.check"
+  ],
+  "priced_mcp_tools": [
+   "guild_check",
+   "guild_search",
+   "guild_best_agent",
+   "guild_risk_score"
+  ],
+  "priced_operations": {
+   "best_agent": {
+    "credits": 10,
+    "usdc_atomic": 10000
+   },
+   "evidence": {
+    "credits": 5,
+    "usdc_atomic": 5000
+   },
+   "fraud_check": {
+    "credits": 5,
+    "usdc_atomic": 5000
+   },
+   "reputation": {
+    "credits": 5,
+    "usdc_atomic": 5000
+   },
+   "risk_score": {
+    "credits": 10,
+    "usdc_atomic": 10000
+   }
+  },
+  "sandbox": "credits_sandbox via X-API-Key (not money)",
+  "transports": {
+   "a2a": "x402 extension v0.1 payment task at POST /a2a",
+   "http": "PAYMENT-REQUIRED/PAYMENT-SIGNATURE/PAYMENT-RESPONSE",
+   "mcp": "payment-required tool error + _meta['x402/payment']"
+  },
+  "x402_version": 2
+ },
  "proof_suites": {
   "current": {
    "cryptosuite": "eddsa-jcs-2022",
@@ -103,6 +145,12 @@
     "GET"
    ],
    "path": "/.well-known/ai-plugin.json"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/.well-known/did.json"
   },
   {
    "methods": [
@@ -591,11 +639,12 @@
  "service": {
   "a2a_endpoint": "https://agent-guild-5d5r.onrender.com/a2a",
   "agent_card": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+  "did_web_document": "https://agent-guild-5d5r.onrender.com/.well-known/did.json",
   "host": "https://agent-guild-5d5r.onrender.com",
   "issuer_did_document": "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild-did.json",
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "1.2.0"
+  "version": "2.0.0"
  }
 }

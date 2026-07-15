@@ -178,6 +178,47 @@ def did_key_verification_method(did: str) -> str:
     return f"did:key:{mb}#{mb}"
 
 
+# --- did:web (W3C did:web method spec, https://w3c-ccg.github.io/did-method-web/)
+# The DID is derived from the https origin: the domain is the method-specific
+# identifier; an explicit port's colon is percent-encoded (%3A, spec §3.2);
+# path segments become colon-separated identifier parts. Resolution fetches
+# {origin}/.well-known/did.json (domain-only DIDs, spec §3.2 read-operation).
+
+
+def did_web_from_origin(origin: str) -> str:
+    """did:web DID for an https (or localhost http) origin.
+    'https://example.com'        → did:web:example.com
+    'http://localhost:8123'      → did:web:localhost%3A8123
+    'https://example.com/a/b'    → did:web:example.com:a:b
+    """
+    from urllib.parse import urlparse, quote
+    p = urlparse(origin if "://" in origin else "https://" + origin)
+    host = p.hostname or ""
+    ident = quote(host, safe="")
+    if p.port:
+        ident += "%3A" + str(p.port)
+    path = (p.path or "").strip("/")
+    if path:
+        ident += ":" + ":".join(quote(seg, safe="")
+                                for seg in path.split("/"))
+    return "did:web:" + ident
+
+
+def public_key_multibase(public_hex: str) -> str:
+    """Multicodec-prefixed base58btc multibase of an Ed25519 public key —
+    the exact string that is both the did:key identifier body and a
+    conforming `publicKeyMultibase` value (Multikey)."""
+    return "z" + b58encode(_ED25519_MULTICODEC + bytes.fromhex(public_hex))
+
+
+def did_web_verification_method(origin: str, public_hex: str) -> str:
+    """The did:web verification-method DID URL for the service signing key:
+    did:web:<origin-identifier>#<multibase-of-the-key>. The fragment is the
+    key's own multibase so the binding is self-describing and collision-free
+    across rotations."""
+    return f"{did_web_from_origin(origin)}#{public_key_multibase(public_hex)}"
+
+
 def eddsa_jcs_hash_data(document: Any, proof_config: dict[str, Any]) -> bytes:
     cfg = _hashlib.sha256(canonicalize_jcs(proof_config).encode("utf-8")).digest()
     doc = _hashlib.sha256(canonicalize_jcs(document).encode("utf-8")).digest()

@@ -12,6 +12,7 @@ that drive evidence weighting. Usable entirely over HTTP.
 """
 from __future__ import annotations
 
+import json
 import os
 import contextvars
 from typing import Any, Optional
@@ -1292,6 +1293,20 @@ def verify_credential_endpoint(credential: dict, request: Request,
     return store.verify_passport(credential, actor_key=x_api_key, ua=_ua.get())
 
 
+@app.get("/.well-known/did.json")
+def did_web_document():
+    """The did:web DID document for this service origin (W3C did:web method,
+    domain read-operation): authorises the Guild's persistent Ed25519
+    SERVICE-signing key to sign x402 offers/receipts for resources on this
+    origin. The official @x402/extensions verifier resolves offer/receipt
+    kids against exactly this document. Never contains the treasury key —
+    that is an EVM account whose key lives only in CDP."""
+    from . import x402_artifacts
+    doc = x402_artifacts.did_web_document(store.guild_identity())
+    return Response(content=json.dumps(doc, indent=2),
+                    media_type="application/did+json")
+
+
 @app.get("/.well-known/agent-guild-did.json")
 def guild_did_doc():
     """The Guild's public signing identity (did:key + public key), so anyone can
@@ -1301,15 +1316,18 @@ def guild_did_doc():
     return {"did": gid["did"], "public_key": gid["public_key"], "name": gid["name"],
             "credential_types": ["AgentGuildPassport"],
             "verify_endpoint": "/credentials/verify",
-            # x402 offer/receipt key binding (spec §4.5.1 external key
-            # registry): the SERVICE-signing kid authorized to sign x402
-            # offers/receipts for resources on this origin. This is the
-            # Guild's persistent Ed25519 signing identity — never the
-            # treasury key.
+            # x402 offer/receipt key binding: the SERVICE-signing kid
+            # authorized to sign x402 offers/receipts for resources on this
+            # origin, published as a did:web verification method whose DID
+            # document lives at /.well-known/did.json (the documented
+            # profile; resolved natively by @x402/extensions). Same
+            # persistent Ed25519 service key as the did:key identity above —
+            # never the treasury key.
             "x402_offer_receipt": {
                 "format": "jws",
                 "alg": "EdDSA",
                 "kid": x402_artifacts.kid_for_identity(gid),
+                "did_document": "/.well-known/did.json",
                 "extensions": ["offer-receipt", "io.agent-guild/evidence"],
                 "authorized_origin": x402.public_host(),
             }}

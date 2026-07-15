@@ -19,7 +19,7 @@ TRUST = {"contract": "AGD-1/1.0", "proof_suite": "eddsa-jcs-2022"}
 
 EXPECTED = {
     "name": "io.github.AgentTanuki/agent-guild",
-    "version": "1.2.0",
+    "version": "2.0.0",
     "repository": {"url": "https://github.com/AgentTanuki/agent-guild",
                    "source": "github"},
     "remotes": [{"type": "streamable-http",
@@ -62,10 +62,12 @@ def test_legacy_flat_shape_still_verifies():
 
 
 def test_legacy_listing_of_wrong_version_mismatches():
-    # the legacy 1.1.0 record must never certify a 1.2.0 publish
-    r = rb.verify_readback(_served(version="1.1.0"), EXPECTED)
-    assert r.status == "mismatch"
-    assert any("version" in x for x in r.reasons)
+    # a legacy pre-payment-enforcement record (1.x) must never certify a
+    # 2.0.0 publish
+    for legacy in ("1.1.0", "1.2.0"):
+        r = rb.verify_readback(_served(version=legacy), EXPECTED)
+        assert r.status == "mismatch"
+        assert any("version" in x for x in r.reasons)
 
 
 def test_case_mismatched_name_is_a_mismatch():

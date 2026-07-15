@@ -51,6 +51,31 @@ def _resource():
     return f"https://guild.example/check?capability={canary.CANARY_CAPABILITY}"
 
 
+class _DidDocHTTP:
+    """Fake http that serves the trusted origin's did:web document — what the
+    canary fetches to resolve the offer kid."""
+
+    def __init__(self, doc):
+        self._doc = doc
+
+    def get(self, url, timeout=0):
+        class R:
+            def __init__(self, p):
+                self._p = p
+
+            def json(self):
+                return self._p
+        if url.endswith("/.well-known/did.json"):
+            return R(self._doc)
+        return R({})
+
+
+def _did_http():
+    from app.state import store
+    return _DidDocHTTP(artifacts.did_web_document(
+        store.guild_identity(), origin="https://guild.example"))
+
+
 def _challenge(monkeypatch, amount_credits=10):
     monkeypatch.setenv("GUILD_PUBLIC_HOST", "https://guild.example")
     preq = payments.check_request(canary.CANARY_CAPABILITY)
@@ -63,7 +88,7 @@ def _challenge(monkeypatch, amount_credits=10):
 def test_challenge_within_cap_is_accepted(monkeypatch):
     challenge, preq = _challenge(monkeypatch)
     facts = {"asset": MAINNET_USDC, "recipient": TREASURY}
-    req, canonical = canary.verify_challenge(challenge, preq.resource_url, facts)
+    req, canonical = canary.verify_challenge(challenge, preq.resource_url, facts, http=_did_http())
     assert int(req["amount"]) == 10 * 1000            # 0.01 USDC exactly
     assert canonical == preq.resource_url
 
@@ -74,7 +99,7 @@ def test_amount_over_lifetime_cap_is_refused(monkeypatch):
     challenge["accepts"][0]["amount"] = "20000"        # 0.02 USDC
     facts = {"asset": MAINNET_USDC, "recipient": TREASURY}
     with pytest.raises(canary.Refuse, match="lifetime cap"):
-        canary.verify_challenge(challenge, preq.resource_url, facts)
+        canary.verify_challenge(challenge, preq.resource_url, facts, http=_did_http())
 
 
 def test_wrong_recipient_is_refused(monkeypatch):
@@ -82,7 +107,7 @@ def test_wrong_recipient_is_refused(monkeypatch):
     challenge["accepts"][0]["payTo"] = "0x" + "99" * 20
     facts = {"asset": MAINNET_USDC, "recipient": TREASURY}
     with pytest.raises(canary.Refuse, match="payTo"):
-        canary.verify_challenge(challenge, preq.resource_url, facts)
+        canary.verify_challenge(challenge, preq.resource_url, facts, http=_did_http())
 
 
 def test_wrong_asset_and_network_refused(monkeypatch):
@@ -91,11 +116,11 @@ def test_wrong_asset_and_network_refused(monkeypatch):
     bad_asset = json.loads(json.dumps(challenge))
     bad_asset["accepts"][0]["asset"] = x402.USDC_BY_NETWORK["eip155:84532"]
     with pytest.raises(canary.Refuse, match="asset"):
-        canary.verify_challenge(bad_asset, preq.resource_url, facts)
+        canary.verify_challenge(bad_asset, preq.resource_url, facts, http=_did_http())
     bad_net = json.loads(json.dumps(challenge))
     bad_net["accepts"][0]["network"] = "eip155:84532"
     with pytest.raises(canary.Refuse, match="network"):
-        canary.verify_challenge(bad_net, preq.resource_url, facts)
+        canary.verify_challenge(bad_net, preq.resource_url, facts, http=_did_http())
 
 
 def test_wrong_resource_is_refused(monkeypatch):
@@ -109,7 +134,7 @@ def test_wrong_resource_is_refused(monkeypatch):
         c = json.loads(json.dumps(challenge))
         c["resource"]["url"] = bad
         with pytest.raises(canary.Refuse, match="resource"):
-            canary.verify_challenge(c, preq.resource_url, facts)
+            canary.verify_challenge(c, preq.resource_url, facts, http=_did_http())
 
 
 # --- signed offer verification -----------------------------------------------
@@ -127,7 +152,7 @@ def test_signed_offer_must_verify(monkeypatch):
         json.dumps(body).encode()).rstrip(b"=").decode()
     offers[0]["signature"] = ".".join(parts)
     with pytest.raises(canary.Refuse, match="signed offer"):
-        canary.verify_challenge(challenge, preq.resource_url, facts)
+        canary.verify_challenge(challenge, preq.resource_url, facts, http=_did_http())
 
 
 # --- preconditions -----------------------------------------------------------
@@ -216,6 +241,64 @@ def test_key_loading_env_and_file(tmp_path, monkeypatch, capsys):
 def test_missing_key_returns_none(monkeypatch):
     monkeypatch.delenv("CANARY_PRIVATE_KEY", raising=False)
     assert canary.load_private_key(None) is None
+
+
+# --- secret-silent preflight (A4) ---------------------------------------------
+
+def test_default_key_file_is_the_protected_canary_key():
+    assert str(canary.DEFAULT_KEY_FILE).endswith(
+        "live/secrets/x402_mainnet_canary.key")
+
+
+def test_key_file_facts_never_expose_the_key(tmp_path, capsys):
+    secret = "ab" * 32
+    kf = tmp_path / "x402_mainnet_canary.key"
+    kf.write_text("0x" + secret + "\n")
+    kf.chmod(0o600)
+    facts = canary.key_file_facts(str(kf))
+    assert facts["exists"] is True
+    assert facts["permissions_private"] is True
+    assert facts["permissions_octal"] == "0o600"
+    assert facts["format"] == "hex" and facts["format_accepted"] is True
+    # the secret never appears in the facts or on stdout
+    assert secret not in json.dumps(facts)
+    assert secret not in capsys.readouterr().out
+
+
+def test_key_file_facts_flag_bad_permissions_and_format(tmp_path):
+    kf = tmp_path / "loose.key"
+    kf.write_text("0x" + "ab" * 32)
+    kf.chmod(0o644)
+    facts = canary.key_file_facts(str(kf))
+    assert facts["permissions_private"] is False
+    bad = tmp_path / "bad.key"
+    bad.write_text("not a key at all")
+    bad.chmod(0o600)
+    facts2 = canary.key_file_facts(str(bad))
+    assert facts2["format_accepted"] is False
+    missing = canary.key_file_facts(str(tmp_path / "nope.key"))
+    assert missing["exists"] is False
+
+
+def test_key_file_facts_accepts_json_shape(tmp_path):
+    kf = tmp_path / "k.json"
+    kf.write_text(json.dumps({"privateKey": "cd" * 32}))
+    kf.chmod(0o600)
+    facts = canary.key_file_facts(str(kf))
+    assert facts["format"] == "json_private_key"
+    assert facts["format_accepted"] is True
+
+
+def test_the_protected_key_exists_with_private_perms_and_accepted_format():
+    """Operability check of the REAL protected key — via key_file_facts only
+    (existence, permissions, format); the key material is never read into
+    the test, printed, or asserted on."""
+    real = canary.DEFAULT_KEY_FILE
+    if not real.exists():
+        pytest.skip("protected canary key not present in this checkout")
+    facts = canary.key_file_facts(str(real))
+    assert facts["permissions_private"] is True
+    assert facts["format_accepted"] is True
 
 
 def test_state_roundtrip_is_atomic(tmp_path):

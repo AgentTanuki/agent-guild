@@ -37,12 +37,20 @@ The key is supplied locally (a gitignored `--key-file` or CANARY_PRIVATE_KEY
 env) and is NEVER printed, logged or written to the evidence artifact. The
 artifact contains ONLY public/non-secret evidence.
 
+The buyer key lives at `live/secrets/x402_mainnet_canary.key` (gitignored via
+live/secrets/, mode 0600, bare 0x-hex — the format load_private_key accepts).
+
+    Secret-silent preflight (no signing, no payment, no secret output —
+    validates the key file's existence/permissions/format, derives ONLY the
+    public address, and checks live readiness):
+        python first_party_canary.py --preflight
+
     Dry run (safe, no signing, no funds moved — the default):
         python first_party_canary.py --dry-run
 
     After Ramp funds the buyer wallet, the single execution command:
-        python first_party_canary.py --execute \
-            --key-file ~/.agent-guild/canary_key.json
+        python first_party_canary.py --execute --watch \
+            --key-file live/secrets/x402_mainnet_canary.key
 
 Do NOT run --execute during development. A clean dry run is NOT a payment.
 """
@@ -60,6 +68,9 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "live" / "guild"))
 
 DEFAULT_BASE = "https://agent-guild-5d5r.onrender.com"
+# The protected buyer key (gitignored directory; never read by tooling that
+# could print it). --key-file overrides; CANARY_PRIVATE_KEY env wins.
+DEFAULT_KEY_FILE = REPO / "live" / "secrets" / "x402_mainnet_canary.key"
 LIFETIME_CAP_USDC = 0.01                     # hard ceiling, ALL runs, forever
 MAINNET = "eip155:8453"
 BASE_CHAIN_ID = 8453
@@ -98,6 +109,53 @@ def load_private_key(key_file: Optional[str]) -> Optional[str]:
     if not raw:
         raise Refuse("key file contained no private key")
     return raw if raw.startswith("0x") else "0x" + raw
+
+
+def key_file_facts(key_file: str) -> dict[str, Any]:
+    """SECRET-SILENT facts about the key file: existence, permissions and
+    whether the format is one load_private_key accepts. The key material is
+    validated in-process and never returned, printed or logged."""
+    p = pathlib.Path(key_file).expanduser()
+    facts: dict[str, Any] = {"path": str(p), "exists": p.exists()}
+    if not facts["exists"]:
+        return facts
+    mode = p.stat().st_mode & 0o777
+    facts["permissions_octal"] = oct(mode)
+    facts["permissions_private"] = (mode & 0o077) == 0    # no group/other bits
+    fmt = "unrecognised"
+    try:
+        raw = p.read_text().strip()
+        if raw.startswith("{"):
+            data = json.loads(raw)
+            body = (data.get("privateKey") or data.get("private_key")
+                    or data.get("key") or "").strip().removeprefix("0x")
+            if len(body) == 64 and all(c in "0123456789abcdefABCDEF"
+                                       for c in body):
+                fmt = "json_private_key"
+        else:
+            body = raw.removeprefix("0x")
+            if len(body) == 64 and all(c in "0123456789abcdefABCDEF"
+                                       for c in body):
+                fmt = "hex"
+    except Exception:
+        fmt = "unreadable"
+    facts["format"] = fmt
+    facts["format_accepted"] = fmt in ("hex", "json_private_key")
+    return facts
+
+
+def derive_public_address(key_file: Optional[str]) -> Optional[str]:
+    """Derive ONLY the public EVM address from the buyer key — no signature
+    is ever produced. Returns None (with no error output) when the signing
+    library is unavailable."""
+    key = load_private_key(key_file)
+    if not key:
+        return None
+    try:
+        from eth_account import Account
+    except ImportError:
+        return None
+    return Account.from_key(key).address
 
 
 # --------------------------------------------------------------------------
@@ -181,7 +239,8 @@ def verify_preconditions(http, base: str, expected_sha: Optional[str]
 
 
 def verify_challenge(challenge: dict[str, Any], requested_url: str,
-                     facts: dict[str, Any]) -> dict[str, Any]:
+                     facts: dict[str, Any],
+                     http: Any = None) -> dict[str, Any]:
     """Re-check the 402 challenge against the verified facts and the lifetime
     cap. The server's quoted `resource.url` is CANONICAL (it applies default
     query values), so the check confirms the quote is the canonical form of
@@ -215,16 +274,51 @@ def verify_challenge(challenge: dict[str, Any], requested_url: str,
     if amount_usdc > LIFETIME_CAP_USDC:
         raise Refuse(f"quoted amount ${amount_usdc:.6f} exceeds the hard "
                      f"lifetime cap ${LIFETIME_CAP_USDC:.6f}")
-    # signed offer must be present and verify against the Guild signing key,
+    # signed offer must be present and verify against the Guild's did:web
+    # SERVICE key (resolved from the trusted origin's DID document),
     # bound to the CANONICAL quoted resource
-    offer_ok = _verify_signed_offer(challenge, quoted, req)
+    offer_ok = _verify_signed_offer(challenge, quoted, req, http=http)
     if not offer_ok:
         raise Refuse("signed offer missing or does not verify")
     return req, quoted
 
 
+def _resolve_kid_public_key(kid: str, http: Any) -> Optional[str]:
+    """Resolve the offer/receipt kid to a public key hex — did:web profile:
+      1. the kid's DID must be the did:web of the TRUSTED configured origin
+         (a hostile-but-valid did:web signer proves nothing about this
+         resource);
+      2. the origin's DID document (/.well-known/did.json, fetched over TLS
+         from that same trusted origin) must authorise exactly this kid;
+      3. the key comes from the document's publicKeyMultibase.
+    Legacy did:key kids remain resolvable (self-describing)."""
+    from app import x402, x402_artifacts as artifacts
+    from app.crypto import public_key_from_did
+    did = kid.split("#")[0]
+    if did.startswith("did:key:"):
+        try:
+            return public_key_from_did(did)
+        except Exception:
+            return None
+    if not did.startswith("did:web:"):
+        return None
+    if not artifacts.kid_matches_origin(kid, x402.public_host()):
+        return None                       # hostile origin — refuse
+    if http is None:
+        return None
+    try:
+        doc = http.get(x402.public_host() + "/.well-known/did.json",
+                       timeout=20).json()
+        for method in doc.get("verificationMethod") or []:
+            if method.get("id") == kid and method.get("publicKeyMultibase"):
+                return public_key_from_did(method["publicKeyMultibase"])
+    except Exception:
+        return None
+    return None
+
+
 def _verify_signed_offer(challenge: dict[str, Any], resource_url: str,
-                         req: dict[str, Any]) -> bool:
+                         req: dict[str, Any], http: Any = None) -> bool:
     from app import x402_artifacts as artifacts
     exts = challenge.get("extensions") or {}
     oro = exts.get("offer-receipt") or {}
@@ -234,12 +328,8 @@ def _verify_signed_offer(challenge: dict[str, Any], resource_url: str,
     jws = offers[0].get("signature")
     header = artifacts.jws_header(jws)
     kid = header.get("kid", "")
-    # resolve the did:key public key straight from the kid (self-describing)
-    from app.crypto import public_key_from_did
-    did = kid.split("#")[0]
-    try:
-        pub = public_key_from_did(did)
-    except Exception:
+    pub = _resolve_kid_public_key(kid, http)
+    if not pub:
         return False
     payload = artifacts.jws_verify(jws, pub)
     return bool(payload and payload.get("resourceUrl") == resource_url
@@ -298,7 +388,8 @@ def run(args) -> int:
     if r0.status_code != 402:
         raise Refuse(f"expected 402 from the paid resource, got {r0.status_code}")
     challenge = json.loads(_b64(r0.headers[x402.PAYMENT_REQUIRED_HEADER]))
-    req, canonical_url = verify_challenge(challenge, resource_url, facts)
+    req, canonical_url = verify_challenge(challenge, resource_url, facts,
+                                          http=http)
     # from here the CANONICAL server-quoted resource is what we pay for
     resource_url = canonical_url
     amount_atomic = req["amount"]
@@ -484,6 +575,58 @@ def _write_evidence(path: pathlib.Path, evidence: dict[str, Any]) -> None:
     path.write_text(json.dumps(evidence, indent=2))
 
 
+def preflight(args) -> int:
+    """SECRET-SILENT readiness preflight: validates the key file (existence,
+    private permissions, accepted format), derives ONLY the public buyer
+    address, and verifies live payment readiness — WITHOUT producing a
+    signature or moving any funds. Prints only non-secret facts."""
+    import httpx
+    _log("Agent Guild mainnet canary — SECRET-SILENT PREFLIGHT "
+         "(no signing, no payment)")
+    ok = True
+
+    facts = key_file_facts(args.key_file)
+    _log(f"  key file: {facts['path']}")
+    _log(f"    exists: {facts.get('exists')}")
+    if facts.get("exists"):
+        _log(f"    permissions: {facts.get('permissions_octal')} "
+             f"(private: {facts.get('permissions_private')})")
+        _log(f"    format: {facts.get('format')} "
+             f"(accepted: {facts.get('format_accepted')})")
+    ok &= bool(facts.get("exists") and facts.get("permissions_private")
+               and facts.get("format_accepted"))
+
+    try:
+        addr = derive_public_address(args.key_file)
+    except Refuse as e:
+        addr = None
+        _log(f"    address derivation refused: {e}")
+    if addr:
+        _log(f"  buyer public address: {addr}")
+    else:
+        _log("  buyer public address: (not derived — eth_account/x402[evm] "
+             "not installed here; the address is public, deriving it needs "
+             "the signing lib but produces no signature)")
+
+    http = httpx.Client(follow_redirects=True)
+    base = args.base.rstrip("/")
+    try:
+        target_facts = verify_preconditions(http, base, args.expect_sha)
+        _log(f"  readiness OK — network={target_facts['network']} "
+             f"recipient={target_facts['recipient']} "
+             f"facilitator={target_facts['facilitator_host']} "
+             f"sha={target_facts['production_sha']}")
+    except Refuse as e:
+        _log(f"  readiness REFUSED: {e}")
+        ok = False
+    except Exception as e:  # noqa: BLE001
+        _log(f"  readiness check failed: {type(e).__name__}: {e}")
+        ok = False
+    _log("PREFLIGHT " + ("PASSED — ready for --execute (after funding); "
+                         "no signature was produced" if ok else "FAILED"))
+    return 0 if ok else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -491,6 +634,10 @@ def main() -> int:
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", default=True,
                       help="(default) verify everything, sign NOTHING")
+    mode.add_argument("--preflight", action="store_true",
+                      help="secret-silent: validate the key file + derive "
+                           "only the public address + check readiness; "
+                           "never signs, never pays")
     mode.add_argument("--execute", action="store_true",
                       help="actually pay ONE trust decision (<= 0.01 USDC)")
     ap.add_argument("--watch", action="store_true",
@@ -498,8 +645,9 @@ def main() -> int:
                          "funded, then complete exactly once")
     ap.add_argument("--watch-interval", type=int, default=60)
     ap.add_argument("--watch-timeout", type=int, default=86400)
-    ap.add_argument("--key-file", default=None,
-                    help="local key file (hex or JSON); or CANARY_PRIVATE_KEY env")
+    ap.add_argument("--key-file", default=str(DEFAULT_KEY_FILE),
+                    help="local key file (hex or JSON); or CANARY_PRIVATE_KEY "
+                         f"env (default: {DEFAULT_KEY_FILE})")
     ap.add_argument("--expect-sha", default=None,
                     help="refuse to pay unless production /release SHA matches")
     ap.add_argument("--state",
@@ -513,6 +661,8 @@ def main() -> int:
         args.dry_run = False
 
     try:
+        if args.preflight:
+            return preflight(args)
         if args.execute and args.watch:
             return _watch_loop(args)
         return run(args)

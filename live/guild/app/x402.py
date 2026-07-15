@@ -610,20 +610,34 @@ def process_payment(payload: PaymentPayload, preq: "PaidRequest",
     offered = requirements(credits_cost)
     fac = _facilitator()
     try:
-        v = fac.verify(payload, offered)
+        try:
+            v = fac.verify(payload, offered)
+        except Exception as e:
+            # verify never settles — definitively retryable
+            replay_guard.release(ident)
+            return {"ok": False, "stage": "verify",
+                    "reason": f"facilitator error: {e}", "protocol": protocol}
         if not getattr(v, "is_valid", False):
             replay_guard.release(ident)      # never reached settlement
             return {"ok": False, "stage": "verify",
                     "reason": getattr(v, "invalid_reason", None) or "invalid",
                     "protocol": protocol}
-        s = fac.settle(payload, offered)
+        try:
+            s = fac.settle(payload, offered)
+        except Exception as e:
+            # a transport failure DURING settle is AMBIGUOUS: the settlement
+            # may have been broadcast. Release the in-process identity guard
+            # (the durable recovery path owns the truth from here), but tell
+            # the caller this failed mid-settle so it is never blindly
+            # retried (payments.py keeps the identifier record and resolves
+            # via the on-chain nonce oracle).
+            replay_guard.release(ident)
+            return {"ok": False, "stage": "settle_exception",
+                    "reason": f"facilitator error during settle: {e}",
+                    "protocol": protocol}
     except PaymentBindingError:
         replay_guard.release(ident)
         raise
-    except Exception as e:
-        replay_guard.release(ident)
-        return {"ok": False, "stage": "facilitator",
-                "reason": f"facilitator error: {e}", "protocol": protocol}
     finally:
         try:
             fac.close()

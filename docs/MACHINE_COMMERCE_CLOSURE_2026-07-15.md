@@ -183,9 +183,21 @@ run this session.**
 After this branch is pushed, released, and the buyer wallet is funded (≥ 0.01
 USDC on Base), from the repo root:
 
+First, the secret-silent preflight (validates the protected key file's
+existence/permissions/format, derives ONLY the public buyer address, and
+checks live readiness — no signature, no payment):
+
+```
+python live/scripts/first_party_canary.py --preflight
+```
+
+Then the single execution command (the key lives at
+`live/secrets/x402_mainnet_canary.key` — the script's default; gitignored,
+mode 0600):
+
 ```
 python live/scripts/first_party_canary.py --execute --watch \
-    --key-file ~/.agent-guild/canary_key.json \
+    --key-file live/secrets/x402_mainnet_canary.key \
     --expect-sha "$(git rev-parse HEAD)"
 ```
 

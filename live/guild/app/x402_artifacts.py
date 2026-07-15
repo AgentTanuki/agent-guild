@@ -11,20 +11,26 @@ extension-offer-and-receipt.md, payload schema version 1) in the JWS format:
     ``extensions["offer-receipt"].info.receipt`` of the SettleResponse
     (PAYMENT-RESPONSE header / A2A receipts array / MCP payment-response meta).
 
-Signing identity — load-bearing decisions:
-  * The signer is the Guild's PERSISTENT Ed25519 signing identity
-    (store.guild_identity(), the same did:key that signs Agent Passports and
-    AGD-1 decisions). It is a dedicated SERVICE-signing identity: it is not,
-    and must never be, the treasury key (the treasury is an EVM account whose
-    key lives only in CDP; this module never touches EVM keys).
-  * Format is JWS (`alg: EdDSA`, `kid: <did:key…>#<fragment>`) — the spec's
-    JWS branch accepts EdDSA and requires `kid` to be a DID URL, which did:key
-    satisfies without weakening the existing AGI-1/did:key verification model.
-    did:web is NOT required by the spec (§4.5.1 allows an external key
-    registry); the key binding for the resource origin is published at
-    ``/.well-known/agent-guild-did.json`` (and mirrored in the x402 section of
-    ``/.well-known/agent-guild.json``), so an independent verifier can bind
-    resourceUrl origin → kid → Ed25519 key without trusting the 402 itself.
+Signing identity — load-bearing decisions (updated, pre-mainnet pass A2
+2026-07-15):
+  * The signer is the Guild's PERSISTENT Ed25519 SERVICE-signing key
+    (store.guild_identity() — the same key that signs Agent Passports and
+    AGD-1 decisions under its did:key identity). It is not, and must never
+    be, the treasury key (the treasury is an EVM account whose key lives
+    only in CDP; this module never touches EVM keys).
+  * Format is JWS (`alg: EdDSA`) with `kid` = the did:web verification
+    method of the SERVICE ORIGIN: ``did:web:<origin>#<key multibase>``. The
+    DID document at ``{origin}/.well-known/did.json`` authorises exactly
+    this key, so an independent verifier proves
+    origin → DID document → authorised key → signature — the documented
+    profile the official @x402/extensions verifier implements natively
+    (its did:web resolver fetches /.well-known/did.json and reads
+    publicKeyMultibase). The legacy binding document at
+    ``/.well-known/agent-guild-did.json`` remains for AGI-1/did:key
+    consumers and mirrors the x402 kid.
+  * Relying parties must ALSO check kid_matches_origin(kid, resource
+    origin): a signature by a hostile-but-valid did:web identity proves
+    nothing about this resource.
 
 The Agent Guild evidence attachment is a SIBLING extension
 (``extensions["io.agent-guild/evidence"]``) so the standard `offer-receipt`
@@ -107,10 +113,71 @@ def jws_verify(jws: str, public_hex: str) -> Optional[dict[str, Any]]:
         return None
 
 
+def service_origin() -> str:
+    """The trusted configured public origin the offer/receipt identity is
+    bound to (same source of truth as resource URLs — never a request
+    header)."""
+    from . import x402
+    return x402.public_host()
+
+
 def kid_for_identity(identity: dict[str, Any]) -> str:
-    """DID URL for the Guild signing key: did:key:zMB#zMB (the did:key
-    convention the official TS verifier resolves without any lookup)."""
-    return crypto.did_key_verification_method(identity["did"])
+    """DID URL for the Guild SERVICE-signing key, following the documented
+    did:web profile (pre-mainnet corrective pass A2, 2026-07-15):
+    did:web:<service origin>#<multibase of the Ed25519 key>.
+
+    The DID document is published at {origin}/.well-known/did.json (did:web
+    spec §3.2) and authorises exactly this persistent Ed25519 key. The
+    official @x402/extensions verifier resolves did:web kids by fetching
+    that document and reading `publicKeyMultibase`, so an independent
+    verifier proves origin → DID document → authorised key → signature with
+    no out-of-band trust. The same key keeps its did:key identity for
+    AGI-1/passports (alsoKnownAs in the DID document); the treasury (EVM)
+    key is a different system and is never touched here."""
+    return crypto.did_web_verification_method(service_origin(),
+                                              identity["public_key"])
+
+
+def kid_matches_origin(kid: str, origin: str) -> bool:
+    """A relying party MUST bind the signer to the resource origin: a JWS
+    whose kid names any other did:web host verifies cryptographically but
+    proves nothing about THIS resource. True iff the kid's DID equals the
+    did:web DID of `origin`."""
+    return kid.split("#", 1)[0] == crypto.did_web_from_origin(origin)
+
+
+def did_web_document(identity: dict[str, Any],
+                     origin: Optional[str] = None) -> dict[str, Any]:
+    """The W3C DID-Core document served at /.well-known/did.json. Authorises
+    the persistent Ed25519 SERVICE-signing key (Multikey/publicKeyMultibase —
+    the format the official @x402/extensions did:web resolver consumes) for
+    assertions, and cross-links the key's did:key identity (AGI-1) via
+    alsoKnownAs. No EVM/treasury material appears here, ever."""
+    origin = origin or service_origin()
+    did = crypto.did_web_from_origin(origin)
+    mb = crypto.public_key_multibase(identity["public_key"])
+    kid = f"{did}#{mb}"
+    return {
+        "@context": [
+            "https://www.w3.org/ns/did/v1",
+            "https://w3id.org/security/multikey/v1",
+        ],
+        "id": did,
+        "alsoKnownAs": [identity["did"]],            # the AGI-1 did:key
+        "verificationMethod": [{
+            "id": kid,
+            "type": "Multikey",
+            "controller": did,
+            "publicKeyMultibase": mb,
+        }],
+        "assertionMethod": [kid],
+        "authentication": [kid],
+        "service": [{
+            "id": f"{did}#agent-guild",
+            "type": "AgentGuildTrustService",
+            "serviceEndpoint": origin,
+        }],
+    }
 
 
 # --- signed offer (spec §4) ---------------------------------------------------

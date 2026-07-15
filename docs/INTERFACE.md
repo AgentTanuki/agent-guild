@@ -1,6 +1,6 @@
 # Agent Guild — machine interface (GENERATED)
 
-*Generated from `live/guild/contract/contract.json` v2 (service 1.2.0). Do not edit by hand — run `make contract`.*
+*Generated from `live/guild/contract/contract.json` v2 (service 2.0.0). Do not edit by hand — run `make contract`.*
 
 - Host: https://agent-guild-5d5r.onrender.com
 - MCP (streamable HTTP): https://agent-guild-5d5r.onrender.com/mcp/
@@ -24,6 +24,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /.well-known/agent-guild-did.json`
 - `GET /.well-known/agent-guild.json`
 - `GET /.well-known/ai-plugin.json`
+- `GET /.well-known/did.json`
 - `GET /.well-known/glama.json`
 - `POST /adjudicators/enroll`
 - `POST /admin/agents/{agent_id}/first-party`
