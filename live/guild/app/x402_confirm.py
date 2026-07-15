@@ -46,10 +46,19 @@ AUTHORIZATION_USED_TOPIC = ("0x98de503528ee59b575ef0c0a2576a824"
 # 4-byte selector of authorizationState(address,bytes32) — EIP-3009's
 # definitive nonce-consumed view (same derivation + cross-check).
 AUTHORIZATION_STATE_SELECTOR = "0xe94a0102"
-# Bounded look-back for locating the AuthorizationUsed tx hash: public RPCs
-# reject unbounded eth_getLogs ranges. 90k blocks ≈ 2 days on Base.
+# Legacy bounded look-back for locating the AuthorizationUsed tx hash when NO
+# anchored start block was persisted (pre-anchor records only): public RPCs
+# reject unbounded eth_getLogs ranges. 90k blocks ≈ 2 days on Base. Anchored
+# recovery (from_block persisted with the payment-identifier record BEFORE
+# settlement) scans FORWARD from the anchor instead and has no such horizon.
 _LOG_LOOKBACK_BLOCKS = 90_000
 _LOG_CHUNK_BLOCKS = 9_000
+# Recovery anchor: how many blocks BEFORE the observed chain head the
+# persisted safe starting block is placed (reorg headroom, ~1 min on Base).
+RECOVERY_ANCHOR_MARGIN_BLOCKS = 30
+# Hard bound on anchored forward scans: enough chunks to cover months of
+# Base blocks, still finite so a poisoned anchor cannot spin forever.
+_MAX_ANCHORED_CHUNKS = 4_000
 
 
 def rpc_url() -> str:
@@ -88,9 +97,27 @@ def _pad_address_topic(addr: str) -> str:
     return "0x" + addr.lower().removeprefix("0x").rjust(64, "0")
 
 
+def current_block(network: Optional[str] = None,
+                  timeout: float = 15.0) -> Optional[int]:
+    """The chain head for `network`, or None when the RPC cannot answer.
+    Used to persist a SAFE recovery starting block with the payment-
+    identifier record BEFORE a mainnet settlement — callers must fail closed
+    (refuse to settle) on None rather than create an unanchorable ambiguity."""
+    url = rpc_url_for(network)
+    if not url:
+        return None
+    try:
+        return int(str(_rpc_call(url, "eth_blockNumber", [],
+                                 timeout=timeout)), 16)
+    except Exception:
+        return None
+
+
 def find_authorization_used(payer: str, nonce: str, *, asset: str,
                             network: Optional[str] = None,
-                            timeout: float = 15.0) -> dict[str, Any]:
+                            timeout: float = 15.0,
+                            from_block: Optional[int] = None,
+                            ) -> dict[str, Any]:
     """The crash-recovery nonce oracle: has this EIP-3009 (payer, nonce)
     authorization been consumed on-chain?
 
@@ -108,9 +135,15 @@ def find_authorization_used(payer: str, nonce: str, *, asset: str,
     contract (EIP-3009's canonical consumed-nonce view) decides used/unused
     definitively; when used, a bounded eth_getLogs scan over the
     AuthorizationUsed(payer, nonce) event recovers the transaction hash so
-    the settlement can be independently confirmed and receipted. A missing
-    hash inside the bounded window degrades to used-without-tx — the caller
-    decides what that is enough for."""
+    the settlement can be independently confirmed and receipted.
+
+    `from_block` is the SAFE starting block persisted with the payment-
+    identifier record before the settlement was attempted: the scan then
+    runs FORWARD from that anchor to the head — however far in the past the
+    settlement now is (no latest-90k horizon). Without an anchor (legacy
+    records only) the scan degrades to the bounded latest-90k look-back. A
+    missing hash degrades to used-without-tx — the caller decides what that
+    is enough for."""
     url = rpc_url_for(network)
     if not url:
         return {"used": None, "definitive": False,
@@ -134,24 +167,44 @@ def find_authorization_used(payer: str, nonce: str, *, asset: str,
         return {"used": False, "definitive": True}
     # nonce consumed — recover the tx hash from the AuthorizationUsed event
     tx: Optional[str] = None
+    topics = [AUTHORIZATION_USED_TOPIC, _pad_address_topic(payer),
+              nonce.lower()]
+
+    def _scan(lo_blk: int, hi_blk: int) -> Optional[str]:
+        logs = _rpc_call(url, "eth_getLogs", [{
+            "address": asset,
+            "fromBlock": hex(lo_blk), "toBlock": hex(hi_blk),
+            "topics": topics,
+        }], timeout=timeout)
+        for log in logs or []:
+            if isinstance(log, dict) and log.get("transactionHash"):
+                return str(log["transactionHash"])
+        return None
+
     try:
         latest = int(str(_rpc_call(url, "eth_blockNumber", [],
                                    timeout=timeout)), 16)
-        lo = max(0, latest - _LOG_LOOKBACK_BLOCKS)
-        frm = latest
-        while frm > lo and tx is None:
-            chunk_from = max(lo, frm - _LOG_CHUNK_BLOCKS + 1)
-            logs = _rpc_call(url, "eth_getLogs", [{
-                "address": asset,
-                "fromBlock": hex(chunk_from), "toBlock": hex(frm),
-                "topics": [AUTHORIZATION_USED_TOPIC,
-                           _pad_address_topic(payer), nonce.lower()],
-            }], timeout=timeout)
-            for log in logs or []:
-                if isinstance(log, dict) and log.get("transactionHash"):
-                    tx = str(log["transactionHash"])
+        if from_block is not None:
+            # anchored recovery: FORWARD from the persisted safe block —
+            # the event sits just after the anchor, so the first chunks
+            # almost always find it, however old the settlement now is.
+            frm = max(0, int(from_block))
+            chunks = 0
+            while frm <= latest and tx is None:
+                if chunks >= _MAX_ANCHORED_CHUNKS:
                     break
-            frm = chunk_from - 1
+                hi = min(latest, frm + _LOG_CHUNK_BLOCKS - 1)
+                tx = _scan(frm, hi)
+                frm = hi + 1
+                chunks += 1
+        else:
+            # legacy (no anchor persisted): bounded latest-90k look-back
+            lo = max(0, latest - _LOG_LOOKBACK_BLOCKS)
+            frm = latest
+            while frm > lo and tx is None:
+                chunk_from = max(lo, frm - _LOG_CHUNK_BLOCKS + 1)
+                tx = _scan(chunk_from, frm)
+                frm = chunk_from - 1
     except Exception:
         tx = None                       # used is still definitive without it
     return {"used": True, "definitive": True, "transaction": tx}

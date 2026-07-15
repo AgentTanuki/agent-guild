@@ -231,6 +231,17 @@ def swarm_graph():
     return graph.build_graph(store)
 
 
+@router.get("/swarm/status")
+def swarm_status():
+    """The autonomous scout runner's public status: enabled state, last
+    start/completion, per-adapter results, discovered/refreshed counts and
+    the last error. No secrets — state only. The deployment release gate
+    polls this until one production scout cycle (including a legitimate
+    zero-demand cycle) has completed."""
+    from . import runner as swarm_runner
+    return swarm_runner.status(store)
+
+
 # --------------------------------------------------------------------------
 # L4 — discovery agents + kill switch (admin)
 # --------------------------------------------------------------------------

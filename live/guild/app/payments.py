@@ -488,7 +488,12 @@ def _resolve_settling(rec: dict[str, Any], preq: PaidRequest, ident: str,
     if prior and prior.get("status") in store._X402_SERVED_STATUSES:
         return {**prior, "ok": True, "recovered": True}
     lookup = x402_confirm.find_authorization_used(
-        payer, nonce, asset=x402.asset(), network=x402.network())
+        payer, nonce, asset=x402.asset(), network=x402.network(),
+        # the SAFE starting block persisted with this payment-identifier
+        # record BEFORE settlement: recovery scans forward from it, so a
+        # settlement any number of blocks in the past is still locatable
+        # (no latest-90k horizon). Absent only on legacy records.
+        from_block=(rec or {}).get("recovery_from_block"))
     if lookup.get("definitive") and lookup.get("used") is False:
         return None                                  # provably never settled
     if lookup.get("definitive") and lookup.get("used"):
@@ -556,7 +561,8 @@ def _resolve_settling(rec: dict[str, Any], preq: PaidRequest, ident: str,
 
 def settle_x402(payload: PaymentPayload, preq: PaidRequest,
                 protocol: str = "v2",
-                method: Optional[str] = None) -> Settled:
+                method: Optional[str] = None,
+                first_party: Optional[bool] = None) -> Settled:
     """Verify + settle one x402 payment against one exact request. Raises:
       PaymentBindingError   — binding/config/replay violation (→ 402)
       PaymentIdConflict     — payment-identifier misuse (→ 409)
@@ -661,8 +667,33 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
             # contacted: from here on, a crash is ambiguous and must be
             # resolved by recovery — never by a blind retry.
             if pid:
+                settling_fields: dict[str, Any] = {}
+                if x402.is_mainnet(x402.network()):
+                    # persist a SAFE recovery starting block WITH the record
+                    # before any mainnet settlement: ambiguous recovery scans
+                    # forward from it, however long ago the crash was. If the
+                    # RPC cannot anchor recovery, FAIL CLOSED before the
+                    # facilitator is contacted — no unanchorable ambiguity is
+                    # ever created and the buyer can safely retry.
+                    anchor = x402_confirm.current_block(x402.network())
+                    if anchor is None:
+                        _inflight_discard(pid)
+                        raise PaymentChallenge(preq, extra={
+                            "error": "x402_payment_rejected",
+                            "reason": "recovery_anchor_unavailable",
+                            "detail": ("the Base RPC could not provide a "
+                                       "safe recovery starting block, so a "
+                                       "settlement begun now would not be "
+                                       "crash-recoverable; nothing was "
+                                       "settled — re-present the same "
+                                       "payment shortly"),
+                            "retryable": True})
+                    settling_fields["recovery_from_block"] = max(
+                        0, anchor
+                        - x402_confirm.RECOVERY_ANCHOR_MARGIN_BLOCKS)
                 store.x402_payment_id_transition(pid, "settling",
-                                                 payment_identity=ident)
+                                                 payment_identity=ident,
+                                                 **settling_fields)
             try:
                 settled = x402.process_payment(payload, preq, cost,
                                                method=method,
@@ -670,6 +701,10 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
             except x402.PaymentBindingError:
                 _fail_pid()
                 raise
+            if first_party is not None and isinstance(settled, dict):
+                # settle-time payer attribution: a first-party canary is
+                # flagged HERE so it can never read as external revenue.
+                settled["first_party_payer"] = bool(first_party)
             if settled.get("status") == "settled_unconfirmed":
                 # the facilitator claims settlement but the chain does not
                 # (yet) prove it: record for recovery/reconciliation, serve
@@ -711,6 +746,8 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
                     "reason": "duplicate_transaction",
                     "detail": "this transaction hash already settled a "
                               "previous request"})
+        if first_party is not None and isinstance(settled, dict):
+            settled.setdefault("first_party_payer", bool(first_party))
         store.record_x402_payment(preq.operation, cost, settled)
         if pid:
             # durable settled transition BEFORE serving: a crash between here
@@ -742,7 +779,8 @@ def authorize(preq: PaidRequest, *,
               protocol: str = "v2",
               ua: str = "",
               transport: str = "http",
-              actor: Optional[str] = None) -> Authorization:
+              actor: Optional[str] = None,
+              first_party: Optional[bool] = None) -> Authorization:
     """Authorize one priced request. Order of precedence:
 
       1. an x402 payment payload  → verify + settle (the real rail);
@@ -755,7 +793,8 @@ def authorize(preq: PaidRequest, *,
     from .state import store
     cost = preq.cost
     if payment is not None and x402.enabled():
-        settled = settle_x402(payment, preq, protocol=protocol)
+        settled = settle_x402(payment, preq, protocol=protocol,
+                              first_party=first_party)
         store.record_event(None, "query", ua=ua, endpoint=preq.operation,
                            paid=True, rail="x402", transport=transport,
                            network=settled.record.get("network"),

@@ -367,7 +367,8 @@ def guild_risk_score(agent_id: str, api_key: str = "",
 
 
 @mcp.tool
-def guild_register(name: str, capabilities: list[str]) -> Registration:
+def guild_register(name: str, capabilities: list[str],
+                   ctx: Context = None) -> Registration:
     """Register this agent on Agent Guild so others can find and vouch for you.
     Free, and you only need to do it once.
 
@@ -378,7 +379,8 @@ def guild_register(name: str, capabilities: list[str]) -> Registration:
     Then complete the proving rung (guild_prove → guild_prove_verify): the one
     journey step you can finish alone, on this visit, with no counterparty.
     """
-    rec = store.register_agent(name=name, capabilities=capabilities, metadata={})
+    rec = store.register_agent(name=name, capabilities=capabilities,
+                               metadata={}, ua=_client_ua(ctx))
     # R2: the proving rung is being offered as the next step — count the offer,
     # or offered→started drop-off is unmeasurable.
     if store.record_milestone(rec["id"], "prove_offered"):
@@ -462,7 +464,8 @@ def guild_prove_verify(agent_id: str, api_key: str = "", signature: str = "",
     if err:
         return err
     try:
-        result = proving.verify(store, agent, signature=(signature or None))
+        result = proving.verify(store, agent, signature=(signature or None),
+                                ua=_client_ua(ctx))
     except ValueError as e:
         return {"error": str(e)}
     notes = {

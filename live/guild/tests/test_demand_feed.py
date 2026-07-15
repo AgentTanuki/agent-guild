@@ -122,20 +122,26 @@ def test_feed_contains_no_actor_ids_ips_prompts_or_paid_payload():
         assert "attestations" not in blob
 
 
-def test_feed_excludes_supplied_capabilities_and_non_genuine_demand():
+def test_feed_keeps_paper_supplied_demand_and_excludes_non_genuine():
+    """A PAPER registration (no verified reachable endpoint) does not erase
+    unmet demand — the entry stays, with honest supply counts. Non-genuine
+    (crawler) demand never appears."""
     from app.main import app
     cap_supplied = _cap()
     cap_crawler = _cap()
     with TestClient(app) as client:
-        # supplied on paper → not unmet → absent
+        # supplied on paper only → STILL unmet → present with counts
         store.register_agent(name="s-" + cap_supplied,
                              capabilities=[cap_supplied], metadata={})
         _ask(client, cap_supplied)
         # crawler-only demand → not genuine → absent
         _ask(client, cap_crawler, ua="Glama-Bot/2.0 (+crawler)")
-        caps = [e["capability"]
-                for e in client.get("/demand/feed").json()["entries"]]
-        assert cap_supplied not in caps
+        entries = client.get("/demand/feed").json()["entries"]
+        caps = [e["capability"] for e in entries]
+        assert cap_supplied in caps, (
+            "a paper registration must not erase unmet demand")
+        entry = next(e for e in entries if e["capability"] == cap_supplied)
+        assert entry["supplied"] >= 1 and entry["verified_reachable"] == 0
         assert cap_crawler not in caps
 
 
@@ -187,8 +193,24 @@ def test_cold_discovery_path_registry_to_supplier_actions():
                           json={"name": "cold-supplier",
                                 "capabilities": [entry["capability"]]})
         assert reg.status_code == 200
-        assert reg.json()["id"]
-        # once supplied, the entry leaves the unmet feed
+        agent_id = reg.json()["id"]
+        # registration alone (paper supply) does NOT retire the demand …
+        entries = client.get("/demand/feed").json()["entries"]
+        entry = next(e for e in entries if e["capability"] == cap)
+        assert entry["supplied"] >= 1 and entry["verified_reachable"] == 0
+        # … only a VERIFIED reachable endpoint does
+        from unittest import mock
+        import socket as _socket
+        from app import reachability as R
+        card = b'{"protocolVersion":"0.3.0","skills":[{"id":"x"}]}'
+        ai = [(_socket.AF_INET, _socket.SOCK_STREAM, 6, "",
+               ("93.184.216.34", 443))]
+        with mock.patch.object(R.socket, "getaddrinfo", return_value=ai), \
+             mock.patch.object(R, "_http_request_pinned",
+                               return_value=(200, card)):
+            out = store.set_agent_endpoint(
+                agent_id, "https://cold-supplier.example/a2a", verify=True)
+        assert out["recommended_for_routing"] is True
         caps = [e["capability"]
                 for e in client.get("/demand/feed").json()["entries"]]
         assert cap not in caps

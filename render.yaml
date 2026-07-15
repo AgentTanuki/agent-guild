@@ -51,6 +51,15 @@ services:
       # external-unknown).
       - key: GUILD_FIRST_PARTY_TOKEN
         sync: false
+      # --- autonomous discovery scout (2026-07-15) ---------------------------
+      # GUILD_SCOUT_AUTORUN=1 runs the demand-driven scout on a jittered,
+      # lease-guarded schedule inside the service (app/swarm/runner.py) and
+      # publishes GET /swarm/status. The release gate REQUIRES one completed
+      # production cycle (a zero-demand cycle counts), so this must be "1"
+      # for the gate to go green. Outbound contact is a SEPARATE switch and
+      # stays OFF: GUILD_SCOUT_CONTACT is deliberately not set (default 0).
+      - key: GUILD_SCOUT_AUTORUN
+        value: "1"
       # --- set these only when you go live with real card payments -----------
       # - key: STRIPE_SECRET_KEY
       #   sync: false

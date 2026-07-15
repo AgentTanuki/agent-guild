@@ -129,6 +129,11 @@ class Store:
         # lifecycle. Persisted so a settle-then-crash still serves the paid
         # result on re-submission instead of re-charging.
         self.x402_tasks: dict[str, dict[str, Any]] = {}
+        # DURABLE demand-dedupe state: "actor|capability" -> last-counted
+        # epoch. Replaces the last-500-event scan (which any event flood
+        # defeated and which conflated dedupe with instrumentation retention).
+        # Pruned opportunistically past the window; survives restarts.
+        self.demand_dedupe: dict[str, float] = {}
         self._rep_cache: Optional[ScoringResult] = None
         # Append-only sidecar journal for instrumentation events. record_event
         # is deliberately cheap (no full-store _save on read paths), which used
@@ -410,6 +415,7 @@ class Store:
             b.put_kv("x402_payment_ids", self.x402_payment_ids)
             b.put_kv("x402_tasks", self.x402_tasks)
             b.put_kv("guild_revenue", self.guild_revenue)
+            b.put_kv("demand_dedupe", self.demand_dedupe)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -450,6 +456,7 @@ class Store:
             b.put_kv("x402_payment_ids", self.x402_payment_ids)
             b.put_kv("x402_tasks", self.x402_tasks)
             b.put_kv("guild_revenue", self.guild_revenue)
+            b.put_kv("demand_dedupe", self.demand_dedupe)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -493,6 +500,7 @@ class Store:
         self.x402_payment_ids = self.backend.fetch_kv(
             "x402_payment_ids", {}) or {}
         self.x402_tasks = self.backend.fetch_kv("x402_tasks", {}) or {}
+        self.demand_dedupe = self.backend.fetch_kv("demand_dedupe", {}) or {}
         if d["outbound_invocations"]:
             self.__dict__["outbound_invocations"] = d["outbound_invocations"]
 
@@ -533,6 +541,7 @@ class Store:
             self.settlement_failures = data.get("settlement_failures", {})
             self.x402_payment_ids = data.get("x402_payment_ids", {})
             self.x402_tasks = data.get("x402_tasks", {})
+            self.demand_dedupe = data.get("demand_dedupe", {})
 
     def _migrate_plaintext_keys(self) -> None:
         """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
@@ -650,6 +659,7 @@ class Store:
                            self, "settlement_failures", {}),
                        "x402_payment_ids": self.x402_payment_ids,
                        "x402_tasks": self.x402_tasks,
+                       "demand_dedupe": self.demand_dedupe,
                        "swarm_state": self.swarm_state}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal
@@ -692,6 +702,7 @@ class Store:
         referred_by: Optional[str] = None,
         config: Optional[dict[str, Any]] = None,
         principal: Optional[str] = None,
+        ua: str = "",
     ) -> dict[str, Any]:
         with self.lock, self._txn():
             agent_id = "agent_" + secrets.token_hex(6)
@@ -784,7 +795,7 @@ class Store:
             # The funnel's t0: without this event, no time-to-anything exists
             # (CITIZENSHIP_AUDIT G2). Recorded against the agent's own key so
             # first-party traffic stays separable.
-            self.record_event(api_key, "register", agent_id=agent_id,
+            self.record_event(api_key, "register", agent_id=agent_id, ua=ua,
                               custodial=custodial, referred=bool(referred_by),
                               agent_first_party=fp)
             if hashed:
@@ -969,7 +980,7 @@ class Store:
         return [w for w in self.demand_watches if w["agent_id"] == agent_id]
 
     def set_agent_endpoint(self, agent_id: str, endpoint: str,
-                           verify: bool = False) -> dict[str, Any]:
+                           verify: bool = False, ua: str = "") -> dict[str, Any]:
         """Declare a reachable endpoint (A2A or plain HTTP URL) for this agent.
         Three separate concerns (docs/discovery-swarm/REACHABILITY_SEMANTICS.md):
           1. URL POLICY — rejected here (ValueError) ONLY for prohibited/invalid
@@ -1008,6 +1019,7 @@ class Store:
             if not suppress_repeat:
                 self.record_event(self.account_for_agent(agent_id), "endpoint_declared",
                                   agent_id=agent_id, endpoint=endpoint, verified=False,
+                                  ua=ua,
                                   reachability_status="declared_unverified")
                 agent["reachability_event_meta"] = {
                     "endpoint": endpoint, "status": "declared_unverified",
@@ -1487,6 +1499,12 @@ class Store:
                  "confirmed": bool(settlement.get("confirmed")),
                  "confirmation": settlement.get("confirmation"),
                  "resource": settlement.get("resource"),
+                 # tri-state settle-time attribution: True = the payer
+                 # authenticated as Guild-operated (the canary), False =
+                 # affirmatively not first-party, None/absent = unknown
+                 # (e.g. historical records). The funnel/read layer keeps a
+                 # canary out of external revenue with this flag.
+                 "first_party_payer": settlement.get("first_party_payer"),
                  "at": _now()}
         with self.lock, self._txn():
             self.billing_log.append(entry)
@@ -2413,6 +2431,30 @@ class Store:
         scored.sort(key=lambda x: (-x[0], x[1]))
         return [c for _, c in scored[:limit]]
 
+    def demand_dedupe_check_and_mark(self, actor: str, capability: str,
+                                     now: float, window_s: float) -> bool:
+        """DURABLE (actor, capability, window) dedupe for demand recording.
+        Returns True when this ask is NEWLY counted (and marks it), False
+        when the same actor already expressed demand for this capability
+        inside the window. State survives restarts and is immune to event
+        floods (it is keyed state, not an event-tail scan). Expired keys are
+        pruned opportunistically so the map stays bounded."""
+        key = f"{actor or 'anon'}|{capability}"
+        with self.lock, self._txn():
+            last = self.demand_dedupe.get(key)
+            if last is not None and window_s > 0 and now - last <= window_s:
+                return False
+            # prune anything already outside the window (bounded state)
+            if window_s > 0 and len(self.demand_dedupe) > 10_000:
+                self.demand_dedupe = {
+                    k: v for k, v in self.demand_dedupe.items()
+                    if now - v <= window_s}
+            self.demand_dedupe[key] = now
+            if self.backend is not None:
+                self._persist_kv("demand_dedupe", self.demand_dedupe)
+            self._save()
+            return True
+
     def demand_summary(self) -> dict[str, dict[str, Any]]:
         """Aggregate recorded capability demand: capability → lookup count,
         how many found supply, and the latest lookup time. The supply-side
@@ -2445,14 +2487,16 @@ class Store:
         counts, supply counts, first/last seen and the stable demand id.
 
         Privacy: aggregates only — no actor identifiers, no raw IPs, no
-        prompts. Honesty: `genuine_lookups` excludes AG-owned traffic
-        (first-party flag), registry crawlers and AG test harnesses
-        (attribution UA rules); entries are published only while the
-        capability has NO verified-reachable supply and at least one genuine
-        lookup keeps the feed's promise: real, dated, unmet demand."""
+        prompts. Honesty: `genuine_lookups` flows through the ONE central
+        rule — attribution.is_genuine_external — applied at READ time, so
+        bare curl / empty or tooling UAs / AG tests / crawlers /
+        unattributable historical traffic never publish as genuine machine
+        demand and history is re-interpreted, never rewritten. An entry
+        stays on the feed until the capability has a VERIFIED reachable
+        supplier (verified_reachable > 0): a paper registration or a dead/
+        unverified endpoint does not erase unmet demand."""
         from . import attribution
         from . import demand as demand_mod
-        supplied_caps = self.capability_index()
         rows: dict[str, dict[str, Any]] = {}
         for e in self.events:
             if e.get("type") != "capability_demand":
@@ -2460,11 +2504,11 @@ class Store:
             cap = e.get("capability", "")
             if not cap or not (e.get("explicit") or e.get("supplied")):
                 continue
-            ua = e.get("ua") or ""
-            genuine = (not e.get("fp")
-                       and not e.get("demand_first_party")
-                       and not attribution.CRAWLER_UA_RE.search(ua)
-                       and not attribution.AG_TEST_UA_RE.search(ua))
+            # the central attribution gate, applied at read time; the
+            # transport-level demand_first_party flag is honoured as a
+            # first-party marker the generic event shape doesn't carry.
+            genuine = (not e.get("demand_first_party")
+                       and attribution.is_genuine_external(e))
             row = rows.setdefault(cap, {
                 "capability": cap,
                 "demand_id": demand_mod.demand_id_for(cap),
@@ -2481,9 +2525,9 @@ class Store:
                 row["transports"].append(t)
         out = []
         for cap, row in rows.items():
-            if cap in supplied_caps:
-                continue                      # met on paper — not unmet demand
             counts = demand_mod.supply_counts(self, cap)
+            if counts["verified_reachable"] > 0:
+                continue        # genuinely met: a VERIFIED reachable supplier
             row.update(supplied=counts["supplied"],
                        declared_endpoint=counts["declared_endpoint"],
                        verified_reachable=counts["verified_reachable"])
@@ -2495,108 +2539,180 @@ class Store:
     def conversion_funnel(self) -> dict[str, Any]:
         """B4 — the complete autonomous machine funnel, honestly measured:
 
-          demand_observed → candidate_discovered → candidate_endpoint_verified
-          → supplier_contacted / pulled_feed → registered → identity_proved
-          → endpoint_declared/verified → paid_decision → delegation → outcome
-          → mainnet_settlement
+          demand_observed → candidate_discovered / candidate_refreshed →
+          candidate_endpoint_verified → contact_attempted/contact_delivered /
+          pulled_feed → registered → identity_proved → endpoint_declared/
+          verified → paid_decision → delegation → outcome →
+          external_mainnet_settlement | first_party_mainnet_canary |
+          unknown_mainnet_settlement
 
-        STRUCTURAL exclusion of AG-owned traffic: every externally-attributed
-        stage counts an event only when attribution.caller_class puts the
-        caller in an EXTERNAL_* class (may_count_as_external_growth) — our
-        probes, release gates, canaries, test harnesses and registry crawlers
-        are excluded by TYPE, not by policy. Scout stages (candidate_*,
-        supplier_contacted) are AG-run pipeline work and are labelled so.
-        mainnet_settlement counts ONLY independently-confirmed mainnet
-        settlements — currently zero and reported as zero."""
+        Every attributable flow stage separates EXTERNAL, FIRST-PARTY and
+        UNKNOWN outcomes (`breakdown`): external = attribution.caller_class
+        in an EXTERNAL_* class AND attribution.is_genuine_external (the one
+        central rule); first-party = AG_INTERNAL/AG_TEST/OPERATOR or
+        first-party-tagged; unknown = unattributable (bare tooling, empty
+        UAs, crawlers). The headline `count` is the external number. Scout
+        stages (candidate_*) are AG-run pipeline work and are labelled so.
+        `candidate_discovered` counts FIRST SIGHTS only; re-sightings are
+        `candidate_refreshed`. `contact_attempted` counts sends the scout
+        started; `contact_delivered` only sends that succeeded. A mainnet
+        settlement counts only when independently confirmed on-chain, and a
+        first-party canary settlement is NEVER external revenue."""
+        import os as _os
         from . import attribution
 
-        def _external(e: dict[str, Any]) -> bool:
-            return attribution.may_count_as_external_growth(
-                attribution.caller_class(e)) and not e.get(
-                "demand_first_party")
+        def _class_of(e: dict[str, Any]) -> str:
+            if e.get("demand_first_party"):
+                return "first_party"
+            cls = attribution.caller_class(e)
+            if cls in ("AG_INTERNAL", "AG_TEST", "OPERATOR"):
+                return "first_party"
+            if (attribution.may_count_as_external_growth(cls)
+                    and attribution.is_genuine_external(e)):
+                return "external"
+            return "unknown"
 
-        ext = {"demand_observed": 0, "pulled_feed": 0, "registered": 0,
-               "identity_proved": 0, "endpoint_declared": 0,
-               "paid_decision": 0, "delegation": 0}
+        flow_types = {"capability_demand": "demand_observed",
+                      "demand_feed_pulled": "pulled_feed",
+                      "register": "registered",
+                      "prove_completed": "identity_proved",
+                      "endpoint_declared": "endpoint_declared",
+                      "delegation": "delegation"}
+        flows: dict[str, dict[str, int]] = {
+            s: {"external": 0, "first_party": 0, "unknown": 0}
+            for s in list(flow_types.values()) + ["paid_decision"]}
         scout_counts = {"candidate_discovered": 0,
+                        "candidate_refreshed": 0,
                         "candidate_endpoint_verified": 0,
-                        "supplier_contacted": 0}
+                        "contact_attempted": 0,
+                        "contact_delivered": 0}
         for e in self.events:
             t = e.get("type")
-            if t == "capability_demand" and e.get("explicit"):
-                if _external(e):
-                    ext["demand_observed"] += 1
-            elif t == "demand_feed_pulled":
-                if _external(e):
-                    ext["pulled_feed"] += 1
-            elif t == "register":
-                if _external(e):
-                    ext["registered"] += 1
-            elif t == "prove_completed":
-                if _external(e):
-                    ext["identity_proved"] += 1
-            elif t == "endpoint_declared":
-                if _external(e):
-                    ext["endpoint_declared"] += 1
-            elif t == "query" and e.get("paid"):
-                if _external(e):
-                    ext["paid_decision"] += 1
-            elif t == "delegation":
-                if _external(e):
-                    ext["delegation"] += 1
-            elif t in scout_counts:
+            if t in scout_counts:
                 scout_counts[t] += 1
-        outcomes = sum(1 for t in self.tasks.values()
-                       if t.get("outcome") in ("success", "failure"))
-        mainnet = [b for b in self.billing_log
-                   if b.get("type") == "x402_payment" and b.get("mainnet")
-                   and b.get("status") == "settled_confirmed"
-                   and b.get("confirmed")]
+                continue
+            if t == "capability_demand" and not e.get("explicit"):
+                continue
+            stage = ("paid_decision" if (t == "query" and e.get("paid"))
+                     else flow_types.get(t))
+            if stage is None:
+                continue
+            flows[stage][_class_of(e)] += 1
+
+        outcomes = {"external": 0, "first_party": 0, "unknown": 0}
+        for t in self.tasks.values():
+            if t.get("outcome") not in ("success", "failure"):
+                continue
+            req = self.agents.get(t.get("requester_agent_id") or "") or {}
+            wrk = self.agents.get(t.get("worker_agent_id") or "") or {}
+            if req.get("first_party") or wrk.get("first_party"):
+                outcomes["first_party"] += 1
+            elif req and wrk:
+                outcomes["external"] += 1
+            else:
+                outcomes["unknown"] += 1
+
+        # mainnet settlements: only independently confirmed ones count at
+        # all; the CANARY (first-party payer flag at settle time, or an
+        # operator-named canary wallet, read-time) is never external revenue.
+        fp_payers = {p.strip().lower() for p in (_os.environ.get(
+            "GUILD_X402_FIRST_PARTY_PAYERS") or "").split(",") if p.strip()}
+        mainnet = {"external": 0, "first_party": 0, "unknown": 0}
+        for b in self.billing_log:
+            if not (b.get("type") == "x402_payment" and b.get("mainnet")
+                    and b.get("status") == "settled_confirmed"
+                    and b.get("confirmed") and b.get("transaction")):
+                continue
+            fp_flag = b.get("first_party_payer")
+            payer = str(b.get("payer") or "").lower()
+            if fp_flag is True or (payer and payer in fp_payers):
+                mainnet["first_party"] += 1
+            elif fp_flag is False:
+                mainnet["external"] += 1
+            else:
+                mainnet["unknown"] += 1
+
         endpoint_verified_now = sum(
             1 for a in self.agents.values()
             if (a.get("reachability") or {}).get("status")
             in ("recently_reachable", "invocation_verified"))
+
+        def _flow(stage: str, what: str) -> dict[str, Any]:
+            d = flows[stage]
+            return {"stage": stage, "count": d["external"],
+                    "breakdown": dict(d),
+                    "source": (f"{what} — count = genuine external only "
+                               "(attribution.is_genuine_external); "
+                               "first-party and unknown/unattributable "
+                               "shown separately, never merged")}
+
         return {
             "stages": [
-                {"stage": "demand_observed", "count": ext["demand_observed"],
-                 "source": "capability_demand events (genuine external)"},
+                _flow("demand_observed",
+                      "explicit capability_demand events"),
                 {"stage": "candidate_discovered",
                  "count": scout_counts["candidate_discovered"],
-                 "source": "discovery scout (AG-run pipeline work)"},
+                 "source": "discovery scout, FIRST sight of a candidate "
+                           "only (AG-run pipeline work, not external "
+                           "activity)"},
+                {"stage": "candidate_refreshed",
+                 "count": scout_counts["candidate_refreshed"],
+                 "source": "discovery scout re-sightings of already-known "
+                           "candidates (never counted as discoveries)"},
                 {"stage": "candidate_endpoint_verified",
                  "count": scout_counts["candidate_endpoint_verified"],
-                 "source": "discovery scout (AG-run pipeline work)"},
-                {"stage": "supplier_contacted",
-                 "count": scout_counts["supplier_contacted"],
-                 "source": "scout outbound (terms-gated, rate-limited)"},
-                {"stage": "pulled_feed", "count": ext["pulled_feed"],
-                 "source": "external fetches of /demand/feed"},
-                {"stage": "registered", "count": ext["registered"],
-                 "source": "external registrations"},
-                {"stage": "identity_proved",
-                 "count": ext["identity_proved"],
-                 "source": "external prove completions"},
-                {"stage": "endpoint_declared",
-                 "count": ext["endpoint_declared"],
-                 "source": "external endpoint declarations"},
+                 "source": "scout candidates whose endpoint answered its "
+                           "declared protocol (AG-run pipeline work)"},
+                {"stage": "contact_attempted",
+                 "count": scout_counts["contact_attempted"],
+                 "source": "scout outbound contacts ATTEMPTED (terms-gated, "
+                           "rate-limited; includes failed sends)"},
+                {"stage": "contact_delivered",
+                 "count": scout_counts["contact_delivered"],
+                 "source": "scout outbound sends that actually SUCCEEDED — "
+                           "a failed send is never described as delivered"},
+                _flow("pulled_feed", "fetches of /demand/feed"),
+                _flow("registered", "agent registrations"),
+                _flow("identity_proved", "prove completions"),
+                _flow("endpoint_declared", "endpoint declarations"),
                 {"stage": "endpoint_verified_current",
                  "count": endpoint_verified_now,
                  "source": "agents with a verified reachable endpoint NOW "
                            "(snapshot, not a flow count)"},
-                {"stage": "paid_decision", "count": ext["paid_decision"],
-                 "source": "external paid trust reads (x402 + sandbox)"},
-                {"stage": "delegation", "count": ext["delegation"],
-                 "source": "external delegations"},
-                {"stage": "outcome", "count": outcomes,
-                 "source": "tasks with a recorded outcome"},
-                {"stage": "mainnet_settlement", "count": len(mainnet),
+                _flow("paid_decision", "paid trust reads (x402 + sandbox)"),
+                _flow("delegation", "delegations"),
+                {"stage": "outcome", "count": outcomes["external"],
+                 "breakdown": dict(outcomes),
+                 "source": "tasks with a recorded outcome — external = "
+                           "both parties registered and neither "
+                           "Guild-operated; first-party = any "
+                           "Guild-operated party; unknown = a party "
+                           "record is missing"},
+                {"stage": "external_mainnet_settlement",
+                 "count": mainnet["external"],
                  "source": "independently confirmed mainnet settlements "
-                           "ONLY — honestly zero until one exists"},
+                           "from payers known NOT to be Guild-operated — "
+                           "honestly zero until one exists"},
+                {"stage": "first_party_mainnet_canary",
+                 "count": mainnet["first_party"],
+                 "source": "independently confirmed mainnet settlements "
+                           "paid by the Guild's own first-party canary — "
+                           "deployment verification spend, NEVER external "
+                           "revenue"},
+                {"stage": "unknown_mainnet_settlement",
+                 "count": mainnet["unknown"],
+                 "source": "independently confirmed mainnet settlements "
+                           "whose payer attribution is unknown (recorded "
+                           "before settle-time first-party flagging) — "
+                           "not claimed as external revenue"},
             ],
             "exclusions": ("AG-owned probes, release gates, canaries, test "
                            "harnesses and registry crawlers are excluded "
-                           "from external stages structurally "
-                           "(attribution.caller_class → EXTERNAL_* gate)"),
+                           "from external counts structurally "
+                           "(attribution.caller_class EXTERNAL_* gate + "
+                           "attribution.is_genuine_external), and shown "
+                           "under first_party/unknown breakdowns instead "
+                           "of being merged"),
         }
 
     def evidence_staleness(self, agent_id: str) -> Optional[dict[str, Any]]:

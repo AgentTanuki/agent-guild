@@ -115,7 +115,7 @@ def _lookup_stub(monkeypatch, result):
     """Deterministic stand-in for the on-chain EIP-3009 nonce oracle."""
     calls = []
 
-    def fake(payer, nonce, *, asset, network=None):
+    def fake(payer, nonce, *, asset, network=None, from_block=None, **kw):
         calls.append((payer, nonce))
         return dict(result)
 

@@ -1,0 +1,87 @@
+{
+  "at": "2026-07-15T09:06:50Z",
+  "note": "read-only live adapter smoke run: real registries, real shapes, no registration/invocation/contact/payment",
+  "adapters": {
+    "mcp_registry": {
+      "candidates": 5,
+      "elapsed_s": 11.02,
+      "sample": [
+        {
+          "source": "mcp_registry",
+          "name": "ai.com.mcp/skills-search",
+          "endpoint": "https://skills-sh.run.mcp.com.ai/mcp",
+          "protocol": "mcp"
+        },
+        {
+          "source": "mcp_registry",
+          "name": "ai.findip/patent-search",
+          "endpoint": "https://mcp.findip.ai",
+          "protocol": "mcp"
+        }
+      ]
+    },
+    "a2a_registry": {
+      "candidates": 5,
+      "elapsed_s": 1.92,
+      "sample": [
+        {
+          "source": "a2a_registry",
+          "name": "CarryLens",
+          "endpoint": "https://carry-lens-api.vercel.app/a2a",
+          "protocol": "a2a"
+        },
+        {
+          "source": "a2a_registry",
+          "name": "pathtoAGI \u2014 the Observatory",
+          "endpoint": "https://pathtoagi-observatory.netlify.app/a2a",
+          "protocol": "a2a"
+        }
+      ]
+    },
+    "x402_bazaar": {
+      "candidates": 0,
+      "elapsed_s": 1.2,
+      "sample": []
+    },
+    "erc8004": {
+      "skipped": "honestly unsupported (no indexer)"
+    }
+  },
+  "qualified_candidate_path": {
+    "adapter": "a2a_registry",
+    "endpoint": "https://carry-lens-api.vercel.app/a2a",
+    "status": "discovered_unverified",
+    "card_valid": true,
+    "endpoint_reachable": false,
+    "checks": {
+      "endpoint_policy": "ok",
+      "card_fetch": "ok",
+      "domain_binding": "match",
+      "liveness": "http 404"
+    }
+  },
+  "mcp_initialize_probe_evidence": [
+    {
+      "endpoint": "https://skills-sh.run.mcp.com.ai/mcp",
+      "card_valid": true,
+      "reachable": false,
+      "checks": {
+        "endpoint_policy": "ok",
+        "evidence": "registry_manifest",
+        "protocol_probe": "dns_screen: dns resolution failed: [Errno -2] Name or service not known",
+        "protocol_verified": false
+      }
+    },
+    {
+      "endpoint": "https://mcp.findip.ai",
+      "card_valid": true,
+      "reachable": true,
+      "checks": {
+        "endpoint_policy": "ok",
+        "evidence": "registry_manifest",
+        "protocol_probe": "auth_required_http_401",
+        "protocol_verified": false
+      }
+    }
+  ]
+}

@@ -16,7 +16,9 @@ challenge:
 Properties:
   * records genuine capability demand even when the caller does not pay;
   * deduplicates retries and payment resubmissions: one (actor, capability)
-    ask per dedupe window (GUILD_DEMAND_DEDUPE_S, default 1h) counts once;
+    ask per dedupe window (GUILD_DEMAND_DEDUPE_S, default 1h) counts once —
+    via DURABLE keyed state (store.demand_dedupe), not an event-tail scan,
+    so restarts and event floods cannot defeat it;
   * because the transports record BEFORE payment, the post-payment
     `store.check()` call passes `demand_recorded=True` and the same request
     is never counted again after payment succeeds;
@@ -91,23 +93,6 @@ def _parse_at(at: Any) -> float:
         return 0.0
 
 
-def _seen_recently(store: Any, actor: str, canon: str, now: float) -> bool:
-    """Abuse-resistant dedupe: has this actor already expressed demand for
-    this capability inside the window? Scans a bounded tail of the event
-    journal (payment retries arrive close together)."""
-    window = dedupe_window_s()
-    for e in reversed(store.events[-500:]):
-        if e.get("type") != "capability_demand":
-            continue
-        if e.get("capability") != canon:
-            continue
-        if (e.get("actor") or "anon") != actor:
-            continue
-        if now - _parse_at(e.get("at")) <= window:
-            return True
-    return False
-
-
 def record_demand(capability: str, *, transport: str, actor: str = "",
                   ua: str = "", first_party: bool = False,
                   ) -> Optional[dict[str, Any]]:
@@ -122,7 +107,10 @@ def record_demand(capability: str, *, transport: str, actor: str = "",
     actor = actor or "anon"
     counts = supply_counts(store, canon)
     now = time.time()
-    counted = not _seen_recently(store, actor, canon, now)
+    # DURABLE dedupe keyed (actor, capability, window): immune to event
+    # floods, survives restarts (store.demand_dedupe_check_and_mark).
+    counted = store.demand_dedupe_check_and_mark(
+        actor, canon, now, dedupe_window_s())
     if counted:
         store.record_event(None, "capability_demand", ua=ua,
                            capability=canon,

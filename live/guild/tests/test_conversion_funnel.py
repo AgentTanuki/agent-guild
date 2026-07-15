@@ -90,8 +90,9 @@ def test_korean_legal_walks_the_funnel_without_fabrication():
             b["candidate_endpoint_verified"] + 1
         assert c["pulled_feed"] == b["pulled_feed"] + 1
         assert c["registered"] == b["registered"] + 1
-        # honesty: real mainnet settlements remain zero
-        assert c["mainnet_settlement"] == 0
+        # honesty: real EXTERNAL mainnet settlements remain zero (and a
+        # first-party canary could never masquerade as one)
+        assert c["external_mainnet_settlement"] == 0
 
 
 def test_ag_owned_traffic_is_structurally_excluded():
@@ -145,7 +146,7 @@ def test_paid_decision_stage_counts_external_paid_reads(monkeypatch):
         after = {s["stage"]: s["count"]
                  for s in client.get("/funnel").json()["stages"]}
         assert after["paid_decision"] == before["paid_decision"] + 1
-        assert after["mainnet_settlement"] == 0       # testnet ≠ revenue
+        assert after["external_mainnet_settlement"] == 0  # testnet ≠ revenue
 
 
 def test_funnel_declares_its_exclusions_and_honest_zero():
@@ -153,6 +154,9 @@ def test_funnel_declares_its_exclusions_and_honest_zero():
     with TestClient(app) as client:
         f = client.get("/funnel").json()
         assert "structurally" in f["exclusions"]
-        ms = _stage(f, "mainnet_settlement")
+        ms = _stage(f, "external_mainnet_settlement")
         assert ms["count"] == 0
         assert "zero" in ms["source"]
+        # the canary stage exists and is explicitly not external revenue
+        canary = _stage(f, "first_party_mainnet_canary")
+        assert "NEVER external revenue" in canary["source"]

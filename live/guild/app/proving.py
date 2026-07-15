@@ -142,7 +142,7 @@ def _fresh(proof: Optional[dict[str, Any]]) -> bool:
 
 
 def verify(store, agent: dict[str, Any],
-           signature: Optional[str] = None) -> dict[str, Any]:
+           signature: Optional[str] = None, ua: str = "") -> dict[str, Any]:
     """Verify the challenge response and record the proof.
 
     Returns a dict with `status` in {proven, refreshed, already_fresh} or
@@ -230,11 +230,11 @@ def verify(store, agent: dict[str, Any],
         agent.pop("proving_challenge", None)
         store._save()
     store.record_milestone(agent["id"], "key_proof", proof_class=proof_class,
-                           task_id=task["id"])
+                           task_id=task["id"], ua=ua)
     # Explicit funnel terminal (machine-economics audit R2): named to match the
     # measured funnel prove_offered → prove_started → prove_completed.
     store.record_milestone(agent["id"], "prove_completed", proof_class=proof_class,
-                           task_id=task["id"])
+                           task_id=task["id"], ua=ua)
     store.record_event(store.account_for_agent(agent["id"]), "proof_of_conduct",
                        agent_id=agent["id"], proof_class=proof_class,
                        agent_first_party=bool(agent.get("first_party")))

@@ -119,8 +119,23 @@ async def _lifespan(app: "FastAPI"):
     if _x402_cfg_errs:
         _log.warning("x402 rail misconfigured (fails closed at payment "
                      "time): %s", "; ".join(_x402_cfg_errs))
-    async with mcp_app.lifespan(app):
-        yield
+    try:
+        # Autonomous discovery scout: a no-op unless GUILD_SCOUT_AUTORUN=1
+        # is EXPLICITLY set (Render). Lease-guarded, jittered, bounded;
+        # outbound contact stays independently OFF. GET /swarm/status.
+        from .swarm import runner as swarm_runner
+        swarm_runner.start(store)
+    except Exception as exc:
+        _log.warning("scout runner not started: %s", exc)
+    try:
+        async with mcp_app.lifespan(app):
+            yield
+    finally:
+        try:
+            from .swarm import runner as swarm_runner
+            swarm_runner.stop()
+        except Exception:
+            pass
 
 
 app = FastAPI(
@@ -142,6 +157,11 @@ _ua: contextvars.ContextVar[str] = contextvars.ContextVar("ua", default="")
 # v2 = PAYMENT-SIGNATURE (primary); v1 = X-PAYMENT (deprecated legacy).
 _xpay_sig: contextvars.ContextVar[str] = contextvars.ContextVar("xpay_sig", default="")
 _xpay_v1: contextvars.ContextVar[str] = contextvars.ContextVar("xpay_v1", default="")
+# settle-time payer attribution: whether THIS request authenticated as
+# first-party (token-gated headers). Rides to payments.settle_x402 so a
+# first-party canary's mainnet settlement can never read as external revenue.
+_fp_flag: contextvars.ContextVar[bool] = contextvars.ContextVar("fp_flag",
+                                                                default=False)
 _xpay_settled_holder: contextvars.ContextVar[Optional[list]] = \
     contextvars.ContextVar("xpay_settled_holder", default=None)
 
@@ -179,6 +199,9 @@ async def _capture_ua(request: Request, call_next):
     _ua.set(request.headers.get("user-agent", ""))
     _xpay_sig.set(request.headers.get("payment-signature", ""))
     _xpay_v1.set(request.headers.get("x-payment", ""))
+    _fp_flag.set(_is_first_party(request.headers.get("x-guild-source"),
+                                 request.headers.get(
+                                     "x-agent-guild-first-party")))
     # --- abuse controls (registration flood / trial farming / read bursts /
     # --- storage exhaustion) — see app/abuse.py; GUILD_ABUSE_CONTROLS=0 disables
     if abuse.enabled():
@@ -447,7 +470,8 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
     try:
         auth = payments.authorize(preq, api_key=x_api_key, payment=payment,
                                   protocol="v2", ua=_ua.get(),
-                                  transport="http")
+                                  transport="http",
+                                  first_party=_fp_flag.get())
     except x402.PaymentBindingError as e:
         raise _challenge_http(PaymentChallenge(preq, extra={
             "error": "x402_payment_invalid", "reason": e.reason,
@@ -582,6 +606,7 @@ def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
         first_party=_is_first_party(x_guild_source, x_agent_guild_first_party),  # token-gated
         referred_by=req.referred_by,
         config=req.config, principal=req.principal,
+        ua=_ua.get(),
     )
     # Phase 1: the shared journey engine computes the ONE primary next action
     # from evidence state (CITIZENSHIP_AUDIT G1/G17) — no bespoke stanzas.
@@ -658,7 +683,8 @@ def declare_endpoint(agent_id: str, body: dict[str, Any],
     try:
         # policy failures (prohibited/invalid endpoint properties) -> 422;
         # a merely-unreachable public URL still declares successfully.
-        out = store.set_agent_endpoint(agent_id, url, verify=verify)
+        out = store.set_agent_endpoint(agent_id, url, verify=verify,
+                                       ua=_ua.get())
     except ValueError as e:
         raise HTTPException(422, str(e))
     out["guild_next"] = journey_engine.guild_next(
@@ -747,7 +773,8 @@ def prove_verify(agent_id: str, body: Optional[dict[str, Any]] = None,
     _require_key(agent, x_api_key, "agent")
     try:
         result = proving.verify(store, agent,
-                                signature=(body or {}).get("signature"))
+                                signature=(body or {}).get("signature"),
+                                ua=_ua.get())
     except ValueError as e:
         raise HTTPException(400, str(e))
     notes = {
@@ -1617,11 +1644,13 @@ def _record_feed_pull(request: Request) -> None:
 @app.get("/funnel")
 def conversion_funnel():
     """B4 — the autonomous machine conversion funnel, free and aggregate:
-    demand_observed → candidate_discovered → endpoint_verified →
-    supplier_contacted/pulled_feed → registered → identity_proved →
-    paid_decision → delegation → outcome → mainnet_settlement. External
-    stages structurally exclude AG-owned probes, release gates, canaries and
-    registry crawlers (attribution class gate)."""
+    demand_observed → candidate_discovered/candidate_refreshed →
+    candidate_endpoint_verified → contact_attempted/contact_delivered /
+    pulled_feed → registered → identity_proved → paid_decision → delegation
+    → outcome → external_mainnet_settlement | first_party_mainnet_canary |
+    unknown_mainnet_settlement. Attributable stages carry an external /
+    first-party / unknown breakdown; the headline count is external only,
+    and a first-party canary settlement is never external revenue."""
     return store.conversion_funnel()
 
 

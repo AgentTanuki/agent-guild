@@ -18,7 +18,10 @@ Flow (bounded, machine-verifiable, no continue-on-error escape hatch):
          (decision.agent_id == routing.provider_id among them);
        * issuer/checkpoint continuity: issuer DID document == /ledger/issuer,
          continuity_valid, and the signed checkpoint verifies against the
-         issuer key with a fresh, monotonic index.
+         issuer key with a fresh, monotonic index;
+       * scout autonomy: wait for + verify ONE completed production scout
+         cycle via /swarm/status (a legitimate zero-demand cycle passes;
+         outbound contact must be OFF).
   3. Write a machine-readable release attestation (commit, production URL,
      every check performed, its result) to --attestation.
 
@@ -139,6 +142,49 @@ def check_signed_decision(host: str, capability: str = "hello",
     return fails
 
 
+def check_swarm_cycle(host: str, completed_after: str,
+                      timeout_s: float = 300.0,
+                      interval_s: float = 10.0) -> list[str]:
+    """Wait for ONE completed production scout cycle after `completed_after`
+    (ISO timestamp) and verify it. A ZERO-DEMAND cycle is a legitimate pass —
+    the swarm is autonomous even when there is nothing to scout for. Returns
+    a list of failures (empty == pass)."""
+    deadline = time.time() + timeout_s
+    last: dict = {}
+    while True:
+        try:
+            last = _get(host, "/swarm/status")
+        except Exception as e:
+            last = {"error": str(e)}
+        else:
+            if last.get("enabled") is not True:
+                return ["scout runner is not enabled in production "
+                        "(GUILD_SCOUT_AUTORUN=1 not set) — autonomy is not "
+                        "verified"]
+            done = last.get("last_completed_at")
+            if done and str(done) >= completed_after:
+                if last.get("last_error"):
+                    return [f"scout cycle completed with an error: "
+                            f"{last['last_error']}"]
+                run = last.get("last_run") or {}
+                if run.get("zero_demand"):
+                    print("scout cycle PASS (legitimate zero-demand cycle)")
+                else:
+                    print(f"scout cycle PASS: discovered="
+                          f"{run.get('discovered')} refreshed="
+                          f"{run.get('refreshed')} adapters="
+                          f"{list((run.get('adapters') or {}))}")
+                if last.get("contact_enabled"):
+                    return ["outbound scout contact is ENABLED in production "
+                            "— GUILD_SCOUT_CONTACT must stay 0"]
+                return []
+        if time.time() >= deadline:
+            return [f"no completed production scout cycle within "
+                    f"{int(timeout_s)}s (last /swarm/status: "
+                    f"{json.dumps(last)[:300]})"]
+        time.sleep(interval_s)
+
+
 def check_checkpoint_continuity(host: str) -> list[str]:
     from agentguild_trustplane import verify as tp_verify
 
@@ -184,6 +230,9 @@ def main() -> int:
     ap.add_argument("--interval", type=float, default=20.0)
     ap.add_argument("--attestation", default="release_attestation.json")
     ap.add_argument("--capability", default="hello")
+    ap.add_argument("--swarm-timeout", type=float, default=300.0,
+                    help="max seconds to wait for one completed production "
+                         "scout cycle (zero-demand cycles count)")
     args = ap.parse_args()
 
     attestation: dict = {
@@ -248,11 +297,16 @@ def main() -> int:
          f"--issuer-base={args.host}", f"--capability={args.capability}"],
         REPO / "live" / "trustplane", env=check_env))
 
+    gate_started = attestation["started_at"]
     for name, fn in (("signed_decision_verification",
                       lambda: check_signed_decision(
                           args.host, args.capability, machine_key)),
                      ("issuer_checkpoint_continuity",
-                      lambda: check_checkpoint_continuity(args.host))):
+                      lambda: check_checkpoint_continuity(args.host)),
+                     ("production_scout_cycle",
+                      lambda: check_swarm_cycle(
+                          args.host, completed_after=gate_started,
+                          timeout_s=args.swarm_timeout))):
         try:
             fails = fn()
         except Exception as e:
