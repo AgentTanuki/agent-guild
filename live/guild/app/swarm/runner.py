@@ -118,10 +118,23 @@ def _state(store: Any) -> dict[str, Any]:
     st.setdefault("last_run", None)
     st.setdefault("runs_completed", 0)
     st.setdefault("consecutive_failures", 0)
-    st.setdefault("pending_wake", None)
+    # DURABLE, COALESCING pending-demand queue keyed by canonical
+    # capability: {cap: {"reason", "first_requested_at", "requests"}}. A
+    # wake is ACKNOWLEDGED (removed) only after a completed cycle actually
+    # processed that capability — a lease collision, failed cycle or restart
+    # leaves it in place, so no notification is ever lost.
+    st.setdefault("pending_demand", {})
     st.setdefault("last_wake_at", 0.0)
     st.setdefault("wakes_requested", 0)
+    st.setdefault("last_acknowledged_wake", None)
+    # legacy single-slot field (pre-queue); kept nil so old readers see None
+    st.setdefault("pending_wake", None)
     return st
+
+
+def pending_demand(store: Any) -> dict[str, Any]:
+    """The durable pending-demand queue (capability -> record)."""
+    return dict(_state(store).get("pending_demand") or {})
 
 
 def _persist(store: Any) -> None:
@@ -165,28 +178,68 @@ def _run_scout(store: Any, *, fetch: Callable, deadline: float,
 
 
 def notify_demand(store: Any, capability: str) -> bool:
-    """Debounced, rate-limited wake signal: newly counted GENUINE external
-    unmet demand schedules a prompt scout cycle instead of waiting for the
-    interval fallback. Coalesces (one pending wake at a time), respects
-    GUILD_SCOUT_WAKE_DEBOUNCE_S between demand-triggered runs, and never
-    bypasses the overlap lease (run_once still takes it). Returns True when
-    a wake was queued."""
+    """Record newly counted GENUINE external unmet demand for `capability`
+    into the DURABLE pending-demand queue, and (subject to a debounce)
+    request an early dispatch.
+
+    Recording is NEVER debounced — every new capability is durably queued
+    immediately, so no wake can be lost between runs, during a lease
+    collision, on a failed cycle or across a restart. Only the DISPATCH (the
+    early kick) is debounced by GUILD_SCOUT_WAKE_DEBOUNCE_S, so repeated
+    demand cannot produce concurrent runs or a registry flood. Coalesces per
+    canonical capability. Returns True when this call newly queued the
+    capability."""
     if not enabled():
         return False
+    canon = scout.canonical_capability(capability)
+    if not canon:
+        return False
     now = time.time()
+    newly = False
     with store.lock:
         st = _state(store)
-        if st.get("pending_wake"):
-            return False                       # already queued — coalesce
-        if now - float(st.get("last_wake_at") or 0.0) < wake_debounce_s():
-            return False                       # rate-limited
-        st["pending_wake"] = {"reason": "genuine_unmet_demand",
-                              "capability": capability, "at": _now_iso()}
-        st["last_wake_at"] = now
-        st["wakes_requested"] = int(st.get("wakes_requested") or 0) + 1
+        pend = st.setdefault("pending_demand", {})
+        rec = pend.get(canon)
+        if rec is None:
+            pend[canon] = {"reason": "genuine_unmet_demand",
+                           "first_requested_at": _now_iso(), "requests": 1}
+            newly = True
+        else:
+            rec["requests"] = int(rec.get("requests") or 0) + 1
+        # DISPATCH debounce — recording above already happened durably.
+        dispatch = now - float(st.get("last_wake_at") or 0.0) \
+            >= wake_debounce_s()
+        if dispatch:
+            st["last_wake_at"] = now
+            st["wakes_requested"] = int(st.get("wakes_requested") or 0) + 1
     _persist(store)
+    # clear-then-set discipline on the shared event is unnecessary for a
+    # set-only kick, but the DURABLE queue is the source of truth: the loop
+    # re-checks pending_demand after clearing the event (see _loop), so a
+    # notify that races the clear can never be lost.
     _kick.set()
-    return True
+    return newly
+
+
+def _ack_processed(store: Any, capabilities: list[str]) -> None:
+    """Acknowledge (remove) only the pending capabilities a completed cycle
+    ACTUALLY processed. Anything still queued (arrived mid-run, or never
+    reached because the run was bounded) survives to the next cycle."""
+    if not capabilities:
+        return
+    processed = {scout.canonical_capability(c) for c in capabilities}
+    with store.lock:
+        st = _state(store)
+        pend = st.get("pending_demand") or {}
+        acked = None
+        for cap in list(pend):
+            if cap in processed:
+                acked = {"capability": cap, "at": _now_iso(),
+                         "requests": pend[cap].get("requests")}
+                del pend[cap]
+        if acked:
+            st["last_acknowledged_wake"] = acked
+    _persist(store)
 
 
 def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
@@ -206,14 +259,16 @@ def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
         deadline = time.time() + run_timeout_s()
         summary = _run_scout(store, fetch=fetch, deadline=deadline)
         zero_demand = not summary.get("capabilities")
+        # ACK only the capabilities this cycle actually processed — demand
+        # that arrived mid-run stays queued for the next cycle.
+        _ack_processed(store, summary.get("capabilities", []))
         with store.lock:
             st = _state(store)
             st["last_completed_at"] = _now_iso()
             st["last_error"] = None
             st["runs_completed"] = int(st.get("runs_completed") or 0) + 1
             st["consecutive_failures"] = 0
-            consumed_wake = st.get("pending_wake")
-            st["pending_wake"] = None          # the wake is consumed by this run
+            consumed_wake = st.get("last_acknowledged_wake")
             st["last_run"] = {
                 "zero_demand": zero_demand,
                 "classification": ("zero_demand" if zero_demand
@@ -266,15 +321,19 @@ def _loop(store: Any) -> None:
         except Exception as e:  # noqa: BLE001 — the loop must survive anything
             _log.warning("scout runner loop error: %s", e)
         failures = int(_state(store).get("consecutive_failures") or 0)
-        # wait for the jittered interval (fallback) OR an early kick —
-        # a demand wake or stop(). One pending wake = at most one early run;
-        # notify_demand's debounce keeps repeated demand from flooding.
+        # Clear-event-plus-state-RECHECK: clear the kick, then re-read the
+        # DURABLE queue. A notify that fired between the clear and the wait
+        # left its capability in pending_demand, so we never sleep through
+        # it — the queue, not the transient event, is the source of truth.
         _kick.clear()
+        if _state(store).get("pending_demand"):
+            trigger = "demand_wake"                 # already pending — run now
+            continue
         woke = _kick.wait(next_delay_s(failures=failures))
         if _stop.is_set():
             return
         trigger = ("demand_wake"
-                   if woke and _state(store).get("pending_wake")
+                   if woke and _state(store).get("pending_demand")
                    else "interval")
 
 
@@ -300,6 +359,22 @@ def stop() -> None:
     _kick.set()
 
 
+def _oldest_wake_age_s(st: dict[str, Any]) -> Optional[float]:
+    pend = st.get("pending_demand") or {}
+    if not pend:
+        return None
+    from datetime import datetime as _dt
+    now = datetime.now(timezone.utc)
+    ages = []
+    for rec in pend.values():
+        try:
+            ts = _dt.fromisoformat(str(rec.get("first_requested_at")))
+            ages.append((now - ts).total_seconds())
+        except (ValueError, TypeError):
+            continue
+    return round(max(ages), 1) if ages else 0.0
+
+
 def status(store: Any) -> dict[str, Any]:
     """The public /swarm/status document — state, never secrets."""
     st = _state(store)
@@ -320,9 +395,12 @@ def status(store: Any) -> dict[str, Any]:
         "last_error": st.get("last_error"),
         "runs_completed": st.get("runs_completed", 0),
         "consecutive_failures": st.get("consecutive_failures", 0),
-        # wake visibility: the queued (not yet consumed) wake, if any —
-        # reason + capability + timestamp only, never actor identifiers.
-        "wake": st.get("pending_wake"),
+        # DURABLE wake-queue health — counts, ages and the last ack only;
+        # never actor identifiers or secrets.
+        "pending_capabilities": len(st.get("pending_demand") or {}),
+        "oldest_wake_age_s": _oldest_wake_age_s(st),
+        "last_acknowledged_wake": st.get("last_acknowledged_wake"),
+        "wake": (next(iter((st.get("pending_demand") or {}).values()), None)),
         "wakes_requested": st.get("wakes_requested", 0),
         "last_run": st.get("last_run"),
         "candidates_recorded": len(

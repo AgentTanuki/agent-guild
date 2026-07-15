@@ -85,13 +85,22 @@ def test_live_adapters_yield_at_least_one_valid_candidate_path():
         + json.dumps(found[:3])[:500])
 
 
-def _qualified(rec):
-    """A candidate may be CLAIMED qualified only when its recorded fields
-    actually meet the definition: valid discovery evidence AND an
-    AG-INDEPENDENT protocol-appropriate answer from its infrastructure."""
+def _discovery_qualified(rec):
+    """DISCOVERY-qualified: AG independently fetched + validated the
+    candidate's own discovery document. True for a valid A2A card."""
     ev = rec.get("evidence") or {}
-    return bool((ev.get("ag_verified") or {}).get("card_valid")
-                and ev.get("independently_reachable"))
+    return bool(ev.get("discovery_document_reachable")
+                and ev.get("discovery_protocol_verified"))
+
+
+def _execution_qualified(rec):
+    """EXECUTION-qualified: AG independently verified the DECLARED protocol
+    at the execution endpoint via a side-effect-free operation (MCP
+    initialize / x402 402 challenge). Never true for A2A (no such op)."""
+    ev = rec.get("evidence") or {}
+    return bool(_discovery_qualified(rec)
+                or ev.get("execution_protocol_verified")) and bool(
+        ev.get("execution_protocol_verified"))
 
 
 def test_live_x402_catalogue_term_yields_candidates_and_a_parseable_402():
@@ -116,10 +125,10 @@ def test_live_x402_catalogue_term_yields_candidates_and_a_parseable_402():
                                       scout.safe_fetch_json)
         tried.append({"endpoint": rec.get("endpoint"),
                       "probe": rec["checks"].get("protocol_probe")})
-        if rec["evidence"]["protocol_verified"]:
+        if rec["evidence"]["execution_protocol_verified"]:
             verified.append(rec)
-            assert _qualified(rec), (
-                "protocol-verified candidate does not meet the qualified "
+            assert _execution_qualified(rec), (
+                "execution-verified candidate does not meet the qualified "
                 "definition: " + json.dumps(rec["evidence"])[:300])
             break
     assert verified, (
@@ -145,12 +154,14 @@ def test_live_a2a_card_plus_labelled_registry_attestation():
         ev = rec["evidence"]
         assert "registry_attested" in ev
         assert "attested by the registry" in ev["registry_attested_note"]
-        if _qualified(rec):
+        if _discovery_qualified(rec):
             qualified = rec
-            assert ev["protocol_verified"] is True    # valid card handshake
+            # A2A: card proves DISCOVERY only; execution is never claimed.
+            assert ev["discovery_protocol_verified"] is True
+            assert ev["execution_protocol_verified"] is False
             break
     assert qualified, "no live A2A candidate produced a valid card " \
-                      "handshake (AG-independent evidence)"
+                      "(AG-independent DISCOVERY evidence)"
 
 
 def test_live_mcp_manifest_plus_initialize_or_labelled_auth_gate():
@@ -178,11 +189,11 @@ def test_live_mcp_manifest_plus_initialize_or_labelled_auth_gate():
         probe = rec["checks"].get("protocol_probe", "")
         evidence_seen.append({"endpoint": rec.get("endpoint"),
                               "probe": probe})
-        if ev["protocol_verified"]:
+        if ev["execution_protocol_verified"]:
             acceptable = ("initialize_result", rec)
-            assert _qualified(rec)
+            assert _execution_qualified(rec)
             break
-        if ev["independently_reachable"] and "auth" in probe:
+        if ev["execution_endpoint_reachable"] and "auth" in probe:
             acceptable = ("auth_gated_labelled", rec)
             break
     assert acceptable, (

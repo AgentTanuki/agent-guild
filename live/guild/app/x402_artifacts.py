@@ -302,13 +302,16 @@ def evidence_extension(identity: dict[str, Any], *, resource_url: str,
                        request_hash: str, response_sha256: str,
                        transaction: str, payer: str,
                        payment_identifier_sha256: Optional[str],
-                       checkpoint: Optional[dict[str, Any]]) -> dict[str, Any]:
+                       checkpoint: Optional[dict[str, Any]],
+                       attribution: Optional[dict[str, Any]] = None,
+                       ) -> dict[str, Any]:
     """extensions["io.agent-guild/evidence"]: the Guild-specific evidence the
     standard receipt intentionally does not carry — the sha256 of the exact
     response bytes the payer received, the request hash the payment was bound
-    to, and the AGI-1 checkpoint pin current at issue time. Signed as its own
-    JWS by the same service identity; the standard `offer-receipt` fields are
-    never touched."""
+    to, the AGI-1 checkpoint pin current at issue time, and the cryptographic
+    payer ATTRIBUTION (class, caller DID, payer address, wallet-binding
+    credential reference). Signed as its own JWS by the same service
+    identity; the standard `offer-receipt` fields are never touched."""
     payload: dict[str, Any] = {
         "version": 1,
         "resourceUrl": resource_url,
@@ -319,6 +322,8 @@ def evidence_extension(identity: dict[str, Any], *, resource_url: str,
         "issuedAt": int(time.time()),
         "paymentIdentifierSha256": payment_identifier_sha256 or "",
         "agi1Checkpoint": checkpoint or None,
+        "attribution": attribution or {"class": "unverified_payer",
+                                       "payer": payer},
     }
     return {
         "info": {

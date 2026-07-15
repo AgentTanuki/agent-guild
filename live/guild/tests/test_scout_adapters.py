@@ -19,6 +19,7 @@ import uuid
 
 import pytest
 
+from app.state import store
 from app.swarm import scout
 
 
@@ -153,12 +154,15 @@ def test_x402_adapter_parses_the_real_bazaar_item_shape():
     resource = "https://api.supplier.example/paid"
 
     def fetch(url, **kw):
+        # documented server-side search is tried first, then the catalogue
+        if "/discovery/search" in url:
+            return ({"resources": [], "partialResults": False}, "ok")
         assert "/discovery/resources" in url
         return ({"items": [_bazaar_item(cap, resource)],
-                 "pagination": {"limit": 20, "offset": 0, "total": 1},
+                 "pagination": {"limit": 100, "offset": 0, "total": 1},
                  "x402Version": 1}, "ok")
 
-    out = scout.adapter_x402_bazaar(cap, fetch)
+    out = scout.adapter_x402_bazaar(cap, fetch, store=store)
     assert len(out) == 1
     assert out[0]["endpoint"] == resource
     assert out[0]["wallet"] == "0x" + "aa" * 20

@@ -86,8 +86,10 @@ def test_korean_legal_walks_the_funnel_without_fabrication():
         c = {s["stage"]: s["count"] for s in f["stages"]}
         assert c["demand_observed"] == b["demand_observed"] + 1
         assert c["candidate_discovered"] >= b["candidate_discovered"] + 1
-        assert c["candidate_endpoint_verified"] >= \
-            b["candidate_endpoint_verified"] + 1
+        # a2a candidate: its CARD proves discovery only — endpoint (execution)
+        # verification honestly does NOT fire from card-only evidence.
+        assert c["candidate_endpoint_verified"] == \
+            b["candidate_endpoint_verified"]
         assert c["pulled_feed"] == b["pulled_feed"] + 1
         assert c["registered"] == b["registered"] + 1
         # honesty: real EXTERNAL mainnet settlements remain zero (and a

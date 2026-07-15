@@ -53,6 +53,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /billing/topup`
 - `POST /billing/trial`
 - `POST /billing/webhook`
+- `GET /caller-proof`
 - `GET /capabilities`
 - `GET /check`
 - `GET /citizenship`
@@ -106,6 +107,9 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /tasks`
 - `GET /tasks/{task_id}`
 - `POST /tasks/{task_id}/receipt`
+- `POST /wallet-binding/challenge`
+- `POST /wallet-binding/revoke`
+- `POST /wallet-binding/verify`
 - `GET /x402/readiness`
 
 ## MCP tools

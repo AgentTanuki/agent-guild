@@ -104,7 +104,11 @@ def test_discovered_candidate_is_unverified_and_earns_nothing():
     rec = store.swarm_state["scout"]["candidates"][key]
     assert rec["status"] == "discovered_unverified"
     assert rec["card_valid"] is True
-    assert rec["endpoint_reachable"] is True
+    # a valid A2A card proves DISCOVERY only — never execution reachability
+    # (the A2A spec has no side-effect-free execution probe).
+    assert rec["evidence"]["discovery_protocol_verified"] is True
+    assert rec["evidence"]["execution_endpoint_reachable"] is False
+    assert rec["endpoint_reachable"] is False
     assert rec["source"] == "a2a_registry" and rec["last_seen"]
     # discovery NEVER creates an agent, reputation, verdict or evidence
     assert set(store.agents) == agents_before

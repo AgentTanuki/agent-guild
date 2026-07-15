@@ -325,6 +325,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/caller-proof"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/capabilities"
   },
   {
@@ -640,6 +646,24 @@
     "POST"
    ],
    "path": "/tasks/{task_id}/receipt"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/wallet-binding/challenge"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/wallet-binding/revoke"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/wallet-binding/verify"
   },
   {
    "methods": [

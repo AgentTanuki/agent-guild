@@ -270,6 +270,15 @@ class Settled:
                 payer=str(self.record.get("payer") or ""),
                 payment_identifier_sha256=pid_sha,
                 checkpoint=checkpoint,
+                attribution={
+                    "class": self.record.get("payer_attribution")
+                    or "unverified_payer",
+                    "caller_did": self.record.get("caller_did"),
+                    "payer": str(self.record.get("payer") or ""),
+                    "wallet_binding_credential": self.record.get(
+                        "wallet_binding_credential"),
+                    "request_hash": self.preq.request_hash,
+                },
             ),
         }
         header = x402.settle_response_header_value(self.record, extensions)
@@ -600,10 +609,32 @@ def _resolve_settling(rec: dict[str, Any], preq: PaidRequest, ident: str,
         "retryable": True})
 
 
+def _apply_attribution(settled: dict[str, Any], *, first_party: Optional[bool],
+                       caller_did: str) -> None:
+    """Compute + stamp the cryptographic payer attribution on a settlement
+    record (in place). Sets payer_attribution + caller_did +
+    wallet_binding_credential, and keeps the legacy first_party_payer flag
+    consistent (True=canary, False=verified external, None=unknown)."""
+    from .state import store
+    if not isinstance(settled, dict):
+        return
+    att = classify_payer_attribution(
+        store, payer=str(settled.get("payer") or ""),
+        caller_did=caller_did or "", first_party_flag=bool(first_party))
+    settled["payer_attribution"] = att["class"]
+    settled["caller_did"] = att.get("caller_did")
+    settled["wallet_binding_credential"] = att.get("wallet_binding_credential")
+    settled["first_party_payer"] = (
+        True if att["class"] == "verified_first_party_canary"
+        else False if att["class"] == "verified_external_machine"
+        else None)
+
+
 def settle_x402(payload: PaymentPayload, preq: PaidRequest,
                 protocol: str = "v2",
                 method: Optional[str] = None,
-                first_party: Optional[bool] = None) -> Settled:
+                first_party: Optional[bool] = None,
+                caller_did: str = "") -> Settled:
     """Verify + settle one x402 payment against one exact request. Raises:
       PaymentBindingError   — binding/config/replay violation (→ 402)
       PaymentIdConflict     — payment-identifier misuse (→ 409)
@@ -775,10 +806,12 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
             except x402.PaymentBindingError:
                 _fail_pid()
                 raise
-            if first_party is not None and isinstance(settled, dict):
-                # settle-time payer attribution: a first-party canary is
-                # flagged HERE so it can never read as external revenue.
-                settled["first_party_payer"] = bool(first_party)
+            if isinstance(settled, dict):
+                # settle-time CRYPTOGRAPHIC payer attribution: caller proof
+                # DID + wallet-binding credential decide the class; a
+                # descriptive header can never move it.
+                _apply_attribution(settled, first_party=first_party,
+                                   caller_did=caller_did)
             if settled.get("status") == "settled_unconfirmed":
                 # the facilitator claims settlement but the chain does not
                 # (yet) prove it: record for recovery/reconciliation, serve
@@ -826,8 +859,9 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
                     "reason": "duplicate_transaction",
                     "detail": "this transaction hash already settled a "
                               "previous request"})
-        if first_party is not None and isinstance(settled, dict):
-            settled.setdefault("first_party_payer", bool(first_party))
+        if isinstance(settled, dict) and "payer_attribution" not in settled:
+            _apply_attribution(settled, first_party=first_party,
+                               caller_did=caller_did)
         store.record_x402_payment(preq.operation, cost, settled)
         if pid:
             # durable settled transition BEFORE serving: a crash between here
@@ -860,7 +894,8 @@ def authorize(preq: PaidRequest, *,
               ua: str = "",
               transport: str = "http",
               actor: Optional[str] = None,
-              first_party: Optional[bool] = None) -> Authorization:
+              first_party: Optional[bool] = None,
+              caller_did: str = "") -> Authorization:
     """Authorize one priced request. Order of precedence:
 
       1. an x402 payment payload  → verify + settle (the real rail);
@@ -874,7 +909,7 @@ def authorize(preq: PaidRequest, *,
     cost = preq.cost
     if payment is not None and x402.enabled():
         settled = settle_x402(payment, preq, protocol=protocol,
-                              first_party=first_party)
+                              first_party=first_party, caller_did=caller_did)
         store.record_event(None, "query", ua=ua, endpoint=preq.operation,
                            paid=True, rail="x402", transport=transport,
                            network=settled.record.get("network"),
@@ -921,6 +956,54 @@ def authorize(preq: PaidRequest, *,
     store.record_event(actor, "query", ua=ua, endpoint=preq.operation,
                        paid=False, transport=transport)
     return Authorization(mode="free")
+
+
+def classify_payer_attribution(store: Any, *, payer: str,
+                               caller_did: str = "",
+                               first_party_flag: bool = False,
+                               ) -> dict[str, Any]:
+    """Classify a confirmed settlement's payer into EXACTLY one of
+    verified_external_machine / verified_first_party_canary /
+    unverified_payer — cryptographically, never from a descriptive header.
+
+      * verified_external_machine requires a VALID caller proof (caller_did
+        present, verified upstream), a VALID wallet-binding credential whose
+        DID == caller_did and whose address == the actual x402 payer, and a
+        DID that is NOT a Guild-operated agent;
+      * verified_first_party_canary comes from cryptographic/configured
+        Guild identity: a Guild-operated (first_party) agent DID with a valid
+        matching wallet binding, OR a configured canary wallet
+        (GUILD_X402_FIRST_PARTY_PAYERS), OR the token-gated first-party flag;
+      * everything else is unverified_payer (missing proof is UNKNOWN, never
+        external)."""
+    import os as _os
+    payer_l = (payer or "").lower()
+    fp_payers = {p.strip().lower() for p in (_os.environ.get(
+        "GUILD_X402_FIRST_PARTY_PAYERS") or "").split(",") if p.strip()}
+    result = {"class": "unverified_payer", "payer": payer_l,
+              "caller_did": None, "wallet_binding_credential": None}
+
+    # configured / token-gated Guild identity → canary (no proof needed)
+    if payer_l and payer_l in fp_payers:
+        result["class"] = "verified_first_party_canary"
+        return result
+    if first_party_flag:
+        result["class"] = "verified_first_party_canary"
+        return result
+
+    if not caller_did or not payer_l:
+        return result                              # unknown, never external
+    cred = store.active_wallet_binding(payer_l)
+    if not cred or cred.get("did") != caller_did:
+        return result                              # binding must match payer+DID
+    result["caller_did"] = caller_did
+    result["wallet_binding_credential"] = cred.get("credential_id")
+    agent = store.agent_by_did(caller_did)
+    if agent and agent.get("first_party"):
+        result["class"] = "verified_first_party_canary"
+    else:
+        result["class"] = "verified_external_machine"
+    return result
 
 
 def acquire_info() -> dict[str, Any]:

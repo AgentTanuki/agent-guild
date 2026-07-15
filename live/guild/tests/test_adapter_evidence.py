@@ -56,13 +56,13 @@ def test_a2a_execution_endpoint_is_never_generic_getted():
          "card_url": card_url, "protocol": "a2a", "capability": cap},
         fetch, probe=forbidden_probe)
     assert rec["card_valid"] is True
-    assert rec["endpoint_reachable"] is True, (
-        "the successful side-effect-free agent-card fetch is the "
-        "independent reachability evidence")
+    # the side-effect-free card fetch proves DISCOVERY, never EXECUTION
+    assert rec["evidence"]["discovery_document_reachable"] is True
+    assert rec["evidence"]["execution_endpoint_reachable"] is False
     assert endpoint not in fetched, "the execution endpoint was contacted"
 
 
-def test_evidence_is_recorded_in_four_separate_classes():
+def test_evidence_is_recorded_in_five_separate_classes():
     cap = _cap()
     endpoint = "https://s2.example/a2a"
     card_url = "https://s2.example/.well-known/agent-card.json"
@@ -78,11 +78,13 @@ def test_evidence_is_recorded_in_four_separate_classes():
                                "lastChecked": "2026-07-14T00:00:00Z"}},
         fetch, probe=None)
     ev = rec["evidence"]
-    assert ev["ag_verified"]["card_valid"] is True
+    # five strictly separated classes
+    assert ev["discovery_document_reachable"] is True
+    assert ev["discovery_protocol_verified"] is True    # valid A2A card
+    assert ev["execution_endpoint_reachable"] is False  # never card-only
+    assert ev["execution_protocol_verified"] is False
     assert ev["registry_attested"] == {"health": "ok",
                                        "lastChecked": "2026-07-14T00:00:00Z"}
-    assert ev["independently_reachable"] is True
-    assert ev["protocol_verified"] is True     # valid A2A card handshake
     assert "attested by the registry" in ev["registry_attested_note"].lower()
 
 

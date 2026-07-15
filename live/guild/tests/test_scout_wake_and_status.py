@@ -89,12 +89,11 @@ def test_new_genuine_unmet_demand_requests_a_wake():
     ctx = demand.record_demand(cap, transport="http", actor="a-wake",
                                ua=EXT_UA)
     assert ctx["counted"] is True
-    st = store.swarm_state.get(runner.RUNNER_STATE_KEY) or {}
-    wake = st.get("pending_wake")
-    assert wake, "newly counted genuine external unmet demand must queue " \
-                 "a wake signal"
-    assert wake["reason"] == "genuine_unmet_demand"
-    assert wake["capability"] == cap
+    pend = runner.pending_demand(store)
+    canon = cap.lower()
+    assert canon in pend, ("newly counted genuine external unmet demand "
+                           "must be durably queued")
+    assert pend[canon]["reason"] == "genuine_unmet_demand"
 
 
 def test_non_genuine_or_first_party_demand_never_wakes():
@@ -104,8 +103,7 @@ def test_non_genuine_or_first_party_demand_never_wakes():
         store.swarm_state.pop(runner.RUNNER_STATE_KEY, None)
         demand.record_demand(_cap(), transport="http",
                              actor="a-" + uuid.uuid4().hex[:6], **kwargs)
-        st = store.swarm_state.get(runner.RUNNER_STATE_KEY) or {}
-        assert not st.get("pending_wake"), (
+        assert not runner.pending_demand(store), (
             f"non-genuine demand ({kwargs}) must not wake the scout")
 
 
@@ -116,14 +114,16 @@ def test_wake_is_debounced_and_rate_limited(monkeypatch):
         demand.record_demand(cap, transport="http", actor=f"flood-{i}",
                              ua=EXT_UA)
     st = store.swarm_state.get(runner.RUNNER_STATE_KEY) or {}
+    # DISPATCH is debounced (≤1 within the window) but every capability is
+    # still durably RECORDED — recording is never debounced.
     assert st.get("wakes_requested", 0) <= 1, (
-        "repeated demand inside the debounce window must collapse into at "
-        "most one wake — never a registry flood")
-    # the pending wake is consumed by ONE run; the lease still guards overlap
+        "repeated demand inside the debounce window must collapse dispatch "
+        "into at most one wake — never a registry flood")
+    assert len(runner.pending_demand(store)) == 5
+    # one run drains the queue; the lease still guards overlap
     out = runner.run_once(store, fetch=_no_net, trigger="demand_wake")
     assert out["completed"] is True
-    st = store.swarm_state.get(runner.RUNNER_STATE_KEY) or {}
-    assert st.get("pending_wake") is None
+    assert runner.pending_demand(store) == {}
     assert st["last_run"]["trigger"] == "demand_wake"
 
 

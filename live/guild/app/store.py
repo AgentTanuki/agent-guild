@@ -134,6 +134,13 @@ class Store:
         # defeated and which conflated dedupe with instrumentation retention).
         # Pruned opportunistically past the window; survives restarts.
         self.demand_dedupe: dict[str, float] = {}
+        # caller-proof nonce replay protection: sha256(did|nonce) -> expiry
+        # epoch. Durable so a restart can never re-admit a used proof.
+        self.caller_proof_nonces: dict[str, float] = {}
+        # DID↔wallet binding credentials (app/walletbinding.py):
+        # credential_id -> credential; challenges: nonce -> {did, expires}.
+        self.wallet_bindings: dict[str, dict[str, Any]] = {}
+        self.wallet_binding_challenges: dict[str, dict[str, Any]] = {}
         self._rep_cache: Optional[ScoringResult] = None
         # Append-only sidecar journal for instrumentation events. record_event
         # is deliberately cheap (no full-store _save on read paths), which used
@@ -416,6 +423,10 @@ class Store:
             b.put_kv("x402_tasks", self.x402_tasks)
             b.put_kv("guild_revenue", self.guild_revenue)
             b.put_kv("demand_dedupe", self.demand_dedupe)
+            b.put_kv("caller_proof_nonces", self.caller_proof_nonces)
+            b.put_kv("wallet_bindings", self.wallet_bindings)
+            b.put_kv("wallet_binding_challenges",
+                     self.wallet_binding_challenges)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -457,6 +468,10 @@ class Store:
             b.put_kv("x402_tasks", self.x402_tasks)
             b.put_kv("guild_revenue", self.guild_revenue)
             b.put_kv("demand_dedupe", self.demand_dedupe)
+            b.put_kv("caller_proof_nonces", self.caller_proof_nonces)
+            b.put_kv("wallet_bindings", self.wallet_bindings)
+            b.put_kv("wallet_binding_challenges",
+                     self.wallet_binding_challenges)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -501,6 +516,12 @@ class Store:
             "x402_payment_ids", {}) or {}
         self.x402_tasks = self.backend.fetch_kv("x402_tasks", {}) or {}
         self.demand_dedupe = self.backend.fetch_kv("demand_dedupe", {}) or {}
+        self.caller_proof_nonces = self.backend.fetch_kv(
+            "caller_proof_nonces", {}) or {}
+        self.wallet_bindings = self.backend.fetch_kv(
+            "wallet_bindings", {}) or {}
+        self.wallet_binding_challenges = self.backend.fetch_kv(
+            "wallet_binding_challenges", {}) or {}
         if d["outbound_invocations"]:
             self.__dict__["outbound_invocations"] = d["outbound_invocations"]
 
@@ -542,6 +563,10 @@ class Store:
             self.x402_payment_ids = data.get("x402_payment_ids", {})
             self.x402_tasks = data.get("x402_tasks", {})
             self.demand_dedupe = data.get("demand_dedupe", {})
+            self.caller_proof_nonces = data.get("caller_proof_nonces", {})
+            self.wallet_bindings = data.get("wallet_bindings", {})
+            self.wallet_binding_challenges = data.get(
+                "wallet_binding_challenges", {})
 
     def _migrate_plaintext_keys(self) -> None:
         """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
@@ -660,6 +685,10 @@ class Store:
                        "x402_payment_ids": self.x402_payment_ids,
                        "x402_tasks": self.x402_tasks,
                        "demand_dedupe": self.demand_dedupe,
+                       "caller_proof_nonces": self.caller_proof_nonces,
+                       "wallet_bindings": self.wallet_bindings,
+                       "wallet_binding_challenges":
+                           self.wallet_binding_challenges,
                        "swarm_state": self.swarm_state}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal
@@ -1505,6 +1534,13 @@ class Store:
                  # (e.g. historical records). The funnel/read layer keeps a
                  # canary out of external revenue with this flag.
                  "first_party_payer": settlement.get("first_party_payer"),
+                 # cryptographic payer attribution (caller-proof + wallet
+                 # binding): verified_external_machine /
+                 # verified_first_party_canary / unverified_payer.
+                 "payer_attribution": settlement.get("payer_attribution"),
+                 "caller_did": settlement.get("caller_did"),
+                 "wallet_binding_credential": settlement.get(
+                     "wallet_binding_credential"),
                  "at": _now()}
         with self.lock, self._txn():
             self.billing_log.append(entry)
@@ -2456,6 +2492,71 @@ class Store:
             self._save()
             return True
 
+    def caller_proof_nonce_check_and_mark(self, key: str,
+                                          exp_epoch: float) -> bool:
+        """DURABLE single-use nonce mark for caller proofs. Returns True on
+        first use (and marks it), False on replay. Expired marks are pruned
+        opportunistically so the map stays bounded."""
+        now = time.time()
+        with self.lock, self._txn():
+            if key in self.caller_proof_nonces:
+                return False
+            if len(self.caller_proof_nonces) > 50_000:
+                self.caller_proof_nonces = {
+                    k: v for k, v in self.caller_proof_nonces.items()
+                    if v > now}
+            self.caller_proof_nonces[key] = float(exp_epoch)
+            if self.backend is not None:
+                self._persist_kv("caller_proof_nonces",
+                                 self.caller_proof_nonces)
+            self._save()
+            return True
+
+    def active_wallet_binding(self, address: str) -> Optional[dict[str, Any]]:
+        """The LATEST active, unexpired wallet-binding credential for one
+        EVM payer address — what settlement attribution resolves."""
+        addr = (address or "").lower()
+        if not addr:
+            return None
+        now_iso = _now()
+        best: Optional[dict[str, Any]] = None
+        with self.lock:
+            for cred in self.wallet_bindings.values():
+                if (cred.get("address") == addr
+                        and cred.get("status") == "active"
+                        and str(cred.get("expires_at")) >= now_iso
+                        and (best is None
+                             or str(cred.get("issued_at"))
+                             > str(best.get("issued_at")))):
+                    best = cred
+        return dict(best) if best else None
+
+    def revoke_wallet_binding(self, credential_id: str) -> bool:
+        """Direct (store-level) revocation — the HTTP surface enforces the
+        DID signature (app/walletbinding.revoke); this is the shared
+        append-only state flip both paths use."""
+        with self.lock, self._txn():
+            cred = self.wallet_bindings.get(credential_id)
+            if cred is None:
+                return False
+            cred["status"] = "revoked"
+            cred["revoked_at"] = _now()
+            if self.backend is not None:
+                self._persist_kv("wallet_bindings", self.wallet_bindings)
+            self._save()
+        self.record_event(None, "wallet_binding_revoked",
+                          did=cred.get("did"), credential_id=credential_id)
+        return True
+
+    def agent_by_did(self, did: str) -> Optional[dict[str, Any]]:
+        if not did:
+            return None
+        with self.lock:
+            for a in self.agents.values():
+                if a.get("did") == did:
+                    return a
+        return None
+
     def demand_summary(self) -> dict[str, dict[str, Any]]:
         """Aggregate recorded capability demand: capability → lookup count,
         how many found supply, and the latest lookup time. The supply-side
@@ -2482,48 +2583,123 @@ class Store:
             row["last_lookup"] = e.get("at")
         return summary
 
-    def demand_feed_entries(self) -> list[dict[str, Any]]:
-        """Aggregated UNMET demand for the supplier-facing machine feed
-        (/demand/feed). Per canonical capability: total + GENUINE lookup
-        counts, supply counts, first/last seen and the stable demand id.
+    def _derive_demand_rows(self) -> dict[str, dict[str, Any]]:
+        """Read-time aggregation of demand, keyed by capability, from TWO
+        sources without rewriting history:
 
-        Privacy: aggregates only — no actor identifiers, no raw IPs, no
-        prompts. Honesty: `genuine_lookups` flows through the ONE central
-        rule — attribution.is_genuine_external — applied at READ time, so
-        bare curl / empty or tooling UAs / AG tests / crawlers /
-        unattributable historical traffic never publish as genuine machine
-        demand and history is re-interpreted, never rewritten. An entry
-        stays on the feed until the capability has a VERIFIED reachable
-        supplier (verified_reachable > 0): a paper registration or a dead/
-        unverified endpoint does not erase unmet demand."""
+          * canonical `capability_demand` events (the transport-neutral
+            recorder). A caller-proof-backed ask is `verified` machine
+            demand; an unproven genuine-external ask is `heuristic`;
+          * LEGACY pre-recorder A2A capability asks — `query` events with
+            endpoint=a2a_message, a capability and a capability-ask kind —
+            recovered as `heuristic` demand (provenance
+            legacy_derived_heuristic), NEVER counted as verified.
+
+        Dedupe is by (actor, capability, hour-window) ACROSS both sources,
+        so the same actor's ask recorded in the transition window (once as a
+        legacy query event, once as capability_demand) counts once. Genuine
+        external status flows through the ONE central rule
+        (attribution.is_genuine_external); first-party/crawler/tooling asks
+        never count."""
         from . import attribution
         from . import demand as demand_mod
+
         rows: dict[str, dict[str, Any]] = {}
+        seen: set[tuple[str, str, int]] = set()   # (actor, cap, hour-bucket)
+
+        def _bucket(at: Any) -> int:
+            try:
+                from datetime import datetime as _dt
+                return int(_dt.fromisoformat(
+                    str(at).replace("Z", "+00:00")).timestamp() // 3600)
+            except (ValueError, TypeError):
+                return 0
+
+        def _row(cap: str, at: Any) -> dict[str, Any]:
+            return rows.setdefault(cap, {
+                "capability": cap,
+                "demand_id": demand_mod.demand_id_for(cap),
+                "lookups": 0, "genuine_lookups": 0,
+                "verified_lookups": 0, "heuristic_lookups": 0,
+                "provenance": [],
+                "first_seen": at, "last_seen": at, "transports": []})
+
+        def _count(cap, actor, at, transport, *, genuine, verified, heuristic,
+                   provenance):
+            key = (actor or "anon", cap, _bucket(at))
+            if key in seen:
+                return
+            seen.add(key)
+            row = _row(cap, at)
+            row["lookups"] += 1                # total, incl. non-genuine
+            if genuine:
+                row["genuine_lookups"] += 1
+                if verified:
+                    row["verified_lookups"] += 1
+                if heuristic:
+                    row["heuristic_lookups"] += 1
+                if provenance not in row["provenance"]:
+                    row["provenance"].append(provenance)
+            if at and str(at) > str(row["last_seen"]):
+                row["last_seen"] = at
+            if at and str(at) < str(row["first_seen"]):
+                row["first_seen"] = at
+            if transport and transport not in row["transports"]:
+                row["transports"].append(transport)
+
+        # 1. canonical capability_demand events. Non-genuine asks (bare
+        # tooling / crawlers / first-party) still count toward `lookups` so
+        # the row is visible, but never toward genuine/verified/heuristic —
+        # and the published feed filters on genuine_lookups.
         for e in self.events:
             if e.get("type") != "capability_demand":
                 continue
             cap = e.get("capability", "")
             if not cap or not (e.get("explicit") or e.get("supplied")):
                 continue
-            # the central attribution gate, applied at read time; the
-            # transport-level demand_first_party flag is honoured as a
-            # first-party marker the generic event shape doesn't carry.
             genuine = (not e.get("demand_first_party")
                        and attribution.is_genuine_external(e))
-            row = rows.setdefault(cap, {
-                "capability": cap,
-                "demand_id": demand_mod.demand_id_for(cap),
-                "lookups": 0, "genuine_lookups": 0,
-                "first_seen": e.get("at"), "last_seen": e.get("at"),
-                "transports": [],
-            })
-            row["lookups"] += 1
-            if genuine:
-                row["genuine_lookups"] += 1
-            row["last_seen"] = e.get("at")
-            t = e.get("transport")
-            if t and t not in row["transports"]:
-                row["transports"].append(t)
+            verified = bool(e.get("caller_proof_verified"))
+            actor = e.get("actor") or e.get("key")
+            _count(cap, actor, e.get("at"), e.get("transport"),
+                   genuine=genuine, verified=verified,
+                   heuristic=genuine and not verified,
+                   provenance=("verified_machine_demand" if verified
+                               else "recorder_heuristic"))
+
+        # 2. LEGACY pre-recorder A2A capability asks (read-time recovery)
+        for e in self.events:
+            if e.get("type") != "query":
+                continue
+            if e.get("endpoint") != "a2a_message":
+                continue
+            cap = e.get("capability")
+            if not cap or e.get("caller_kind") not in (
+                    "capability_ask", "swarm_invoke_ask"):
+                continue
+            if e.get("demand_first_party") or e.get("fp"):
+                continue
+            if not attribution.is_genuine_external(e):
+                continue
+            _count(cap, e.get("actor") or e.get("key"), e.get("at"), "a2a",
+                   genuine=True, verified=False, heuristic=True,
+                   provenance="legacy_derived_heuristic")
+        return rows
+
+    def demand_feed_entries(self) -> list[dict[str, Any]]:
+        """Aggregated UNMET demand for the supplier-facing machine feed
+        (/demand/feed). Per canonical capability: verified vs heuristic
+        lookup counts (kept separate — cryptographically caller-proof-backed
+        demand is never conflated with heuristic/legacy demand), supply
+        counts, provenance, first/last seen and the stable demand id.
+
+        Privacy: aggregates only — no actor identifiers, no raw IPs, no
+        prompts. Honesty: counts flow through the ONE central rule
+        (attribution.is_genuine_external) at READ time; history is
+        re-interpreted, never rewritten. An entry stays on the feed until
+        the capability has a VERIFIED reachable supplier."""
+        from . import demand as demand_mod
+        rows = self._derive_demand_rows()
         out = []
         for cap, row in rows.items():
             counts = demand_mod.supply_counts(self, cap)
@@ -2533,8 +2709,8 @@ class Store:
                        declared_endpoint=counts["declared_endpoint"],
                        verified_reachable=counts["verified_reachable"])
             out.append(row)
-        out.sort(key=lambda r: (r["genuine_lookups"], r["last_seen"] or ""),
-                 reverse=True)
+        out.sort(key=lambda r: (r["verified_lookups"], r["heuristic_lookups"],
+                                r["last_seen"] or ""), reverse=True)
         return out
 
     def conversion_funnel(self) -> dict[str, Any]:
@@ -2619,6 +2795,12 @@ class Store:
         fp_payers = {p.strip().lower() for p in (_os.environ.get(
             "GUILD_X402_FIRST_PARTY_PAYERS") or "").split(",") if p.strip()}
         mainnet = {"external": 0, "first_party": 0, "unknown": 0}
+        # cryptographic three-class attribution (caller-proof + wallet
+        # binding); falls back to the legacy first_party_payer flag /
+        # configured canary wallet for records written before it existed.
+        crypto_att = {"verified_external_machine": 0,
+                      "verified_first_party_canary": 0,
+                      "unverified_payer": 0}
         for b in self.billing_log:
             if not (b.get("type") == "x402_payment" and b.get("mainnet")
                     and b.get("status") == "settled_confirmed"
@@ -2632,6 +2814,12 @@ class Store:
                 mainnet["external"] += 1
             else:
                 mainnet["unknown"] += 1
+            att = b.get("payer_attribution")
+            if att not in crypto_att:
+                att = ("verified_first_party_canary"
+                       if (fp_flag is True or (payer and payer in fp_payers))
+                       else "unverified_payer")
+            crypto_att[att] += 1
 
         endpoint_verified_now = sum(
             1 for a in self.agents.values()
@@ -2706,6 +2894,24 @@ class Store:
                            "whose payer attribution is unknown (recorded "
                            "before settle-time first-party flagging) — "
                            "not claimed as external revenue"},
+                # cryptographic three-class attribution (caller-proof +
+                # wallet binding) — the trustworthy economic classes.
+                {"stage": "verified_external_machine_settlement",
+                 "count": crypto_att["verified_external_machine"],
+                 "source": "confirmed mainnet settlements with a VALID "
+                           "caller proof + matching wallet-binding "
+                           "credential + a non-Guild DID — the only "
+                           "cryptographically verified external revenue"},
+                {"stage": "verified_first_party_canary_settlement",
+                 "count": crypto_att["verified_first_party_canary"],
+                 "source": "confirmed mainnet settlements attributed to the "
+                           "Guild's own cryptographic/configured identity — "
+                           "NEVER external revenue"},
+                {"stage": "unverified_payer_settlement",
+                 "count": crypto_att["unverified_payer"],
+                 "source": "confirmed mainnet settlements with no valid "
+                           "caller proof / wallet binding — UNKNOWN payer, "
+                           "never counted as external"},
             ],
             "exclusions": ("AG-owned probes, release gates, canaries, test "
                            "harnesses and registry crawlers are excluded "
@@ -4337,16 +4543,41 @@ class Store:
                 "settled_volume_credits": sum(e["amount"] for e in rows),
                 "guild_fee_credits": sum(e["fee"] for e in rows),
             }
+        def _attr(b: dict) -> str:
+            a = b.get("payer_attribution")
+            return a if a in ("verified_external_machine",
+                              "verified_first_party_canary",
+                              "unverified_payer") else "unverified_payer"
+
+        def _usd(rows: list) -> float:
+            return round(sum(int(b.get("amount_atomic") or 0)
+                             for b in rows) / 1e6, 6)
+
+        att_classes = {"verified_external_machine": [],
+                       "verified_first_party_canary": [],
+                       "unverified_payer": []}
+        for b in x402_mainnet:
+            att_classes[_attr(b)].append(b)
         out["real_settlement"] = {
+            # real_settlement counts ALL independently confirmed money,
+            # regardless of attribution (money is money).
             "transactions": len(x402_mainnet),
-            "revenue_usd": round(sum(
-                int(b.get("amount_atomic") or 0) for b in x402_mainnet) / 1e6, 6),
+            "revenue_usd": _usd(x402_mainnet),
             "networks": sorted({b.get("network") for b in x402_mainnet}),
             "transaction_hashes": [b.get("transaction") for b in x402_mainnet],
+            # ... split THREE ways by cryptographic payer attribution.
+            "attribution": {
+                cls: {"transactions": len(rows), "revenue_usd": _usd(rows)}
+                for cls, rows in att_classes.items()},
+            "verified_external_revenue_usd": _usd(
+                att_classes["verified_external_machine"]),
             "note": ("counts ONLY mainnet settlements independently "
-                     "CONFIRMED on-chain (receipt status, USDC contract, "
-                     "recipient and exact amount) — never a facilitator "
-                     "response alone"
+                     "CONFIRMED on-chain; `attribution` splits them into "
+                     "verified_external_machine (valid caller proof + "
+                     "matching wallet-binding credential + non-Guild "
+                     "identity), verified_first_party_canary and "
+                     "unverified_payer (missing proof is UNKNOWN, never "
+                     "external)"
                      if x402_mainnet else
                      "zero: no independently confirmed mainnet settlement "
                      "exists (testnet/sandbox/unconfirmed activity is "

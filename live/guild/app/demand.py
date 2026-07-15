@@ -95,6 +95,8 @@ def _parse_at(at: Any) -> float:
 
 def record_demand(capability: str, *, transport: str, actor: str = "",
                   ua: str = "", first_party: bool = False,
+                  caller_proof_verified: bool = False,
+                  caller_did: str = "",
                   ) -> Optional[dict[str, Any]]:
     """Record one capability ask BEFORE authorization. Returns the demand
     context (canonical capability, demand id, supply counts, whether this
@@ -122,6 +124,8 @@ def record_demand(capability: str, *, transport: str, actor: str = "",
                            transport=transport,
                            actor=actor,
                            demand_first_party=bool(first_party),
+                           caller_proof_verified=bool(caller_proof_verified),
+                           caller_did=(caller_did or None),
                            demand_id=demand_id_for(canon),
                            phase="pre_authorization")
         # Demand-driven scheduling: NEWLY counted GENUINE external UNMET
