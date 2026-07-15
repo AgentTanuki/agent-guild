@@ -43,6 +43,10 @@ from . import abuse
 from . import crypto
 from . import market
 from . import x402
+from . import payments
+from .payments import (
+    PaidRequest, PaymentChallenge, PaymentIdConflict, CachedPaidResult,
+)
 from . import credentials as creds
 from . import journey as journey_engine
 from . import proving
@@ -136,6 +140,8 @@ _ua: contextvars.ContextVar[str] = contextvars.ContextVar("ua", default="")
 # v2 = PAYMENT-SIGNATURE (primary); v1 = X-PAYMENT (deprecated legacy).
 _xpay_sig: contextvars.ContextVar[str] = contextvars.ContextVar("xpay_sig", default="")
 _xpay_v1: contextvars.ContextVar[str] = contextvars.ContextVar("xpay_v1", default="")
+_xpay_settled_holder: contextvars.ContextVar[Optional[list]] = \
+    contextvars.ContextVar("xpay_settled_holder", default=None)
 
 
 def _b64json(obj: Any) -> str:
@@ -190,7 +196,58 @@ async def _capture_ua(request: Request, call_next):
             except HTTPException as e:
                 return JSONResponse(status_code=e.status_code,
                                     content={"detail": e.detail})
-    return await call_next(request)
+    # x402 finalize: a mutable holder is bound BEFORE call_next so the route
+    # (running in the downstream task, whose context is a COPY) can hand the
+    # settled payment back out. BaseHTTPMiddleware does not propagate
+    # contextvars set inside the route to this frame — the shared holder
+    # object does.
+    holder: list[Optional[payments.Settled]] = [None]
+    _xpay_settled_holder.set(holder)
+    response = await call_next(request)
+    settled = holder[0]
+    if settled is not None and response.status_code == 200:
+        # Buffer the exact bytes served, bind the signed receipt + Guild
+        # evidence attachment to their hash, and replace the provisional
+        # PAYMENT-RESPONSE header with the receipt-bearing one.
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        try:
+            fin = settled.finalize(body)
+            hdrs = dict(response.headers)
+            hdrs.pop("content-length", None)
+            hdrs.pop(x402.PAYMENT_RESPONSE_HEADER.lower(), None)
+            hdrs[x402.PAYMENT_RESPONSE_HEADER] = fin["header"]
+            return Response(content=body, status_code=response.status_code,
+                            headers=hdrs, media_type=response.media_type)
+        except Exception:
+            _log.exception("x402 receipt finalize failed — serving the paid "
+                           "result with the provisional PAYMENT-RESPONSE")
+            return Response(content=body, status_code=response.status_code,
+                            headers=dict(response.headers),
+                            media_type=response.media_type)
+    return response
+
+
+@app.exception_handler(PaymentIdConflict)
+async def _payment_id_conflict_handler(request: Request,
+                                       exc: PaymentIdConflict):
+    """Official payment-identifier semantics: same id with a different payer,
+    resource, parameters or payment fails CLOSED as a conflict (409)."""
+    return JSONResponse(status_code=409, content={
+        "error": "payment_identifier_conflict",
+        "reason": exc.reason,
+        "detail": exc.detail,
+        "payment_id": exc.payment_id,
+    })
+
+
+@app.exception_handler(CachedPaidResult)
+async def _cached_paid_result_handler(request: Request,
+                                      exc: CachedPaidResult):
+    """Official payment-identifier semantics: same id + same request returns
+    the SAME cached result without another settlement."""
+    return Response(content=exc.record["result_body"],
+                    media_type="application/json",
+                    headers=payments.cached_reply_headers(exc))
 
 
 # Hosted remote MCP: any agent connects to <host>/mcp with no install.
@@ -283,180 +340,87 @@ def _rate_limit_key_op(agent_id: str) -> None:
     _key_op_hits[agent_id] = hits
 
 
-def _x402_402_headers(endpoint: str, cost: int) -> dict[str, str]:
-    """Every 402 carries the v2 PAYMENT-REQUIRED header (base64
-    PaymentRequired) per the x402 v2 HTTP transport."""
+# A settled x402 payment waiting for the response bytes: the finalize
+# middleware buffers the route's response, hashes it, issues the signed
+# receipt + Guild evidence attachment bound to those exact bytes, and sets
+# the full PAYMENT-RESPONSE header (app/payments.py Settled.finalize).
+# The var holds a MUTABLE one-slot holder bound by the middleware before
+# call_next (contextvars set inside the route do not propagate back out of
+# BaseHTTPMiddleware's downstream task; mutations of the shared holder do).
+
+
+def _challenge_http(exc: PaymentChallenge,
+                    status: int = 402) -> HTTPException:
+    """One PaymentChallenge → one HTTP 402 with the PAYMENT-REQUIRED header."""
     try:
-        return {x402.PAYMENT_REQUIRED_HEADER:
-                x402.payment_required_header_value(endpoint, cost)}
+        hdrs = {x402.PAYMENT_REQUIRED_HEADER: exc.header_value()}
     except Exception:                                    # never mask the 402
-        return {}
+        hdrs = {}
+    return HTTPException(status, exc.body, headers=hdrs)
 
 
-def _serve_x402_payment(xsig: str, xp1: str, endpoint: str, cost: int,
-                        response: Response) -> None:
-    """Settle one x402 payment (v2 PAYMENT-SIGNATURE preferred; v1 X-PAYMENT
-    deprecated). Raises HTTPException(402) unless settlement SUCCEEDS —
-    the protected result is never served on a failed or replayed payment."""
-    hdrs = _x402_402_headers(endpoint, cost)
-
-    def _reject(payload_extra: dict) -> None:
-        # payload_extra wins the merge: its `error` (the machine-readable
-        # rejection reason) must not be clobbered by the challenge body's
-        # generic "header is required" error string.
-        raise HTTPException(402, {**x402.payment_required_body(endpoint, cost),
-                                  **payload_extra},
-                            headers=hdrs)
-
-    try:
-        if xsig:
-            payload, proto = x402.decode_payment_signature(xsig), "v2"
-        else:
-            payload = x402.v1_payload_to_v2(
-                x402.decode_v1_payment_header(xp1), endpoint, cost)
-            proto = "v1"
-    except x402.PaymentBindingError as e:
-        _reject({"error": "x402_payment_invalid", "reason": e.reason,
-                 "detail": e.detail[:300]})
-    except Exception as e:
-        _reject({"error": "x402_payment_invalid", "detail": str(e)[:200]})
-
-    # persisted guards + idempotent recovery (all survive restarts):
-    #   * an identity that already bought a result can never buy another;
-    #   * a mainnet settlement that could not be INDEPENDENTLY confirmed
-    #     (status settled_unconfirmed) may be RE-PRESENTED: confirmation is
-    #     re-run against the recorded tx — the payer is never charged twice
-    #     and never loses a paid-but-unconfirmed result to a transient RPC
-    #     outage.
-    inner = payload.payload if isinstance(payload.payload, dict) else {}
-    auth = inner.get("authorization")
-    ident = (x402.replay_guard.identity(auth) if isinstance(auth, dict)
-             else "")
-    prior = store.x402_latest_for_identity(ident) if ident else None
-    if prior and prior.get("status") in store._X402_SERVED_STATUSES:
-        _reject({"error": "x402_payment_rejected",
-                 "reason": "double_settlement_rejected",
-                 "detail": "this payment identity was already settled"})
-    if prior and prior.get("status") == "settled_unconfirmed":
-        conf = x402.x402_confirm.confirm_settlement(
-            prior.get("transaction") or "",
-            asset=prior.get("asset") or "",
-            recipient=prior.get("recipient") or "",
-            amount_atomic=prior.get("amount_atomic") or "0")
-        if not conf.get("confirmed"):
-            _reject({"error": "x402_payment_rejected",
-                     "reason": "settlement_unconfirmed",
-                     "transaction": prior.get("transaction"),
-                     "detail": "settlement is not independently confirmed "
-                               f"on-chain yet: {conf.get('reason')}"[:300]})
-        settled = {**prior, "ok": True, "status": "settled_confirmed",
-                   "confirmed": True,
-                   "confirmation": {k: conf.get(k) for k in
-                                    ("confirmed", "reason", "block_number")}}
-    else:
-        try:
-            settled = x402.process_payment(payload, endpoint, cost,
-                                           protocol=proto)
-        except x402.PaymentBindingError as e:
-            _reject({"error": "x402_payment_invalid", "reason": e.reason,
-                     "detail": e.detail[:300]})
-        if settled.get("status") == "settled_unconfirmed":
-            # the facilitator claims settlement but the chain does not (yet)
-            # prove it: record for recovery/reconciliation, serve NOTHING.
-            store.record_x402_payment(endpoint, cost, settled)
-            _reject({"error": "x402_payment_rejected",
-                     "reason": "settlement_unconfirmed",
-                     "transaction": settled.get("transaction"),
-                     "detail": "settlement is not independently confirmed "
-                               "on-chain; re-present the same payment to "
-                               "retry confirmation — you will not be "
-                               "charged twice"})
-        if not settled.get("ok"):
-            _reject({"error": "x402_payment_rejected", "settlement": settled})
-        # one on-chain transaction can never buy two results
-        if store.x402_transaction_served(settled.get("transaction") or ""):
-            store.record_x402_payment(endpoint, cost,
-                                      {**settled, "ok": False,
-                                       "status": "duplicate_transaction_rejected"})
-            _reject({"error": "x402_payment_rejected",
-                     "reason": "duplicate_transaction",
-                     "detail": "this transaction hash already settled a "
-                               "previous request"})
-    response.headers[x402.PAYMENT_RESPONSE_HEADER] = \
-        x402.settle_response_header_value(settled)
-    if proto == "v1":
-        response.headers["Deprecation"] = "true"   # v1 rail is deprecated
-    store.record_x402_payment(endpoint, cost, settled)
-    store.record_event(None, "query", ua=_ua.get(), endpoint=endpoint,
-                       paid=True, rail="x402", network=settled.get("network"),
-                       x402_protocol=proto)
-
-
-def meter(endpoint: str, x_api_key: Optional[str], response: Response) -> None:
-    """Charge a paid read. Behaviour:
+def meter(preq: PaidRequest, x_api_key: Optional[str],
+          response: Response) -> None:
+    """Charge one priced request through the shared paid-operation gateway
+    (app/payments.py — the SAME gateway MCP and A2A use). Behaviour:
 
       * an x402 v2 PAYMENT-SIGNATURE header -> verify + settle via the
-        facilitator (the REAL machine-payment rail; no card, no browser,
-        no human). Legacy v1 X-PAYMENT still accepted, deprecated.
+        facilitator, bound to THIS exact request (trusted origin, actual
+        method + path, canonical query, amount/asset/network/recipient,
+        expiry + nonce). Legacy v1 X-PAYMENT is REJECTED (no resource echo,
+        no exact binding).
       * a billing key is presented    -> charge it in SANDBOX credits
-        (402 if out of credits).
+        (402 if out of credits) — labelled credits_sandbox, never revenue.
       * no key, enforcement OFF       -> free (soft launch / local dev).
       * no key, enforcement ON        -> 402 carrying the PAYMENT-REQUIRED
-        header + x402 `accepts` + sandbox-credit instructions.
+        header + x402 `accepts` + signed offer + sandbox instructions.
 
     Cost and remaining balance are returned in X-Guild-* response headers.
     """
-    cost = PRICING[endpoint]
-    response.headers["X-Guild-Cost"] = str(cost)
-    # x402 real-rail: a payment header settles the read with machine money.
+    response.headers["X-Guild-Cost"] = str(preq.cost)
     xsig, xp1 = _xpay_sig.get(), _xpay_v1.get()
-    if (xsig or xp1) and x402.enabled():
-        _serve_x402_payment(xsig, xp1, endpoint, cost, response)
-        return
-    # machine-readable description of how an agent acquires credits, no human.
-    acquire = {
-        "trial": {"method": "POST", "path": "/billing/trial", "human_free": True,
-                  "unit": "credits_sandbox (NOT money)"},
-        "topup": {"method": "POST", "path": "/billing/topup"},
-        "x402": ("active (v2) — retry with a PAYMENT-SIGNATURE header built "
-                 "from the PAYMENT-REQUIRED challenge (see `accepts`); "
-                 "legacy v1 X-PAYMENT deprecated but accepted"
-                 if x402.enabled() else
-                 "protocol supported; rail awaiting a configured treasury"),
-        "credit_usd": CREDIT_USD,
-    }
-    if x_api_key:
+    if xp1 and not xsig:
+        # v1 cannot echo the resource, so it cannot be bound to the actual
+        # request — fail closed with the exact migration path.
+        raise _challenge_http(PaymentChallenge(preq, extra={
+            "error": "x402_payment_invalid",
+            "reason": "v1_not_accepted",
+            "detail": "the X-PAYMENT (x402 v1) header is no longer accepted "
+                      "on priced HTTP routes; send a v2 PAYMENT-SIGNATURE "
+                      "built from this challenge and echo its `resource`"}))
+    payment = None
+    if xsig and x402.enabled():
         try:
-            acct = store.charge(x_api_key, cost, endpoint)
-        except UnknownAccount:
-            if billing.billing_enforced():
-                raise HTTPException(401, "unknown billing key (POST /billing/trial for a free starter)")
-            store.record_event(x_api_key, "query", ua=_ua.get(), endpoint=endpoint, paid=False)
-            return  # unrecognised key on a soft-launch service: let it through free
-        except InsufficientCredits as e:
-            raise HTTPException(402, {
-                **x402.payment_required_body(endpoint, cost),
-                "error": "insufficient_credits", "balance": e.balance,
-                "cost": e.cost, "acquire": acquire,
-            }, headers=_x402_402_headers(endpoint, cost))
-        response.headers["X-Guild-Balance"] = str(acct["balance"])
-        store.record_event(x_api_key, "query", ua=_ua.get(), endpoint=endpoint, paid=True)
-        # Paying for a read is an activation event — if this agent was referred,
-        # its referrer earns the reward now.
-        owner = acct.get("owner_agent_id")
-        if owner:
-            store.activate_referral(owner)
-        return
-    if billing.billing_enforced():
-        raise HTTPException(402, {
-            **x402.payment_required_body(endpoint, cost),
-            "error": "payment_required",
-            "detail": "pay via x402 v2 (PAYMENT-SIGNATURE header; see the "
-                      "PAYMENT-REQUIRED challenge) or present a funded "
-                      "X-API-Key (sandbox credits)",
-            "cost": cost, "acquire": acquire,
-        }, headers=_x402_402_headers(endpoint, cost))
-    store.record_event(None, "query", ua=_ua.get(), endpoint=endpoint, paid=False)
+            payment = x402.decode_payment_signature(xsig)
+        except x402.PaymentBindingError as e:
+            raise _challenge_http(PaymentChallenge(preq, extra={
+                "error": "x402_payment_invalid", "reason": e.reason,
+                "detail": e.detail[:300]}))
+        except Exception as e:
+            raise _challenge_http(PaymentChallenge(preq, extra={
+                "error": "x402_payment_invalid", "detail": str(e)[:200]}))
+    try:
+        auth = payments.authorize(preq, api_key=x_api_key, payment=payment,
+                                  protocol="v2", ua=_ua.get(),
+                                  transport="http")
+    except x402.PaymentBindingError as e:
+        raise _challenge_http(PaymentChallenge(preq, extra={
+            "error": "x402_payment_invalid", "reason": e.reason,
+            "detail": e.detail[:300]}))
+    except PaymentChallenge as e:
+        raise _challenge_http(e)
+    # PaymentIdConflict / CachedPaidResult propagate to the app-level
+    # exception handlers (409 conflict / cached idempotent replay).
+    if auth.mode == "x402" and auth.settled is not None:
+        # provisional header now (unit paths without the middleware); the
+        # finalize middleware replaces it with the receipt-bearing one.
+        response.headers[x402.PAYMENT_RESPONSE_HEADER] = \
+            x402.settle_response_header_value(auth.settled.record)
+        holder = _xpay_settled_holder.get()
+        if holder is not None:
+            holder[0] = auth.settled
+    elif auth.mode == "credits_sandbox" and auth.account is not None:
+        response.headers["X-Guild-Balance"] = str(auth.account["balance"])
 
 
 _LANDING_HTML = """<!doctype html><html lang=en><head><meta charset=utf-8>
@@ -1333,9 +1297,22 @@ def guild_did_doc():
     """The Guild's public signing identity (did:key + public key), so anyone can
     verify Agent Passports without trusting this server at request time."""
     gid = store.guild_identity()
+    from . import x402_artifacts
     return {"did": gid["did"], "public_key": gid["public_key"], "name": gid["name"],
             "credential_types": ["AgentGuildPassport"],
-            "verify_endpoint": "/credentials/verify"}
+            "verify_endpoint": "/credentials/verify",
+            # x402 offer/receipt key binding (spec §4.5.1 external key
+            # registry): the SERVICE-signing kid authorized to sign x402
+            # offers/receipts for resources on this origin. This is the
+            # Guild's persistent Ed25519 signing identity — never the
+            # treasury key.
+            "x402_offer_receipt": {
+                "format": "jws",
+                "alg": "EdDSA",
+                "kid": x402_artifacts.kid_for_identity(gid),
+                "extensions": ["offer-receipt", "io.agent-guild/evidence"],
+                "authorized_origin": x402.public_host(),
+            }}
 
 
 # --- reputation / evidence / flags ------------------------------------------
@@ -1353,13 +1330,13 @@ def _is_self_read(agent: dict, x_api_key: Optional[str]) -> bool:
     return bool(acct and acct.get("owner_agent_id") == agent["id"])
 
 
-def _meter_unless_self(endpoint: str, agent: dict, x_api_key: Optional[str],
+def _meter_unless_self(preq: PaidRequest, agent: dict, x_api_key: Optional[str],
                        response: Response) -> None:
     if _is_self_read(agent, x_api_key):
         response.headers["X-Guild-Cost"] = "0"
         response.headers["X-Guild-Self-Read"] = "free"
         return
-    meter(endpoint, x_api_key, response)
+    meter(preq, x_api_key, response)
 
 
 @app.get("/agents/{agent_id}/reputation", response_model=ReputationResponse)
@@ -1367,7 +1344,8 @@ def get_reputation(agent_id: str, response: Response, x_api_key: Optional[str] =
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
-    _meter_unless_self("reputation", rec, x_api_key, response)
+    _meter_unless_self(payments.reputation_request(agent_id), rec,
+                       x_api_key, response)
     scores = store.reputation()
     s = scores.get(agent_id)
     if s is None:
@@ -1402,7 +1380,8 @@ def get_journey(agent_id: str, response: Response,
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
-    _meter_unless_self("reputation", rec, x_api_key, response)
+    _meter_unless_self(payments.journey_request(agent_id), rec,
+                       x_api_key, response)
     return journey_engine.journey(store, rec)
 
 
@@ -1411,7 +1390,8 @@ def get_evidence(agent_id: str, response: Response, x_api_key: Optional[str] = H
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
-    _meter_unless_self("evidence", rec, x_api_key, response)
+    _meter_unless_self(payments.evidence_request(agent_id), rec,
+                       x_api_key, response)
     ev = store.evidence(agent_id)
     s = ev["score"]
     if s is None:
@@ -1433,7 +1413,7 @@ def get_flag(agent_id: str, response: Response, x_api_key: Optional[str] = Heade
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
-    meter("fraud_check", x_api_key, response)
+    meter(payments.agent_flags_request(agent_id), x_api_key, response)
     f = store.flags().get(agent_id)
     if f is None:
         raise HTTPException(404, "no flag computed")
@@ -1450,7 +1430,7 @@ def get_risk_score(agent_id: str, response: Response, x_api_key: Optional[str] =
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
-    meter("risk_score", x_api_key, response)
+    meter(payments.risk_score_request(agent_id), x_api_key, response)
     s = store.reputation().get(agent_id)
     v = store.risk_for(agent_id)
     if s is None or v is None:
@@ -1470,7 +1450,7 @@ def get_risk_score(agent_id: str, response: Response, x_api_key: Optional[str] =
 @app.get("/flags")
 def list_flags(response: Response, min_suspicion: float = Query(0.4, ge=0.0, le=1.0),
                x_api_key: Optional[str] = Header(None)):
-    meter("fraud_check", x_api_key, response)
+    meter(payments.flags_request(min_suspicion), x_api_key, response)
     out = []
     for aid, f in store.flags().items():
         if f.suspicion >= min_suspicion:
@@ -1499,7 +1479,8 @@ def check(
     provenance-labelled PROOF the Guild improves outcomes, and how to
     contribute back. `signed=true` returns a Guild-signed, offline-verifiable
     decision for gateway caching. hire/caution/avoid is legacy presentation."""
-    meter("best_agent", x_api_key, response)
+    meter(payments.check_request(capability, signed, ttl_seconds),
+          x_api_key, response)
     if signed:
         return store.signed_decision(capability, ttl_seconds=ttl_seconds)
     result = store.check(capability)
@@ -1573,7 +1554,8 @@ def search(
     min_trust: float = Query(0.0, ge=0.0, le=100.0),
     x_api_key: Optional[str] = Header(None),
 ):
-    meter("best_agent", x_api_key, response)
+    meter(payments.search_request(capability, limit, min_trust),
+          x_api_key, response)
     scores = store.reputation()
     items: list[SearchResultItem] = []
     for a in store.agents.values():
@@ -1748,6 +1730,38 @@ def _manifest() -> dict:
             "mcp_tools": ["guild_escrow_open", "guild_escrow_release"],
             "settles_in": "credits (1 credit = $0.001); on-chain stablecoin settlement on the roadmap",
         },
+        # Machine-payment discovery: everything an unaffiliated machine needs
+        # to find, price and pay a trust operation with NO account and NO
+        # human — the x402 rail. `readiness` is the live, non-secret config
+        # (network, asset, pinned recipient); any paid endpoint above returns
+        # the full 402 challenge (PAYMENT-REQUIRED header + signed offer +
+        # payment-identifier declaration) when called unpaid.
+        "machine_payments": {
+            "rail": "x402",
+            "version": 2,
+            "readiness": "GET /x402/readiness",
+            "how": "call any priced endpoint unpaid → HTTP 402 with a "
+                   "PAYMENT-REQUIRED header (base64 PaymentRequired: exact "
+                   "resource URL, amount, asset, network, recipient, signed "
+                   "offer) → retry with a PAYMENT-SIGNATURE header",
+            "example_paid_resource": {
+                "method": "GET", "path": "/check",
+                "query": {"capability": "<capability>"},
+                "cost_credits": PRICING["best_agent"],
+            },
+            "extensions": ["bazaar", "payment-identifier", "offer-receipt",
+                           "io.agent-guild/evidence"],
+            "signing_key_binding": "/.well-known/agent-guild-did.json",
+            "transports": {
+                "http": "PAYMENT-REQUIRED/PAYMENT-SIGNATURE/PAYMENT-RESPONSE headers",
+                "a2a": "x402 extension v0.1 at POST /a2a "
+                       "(declared in /.well-known/agent-card.json)",
+                "mcp": "payment-required tool error + _meta['x402/payment'] retry",
+            },
+            "sandbox": {"unit": "credits_sandbox",
+                        "note": "prepaid credits are a SANDBOX unit (not "
+                                "money, never revenue); x402 is the real rail"},
+        },
         "portable_reputation": {
             "model": "Guild-signed W3C Verifiable Credentials (Ed25519 did:key)",
             "passport": "GET /agents/{id}/passport — a portable, offline-verifiable "
@@ -1795,7 +1809,7 @@ def _manifest() -> dict:
                                  f"{billing.TRIAL_CREDITS} sandbox credits "
                                  "(NOT money) — funds any priced read below"),
                 "credit_funded": sorted(PRICING),
-                "x402_funded": sorted(x402.RESOURCE_PATHS),
+                "x402_funded": sorted(x402.EXAMPLE_RESOURCE_PATHS),
             },
             "x402": {
                 "protocol": "x402",

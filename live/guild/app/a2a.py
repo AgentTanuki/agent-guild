@@ -31,6 +31,9 @@ from fastapi import APIRouter, Request, Response
 
 from . import __version__
 from . import proving
+from . import a2a_x402
+from . import payments
+from . import x402
 from .attribution import derive_a2a_actor
 from .state import store
 
@@ -320,6 +323,20 @@ def _prove_instructions(text: str) -> dict[str, Any]:
 # A2A: agent card (discovery) + minimal JSON-RPC endpoint (message/send)
 # --------------------------------------------------------------------------
 
+def _x402_a2a_active() -> bool:
+    """The paid A2A trust flow is live only when the rail is enabled AND
+    billing is enforced — otherwise the service is in soft-launch and
+    `check:` stays free on every transport (one policy, all transports)."""
+    from . import billing
+    return x402.enabled() and billing.billing_enforced()
+
+
+def _x402_a2a_required() -> bool:
+    # Not marked required: an A2A caller can still use the free deterministic
+    # utilities and discovery skills without understanding x402.
+    return False
+
+
 def _swarm_skills(base: str) -> list[dict[str, Any]]:
     """One A2A skill per published, fixture-gated swarm capability, plus the
     generic invoke skill. Generated from the same registry as REST and MCP."""
@@ -410,6 +427,31 @@ def _agent_card(base: str) -> dict[str, Any]:
                         "conformance": f"{base}/standard",
                     },
                 },
+                # Official A2A x402 payments extension (v0.1). Declared ONLY
+                # when the x402 rail is active AND enforcement is on, so the
+                # card never advertises a paid flow the deployment does not
+                # actually require (an honest card is the whole point of this
+                # surface). When active, a paid `check:` returns a
+                # payment-required Task instead of a free decision.
+                *([{
+                    "uri": a2a_x402.EXTENSION_URI,
+                    "description": (
+                        "x402 on-chain payments for paid trust reads. A "
+                        "`check: <capability>` message returns a "
+                        "payment-required Task; submit a signed x402 payment "
+                        "(x402.payment.status=payment-submitted, with the "
+                        "taskId) to receive the trust decision plus a signed "
+                        "receipt. Same price and policy as GET /check."),
+                    "required": _x402_a2a_required(),
+                    "params": {
+                        "x402Version": 1,
+                        "network": x402.network(),
+                        "asset": x402.asset(),
+                        "pay_to": x402.pay_to() or None,
+                        "priced_operation": "check",
+                        "resource_template": f"{base}/check?capability=<cap>",
+                    },
+                }] if _x402_a2a_active() else []),
             ],
         },
         "defaultInputModes": ["text/plain"],
@@ -477,6 +519,16 @@ def _rpc_error(id_: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": id_, "error": {"code": code, "message": message}}
 
 
+def _with_extension_header(resp: dict[str, Any], request: Request):
+    """Echo the x402 extension URI in the response header to confirm
+    activation (A2A extension activation §7)."""
+    from fastapi.responses import JSONResponse
+    headers = {}
+    if a2a_x402.extension_activated(request.headers) or _x402_a2a_active():
+        headers["X-A2A-Extensions"] = a2a_x402.EXTENSION_URI
+    return JSONResponse(content=resp, headers=headers)
+
+
 @router.post("/a2a")
 async def a2a_endpoint(request: Request):
     """Minimal, honest A2A JSON-RPC endpoint.
@@ -505,6 +557,17 @@ async def a2a_endpoint(request: Request):
 
     params = body.get("params") or {}
     message = params.get("message") or {}
+
+    # A2A x402 extension v0.1: a payment submission carries the signed payload
+    # in message metadata + the correlating taskId, NOT a text part. Settle it
+    # through the shared gateway and return the completed/failed Task.
+    if a2a_x402.is_payment_submission(message):
+        result = a2a_x402.handle_payment_submission(message)
+        if "_a2a_x402_error" in result:
+            return _rpc_error(id_, -32602, result["_a2a_x402_error"])
+        resp = {"jsonrpc": "2.0", "id": id_, "result": result}
+        return _with_extension_header(resp, request)
+
     text = _text_from_message(message)
     if not text:
         return _rpc_error(id_, -32602, "Invalid params: send one text part")
@@ -716,6 +779,19 @@ async def a2a_endpoint(request: Request):
             "agent_card": "/.well-known/agent-card.json",
         }
     elif caller_kind == "capability_ask":
+        # PAID trust read — the SAME price and enforcement policy as GET /check
+        # and the MCP guild_check tool (one operation, one policy, every
+        # transport). When the x402 rail is active + enforced, an unpaid caller
+        # gets a payment-required Task (A2A x402 extension v0.1) instead of the
+        # full free decision. In soft-launch it stays free everywhere.
+        if _x402_a2a_active():
+            preq = payments.check_request(caller_cap)
+            task = a2a_x402.build_payment_required_task(preq, preq.cost)
+            store.record_event(actor, "x402_payment_required", ua=ua_tag,
+                               endpoint="best_agent", transport="a2a",
+                               capability=caller_cap)
+            resp = {"jsonrpc": "2.0", "id": id_, "result": task}
+            return _with_extension_header(resp, request)
         payload = store.check(caller_cap)
     elif caller_kind == "prove_howto":
         # An agent asking how to prove gets the exact executable answer, not a

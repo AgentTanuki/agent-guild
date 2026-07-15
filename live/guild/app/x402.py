@@ -15,6 +15,17 @@ Spec: x402 specs/x402-specification-v2.md + specs/transports-v2/http.md
 (x402Version 2, CAIP-2 networks, PAYMENT-REQUIRED / PAYMENT-SIGNATURE /
 PAYMENT-RESPONSE headers).
 
+EXACT-RESOURCE BINDING (machine-commerce closure sprint, 2026-07-15).
+Payments used to be bound to a per-CAPABILITY canonical URL — so a 402 from
+`GET /search?capability=code-review` quoted `resource.url = …/check` (a
+different route), `{id}` templates never resolved to the agent actually being
+read, and query parameters were not part of the binding at all. Every quote
+and every acceptance is now bound to a `PaidRequest` (app/payments.py): the
+TRUSTED configured public origin (never a Host/forwarded header), the actual
+HTTP method, the actual concrete path, and the canonically-encoded
+result-affecting query parameters — plus amount, asset, network, recipient
+and the EIP-3009 validity window + single-use nonce.
+
 Honesty notes, load-bearing:
   * Credits remain available and are EXPLICITLY a sandbox settlement unit
     (`credits_sandbox`) — not money, labelled as such wherever they appear.
@@ -23,10 +34,14 @@ Honesty notes, load-bearing:
   * REAL revenue is counted only from successful settlements on a MAINNET
     network with a transaction hash (store.revenue → real_settlement).
     Testnet/mocked settlements are recorded separately and never counted.
-  * The legacy v1 protocol (X-PAYMENT header, x402Version 1, non-CAIP
-    network names) is still accepted TEMPORARILY — the official SDK keeps
-    v1 legacy support — but it is labelled deprecated and passes through the
-    SAME binding/replay guards as v2 (tests assert it cannot weaken them).
+  * The legacy v1 protocol (X-PAYMENT header, x402Version 1) is NO LONGER
+    accepted on priced HTTP routes: a v1 payload carries no resource echo, so
+    it cannot be bound to the actual semantic request — accepting it would
+    reopen the cross-resource substitution hole this module exists to close.
+    The v1→v2 translation survives ONLY for the A2A x402 extension (v0.1),
+    where the payment is bound server-side to the task's stored quote
+    (taskId correlation), which restores exactly the binding v1's wire format
+    lacks.
 
 Env:
   GUILD_X402_ENABLED       "1" to advertise/accept x402 (default off until a
@@ -44,13 +59,13 @@ import json
 import os
 import threading
 import time
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from x402.http import (
     PAYMENT_REQUIRED_HEADER,     # "PAYMENT-REQUIRED"   (402 → client)
     PAYMENT_RESPONSE_HEADER,     # "PAYMENT-RESPONSE"   (settlement → client)
     PAYMENT_SIGNATURE_HEADER,    # "PAYMENT-SIGNATURE"  (client → server)
-    X_PAYMENT_HEADER,            # "X-PAYMENT"          (v1 legacy)
+    X_PAYMENT_HEADER,            # "X-PAYMENT"          (v1 legacy, REJECTED on HTTP)
     FacilitatorConfig,
     HTTPFacilitatorClientSync,
 )
@@ -69,6 +84,9 @@ from x402.schemas import (
 
 from . import x402_cdp
 from . import x402_confirm
+
+if TYPE_CHECKING:  # circular-import-free type hints only
+    from .payments import PaidRequest
 
 X402_VERSION = 2
 DEFAULT_NETWORK = "eip155:84532"            # Base Sepolia (CAIP-2)
@@ -113,29 +131,30 @@ MAINNET_NETWORKS = frozenset({
     "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",  # Solana mainnet
 })
 
-# v1 legacy network names → CAIP-2 (for the deprecated X-PAYMENT path only).
+# v1 legacy network names → CAIP-2 (A2A x402 v0.1 uses the legacy names).
 V1_NETWORK_TO_CAIP2 = {
     "base-sepolia": "eip155:84532",
     "base": "eip155:8453",
     "avalanche-fuji": "eip155:43113",
     "avalanche": "eip155:43114",
 }
+CAIP2_TO_V1_NETWORK = {v: k for k, v in V1_NETWORK_TO_CAIP2.items()}
 
 # 1 credit (sandbox) is priced at $0.001 (see billing.CREDIT_USD); USDC has 6
 # decimals, so 1 credit == 1000 atomic USDC units on the real rail.
 ATOMIC_PER_CREDIT = 1000
 
-# Canonical resource URL path per priced capability (billing.PRICING key).
-# The quote, the client's echoed `resource`, and the settlement record are all
-# bound to this canonical URL — path templates are literal identifiers here.
-RESOURCE_PATHS = {
-    "best_agent": "/check",
+# One EXAMPLE resource per priced capability — used ONLY by discovery surfaces
+# (bazaar catalogue, machine manifests). Actual payment binding is per-request
+# (PaidRequest), never per-capability.
+EXAMPLE_RESOURCE_PATHS = {
+    "best_agent": "/check?capability=code-review",
     "reputation": "/agents/{id}/reputation",
     "evidence": "/agents/{id}/evidence",
     "risk_score": "/agents/{id}/risk-score",
     "fraud_check": "/agents/{id}/flags",
 }
-# All priced reads are GETs; the method is part of the binding.
+# All priced reads are canonically GETs; the method is part of the binding.
 RESOURCE_METHOD = "GET"
 
 
@@ -282,6 +301,16 @@ def readiness() -> dict[str, Any]:
             if is_mainnet(network()) else None),
         "config_valid": not errs,
         "config_errors": errs,
+        "extensions": ["bazaar", "payment-identifier", "offer-receipt",
+                       "io.agent-guild/evidence"],
+        "transports": {
+            "http": "PAYMENT-REQUIRED / PAYMENT-SIGNATURE / PAYMENT-RESPONSE "
+                    "headers (x402 v2 HTTP transport)",
+            "a2a": "A2A x402 extension v0.1 "
+                   "(https://github.com/google-a2a/a2a-x402/v0.1) at POST /a2a",
+            "mcp": "x402 MCP flow (payment-required tool error + "
+                   "_meta['x402/payment'] retry) at /mcp",
+        },
         "revenue_policy": ("real revenue counts ONLY mainnet settlements "
                            "independently confirmed on-chain (receipt status, "
                            "USDC contract, recipient, exact amount)"),
@@ -289,15 +318,22 @@ def readiness() -> dict[str, Any]:
 
 
 def public_host() -> str:
+    """The TRUSTED canonical public origin for every quoted resource URL.
+    Comes ONLY from configuration (GUILD_PUBLIC_HOST) — never from a Host,
+    X-Forwarded-Host or any other request header an attacker controls."""
     return os.environ.get("GUILD_PUBLIC_HOST", DEFAULT_HOST).rstrip("/")
 
 
-def resource_url(endpoint: str) -> str:
-    return public_host() + RESOURCE_PATHS.get(endpoint, f"/x402/resources/{endpoint}")
+def example_resource_url(endpoint: str) -> str:
+    """A representative resource URL for DISCOVERY surfaces only (bazaar
+    catalogue, manifests). Payment binding never uses this — it binds to the
+    concrete PaidRequest."""
+    return public_host() + EXAMPLE_RESOURCE_PATHS.get(
+        endpoint, f"/x402/resources/{endpoint}")
 
 
-def requirements(endpoint: str, credits_cost: int) -> PaymentRequirements:
-    """The v2 payment requirements the Guild quotes for one capability."""
+def requirements(credits_cost: int) -> PaymentRequirements:
+    """The v2 payment requirements the Guild quotes for one priced request."""
     net = network()
     return PaymentRequirements(
         scheme="exact",
@@ -311,10 +347,10 @@ def requirements(endpoint: str, credits_cost: int) -> PaymentRequirements:
     )
 
 
-def resource_info(endpoint: str) -> ResourceInfo:
+def resource_info(preq: "PaidRequest") -> ResourceInfo:
     return ResourceInfo(
-        url=resource_url(endpoint),
-        description=f"Agent Guild paid read: {endpoint}",
+        url=preq.resource_url,
+        description=f"Agent Guild paid read: {preq.operation}",
         mime_type="application/json",
     )
 
@@ -322,9 +358,6 @@ def resource_info(endpoint: str) -> ResourceInfo:
 # Bazaar discovery extension (x402 specs/extensions/bazaar.md): machine-
 # readable endpoint specifications inside the 402 challenge, so facilitator
 # catalogues can index the Guild's paid trust operations without a human.
-_BAZAAR_QUERY = {
-    "best_agent": {"capability": "code-review"},
-}
 _BAZAAR_OUTPUT = {
     "best_agent": {"verdict": "hire", "best": {"agent_id": "…", "score": 0.93}},
     "reputation": {"score": 0.9, "confidence": 0.8},
@@ -334,13 +367,13 @@ _BAZAAR_OUTPUT = {
 }
 
 
-def bazaar_extension(endpoint: str) -> dict[str, Any]:
+def bazaar_extension(preq: "PaidRequest") -> dict[str, Any]:
+    query = dict(preq.query)
     info: dict[str, Any] = {
-        "input": {"type": "http", "method": RESOURCE_METHOD,
-                  **({"queryParams": _BAZAAR_QUERY[endpoint]}
-                     if endpoint in _BAZAAR_QUERY else {})},
+        "input": {"type": "http", "method": preq.method,
+                  **({"queryParams": query} if query else {})},
         "output": {"type": "json",
-                   "example": _BAZAAR_OUTPUT.get(endpoint, {})},
+                   "example": _BAZAAR_OUTPUT.get(preq.operation, {})},
     }
     schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -350,7 +383,7 @@ def bazaar_extension(endpoint: str) -> dict[str, Any]:
                 "type": "object",
                 "properties": {
                     "type": {"type": "string", "const": "http"},
-                    "method": {"type": "string", "enum": [RESOURCE_METHOD]},
+                    "method": {"type": "string", "enum": [preq.method]},
                     "queryParams": {"type": "object",
                                     "additionalProperties": {"type": "string"}},
                 },
@@ -368,27 +401,38 @@ def bazaar_extension(endpoint: str) -> dict[str, Any]:
     return {"info": info, "schema": schema}
 
 
-def payment_required_model(endpoint: str, credits_cost: int) -> PaymentRequired:
+def payment_required_model(preq: "PaidRequest", credits_cost: int,
+                           extensions: Optional[dict[str, Any]] = None,
+                           ) -> PaymentRequired:
+    """The v2 PaymentRequired for ONE concrete request. `resource.url` is the
+    exact semantic request being paid for (trusted origin + actual path +
+    canonical result-affecting query), never a capability template."""
+    exts: dict[str, Any] = {"bazaar": bazaar_extension(preq)}
+    if extensions:
+        exts.update(extensions)
     return PaymentRequired(
         x402_version=X402_VERSION,
         error=f"{PAYMENT_SIGNATURE_HEADER} header is required",
-        resource=resource_info(endpoint),
-        accepts=[requirements(endpoint, credits_cost)] if enabled() else [],
-        extensions={"bazaar": bazaar_extension(endpoint)},
+        resource=resource_info(preq),
+        accepts=[requirements(credits_cost)] if enabled() else [],
+        extensions=exts,
     )
 
 
-def payment_required_header_value(endpoint: str, credits_cost: int) -> str:
+def payment_required_header_value(model: PaymentRequired) -> str:
     """base64 PaymentRequired for the PAYMENT-REQUIRED response header
     (transports-v2/http.md)."""
-    return encode_payment_required_header(payment_required_model(endpoint, credits_cost))
+    return encode_payment_required_header(model)
 
 
-def payment_required_body(endpoint: str, credits_cost: int) -> dict[str, Any]:
+def payment_required_body(preq: "PaidRequest", credits_cost: int,
+                          model: Optional[PaymentRequired] = None,
+                          ) -> dict[str, Any]:
     """The 402 JSON body: the same v2 PaymentRequired payload, plus the
     sandbox rail and deprecation notes, each honestly labelled."""
-    body: dict[str, Any] = payment_required_model(
-        endpoint, credits_cost).model_dump(by_alias=True, exclude_none=True)
+    if model is None:
+        model = payment_required_model(preq, credits_cost)
+    body: dict[str, Any] = model.model_dump(by_alias=True, exclude_none=True)
     body["sandbox"] = {
         "unit": "credits_sandbox",
         "note": ("Credits are a SANDBOX settlement unit (not money). "
@@ -397,11 +441,12 @@ def payment_required_body(endpoint: str, credits_cost: int) -> dict[str, Any]:
         "cost_credits": credits_cost,
     }
     body["v1_compat"] = {
-        "status": "deprecated",
+        "status": "removed",
         "note": (f"Legacy x402 v1 ({X_PAYMENT_HEADER} header, x402Version 1) "
-                 "is still accepted temporarily; migrate to v2 "
-                 f"({PAYMENT_SIGNATURE_HEADER} header). v1 passes through the "
-                 "same binding and replay guards as v2."),
+                 "is NOT accepted on priced HTTP routes: v1 payloads carry no "
+                 "resource echo, so they cannot be bound to the exact request "
+                 f"being paid for. Use v2 ({PAYMENT_SIGNATURE_HEADER} header) "
+                 "and echo the `resource` object from this challenge."),
     }
     if enabled() and not is_mainnet(network()):
         body["network_disclosure"] = (
@@ -431,7 +476,7 @@ class _ReplayGuard:
     """Unique payment identity = (payer, nonce) of the EIP-3009 authorization.
     In-process set catches concurrent/duplicate submission; the persisted
     billing log (store.record_x402_payment) catches double settlement across
-    restarts — meter() checks both."""
+    restarts — the gateway checks both."""
 
     def __init__(self) -> None:
         self._seen: dict[str, float] = {}
@@ -466,29 +511,33 @@ def _req_fields(r: Any) -> dict[str, Any]:
                                   "payTo", "maxTimeoutSeconds")}
 
 
-def check_binding(payload: PaymentPayload, endpoint: str, credits_cost: int,
-                  method: str = RESOURCE_METHOD) -> None:
-    """Exact binding of the client's payment to what THIS server quoted:
-    version, method, canonical resource URL, capability, amount+asset,
-    network, recipient, expiry. Raises PaymentBindingError."""
+def check_binding(payload: PaymentPayload, preq: "PaidRequest",
+                  credits_cost: int, method: Optional[str] = None) -> None:
+    """Exact binding of the client's payment to what THIS server quoted for
+    THIS request: version, actual method, exact resource URL (trusted origin +
+    concrete path + canonical query), amount+asset, network, recipient,
+    expiry + nonce. Raises PaymentBindingError."""
     if payload.x402_version != X402_VERSION:
         raise PaymentBindingError("invalid_x402_version",
                                   f"expected {X402_VERSION}, got {payload.x402_version}")
-    if method.upper() != RESOURCE_METHOD:
+    actual_method = (method or preq.method).upper()
+    if actual_method != preq.method.upper():
         raise PaymentBindingError("method_mismatch",
-                                  f"paid reads are {RESOURCE_METHOD}, got {method}")
-    offered = requirements(endpoint, credits_cost)
+                                  f"resource is {preq.method}, got {actual_method}")
+    offered = requirements(credits_cost)
     if _req_fields(payload.accepted) != _req_fields(offered):
         raise PaymentBindingError(
             "requirements_mismatch",
             f"accepted {_req_fields(payload.accepted)} != offered {_req_fields(offered)}")
-    # canonical resource binding — the client must echo the quoted resource
+    # exact-resource binding — the client must echo the resource of the
+    # request it is actually paying for; path substitution, query mutation and
+    # agent-id substitution all change this URL and fail here.
     res = payload.resource
     res_url = getattr(res, "url", None) if res is not None else None
-    if res_url != resource_url(endpoint):
+    if res_url != preq.resource_url:
         raise PaymentBindingError(
             "resource_mismatch",
-            f"payment bound to {res_url!r}, resource is {resource_url(endpoint)!r}")
+            f"payment bound to {res_url!r}, resource is {preq.resource_url!r}")
     # exact-EVM payload: EIP-3009 authorization must match the quote and be
     # inside its validity window
     inner = payload.payload if isinstance(payload.payload, dict) else {}
@@ -532,18 +581,19 @@ def _facilitator() -> HTTPFacilitatorClientSync:
 
 def decode_payment_signature(header: str) -> PaymentPayload:
     """PAYMENT-SIGNATURE is base64(JSON PaymentPayload). Rejects v1 payloads —
-    those belong on the deprecated X-PAYMENT path."""
+    v1 is not accepted on HTTP (no resource echo, no exact binding)."""
     payload = decode_payment_signature_header(header)
     if not isinstance(payload, PaymentPayload):
         raise PaymentBindingError(
             "invalid_x402_version",
-            f"v1 payload on the v2 {PAYMENT_SIGNATURE_HEADER} header; "
-            f"send v1 payloads on {X_PAYMENT_HEADER} (deprecated) or upgrade")
+            "v1 payload on the v2 "
+            f"{PAYMENT_SIGNATURE_HEADER} header; v1 is not accepted on "
+            "priced HTTP routes — upgrade to x402 v2")
     return payload
 
 
-def process_payment(payload: PaymentPayload, endpoint: str,
-                    credits_cost: int, method: str = RESOURCE_METHOD,
+def process_payment(payload: PaymentPayload, preq: "PaidRequest",
+                    credits_cost: int, method: Optional[str] = None,
                     protocol: str = "v2") -> dict[str, Any]:
     """Full server-side flow for one payment: config fail-closed → binding
     guards → replay reservation → facilitator verify → facilitator settle →
@@ -554,10 +604,10 @@ def process_payment(payload: PaymentPayload, endpoint: str,
     cfg_errs = config_errors()
     if cfg_errs:
         raise PaymentBindingError("x402_misconfigured", "; ".join(cfg_errs))
-    check_binding(payload, endpoint, credits_cost, method=method)
+    check_binding(payload, preq, credits_cost, method=method)
     auth = payload.payload["authorization"]
     ident = replay_guard.check_and_reserve(auth)
-    offered = requirements(endpoint, credits_cost)
+    offered = requirements(credits_cost)
     fac = _facilitator()
     try:
         v = fac.verify(payload, offered)
@@ -594,8 +644,9 @@ def process_payment(payload: PaymentPayload, endpoint: str,
         "stage": "settle",
         "protocol": protocol,
         "x402_version": payload.x402_version,
-        "endpoint": endpoint,
-        "resource": resource_url(endpoint),
+        "endpoint": preq.operation,
+        "resource": preq.resource_url,
+        "request_hash": preq.request_hash,
         "facilitator": facilitator_url(),
         "scheme": offered.scheme,
         "network": net,
@@ -628,7 +679,7 @@ def process_payment(payload: PaymentPayload, endpoint: str,
         else:
             # fail closed: the identity stays reserved (the authorization may
             # have settled on-chain); the caller can re-present the SAME
-            # payment and recovery re-runs confirmation (see main.py).
+            # payment and recovery re-runs confirmation (see payments.py).
             record["ok"] = False
             record["status"] = "settled_unconfirmed"
             record["value_note"] = ("mainnet settlement NOT independently "
@@ -640,58 +691,60 @@ def process_payment(payload: PaymentPayload, endpoint: str,
     return record
 
 
-def settle_response_header_value(record: dict[str, Any]) -> str:
-    """base64 SettleResponse for the PAYMENT-RESPONSE header."""
-    return encode_payment_response_header(SettleResponse(
+def settle_response_model(record: dict[str, Any],
+                          extensions: Optional[dict[str, Any]] = None,
+                          ) -> SettleResponse:
+    return SettleResponse(
         success=bool(record.get("ok")),
         transaction=record.get("transaction", "") or "",
         network=record.get("network", network()),
         payer=record.get("payer"),
-    ))
+        extensions=extensions or None,
+    )
 
 
-# --- v1 LEGACY compatibility (deprecated) ------------------------------------
-# The official SDK still ships v1 legacy support (X-PAYMENT header,
-# x402Version 1, non-CAIP network names); we accept it temporarily so
-# existing v1 clients keep working, but it is (a) labelled deprecated in
-# every 402 body and (b) translated into v2 structures so it passes through
-# EXACTLY the same binding + replay guards — v1 can never weaken v2
-# validation (tests/test_x402_v2.py asserts this).
+def settle_response_header_value(record: dict[str, Any],
+                                 extensions: Optional[dict[str, Any]] = None,
+                                 ) -> str:
+    """base64 SettleResponse for the PAYMENT-RESPONSE header. `extensions`
+    carries the signed receipt (offer-receipt) + the Guild evidence
+    attachment."""
+    return encode_payment_response_header(
+        settle_response_model(record, extensions))
+
+
+# --- v1 → v2 translation (A2A x402 extension v0.1 ONLY) -----------------------
+# The A2A x402 extension v0.1 (official Google spec) carries v1-shaped
+# payloads ({x402Version: 1, scheme, network, payload}). On that transport the
+# server binds the payment to the TASK's stored quote (taskId correlation), so
+# the missing wire-level resource echo is supplied server-side. Raw HTTP v1
+# (X-PAYMENT header) is no longer accepted anywhere.
 
 def decode_v1_payment_header(header: str) -> dict[str, Any]:
     """X-PAYMENT is base64(JSON v1 payment payload)."""
     return json.loads(base64.b64decode(header).decode("utf-8"))
 
 
-def v1_payload_to_v2(v1: dict[str, Any], endpoint: str,
+def v1_payload_to_v2(v1: dict[str, Any], preq: "PaidRequest",
                      credits_cost: int) -> PaymentPayload:
-    """Translate a v1 payload into v2 structures for guard-checking. The v1
-    wire format carried scheme/network at the top level and no resource
-    echo; the network name maps to CAIP-2 and the resource binds to the
-    canonical URL of the endpoint the client is actually paying for."""
+    """Translate a v1-shaped payload into v2 structures for guard-checking.
+    The resource binds to the PaidRequest the server itself stored for the
+    correlated task — the client cannot influence it."""
     if v1.get("x402Version") != 1:
         raise PaymentBindingError("invalid_x402_version",
-                                  f"X-PAYMENT (v1) carried x402Version={v1.get('x402Version')}")
-    net = V1_NETWORK_TO_CAIP2.get(str(v1.get("network", "")))
-    if net is None:
+                                  f"payload carried x402Version={v1.get('x402Version')}")
+    net = V1_NETWORK_TO_CAIP2.get(str(v1.get("network", "")),
+                                  str(v1.get("network", "")))
+    if net not in V1_NETWORK_TO_CAIP2.values():
         raise PaymentBindingError("invalid_network",
                                   f"unknown v1 network {v1.get('network')!r}")
     if net != network():
         raise PaymentBindingError("network_mismatch",
-                                  f"v1 payment on {net}, service network is {network()}")
-    offered = requirements(endpoint, credits_cost)
+                                  f"payment on {net}, service network is {network()}")
+    offered = requirements(credits_cost)
     return PaymentPayload(
         x402_version=X402_VERSION,
         accepted=offered,
-        resource=resource_info(endpoint),
+        resource=resource_info(preq),
         payload=v1.get("payload") if isinstance(v1.get("payload"), dict) else {},
     )
-
-
-def process_v1_payment_header(header: str, endpoint: str,
-                              credits_cost: int) -> dict[str, Any]:
-    """Deprecated v1 entry point: decode → translate → the SAME guards and
-    facilitator flow as v2. The settlement record is labelled protocol=v1."""
-    v1 = decode_v1_payment_header(header)
-    payload = v1_payload_to_v2(v1, endpoint, credits_cost)
-    return process_payment(payload, endpoint, credits_cost, protocol="v1")

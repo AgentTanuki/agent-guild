@@ -182,21 +182,23 @@ def test_x402_v2_402_body_and_stubbed_settlement(monkeypatch):
     monkeypatch.setenv("GUILD_X402_ENABLED", "1")
     monkeypatch.setenv("GUILD_X402_PAY_TO", "0x" + "11" * 20)
     from app import x402
-    body = x402.payment_required_body("best_agent", 10)
+    from app import payments as _payments
+    body = x402.payment_required_body(_payments.check_request("code-review"), 10)
     assert body["x402Version"] == 2
     assert body["accepts"][0]["scheme"] == "exact"
     assert body["accepts"][0]["network"].startswith("eip155:")   # CAIP-2
     assert body["accepts"][0]["payTo"] == "0x" + "11" * 20
     assert body["accepts"][0]["amount"] == "10000"  # 10 credits @ 6dp
-    assert body["resource"]["url"].endswith("/check")
+    # exact-resource binding: the challenge quotes the CONCRETE request
+    assert "/check?capability=code-review" in body["resource"]["url"]
     assert body["sandbox"]["unit"] == "credits_sandbox"
     assert "NOT money" in body["sandbox"]["note"] or "not money" in body["sandbox"]["note"]
-    assert body["v1_compat"]["status"] == "deprecated"
+    assert body["v1_compat"]["status"] == "removed"
     # stub the facilitator: verify ok, settle ok (v2 shapes) — the full
     # binding/replay security suite lives in tests/test_x402_v2.py
-    from tests.test_x402_v2 import FakeFacilitator, make_payload
+    from tests.test_x402_v2 import SEARCH, FakeFacilitator, make_payload
     monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
-    out = x402.process_payment(make_payload("best_agent", 10), "best_agent", 10)
+    out = x402.process_payment(make_payload(SEARCH), SEARCH, 10)
     assert out["ok"] and out["transaction"].startswith("0x")
     assert out["network"] == "eip155:84532" and out["mainnet"] is False
     assert out["recipient"] == "0x" + "11" * 20

@@ -119,6 +119,15 @@ class Store:
         # journal of failed settlement/refund executions: recorded, surfaced,
         # retried by market.sweep() — never swallowed (corrective 2026-07-13)
         self.settlement_failures: dict[str, dict[str, Any]] = {}
+        # x402 payment-identifier records (official idempotency extension):
+        # id -> {payer, request_hash, payload_fingerprint, status, result…}.
+        # Reserved BEFORE settlement and persisted, so a crash between
+        # settlement and serving can never charge twice (payments.py).
+        self.x402_payment_ids: dict[str, dict[str, Any]] = {}
+        # A2A x402 extension v0.1 payment tasks: taskId -> stored quote +
+        # lifecycle. Persisted so a settle-then-crash still serves the paid
+        # result on re-submission instead of re-charging.
+        self.x402_tasks: dict[str, dict[str, Any]] = {}
         self._rep_cache: Optional[ScoringResult] = None
         # Append-only sidecar journal for instrumentation events. record_event
         # is deliberately cheap (no full-store _save on read paths), which used
@@ -397,6 +406,8 @@ class Store:
             b.put_kv("dispute_cases", self.dispute_cases)
             b.put_kv("settlement_failures",
                      getattr(self, "settlement_failures", {}))
+            b.put_kv("x402_payment_ids", self.x402_payment_ids)
+            b.put_kv("x402_tasks", self.x402_tasks)
             b.put_kv("guild_revenue", self.guild_revenue)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
@@ -435,6 +446,8 @@ class Store:
             b.put_kv("offers", self.offers)
             b.put_kv("adjudicators", self.adjudicators)
             b.put_kv("dispute_cases", self.dispute_cases)
+            b.put_kv("x402_payment_ids", self.x402_payment_ids)
+            b.put_kv("x402_tasks", self.x402_tasks)
             b.put_kv("guild_revenue", self.guild_revenue)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
@@ -476,6 +489,9 @@ class Store:
         self.dispute_cases = self.backend.fetch_kv("dispute_cases", {}) or {}
         self.settlement_failures = self.backend.fetch_kv(
             "settlement_failures", {}) or {}
+        self.x402_payment_ids = self.backend.fetch_kv(
+            "x402_payment_ids", {}) or {}
+        self.x402_tasks = self.backend.fetch_kv("x402_tasks", {}) or {}
         if d["outbound_invocations"]:
             self.__dict__["outbound_invocations"] = d["outbound_invocations"]
 
@@ -514,6 +530,8 @@ class Store:
             self.adjudicators = data.get("adjudicators", {})
             self.dispute_cases = data.get("dispute_cases", {})
             self.settlement_failures = data.get("settlement_failures", {})
+            self.x402_payment_ids = data.get("x402_payment_ids", {})
+            self.x402_tasks = data.get("x402_tasks", {})
 
     def _migrate_plaintext_keys(self) -> None:
         """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
@@ -629,6 +647,8 @@ class Store:
                        "dispute_cases": self.dispute_cases,
                        "settlement_failures": getattr(
                            self, "settlement_failures", {}),
+                       "x402_payment_ids": self.x402_payment_ids,
+                       "x402_tasks": self.x402_tasks,
                        "swarm_state": self.swarm_state}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal
@@ -1523,6 +1543,94 @@ class Store:
                        and b.get("transaction") == tx_hash
                        and b.get("status") in self._X402_SERVED_STATUSES
                        for b in self.billing_log)
+
+    # --- x402 payment-identifier records (official idempotency extension) ----
+    # Reserved (persisted) BEFORE settlement; completed with the settlement
+    # identity, the exact served result and its hash; bound to payer + request
+    # hash + payload fingerprint so reuse with ANY different element fails
+    # closed. See app/payments.py.
+
+    def x402_payment_id_get(self, pid: str) -> Optional[dict[str, Any]]:
+        with self.lock:
+            rec = self.x402_payment_ids.get(pid)
+            return dict(rec) if rec else None
+
+    def x402_payment_id_reserve(self, pid: str, *, payer: str,
+                                request_hash: str, resource: str,
+                                operation: str,
+                                payload_fingerprint: str) -> None:
+        with self.lock, self._txn():
+            self.x402_payment_ids[pid] = {
+                "payment_id": pid,
+                "status": "pending",
+                "payer": payer,
+                "request_hash": request_hash,
+                "resource": resource,
+                "operation": operation,
+                "payload_fingerprint": payload_fingerprint,
+                "reserved_at": _now(),
+            }
+            if self.backend is not None:
+                self._persist_kv("x402_payment_ids", self.x402_payment_ids)
+            self._save()
+
+    def x402_payment_id_complete(self, pid: str, *, result_body: str,
+                                 result_sha256: str, settle_header: str,
+                                 settle_extensions: dict[str, Any],
+                                 settlement: dict[str, Any]) -> None:
+        with self.lock, self._txn():
+            rec = self.x402_payment_ids.get(pid)
+            if rec is None:
+                return
+            rec.update({
+                "status": "completed",
+                "result_body": result_body,
+                "result_sha256": result_sha256,
+                "settle_header": settle_header,
+                "settle_extensions": settle_extensions,
+                "settlement": settlement,
+                "completed_at": _now(),
+            })
+            if self.backend is not None:
+                self._persist_kv("x402_payment_ids", self.x402_payment_ids)
+            self._save()
+
+    def x402_payment_id_release(self, pid: str) -> None:
+        """Drop a PENDING reservation whose payment definitively failed before
+        settlement, so the client may retry with the same identifier. A
+        completed record is never released."""
+        with self.lock, self._txn():
+            rec = self.x402_payment_ids.get(pid)
+            if rec is not None and rec.get("status") == "pending":
+                del self.x402_payment_ids[pid]
+                if self.backend is not None:
+                    self._persist_kv("x402_payment_ids", self.x402_payment_ids)
+                self._save()
+
+    # --- A2A x402 extension v0.1 payment tasks -------------------------------
+
+    def x402_task_create(self, task: dict[str, Any]) -> None:
+        with self.lock, self._txn():
+            self.x402_tasks[task["id"]] = task
+            if self.backend is not None:
+                self._persist_kv("x402_tasks", self.x402_tasks)
+            self._save()
+
+    def x402_task_get(self, task_id: str) -> Optional[dict[str, Any]]:
+        with self.lock:
+            rec = self.x402_tasks.get(task_id)
+            return dict(rec) if rec else None
+
+    def x402_task_update(self, task_id: str, **fields: Any) -> Optional[dict[str, Any]]:
+        with self.lock, self._txn():
+            rec = self.x402_tasks.get(task_id)
+            if rec is None:
+                return None
+            rec.update(fields)
+            if self.backend is not None:
+                self._persist_kv("x402_tasks", self.x402_tasks)
+            self._save()
+            return dict(rec)
 
     def charge(self, key: str, cost: int, endpoint: str) -> dict[str, Any]:
         """Draw `cost` credits from an account. Raises UnknownAccount or

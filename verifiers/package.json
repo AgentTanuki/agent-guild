@@ -4,12 +4,14 @@
   "type": "module",
   "description": "Third-party verification harness: proves Agent Guild credentials verify with independent W3C Data Integrity (eddsa-jcs-2022) implementations.",
   "scripts": {
-    "verify": "node verify_node_digitalbazaar.mjs vector.json"
+    "verify": "node verify_node_digitalbazaar.mjs vector.json",
+    "verify-x402-offer-receipt": "node x402_offer_receipt_verify.mjs offer_receipt_vector.json"
   },
   "dependencies": {
     "@digitalbazaar/data-integrity": "^2.0.0",
-    "@digitalbazaar/eddsa-jcs-2022-cryptosuite": "^1.0.0",
     "@digitalbazaar/ed25519-multikey": "^1.0.0",
+    "@digitalbazaar/eddsa-jcs-2022-cryptosuite": "^1.0.0",
+    "@x402/extensions": "^2.18.0",
     "jsonld-signatures": "^11.0.0"
   }
 }

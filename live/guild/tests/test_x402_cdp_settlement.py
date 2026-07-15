@@ -28,13 +28,14 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app import x402, x402_cdp, x402_confirm
-from tests.test_x402_v2 import FakeFacilitator, make_payload, sig_header
+from app import payments, x402, x402_cdp, x402_confirm
+from tests.test_x402_v2 import SEARCH, FakeFacilitator, make_payload, sig_header
 
 # mainnet recipients are PINNED to the dedicated treasury (public address)
 PAY_TO = x402.MAINNET_TREASURY
 MAINNET = "eip155:8453"
 MAINNET_USDC = x402.USDC_BY_NETWORK[MAINNET]
+SEARCH_X = payments.search_request("x")
 TESTNET_USDC = x402.USDC_BY_NETWORK["eip155:84532"]
 
 # fabricated CDP API key — Ed25519 seed of 0x42s, NEVER a real credential
@@ -132,8 +133,8 @@ def test_sdk_client_sends_authorization_to_verify_and_settle(mainnet_env):
         url=x402_cdp.CDP_FACILITATOR_URL,
         auth_provider=x402_cdp.auth_provider(),
         http_client=httpx.Client(transport=httpx.MockTransport(handler))))
-    p = make_payload("best_agent", 10)
-    offered = x402.requirements("best_agent", 10)
+    p = make_payload()
+    offered = x402.requirements(10)
     assert client.verify(p, offered).is_valid
     assert client.settle(p, offered).success
     assert len(seen) == 2
@@ -156,10 +157,10 @@ def test_usdc_eip712_domain_is_bound_to_network(mainnet_env):
     """Circle's mainnet token signs as ``USD Coin``; Sepolia signs as
     ``USDC``.  Quoting the testnet name on mainnet passes local recovery but
     fails at the real token contract during settlement."""
-    assert x402.requirements("best_agent", 10).extra == {
+    assert x402.requirements(10).extra == {
         "name": "USD Coin", "version": "2"}
     mainnet_env.setenv("GUILD_X402_NETWORK", "eip155:84532")
-    assert x402.requirements("best_agent", 10).extra == {
+    assert x402.requirements(10).extra == {
         "name": "USDC", "version": "2"}
 
 
@@ -178,7 +179,7 @@ def test_credentials_never_in_logs_or_responses(mainnet_env, caplog):
         x402_cdp.create_cdp_headers()
         readiness = x402.readiness()
         errs = x402.config_errors()
-        body = x402.payment_required_body("best_agent", 10)
+        body = x402.payment_required_body(SEARCH, 10)
     haystacks = [caplog.text, json.dumps(readiness), json.dumps(errs),
                  json.dumps(body)]
     for hay in haystacks:
@@ -227,7 +228,7 @@ def test_mainnet_misconfigurations_fail_closed(mainnet_env, mutate, needle):
     assert errs and any(needle in e for e in errs), errs
     # payment time fails closed too — the facilitator is never contacted
     with pytest.raises(x402.PaymentBindingError) as e:
-        x402.process_payment(make_payload("best_agent", 10), "best_agent", 10)
+        x402.process_payment(make_payload(), SEARCH, 10)
     assert e.value.reason == "x402_misconfigured"
 
 
@@ -255,7 +256,7 @@ def test_success_without_tx_hash_is_malformed_and_fails(mainnet_env, monkeypatch
                                    transaction="", network=MAINNET,
                                    payer="0x" + "22" * 20)
     monkeypatch.setattr(x402, "_facilitator", lambda: NoTxFacilitator())
-    out = x402.process_payment(make_payload("best_agent", 10), "best_agent", 10)
+    out = x402.process_payment(make_payload(), SEARCH, 10)
     assert out["ok"] is False
     assert "without a valid tx hash" in out["status"]
 
@@ -265,7 +266,7 @@ def test_facilitator_success_alone_is_never_enough(mainnet_env, monkeypatch):
     monkeypatch.setattr(x402, "_facilitator",
                         lambda: FakeFacilitator(network=MAINNET))
     _rpc_down(monkeypatch)
-    out = x402.process_payment(make_payload("best_agent", 10), "best_agent", 10)
+    out = x402.process_payment(make_payload(), SEARCH, 10)
     assert out["ok"] is False and out["status"] == "settled_unconfirmed"
     assert out["confirmed"] is False
     assert "rpc_unavailable" in out["confirmation"]["reason"]
@@ -275,7 +276,7 @@ def test_failed_onchain_transaction_is_not_confirmed(mainnet_env, monkeypatch):
     monkeypatch.setattr(x402, "_facilitator",
                         lambda: FakeFacilitator(network=MAINNET))
     _serve_receipt(monkeypatch, _receipt(status="0x0"))
-    out = x402.process_payment(make_payload("best_agent", 10), "best_agent", 10)
+    out = x402.process_payment(make_payload(), SEARCH, 10)
     assert out["ok"] is False and out["status"] == "settled_unconfirmed"
     assert "transaction failed" in out["confirmation"]["reason"]
 
@@ -293,7 +294,7 @@ def test_wrong_recipient_amount_or_contract_is_not_confirmed(
     monkeypatch.setattr(x402, "_facilitator",
                         lambda: FakeFacilitator(network=MAINNET))
     _serve_receipt(monkeypatch, receipt)
-    out = x402.process_payment(make_payload("best_agent", 10), "best_agent", 10)
+    out = x402.process_payment(make_payload(), SEARCH, 10)
     assert out["ok"] is False and out["confirmed"] is False
     assert reason_needle in out["confirmation"]["reason"]
 
@@ -314,12 +315,12 @@ def test_duplicate_transaction_never_buys_twice(mainnet_env, monkeypatch):
     with TestClient(app) as client:
         r1 = client.get("/search?capability=x",
                         headers={"PAYMENT-SIGNATURE": sig_header(
-                            make_payload("best_agent", 10))})
+                            make_payload(SEARCH_X))})
         assert r1.status_code == 200
         # different payment identity, same claimed on-chain transaction
         r2 = client.get("/search?capability=x",
                         headers={"PAYMENT-SIGNATURE": sig_header(
-                            make_payload("best_agent", 10))})
+                            make_payload(SEARCH_X))})
         assert r2.status_code == 402
         assert r2.json()["detail"]["reason"] == "duplicate_transaction"
 
@@ -337,7 +338,7 @@ def test_confirmed_mainnet_settlement_serves_and_counts(mainnet_env, monkeypatch
     with TestClient(app) as client:
         r = client.get("/search?capability=x",
                        headers={"PAYMENT-SIGNATURE": sig_header(
-                           make_payload("best_agent", 10))})
+                           make_payload(SEARCH_X))})
         assert r.status_code == 200
         receipt_hdr = json.loads(base64.b64decode(r.headers["PAYMENT-RESPONSE"]))
         assert receipt_hdr["success"] is True
@@ -359,7 +360,7 @@ def test_unconfirmed_then_recovered_is_idempotent(mainnet_env, monkeypatch):
     from app.main import app
     from app.state import store
     before = store.escrow_summary()["real_settlement"]
-    p = make_payload("best_agent", 10)
+    p = make_payload(SEARCH_X)
     hdr = {"PAYMENT-SIGNATURE": sig_header(p)}
     with TestClient(app) as client:
         _rpc_down(monkeypatch)

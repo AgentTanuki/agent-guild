@@ -59,7 +59,8 @@ def test_external_provider_is_external_and_observed_delivery_is_guild_mediated()
 
 def test_x402_disabled_body_labels_credits_sandbox():
     from app import x402
-    body = x402.payment_required_body("best_agent", 10)
+    from app import payments as _payments
+    body = x402.payment_required_body(_payments.check_request("code-review"), 10)
     assert body["accepts"] == []           # no treasury configured in tests
     assert body["sandbox"]["unit"] == "credits_sandbox"
     assert "x402_status" in body

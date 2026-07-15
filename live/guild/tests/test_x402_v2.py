@@ -2,19 +2,24 @@
 
 Covers, with a deterministic fake facilitator (no chain, no funds):
   * v2 challenge: HTTP 402 with the base64 PAYMENT-REQUIRED header and a
-    spec-shaped body (x402Version 2, CAIP-2 network, resource object);
-  * exact binding — replay, cross-resource substitution, price substitution,
-    recipient substitution, expired / not-yet-valid authorisations and double
-    settlement are all REJECTED and the protected result is never served;
-  * v1 legacy (X-PAYMENT) stays accepted but deprecated and passes through
-    the SAME guards — it cannot weaken v2 validation;
+    spec-shaped body (x402Version 2, CAIP-2 network, EXACT resource object);
+  * exact-resource binding — the payment binds to the trusted configured
+    origin + actual method + concrete path + canonical result-affecting
+    query. Path substitution, query mutation, agent-id substitution, method
+    changes, hostile Host headers, price/recipient substitution, expired /
+    not-yet-valid authorisations, replay and double settlement are ALL
+    rejected and the protected result is never served;
+  * v1 legacy (X-PAYMENT) is REJECTED on priced HTTP routes (a v1 payload
+    cannot echo the resource, so it cannot be exactly bound) with a
+    machine-readable migration note; the v1→v2 translation survives only for
+    the A2A task-correlated path (tests/test_a2a_x402.py);
   * settlement records carry facilitator/network/asset/amount/payer/
     recipient/tx/status, and REAL revenue counts only mainnet settlements —
     testnet and mocked settlements never increase it.
 
-The independent-official-client interoperability test (real HTTP, official
-x402 SDK client, EVM signer) lives in tests_x402_interop/ and runs in its own
-clean CI environment.
+The independent-official-client interoperability tests (real HTTP, official
+x402 SDK clients, EVM signers) live in tests_x402_interop/ and run in their
+own clean CI environment.
 """
 import base64
 import json
@@ -27,7 +32,7 @@ from fastapi.testclient import TestClient
 
 from x402.schemas import PaymentPayload, ResourceInfo
 
-from app import x402
+from app import payments, x402
 
 PAY_TO = "0x" + "11" * 20
 PAYER = "0x" + "22" * 20
@@ -45,12 +50,16 @@ class FakeFacilitator:
     """Deterministic v2 facilitator: structurally verifies the payload and
     'settles' with a synthetic tx hash. Never touches a chain."""
 
-    def __init__(self, verify_ok=True, settle_ok=True, network=None):
+    def __init__(self, verify_ok=True, settle_ok=True, network=None,
+                 raise_error=None):
         self.verify_ok, self.settle_ok = verify_ok, settle_ok
         self.network = network
+        self.raise_error = raise_error
         self.verify_calls, self.settle_calls = [], []
 
     def verify(self, payload, requirements):
+        if self.raise_error:
+            raise self.raise_error
         self.verify_calls.append((payload, requirements))
         return SimpleNamespace(is_valid=self.verify_ok,
                                invalid_reason=None if self.verify_ok
@@ -71,12 +80,16 @@ class FakeFacilitator:
         pass
 
 
-def make_payload(endpoint: str, cost: int, *, amount=None, pay_to=None,
+SEARCH = payments.search_request("anything")
+
+
+def make_payload(preq=None, cost=10, *, amount=None, pay_to=None,
                  url=None, nonce=None, valid_after=None, valid_before=None,
                  accepted=None, version=2) -> PaymentPayload:
-    """A structurally valid v2 exact-EVM PaymentPayload for `endpoint`,
+    """A structurally valid v2 exact-EVM PaymentPayload bound to `preq`,
     with keyword hooks to tamper with any bound field."""
-    offered = x402.requirements(endpoint, cost)
+    preq = preq or SEARCH
+    offered = x402.requirements(cost)
     now = time.time()
     auth = {
         "from": PAYER,
@@ -89,7 +102,7 @@ def make_payload(endpoint: str, cost: int, *, amount=None, pay_to=None,
     return PaymentPayload(
         x402_version=version,
         accepted=accepted if accepted is not None else offered,
-        resource=ResourceInfo(url=url or x402.resource_url(endpoint),
+        resource=ResourceInfo(url=url or preq.resource_url,
                               mime_type="application/json"),
         payload={"signature": "0x" + "ab" * 65, "authorization": auth},
     )
@@ -103,7 +116,7 @@ def sig_header(payload: PaymentPayload) -> str:
 # --- protocol surface ---------------------------------------------------------
 
 def test_requirements_are_v2_caip2():
-    r = x402.requirements("best_agent", 10)
+    r = x402.requirements(10)
     assert r.network == "eip155:84532"          # CAIP-2, Base Sepolia default
     assert r.amount == "10000" and r.scheme == "exact"
     assert r.pay_to == PAY_TO
@@ -126,13 +139,70 @@ def test_402_challenge_carries_payment_required_header(monkeypatch):
         assert body["sandbox"]["unit"] == "credits_sandbox"
 
 
+def test_402_resource_is_the_actual_request_not_a_template(monkeypatch):
+    """THE production defect this sprint reproduces and closes:
+    GET /search?capability=code-review used to answer with
+    resource.url = …/check. The challenge must quote the ACTUAL semantic
+    request — actual path + canonical result-affecting query."""
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    from app.main import app
+    with TestClient(app) as client:
+        r = client.get("/search?capability=code-review")
+        assert r.status_code == 402
+        challenge = json.loads(base64.b64decode(r.headers["PAYMENT-REQUIRED"]))
+        url = challenge["resource"]["url"]
+        assert "/search" in url and "/check" not in url
+        assert "capability=code-review" in url
+        # effective defaults are canonicalized in, so the binding is total
+        assert "limit=20" in url and "min_trust=0" in url
+        # body and header agree
+        assert r.json()["detail"]["resource"]["url"] == url
+        # a different concrete request quotes a different resource
+        r2 = client.get("/check?capability=code-review")
+        c2 = json.loads(base64.b64decode(r2.headers["PAYMENT-REQUIRED"]))
+        assert c2["resource"]["url"] != url and "/check" in c2["resource"]["url"]
+
+
+def test_402_resource_binds_concrete_agent_id(monkeypatch):
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    from app.main import app
+    from app.state import store
+    with TestClient(app) as client:
+        rec = store.register_agent(name="bind-target", capabilities=["x"],
+                                   metadata={})
+        r = client.get(f"/agents/{rec['id']}/reputation")
+        assert r.status_code == 402
+        challenge = json.loads(base64.b64decode(r.headers["PAYMENT-REQUIRED"]))
+        assert f"/agents/{rec['id']}/reputation" in challenge["resource"]["url"]
+        assert "{id}" not in challenge["resource"]["url"]
+
+
+def test_hostile_host_header_never_changes_the_resource_origin(monkeypatch):
+    """The quoted origin comes ONLY from configuration, never from Host or
+    forwarded headers an attacker controls."""
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    monkeypatch.setenv("GUILD_PUBLIC_HOST", "https://guild.example")
+    from app.main import app
+    with TestClient(app) as client:
+        r = client.get("/search?capability=x",
+                       headers={"Host": "evil.example",
+                                "X-Forwarded-Host": "evil.example",
+                                "X-Forwarded-Proto": "http"})
+        assert r.status_code in (402, 421)
+        if r.status_code == 402:
+            challenge = json.loads(
+                base64.b64decode(r.headers["PAYMENT-REQUIRED"]))
+            assert challenge["resource"]["url"].startswith(
+                "https://guild.example/")
+
+
 def test_paid_request_end_to_end_serves_result_and_settlement(monkeypatch):
     monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
     fac = FakeFacilitator()
     monkeypatch.setattr(x402, "_facilitator", lambda: fac)
     from app.main import app
     with TestClient(app) as client:
-        p = make_payload("best_agent", 10)
+        p = make_payload(SEARCH)
         r = client.get("/search?capability=anything",
                        headers={"PAYMENT-SIGNATURE": sig_header(p)})
         assert r.status_code == 200
@@ -142,13 +212,18 @@ def test_paid_request_end_to_end_serves_result_and_settlement(monkeypatch):
         assert settled["success"] is True and settled["transaction"].startswith("0x")
         assert settled["network"] == "eip155:84532"
         assert len(fac.settle_calls) == 1
+        # signed receipt + Guild evidence attachment ride the extensions
+        exts = settled.get("extensions") or {}
+        assert "offer-receipt" in exts and "io.agent-guild/evidence" in exts
     # settlement record persisted with the full identity
     from app.state import store
     rec = [b for b in store.billing_log if b.get("type") == "x402_payment"][-1]
     for field in ("facilitator", "network", "asset", "amount_atomic", "payer",
-                  "recipient", "transaction", "status", "payment_identity"):
+                  "recipient", "transaction", "status", "payment_identity",
+                  "resource"):
         assert rec.get(field), f"settlement record missing {field}"
     assert rec["status"] == "settled" and rec["mainnet"] is False
+    assert "/search" in rec["resource"]
 
 
 def test_failed_settlement_never_serves_the_result(monkeypatch):
@@ -159,77 +234,172 @@ def test_failed_settlement_never_serves_the_result(monkeypatch):
     with TestClient(app) as client:
         r = client.get("/search?capability=anything",
                        headers={"PAYMENT-SIGNATURE": sig_header(
-                           make_payload("best_agent", 10))})
+                           make_payload(SEARCH))})
         assert r.status_code == 402
         assert r.json()["detail"]["error"] == "x402_payment_rejected"
 
 
+def test_facilitator_outage_fails_closed_and_payment_is_retryable(monkeypatch):
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    monkeypatch.setattr(
+        x402, "_facilitator",
+        lambda: FakeFacilitator(raise_error=ConnectionError("facilitator down")))
+    from app.main import app
+    p = make_payload(SEARCH)
+    with TestClient(app) as client:
+        r = client.get("/search?capability=anything",
+                       headers={"PAYMENT-SIGNATURE": sig_header(p)})
+        assert r.status_code == 402
+        assert r.json()["detail"]["error"] == "x402_payment_rejected"
+    # the identity was released — the SAME payment succeeds once the
+    # facilitator is back (no client-side funds burned by an outage)
+    monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
+    with TestClient(app) as client:
+        r = client.get("/search?capability=anything",
+                       headers={"PAYMENT-SIGNATURE": sig_header(p)})
+        assert r.status_code == 200
+
+
 # --- binding + replay security regressions ------------------------------------
 
-def _expect_binding_error(payload, reason, endpoint="best_agent", cost=10):
+def _expect_binding_error(payload, reason, preq=None, cost=10):
     with pytest.raises(x402.PaymentBindingError) as e:
-        x402.check_binding(payload, endpoint, cost)
+        x402.check_binding(payload, preq or SEARCH, cost)
     assert e.value.reason == reason
 
 
 def test_replay_is_rejected(monkeypatch):
     monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
-    p = make_payload("best_agent", 10)
-    assert x402.process_payment(p, "best_agent", 10)["ok"]
+    p = make_payload(SEARCH)
+    assert x402.process_payment(p, SEARCH, 10)["ok"]
     with pytest.raises(x402.PaymentBindingError) as e:
-        x402.process_payment(p, "best_agent", 10)
+        x402.process_payment(p, SEARCH, 10)
     assert e.value.reason == "replay_rejected"
 
 
-def test_cross_resource_substitution_rejected():
-    # payment bound to /check cannot buy /agents/{id}/reputation
-    p = make_payload("best_agent", 10)
+def test_path_substitution_rejected():
+    # payment bound to /search cannot buy /check (same operation, same price,
+    # DIFFERENT path)
+    check = payments.check_request("anything")
+    p = make_payload(SEARCH)
     with pytest.raises(x402.PaymentBindingError) as e:
-        x402.check_binding(p, "reputation", 5)
+        x402.check_binding(p, check, 10)
+    assert e.value.reason == "resource_mismatch"
+
+
+def test_query_mutation_rejected():
+    # same route, one result-affecting parameter changed
+    other = payments.search_request("anything", limit=1)
+    p = make_payload(SEARCH)
+    with pytest.raises(x402.PaymentBindingError) as e:
+        x402.check_binding(p, other, 10)
+    assert e.value.reason == "resource_mismatch"
+    cap = payments.search_request("something-else")
+    with pytest.raises(x402.PaymentBindingError) as e:
+        x402.check_binding(p, cap, 10)
+    assert e.value.reason == "resource_mismatch"
+
+
+def test_agent_id_substitution_rejected():
+    # a payment for agent A's risk-score cannot buy agent B's (same price)
+    a = payments.risk_score_request("agent_aaaaaaaaaaaa")
+    b = payments.risk_score_request("agent_bbbbbbbbbbbb")
+    p = make_payload(a)
+    with pytest.raises(x402.PaymentBindingError) as e:
+        x402.check_binding(p, b, 10)
+    assert e.value.reason == "resource_mismatch"
+
+
+def test_method_change_rejected():
+    p = make_payload(SEARCH)
+    with pytest.raises(x402.PaymentBindingError) as e:
+        x402.check_binding(p, SEARCH, 10, method="POST")
+    assert e.value.reason == "method_mismatch"
+
+
+def test_cross_operation_substitution_rejected():
+    # payment bound to /search cannot buy /agents/{id}/reputation
+    p = make_payload(SEARCH)
+    with pytest.raises(x402.PaymentBindingError) as e:
+        x402.check_binding(p, payments.reputation_request("agent_cafecafecafe"), 5)
     assert e.value.reason in ("requirements_mismatch", "resource_mismatch")
 
 
+def test_payment_reuse_on_another_resource_rejected_end_to_end(monkeypatch):
+    """A captured wire payment replayed against a DIFFERENT same-priced
+    resource must fail on binding, and against the SAME resource must fail on
+    replay/double settlement."""
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
+    from app.main import app
+    p = make_payload(SEARCH)
+    hdr = {"PAYMENT-SIGNATURE": sig_header(p)}
+    with TestClient(app) as client:
+        assert client.get("/search?capability=anything",
+                          headers=hdr).status_code == 200
+        # same price, different resource → binding failure, no settlement
+        r2 = client.get("/check?capability=anything", headers=hdr)
+        assert r2.status_code == 402
+        assert r2.json()["detail"]["reason"] in (
+            "resource_mismatch", "replay_rejected",
+            "double_settlement_rejected")
+        # exact same resource again → replay
+        r3 = client.get("/search?capability=anything", headers=hdr)
+        assert r3.status_code == 402
+
+
 def test_price_substitution_rejected():
-    offered = x402.requirements("best_agent", 10)
+    offered = x402.requirements(10)
     cheap = offered.model_copy(update={"amount": "1"})
     _expect_binding_error(
-        make_payload("best_agent", 10, accepted=cheap, amount="1"),
+        make_payload(SEARCH, accepted=cheap, amount="1"),
         "requirements_mismatch")
     # tampering ONLY the inner authorization value is also caught
-    _expect_binding_error(make_payload("best_agent", 10, amount="1"),
+    _expect_binding_error(make_payload(SEARCH, amount="1"),
                           "amount_mismatch")
 
 
 def test_recipient_substitution_rejected():
     evil = "0x" + "99" * 20
-    offered = x402.requirements("best_agent", 10)
+    offered = x402.requirements(10)
     _expect_binding_error(
-        make_payload("best_agent", 10,
+        make_payload(SEARCH,
                      accepted=offered.model_copy(update={"pay_to": evil}),
                      pay_to=evil),
         "requirements_mismatch")
-    _expect_binding_error(make_payload("best_agent", 10, pay_to=evil),
+    _expect_binding_error(make_payload(SEARCH, pay_to=evil),
                           "recipient_mismatch")
+
+
+def test_wrong_network_and_asset_rejected():
+    offered = x402.requirements(10)
+    wrong_net = offered.model_copy(update={"network": "eip155:8453"})
+    _expect_binding_error(make_payload(SEARCH, accepted=wrong_net),
+                          "requirements_mismatch")
+    wrong_asset = offered.model_copy(
+        update={"asset": x402.USDC_BY_NETWORK["eip155:8453"]})
+    _expect_binding_error(make_payload(SEARCH, accepted=wrong_asset),
+                          "requirements_mismatch")
 
 
 def test_expired_and_not_yet_valid_authorizations_rejected():
     now = time.time()
     _expect_binding_error(
-        make_payload("best_agent", 10, valid_before=now - 5),
+        make_payload(SEARCH, valid_before=now - 5),
         "authorization_expired")
     _expect_binding_error(
-        make_payload("best_agent", 10, valid_after=now + 3600),
+        make_payload(SEARCH, valid_after=now + 3600),
         "authorization_not_yet_valid")
 
 
 def test_wrong_resource_url_rejected():
     _expect_binding_error(
-        make_payload("best_agent", 10, url="https://evil.example/check"),
+        make_payload(SEARCH, url="https://evil.example/search?capability=anything"),
         "resource_mismatch")
 
 
 def test_wrong_version_rejected():
-    _expect_binding_error(make_payload("best_agent", 10, version=3),
+    _expect_binding_error(make_payload(SEARCH, version=3),
                           "invalid_x402_version")
 
 
@@ -238,12 +408,13 @@ def test_double_settlement_rejected_via_persisted_record(monkeypatch):
     monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
     from app.main import app
     from app.state import store
-    p = make_payload("best_agent", 10)
+    p = make_payload(SEARCH)
     with TestClient(app) as client:
         hdr = {"PAYMENT-SIGNATURE": sig_header(p)}
-        assert client.get("/search?capability=x", headers=hdr).status_code == 200
+        assert client.get("/search?capability=anything",
+                          headers=hdr).status_code == 200
         # same payment identity again — in-process replay guard
-        r2 = client.get("/search?capability=x", headers=hdr)
+        r2 = client.get("/search?capability=anything", headers=hdr)
         assert r2.status_code == 402
     # simulate a RESTART: fresh in-process guard, persisted record remains
     auth = p.payload["authorization"]
@@ -251,13 +422,13 @@ def test_double_settlement_rejected_via_persisted_record(monkeypatch):
     assert store.x402_identity_settled(ident) is True
     monkeypatch.setattr(x402, "replay_guard", x402._ReplayGuard())
     with TestClient(app) as client:
-        r3 = client.get("/search?capability=x",
+        r3 = client.get("/search?capability=anything",
                         headers={"PAYMENT-SIGNATURE": sig_header(p)})
         assert r3.status_code == 402
         assert r3.json()["detail"]["reason"] == "double_settlement_rejected"
 
 
-# --- v1 legacy: deprecated, and cannot weaken v2 --------------------------------
+# --- v1 legacy: REJECTED on priced HTTP routes ---------------------------------
 
 def _v1_header(payload_v2: PaymentPayload, network="base-sepolia") -> str:
     v1 = {"x402Version": 1, "scheme": "exact", "network": network,
@@ -265,49 +436,26 @@ def _v1_header(payload_v2: PaymentPayload, network="base-sepolia") -> str:
     return base64.b64encode(json.dumps(v1).encode()).decode()
 
 
-def test_v1_header_still_settles_but_is_deprecated(monkeypatch):
+def test_v1_header_is_rejected_with_migration_note(monkeypatch):
+    """v1 payloads carry no resource echo — they can NOT be bound to the
+    exact request, so priced HTTP routes refuse them with the exact
+    machine-readable upgrade path (and never serve the result)."""
     monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
-    monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
+    fac = FakeFacilitator()
+    monkeypatch.setattr(x402, "_facilitator", lambda: fac)
     from app.main import app
     with TestClient(app) as client:
         r = client.get("/search?capability=x",
-                       headers={"X-PAYMENT": _v1_header(make_payload("best_agent", 10))})
-        assert r.status_code == 200
-        assert r.headers.get("Deprecation") == "true"
+                       headers={"X-PAYMENT": _v1_header(make_payload(SEARCH))})
+        assert r.status_code == 402
+        detail = r.json()["detail"]
+        assert detail["reason"] == "v1_not_accepted"
+        assert "PAYMENT-SIGNATURE" in detail["detail"]
+        assert fac.settle_calls == []          # nothing was settled
     from app.state import store
-    rec = [b for b in store.billing_log if b.get("type") == "x402_payment"][-1]
-    assert rec["protocol"] == "v1"
-
-
-def test_v1_cannot_weaken_v2_validation(monkeypatch):
-    monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
-    # wrong amount through the v1 door → same guard, same rejection
-    with pytest.raises(x402.PaymentBindingError) as e:
-        x402.process_v1_payment_header(
-            _v1_header(make_payload("best_agent", 10, amount="1")),
-            "best_agent", 10)
-    assert e.value.reason == "amount_mismatch"
-    # wrong recipient
-    with pytest.raises(x402.PaymentBindingError) as e:
-        x402.process_v1_payment_header(
-            _v1_header(make_payload("best_agent", 10, pay_to="0x" + "99" * 20)),
-            "best_agent", 10)
-    assert e.value.reason == "recipient_mismatch"
-    # unknown / mismatched v1 network names
-    with pytest.raises(x402.PaymentBindingError):
-        x402.process_v1_payment_header(
-            _v1_header(make_payload("best_agent", 10), network="fakenet"),
-            "best_agent", 10)
-    with pytest.raises(x402.PaymentBindingError):
-        x402.process_v1_payment_header(
-            _v1_header(make_payload("best_agent", 10), network="base"),
-            "best_agent", 10)
-    # a replayed v1 payment is caught by the shared replay guard
-    p = make_payload("best_agent", 10)
-    assert x402.process_v1_payment_header(_v1_header(p), "best_agent", 10)["ok"]
-    with pytest.raises(x402.PaymentBindingError) as e:
-        x402.process_v1_payment_header(_v1_header(p), "best_agent", 10)
-    assert e.value.reason == "replay_rejected"
+    assert not any(b.get("protocol") == "v1"
+                   for b in store.billing_log
+                   if b.get("type") == "x402_payment")
 
 
 def test_v1_payload_rejected_on_v2_header():
@@ -319,14 +467,31 @@ def test_v1_payload_rejected_on_v2_header():
     assert e.value.reason == "invalid_x402_version"
 
 
+def test_v1_translation_for_a2a_passes_the_same_guards(monkeypatch):
+    """The v1→v2 translation kept for the A2A task path routes through the
+    SAME binding guards — it cannot weaken v2 validation."""
+    monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
+    p = make_payload(SEARCH, amount="1")
+    v1 = {"x402Version": 1, "scheme": "exact", "network": "base-sepolia",
+          "payload": p.payload}
+    translated = x402.v1_payload_to_v2(v1, SEARCH, 10)
+    with pytest.raises(x402.PaymentBindingError) as e:
+        x402.process_payment(translated, SEARCH, 10, protocol="v1")
+    assert e.value.reason == "amount_mismatch"
+    # unknown / mismatched v1 network names
+    with pytest.raises(x402.PaymentBindingError):
+        x402.v1_payload_to_v2({**v1, "network": "fakenet"}, SEARCH, 10)
+    with pytest.raises(x402.PaymentBindingError):
+        x402.v1_payload_to_v2({**v1, "network": "base"}, SEARCH, 10)
+
+
 # --- revenue honesty ------------------------------------------------------------
 
 def test_testnet_settlement_never_counts_as_real_revenue(monkeypatch):
     monkeypatch.setattr(x402, "_facilitator", lambda: FakeFacilitator())
     from app.state import store
     before = store.escrow_summary()
-    settled = x402.process_payment(make_payload("best_agent", 10),
-                                   "best_agent", 10)
+    settled = x402.process_payment(make_payload(SEARCH), SEARCH, 10)
     assert settled["ok"] and settled["mainnet"] is False
     store.record_x402_payment("best_agent", 10, settled)
     rev = store.escrow_summary()
@@ -356,8 +521,7 @@ def test_only_independently_confirmed_mainnet_settlement_counts(monkeypatch):
     monkeypatch.setattr(x402_confirm, "_get_receipt",
                         lambda tx, timeout=15.0: _receipt())
     before = store.escrow_summary()["real_settlement"]
-    settled = x402.process_payment(make_payload("best_agent", 10),
-                                   "best_agent", 10)
+    settled = x402.process_payment(make_payload(SEARCH), SEARCH, 10)
     assert settled["mainnet"] is True and settled["transaction"]
     assert settled["status"] == "settled_confirmed" and settled["confirmed"]
     store.record_x402_payment("best_agent", 10, settled)

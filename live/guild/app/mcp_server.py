@@ -13,15 +13,23 @@ told apart from our own tests — see `_client_ua`.
 """
 from __future__ import annotations
 
+import json as _json
 import os
-from typing import Optional
+from typing import Any, Callable, Optional
 from typing_extensions import TypedDict
 
 from fastmcp import Context, FastMCP
+from fastmcp.tools.tool import ToolResult
+
+from x402.mcp.types import MCP_PAYMENT_META_KEY, MCP_PAYMENT_RESPONSE_META_KEY
+from x402.schemas import PaymentPayload
 
 from . import __version__
 from . import journey as journey_engine
+from . import payments
 from . import proving
+from . import x402
+from .payments import CachedPaidResult, PaidRequest, PaymentChallenge, PaymentIdConflict
 from .state import store
 from . import credentials as _creds
 
@@ -128,8 +136,121 @@ def _rank(capability: str, limit: int, min_trust: float):
     return store.shortlist(capability, limit=limit, min_trust=min_trust)
 
 
+# --- MCP paid-operation gate -------------------------------------------------
+# The paid TRUST reads (guild_check / guild_search / guild_best_agent /
+# guild_risk_score) used to record paid=false and serve the full payload free
+# over MCP — a free cross-protocol bypass of the priced HTTP reads. They now
+# route through the SAME shared gateway (app/payments.py) as HTTP and A2A: one
+# semantic operation, one price, one enforcement policy on every transport.
+#
+# x402 over MCP: the official x402 MCP integration (x402.mcp) wraps servers
+# built on the raw `mcp` SDK tool-handler signature; the Guild's hosted server
+# is FastMCP-based, so there is no supported drop-in today. Rather than invent
+# a proprietary pseudo-standard, the gate binds the MCP tool to the CANONICAL
+# HTTP resource and speaks the official x402 MCP meta convention
+# (MCP_PAYMENT_META_KEY 'x402/payment' in the request _meta; a v2
+# PaymentRequired challenge as the tool error; MCP_PAYMENT_RESPONSE_META_KEY
+# 'x402/payment-response' in the result _meta). An MCP client can therefore
+# build the payment with the official x402 SDK, echo the canonical resource,
+# and retry automatically — proven in tests/test_mcp_x402.py.
+
+
+def _mcp_payment(ctx: "Context | None") -> Optional[PaymentPayload]:
+    """Extract a v2 PaymentPayload from the MCP request _meta['x402/payment']
+    (the official x402 MCP meta key). Returns None when absent/unusable."""
+    if ctx is None or not x402.enabled():
+        return None
+    try:
+        meta = ctx.request_context.meta
+    except Exception:
+        return None
+    if meta is None:
+        return None
+    data = None
+    extra = getattr(meta, "model_extra", None)
+    if isinstance(extra, dict):
+        data = extra.get(MCP_PAYMENT_META_KEY)
+    if data is None:
+        return None
+    try:
+        if isinstance(data, PaymentPayload):
+            return data
+        if isinstance(data, dict):
+            return PaymentPayload(**data)
+        if isinstance(data, str):
+            return PaymentPayload(**_json.loads(data))
+    except Exception:
+        return None
+    return None
+
+
+def _challenge_result(body: dict[str, Any]) -> ToolResult:
+    """A complete, machine-readable payment-required challenge as an MCP tool
+    error — the unpaid caller never receives the paid payload."""
+    return ToolResult(
+        content=[{"type": "text", "text": _json.dumps(body, default=str)}],
+        structured_content=body, is_error=True)
+
+
+def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
+                ctx: "Context | None", api_key: str = "",
+                structured: bool = True) -> ToolResult:
+    """Run one priced MCP read through the shared gateway. Returns the result
+    ONLY on free/sandbox/settled authorization; an unpaid enforced call gets
+    the challenge; a settled call carries the signed receipt + evidence in the
+    result _meta under 'x402/payment-response'."""
+    payment = _mcp_payment(ctx)
+    ua = _client_ua(ctx)
+    try:
+        if payment is not None:
+            # decode already done; authorize settles + binds to preq
+            auth = payments.authorize(preq, payment=payment, protocol="v2",
+                                      ua=ua, transport="mcp")
+        else:
+            auth = payments.authorize(preq, api_key=(api_key or None),
+                                      ua=ua, transport="mcp")
+    except PaymentChallenge as e:
+        return _challenge_result(e.body)
+    except PaymentIdConflict as e:
+        return _challenge_result({"error": "payment_identifier_conflict",
+                                  "reason": e.reason, "detail": e.detail,
+                                  "payment_id": e.payment_id})
+    except x402.PaymentBindingError as e:
+        ch = PaymentChallenge(preq, extra={"error": "x402_payment_invalid",
+                                           "reason": e.reason,
+                                           "detail": e.detail[:300]})
+        return _challenge_result(ch.body)
+    except CachedPaidResult as e:
+        # official idempotency: same id + same request → cached result, no
+        # second settlement.
+        result = e.result_json
+        meta = {"x402/idempotent-replay": True}
+        if e.settle_record:
+            meta[MCP_PAYMENT_RESPONSE_META_KEY] = e.settle_record
+        return ToolResult(
+            content=[{"type": "text", "text": e.record["result_body"]}],
+            structured_content=(result if isinstance(result, dict)
+                                else {"result": result}),
+            meta=meta)
+    result = produce()
+    body = _json.dumps(result, default=str)
+    sc = result if isinstance(result, dict) else {"result": result}
+    if auth.mode == "x402" and auth.settled is not None:
+        fin = auth.settled.finalize(body.encode("utf-8"))
+        return ToolResult(content=[{"type": "text", "text": body}],
+                          structured_content=sc,
+                          meta={MCP_PAYMENT_RESPONSE_META_KEY:
+                                fin["settle_response"]})
+    if auth.mode == "credits_sandbox":
+        return ToolResult(content=[{"type": "text", "text": body}],
+                          structured_content=sc,
+                          meta={"x402/settlement-unit": "credits_sandbox"})
+    # free (soft-launch / self): return the plain payload unchanged
+    return result
+
+
 @mcp.tool
-def guild_check(capability: str, ctx: Context = None) -> dict:
+def guild_check(capability: str, api_key: str = "", ctx: Context = None) -> dict:
     """START HERE. One call to vet a `capability` before you delegate: returns the
     best-evidenced agent with an evidence verdict — `estimate` (0-1), `confidence`,
     and a checkable `explanation` — plus a ranked shortlist, machine-checkable
@@ -137,62 +258,87 @@ def guild_check(capability: str, ctx: Context = None) -> dict:
     back. Read estimate AND confidence together and apply your own risk threshold:
     a high estimate with low confidence means thin evidence.
 
+    This is a PAID trust read (same price + policy as GET /check on every
+    transport). When the rail is active, an unpaid call returns a complete
+    x402 payment challenge for the canonical HTTP resource; retry with the
+    payment in the request _meta['x402/payment'] (official x402 MCP meta key),
+    or pass a funded `api_key` for SANDBOX credits (never revenue). Free while
+    the service is in soft-launch.
+
     Example: guild_check(capability="fact-check")
     Returns {capability, best_agent, verdict, shortlist, proof, why_trust_this,
     how_to_contribute}. Use guild_search / guild_risk_score for finer control.
     """
-    store.record_event("mcp", "query", ua=_client_ua(ctx), endpoint="best_agent", paid=False)
-    return store.check(capability)
+    return _serve_paid(payments.check_request(capability),
+                       lambda: store.check(capability), ctx, api_key)
 
 
 @mcp.tool
 def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
-                 ctx: Context = None) -> list[AgentHit]:
+                 api_key: str = "", ctx: Context = None):
     """Find agents that have a capability, ranked by attack-resistant trust.
 
     Use this to build a shortlist before delegating work. `min_trust` filters out
     low-trust agents (0-100); `limit` caps the list.
 
+    PAID trust read (same price + policy as GET /search). Unpaid + enforced →
+    x402 challenge for the canonical resource; pay via _meta['x402/payment'] or
+    a funded `api_key` (sandbox credits). Free in soft-launch.
+
     Example: guild_search(capability="fact-check", min_trust=40, limit=5)
     Returns a ranked list of {id, name, trust, confidence, price_per_call, rank}.
     """
-    store.record_event("mcp", "query", ua=_client_ua(ctx), endpoint="best_agent", paid=False)
-    return _rank(capability, limit, min_trust)
+    return _serve_paid(payments.search_request(capability, limit, min_trust),
+                       lambda: _rank(capability, limit, min_trust), ctx, api_key)
 
 
 @mcp.tool
 def guild_best_agent(capability: str, min_trust: float = 0.0,
-                     ctx: Context = None) -> Optional[AgentHit]:
+                     api_key: str = "", ctx: Context = None):
     """The single safest agent to delegate a `capability` to right now (or null
     if none qualify). Call this first, before hiring or delegating.
+
+    PAID trust read (same price + policy as GET /search). Unpaid + enforced →
+    x402 challenge; pay via _meta['x402/payment'] or a funded `api_key`
+    (sandbox credits). Free in soft-launch.
 
     Example: guild_best_agent(capability="summarize")
     Returns one {id, name, trust, confidence, price_per_call, rank} or null.
     """
-    store.record_event("mcp", "query", ua=_client_ua(ctx), endpoint="best_agent", paid=False)
-    top = _rank(capability, 1, min_trust)
-    return top[0] if top else None
+    def _best():
+        top = _rank(capability, 1, min_trust)
+        return top[0] if top else None
+    return _serve_paid(payments.search_request(capability, 1, min_trust),
+                       _best, ctx, api_key)
 
 
 @mcp.tool
-def guild_risk_score(agent_id: str, ctx: Context = None) -> RiskAssessment:
+def guild_risk_score(agent_id: str, api_key: str = "",
+                     ctx: Context = None):
     """The evidence view for one agent before trusting it with a task or payment:
     `estimate` (0-1 expected quality), `confidence` (how much trusted evidence
     backs it), a checkable `explanation`, and collusion suspicion. Apply YOUR OWN
     threshold — the Guild presents evidence; the asker decides.
 
+    PAID trust read (same price + policy as GET /agents/{id}/risk-score). Unpaid
+    + enforced → x402 challenge; pay via _meta['x402/payment'] or a funded
+    `api_key` (sandbox credits). Free in soft-launch.
+
     Example: guild_risk_score(agent_id="agt_1a2b3c")
     Deprecated v1 fields (`risk`, `recommendation`, `trust`) are still returned.
     """
-    store.record_event("mcp", "query", ua=_client_ua(ctx), endpoint="risk_score", paid=False)
     rec = store.get_agent(agent_id)
     if not rec:
         return {"error": "agent not found"}
-    v = store.risk_for(agent_id)   # shared with /check and /risk-score
-    if v is None:
-        return {"error": "no reputation"}
-    v["name"] = rec["name"]
-    return v
+
+    def _risk():
+        v = store.risk_for(agent_id)   # shared with /check and /risk-score
+        if v is None:
+            return {"error": "no reputation"}
+        v["name"] = rec["name"]
+        return v
+    return _serve_paid(payments.risk_score_request(agent_id), _risk, ctx,
+                       api_key)
 
 
 @mcp.tool

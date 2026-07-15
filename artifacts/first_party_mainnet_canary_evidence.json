@@ -1,0 +1,26 @@
+{
+  "label": "first_party_mainnet_canary",
+  "mode": "dry_run",
+  "disclaimer": "First-party canary DRY RUN. Preconditions + signed offer verified; NO signature produced, NO funds moved. NOT a payment, NOT revenue, NOT external adoption.",
+  "target": "https://agent-guild-5d5r.onrender.com",
+  "requested_resource": "https://agent-guild-5d5r.onrender.com/check?capability=code-review",
+  "canonical_resource": "https://agent-guild-5d5r.onrender.com/check?capability=code-review&signed=false&ttl_seconds=3600",
+  "network": "eip155:8453",
+  "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "recipient": "0xaa4E3ba0Eb5f564cAb54dDC08f5BaAfb3D4cA8E5",
+  "chain_id": 8453,
+  "amount_atomic": "10000",
+  "amount_usdc": 0.01,
+  "lifetime_cap_usdc": 0.01,
+  "signed_offer_verified": true,
+  "revenue_before": {
+    "transactions": 0,
+    "revenue_usd": 0.0,
+    "networks": [],
+    "transaction_hashes": [],
+    "note": "zero: no independently confirmed mainnet settlement exists (testnet/sandbox/unconfirmed activity is value-less and listed under testnet_settlement)"
+  },
+  "generation_note": "Produced against a LOCAL mainnet-shaped stack with a fake RPC (chainId 8453) \u2014 no real network call, no signing, no key. Illustrates the artifact shape --execute would emit with real settlement fields added.",
+  "result": "DRY RUN CLEAN \u2014 refused to sign",
+  "timestamp": "2026-07-15T03:53:31Z"
+}

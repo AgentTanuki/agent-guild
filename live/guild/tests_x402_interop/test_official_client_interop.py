@@ -64,8 +64,16 @@ def test_unpaid_request_gets_v2_challenge(live_stack):
     assert req["scheme"] == "exact"
     assert req["payTo"] == live_stack["pay_to"]
     assert req["amount"] == "10000"
-    # bazaar discovery extension rides in the challenge
-    assert "bazaar" in (challenge.get("extensions") or {})
+    # EXACT-RESOURCE BINDING: the challenge quotes the ACTUAL request, not a
+    # capability template — the production defect this sprint closed.
+    assert "/search?capability=interop.test" in challenge["resource"]["url"]
+    assert "/check" not in challenge["resource"]["url"]
+    exts = challenge.get("extensions") or {}
+    # bazaar discovery + payment-identifier + signed offer all ride along
+    assert "bazaar" in exts
+    assert "payment-identifier" in exts
+    assert "offer-receipt" in exts
+    assert exts["offer-receipt"]["info"]["offers"][0]["format"] == "jws"
 
 
 def test_official_client_pays_and_gets_result_and_receipt(live_stack):
