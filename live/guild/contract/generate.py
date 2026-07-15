@@ -187,6 +187,7 @@ def _trust_meta(s: dict) -> dict:
                 "passport_endpoint": s["host"] + "/agents/{id}/passport",
                 "checkpoint_feed": s["host"] + "/ledger/checkpoints",
                 "a2a_extension": "https://agent-guild.ai/ext/trust/v1",
+                "demand_feed": s["host"] + "/demand/feed",
                 "conformance": (s["repository"] + "/blob/main/live/"
                                 "trustplane/conformance/AGI1_CONFORMANCE.md"),
                 "note": ("Signed AGD-1 delegation decisions and offline-"

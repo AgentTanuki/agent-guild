@@ -203,7 +203,10 @@ def handle_payment_submission(message: dict[str, Any]) -> dict[str, Any]:
         return _failed_task(task_id, _err_code(reason),
                             e.body.get("detail") or reason, receipts)
     # Produce the paid result, bind receipt+evidence to its exact bytes.
-    result = store.check(dict(preq.query).get("capability") or "")
+    # demand for this request was recorded pre-authorization (B1) when the
+    # payment-required task was created — never count it again on payment.
+    result = store.check(dict(preq.query).get("capability") or "",
+                         demand_recorded=True)
     body = json.dumps(result, default=str).encode("utf-8")
     fin = settled.finalize(body)
     settle_response = _settle_response({

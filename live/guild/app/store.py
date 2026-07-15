@@ -2439,6 +2439,166 @@ class Store:
             row["last_lookup"] = e.get("at")
         return summary
 
+    def demand_feed_entries(self) -> list[dict[str, Any]]:
+        """Aggregated UNMET demand for the supplier-facing machine feed
+        (/demand/feed). Per canonical capability: total + GENUINE lookup
+        counts, supply counts, first/last seen and the stable demand id.
+
+        Privacy: aggregates only — no actor identifiers, no raw IPs, no
+        prompts. Honesty: `genuine_lookups` excludes AG-owned traffic
+        (first-party flag), registry crawlers and AG test harnesses
+        (attribution UA rules); entries are published only while the
+        capability has NO verified-reachable supply and at least one genuine
+        lookup keeps the feed's promise: real, dated, unmet demand."""
+        from . import attribution
+        from . import demand as demand_mod
+        supplied_caps = self.capability_index()
+        rows: dict[str, dict[str, Any]] = {}
+        for e in self.events:
+            if e.get("type") != "capability_demand":
+                continue
+            cap = e.get("capability", "")
+            if not cap or not (e.get("explicit") or e.get("supplied")):
+                continue
+            ua = e.get("ua") or ""
+            genuine = (not e.get("fp")
+                       and not e.get("demand_first_party")
+                       and not attribution.CRAWLER_UA_RE.search(ua)
+                       and not attribution.AG_TEST_UA_RE.search(ua))
+            row = rows.setdefault(cap, {
+                "capability": cap,
+                "demand_id": demand_mod.demand_id_for(cap),
+                "lookups": 0, "genuine_lookups": 0,
+                "first_seen": e.get("at"), "last_seen": e.get("at"),
+                "transports": [],
+            })
+            row["lookups"] += 1
+            if genuine:
+                row["genuine_lookups"] += 1
+            row["last_seen"] = e.get("at")
+            t = e.get("transport")
+            if t and t not in row["transports"]:
+                row["transports"].append(t)
+        out = []
+        for cap, row in rows.items():
+            if cap in supplied_caps:
+                continue                      # met on paper — not unmet demand
+            counts = demand_mod.supply_counts(self, cap)
+            row.update(supplied=counts["supplied"],
+                       declared_endpoint=counts["declared_endpoint"],
+                       verified_reachable=counts["verified_reachable"])
+            out.append(row)
+        out.sort(key=lambda r: (r["genuine_lookups"], r["last_seen"] or ""),
+                 reverse=True)
+        return out
+
+    def conversion_funnel(self) -> dict[str, Any]:
+        """B4 — the complete autonomous machine funnel, honestly measured:
+
+          demand_observed → candidate_discovered → candidate_endpoint_verified
+          → supplier_contacted / pulled_feed → registered → identity_proved
+          → endpoint_declared/verified → paid_decision → delegation → outcome
+          → mainnet_settlement
+
+        STRUCTURAL exclusion of AG-owned traffic: every externally-attributed
+        stage counts an event only when attribution.caller_class puts the
+        caller in an EXTERNAL_* class (may_count_as_external_growth) — our
+        probes, release gates, canaries, test harnesses and registry crawlers
+        are excluded by TYPE, not by policy. Scout stages (candidate_*,
+        supplier_contacted) are AG-run pipeline work and are labelled so.
+        mainnet_settlement counts ONLY independently-confirmed mainnet
+        settlements — currently zero and reported as zero."""
+        from . import attribution
+
+        def _external(e: dict[str, Any]) -> bool:
+            return attribution.may_count_as_external_growth(
+                attribution.caller_class(e)) and not e.get(
+                "demand_first_party")
+
+        ext = {"demand_observed": 0, "pulled_feed": 0, "registered": 0,
+               "identity_proved": 0, "endpoint_declared": 0,
+               "paid_decision": 0, "delegation": 0}
+        scout_counts = {"candidate_discovered": 0,
+                        "candidate_endpoint_verified": 0,
+                        "supplier_contacted": 0}
+        for e in self.events:
+            t = e.get("type")
+            if t == "capability_demand" and e.get("explicit"):
+                if _external(e):
+                    ext["demand_observed"] += 1
+            elif t == "demand_feed_pulled":
+                if _external(e):
+                    ext["pulled_feed"] += 1
+            elif t == "register":
+                if _external(e):
+                    ext["registered"] += 1
+            elif t == "prove_completed":
+                if _external(e):
+                    ext["identity_proved"] += 1
+            elif t == "endpoint_declared":
+                if _external(e):
+                    ext["endpoint_declared"] += 1
+            elif t == "query" and e.get("paid"):
+                if _external(e):
+                    ext["paid_decision"] += 1
+            elif t == "delegation":
+                if _external(e):
+                    ext["delegation"] += 1
+            elif t in scout_counts:
+                scout_counts[t] += 1
+        outcomes = sum(1 for t in self.tasks.values()
+                       if t.get("outcome") in ("success", "failure"))
+        mainnet = [b for b in self.billing_log
+                   if b.get("type") == "x402_payment" and b.get("mainnet")
+                   and b.get("status") == "settled_confirmed"
+                   and b.get("confirmed")]
+        endpoint_verified_now = sum(
+            1 for a in self.agents.values()
+            if (a.get("reachability") or {}).get("status")
+            in ("recently_reachable", "invocation_verified"))
+        return {
+            "stages": [
+                {"stage": "demand_observed", "count": ext["demand_observed"],
+                 "source": "capability_demand events (genuine external)"},
+                {"stage": "candidate_discovered",
+                 "count": scout_counts["candidate_discovered"],
+                 "source": "discovery scout (AG-run pipeline work)"},
+                {"stage": "candidate_endpoint_verified",
+                 "count": scout_counts["candidate_endpoint_verified"],
+                 "source": "discovery scout (AG-run pipeline work)"},
+                {"stage": "supplier_contacted",
+                 "count": scout_counts["supplier_contacted"],
+                 "source": "scout outbound (terms-gated, rate-limited)"},
+                {"stage": "pulled_feed", "count": ext["pulled_feed"],
+                 "source": "external fetches of /demand/feed"},
+                {"stage": "registered", "count": ext["registered"],
+                 "source": "external registrations"},
+                {"stage": "identity_proved",
+                 "count": ext["identity_proved"],
+                 "source": "external prove completions"},
+                {"stage": "endpoint_declared",
+                 "count": ext["endpoint_declared"],
+                 "source": "external endpoint declarations"},
+                {"stage": "endpoint_verified_current",
+                 "count": endpoint_verified_now,
+                 "source": "agents with a verified reachable endpoint NOW "
+                           "(snapshot, not a flow count)"},
+                {"stage": "paid_decision", "count": ext["paid_decision"],
+                 "source": "external paid trust reads (x402 + sandbox)"},
+                {"stage": "delegation", "count": ext["delegation"],
+                 "source": "external delegations"},
+                {"stage": "outcome", "count": outcomes,
+                 "source": "tasks with a recorded outcome"},
+                {"stage": "mainnet_settlement", "count": len(mainnet),
+                 "source": "independently confirmed mainnet settlements "
+                           "ONLY — honestly zero until one exists"},
+            ],
+            "exclusions": ("AG-owned probes, release gates, canaries, test "
+                           "harnesses and registry crawlers are excluded "
+                           "from external stages structurally "
+                           "(attribution.caller_class → EXTERNAL_* gate)"),
+        }
+
     def evidence_staleness(self, agent_id: str) -> Optional[dict[str, Any]]:
         """Staleness of an agent's evidence: age of the most recent attestation
         it received or receipt it delivered. §15 lists staleness as a required
@@ -2646,7 +2806,8 @@ class Store:
                       "own thresholds."),
         }
 
-    def check(self, capability: str) -> dict[str, Any]:
+    def check(self, capability: str,
+              demand_recorded: bool = False) -> dict[str, Any]:
         """One-call first contact: everything a brand-new agent needs to go from
         'never heard of the Guild' to a confident delegation decision *and* a
         reason to contribute back — in a single request. Collapses
@@ -2712,10 +2873,16 @@ class Store:
         # `reachable_supply` (2026-07-10) distinguishes "supply on paper" from
         # supply a caller can actually route work to — the fact-check poller
         # taught us those are different funnels.
-        self.record_event(None, "capability_demand",
-                          capability=capability, supplied=bool(best),
-                          reachable_supply=any_reachable,
-                          explicit=True)
+        # B1 (2026-07-15): transports record demand through the shared
+        # PRE-AUTHORIZATION recorder (app/demand.py) and pass
+        # demand_recorded=True here, so a request that already expressed its
+        # demand at the payment gate is never counted a second time after
+        # payment succeeds. Direct callers keep the historical behaviour.
+        if not demand_recorded:
+            self.record_event(None, "capability_demand",
+                              capability=capability, supplied=bool(best),
+                              reachable_supply=any_reachable,
+                              explicit=True)
         ev = self.evaluation()
         proof = {
             "dataset": ev["dataset"],

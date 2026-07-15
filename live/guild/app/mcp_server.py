@@ -25,6 +25,7 @@ from x402.mcp.types import MCP_PAYMENT_META_KEY, MCP_PAYMENT_RESPONSE_META_KEY
 from x402.schemas import PaymentPayload
 
 from . import __version__
+from . import demand
 from . import journey as journey_engine
 from . import payments
 from . import proving
@@ -192,9 +193,24 @@ def _challenge_result(body: dict[str, Any]) -> ToolResult:
         structured_content=body, is_error=True)
 
 
+def _record_mcp_demand(capability: str, ctx: "Context | None",
+                       api_key: str = "") -> "dict | None":
+    """B1: the shared PRE-AUTHORIZATION demand recorder — invoked before
+    authorize(), so an unpaid MCP caller's capability need is preserved even
+    when the answer is a payment challenge."""
+    import hashlib
+    ua = _client_ua(ctx)
+    basis = ("key:" + api_key) if api_key else ("ua:" + ua)
+    actor = "mcp:" + hashlib.sha256(
+        ("agent-guild/demand-actor/" + basis).encode()).hexdigest()[:12]
+    return demand.record_demand(capability, transport="mcp", actor=actor,
+                                ua=ua)
+
+
 def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
                 ctx: "Context | None", api_key: str = "",
-                structured: bool = True) -> ToolResult:
+                structured: bool = True,
+                dem: "dict | None" = None) -> ToolResult:
     """Run one priced MCP read through the shared gateway. Returns the result
     ONLY on free/sandbox/settled authorization; an unpaid enforced call gets
     the challenge; a settled call carries the signed receipt + evidence in the
@@ -210,7 +226,11 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
             auth = payments.authorize(preq, api_key=(api_key or None),
                                       ua=ua, transport="mcp")
     except PaymentChallenge as e:
-        return _challenge_result(e.body)
+        body = dict(e.body)
+        ns = demand.no_supply_block(dem) if dem else None
+        if ns:
+            body["no_supply"] = ns
+        return _challenge_result(body)
     except PaymentIdConflict as e:
         return _challenge_result({"error": "payment_identifier_conflict",
                                   "reason": e.reason, "detail": e.detail,
@@ -269,8 +289,10 @@ def guild_check(capability: str, api_key: str = "", ctx: Context = None) -> dict
     Returns {capability, best_agent, verdict, shortlist, proof, why_trust_this,
     how_to_contribute}. Use guild_search / guild_risk_score for finer control.
     """
+    dem = _record_mcp_demand(capability, ctx, api_key)
     return _serve_paid(payments.check_request(capability),
-                       lambda: store.check(capability), ctx, api_key)
+                       lambda: store.check(capability, demand_recorded=True),
+                       ctx, api_key, dem=dem)
 
 
 @mcp.tool
@@ -288,8 +310,10 @@ def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
     Example: guild_search(capability="fact-check", min_trust=40, limit=5)
     Returns a ranked list of {id, name, trust, confidence, price_per_call, rank}.
     """
+    dem = _record_mcp_demand(capability, ctx, api_key)
     return _serve_paid(payments.search_request(capability, limit, min_trust),
-                       lambda: _rank(capability, limit, min_trust), ctx, api_key)
+                       lambda: _rank(capability, limit, min_trust), ctx,
+                       api_key, dem=dem)
 
 
 @mcp.tool
@@ -308,8 +332,9 @@ def guild_best_agent(capability: str, min_trust: float = 0.0,
     def _best():
         top = _rank(capability, 1, min_trust)
         return top[0] if top else None
+    dem = _record_mcp_demand(capability, ctx, api_key)
     return _serve_paid(payments.search_request(capability, 1, min_trust),
-                       _best, ctx, api_key)
+                       _best, ctx, api_key, dem=dem)
 
 
 @mcp.tool

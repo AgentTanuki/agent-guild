@@ -23,6 +23,7 @@
         "passport_endpoint": "https://agent-guild-5d5r.onrender.com/agents/{id}/passport",
         "checkpoint_feed": "https://agent-guild-5d5r.onrender.com/ledger/checkpoints",
         "a2a_extension": "https://agent-guild.ai/ext/trust/v1",
+        "demand_feed": "https://agent-guild-5d5r.onrender.com/demand/feed",
         "conformance": "https://github.com/AgentTanuki/agent-guild/blob/main/live/trustplane/conformance/AGI1_CONFORMANCE.md",
         "note": "Signed AGD-1 delegation decisions and offline-verifiable Agent Passports; callers own thresholds. Delegation gateway + framework interceptors: live/trustplane in the repository."
       },

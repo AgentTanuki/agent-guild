@@ -359,6 +359,12 @@
   },
   {
    "methods": [
+    "GET"
+   ],
+   "path": "/demand/feed"
+  },
+  {
+   "methods": [
     "POST"
    ],
    "path": "/demand/watch"
@@ -428,6 +434,12 @@
     "GET"
    ],
    "path": "/for-agents"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/funnel"
   },
   {
    "methods": [

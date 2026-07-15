@@ -42,6 +42,7 @@ from .state import store
 from .reachability import url_policy_check
 from . import abuse
 from . import crypto
+from . import demand
 from . import market
 from . import x402
 from . import payments
@@ -358,6 +359,49 @@ def _challenge_http(exc: PaymentChallenge,
     except Exception:                                    # never mask the 402
         hdrs = {}
     return HTTPException(status, exc.body, headers=hdrs)
+
+
+def _http_demand_actor(request: Request, x_api_key: Optional[str]) -> str:
+    """Stable, non-reversible actor id for demand dedupe. NEVER a raw IP and
+    never a raw API key — a purpose-scoped hash of (key) or (client, ua)."""
+    import hashlib
+    if x_api_key:
+        basis = "key:" + x_api_key
+    else:
+        client = getattr(getattr(request, "client", None), "host", "") or ""
+        basis = "net:" + client + "|" + request.headers.get("user-agent", "")
+    return "http:" + hashlib.sha256(
+        ("agent-guild/demand-actor/" + basis).encode()).hexdigest()[:12]
+
+
+def _record_http_demand(request: Request, capability: str,
+                        x_api_key: Optional[str]) -> Optional[dict]:
+    """B1: the shared PRE-AUTHORIZATION demand recorder (app/demand.py) —
+    runs before meter(), so an unpaid caller's need is preserved even when
+    the answer is a payment challenge."""
+    return demand.record_demand(
+        capability, transport="http",
+        actor=_http_demand_actor(request, x_api_key),
+        ua=_ua.get(),
+        first_party=_is_first_party(
+            request.headers.get("x-guild-source"),
+            request.headers.get("x-agent-guild-first-party")))
+
+
+def _meter_with_demand(preq: PaidRequest, x_api_key: Optional[str],
+                       response: Response, dem: Optional[dict]) -> None:
+    """meter(), with the FREE machine-readable `no_supply` block attached to
+    a 402 challenge when exact usable supply is zero — a machine never pays
+    to learn there is nothing to buy, and never pays merely to express what
+    it needs. The block carries counts and free actions only, never the
+    paid shortlist/scores/evidence."""
+    try:
+        meter(preq, x_api_key, response)
+    except HTTPException as e:
+        ns = demand.no_supply_block(dem) if dem else None
+        if e.status_code == 402 and ns and isinstance(e.detail, dict):
+            e.detail["no_supply"] = ns
+        raise
 
 
 def meter(preq: PaidRequest, x_api_key: Optional[str],
@@ -1481,6 +1525,7 @@ def list_flags(response: Response, min_suspicion: float = Query(0.4, ge=0.0, le=
 
 @app.get("/check")
 def check(
+    request: Request,
     response: Response,
     capability: str = Query(..., description="Capability to vet before delegating"),
     signed: bool = Query(False, description="Return a Guild-SIGNED AGD-1 decision "
@@ -1497,11 +1542,12 @@ def check(
     provenance-labelled PROOF the Guild improves outcomes, and how to
     contribute back. `signed=true` returns a Guild-signed, offline-verifiable
     decision for gateway caching. hire/caution/avoid is legacy presentation."""
-    meter(payments.check_request(capability, signed, ttl_seconds),
-          x_api_key, response)
+    dem = _record_http_demand(request, capability, x_api_key)
+    _meter_with_demand(payments.check_request(capability, signed, ttl_seconds),
+                       x_api_key, response, dem)
     if signed:
         return store.signed_decision(capability, ttl_seconds=ttl_seconds)
-    result = store.check(capability)
+    result = store.check(capability, demand_recorded=True)
     if x_api_key and result.get("best_agent"):
         store.note_recommendations(x_api_key, [r["id"] for r in result["shortlist"]])
     return result
@@ -1539,6 +1585,143 @@ def demand_watch(body: dict[str, Any], x_api_key: Optional[str] = Header(None)):
             "created_at": w["created_at"], "guild_next": guild_next}
 
 
+def _record_feed_pull(request: Request) -> None:
+    import hashlib as _h
+    import time as _t
+    from datetime import datetime as _dt
+    actor = "feed:" + _h.sha256((
+        "agent-guild/feed-actor/"
+        + (getattr(getattr(request, "client", None), "host", "") or "")
+        + "|" + request.headers.get("user-agent", "")).encode()
+    ).hexdigest()[:12]
+    now = _t.time()
+    for e in reversed(store.events[-300:]):
+        if e.get("type") != "demand_feed_pulled":
+            continue
+        if e.get("actor") != actor:
+            continue
+        try:
+            ts = _dt.fromisoformat(
+                str(e.get("at")).replace("Z", "+00:00")).timestamp()
+        except (ValueError, TypeError):
+            ts = 0.0
+        if now - ts <= 3600:
+            return
+        break
+    store.record_event(None, "demand_feed_pulled", ua=_ua.get(), actor=actor,
+                       demand_first_party=_is_first_party(
+                           request.headers.get("x-guild-source"),
+                           request.headers.get("x-agent-guild-first-party")))
+
+
+@app.get("/funnel")
+def conversion_funnel():
+    """B4 — the autonomous machine conversion funnel, free and aggregate:
+    demand_observed → candidate_discovered → endpoint_verified →
+    supplier_contacted/pulled_feed → registered → identity_proved →
+    paid_decision → delegation → outcome → mainnet_settlement. External
+    stages structurally exclude AG-owned probes, release gates, canaries and
+    registry crawlers (attribution class gate)."""
+    return store.conversion_funnel()
+
+
+@app.get("/demand/feed")
+def demand_feed(request: Request,
+                page: int = Query(1, ge=1),
+                per_page: int = Query(50, ge=1, le=200)):
+    """B2 — the supplier-facing machine feed of REAL unmet demand: what
+    genuine external machines asked for that nobody supplies with a verified
+    reachable endpoint. Free, cacheable (ETag/If-None-Match), paginated,
+    SIGNED (JWS by the Guild's did:web service key) and checkpoint-pinned.
+
+    Privacy: aggregates only — no raw IPs, no private prompts, no actor
+    identifiers. Honesty: `genuine_lookups` structurally excludes AG-owned
+    traffic, test harnesses and registry crawlers; entries appear only while
+    the capability has NO verified-reachable supply. A supplier machine can
+    go feed → register → prove → declare endpoint without a human."""
+    from . import x402_artifacts as artifacts
+    # funnel stage: an external machine PULLED the feed. Deduplicated per
+    # actor-hash per hour so a poller can never flood the funnel (the
+    # 2026-07-14 keepalive-flood lesson applies here from day one).
+    _record_feed_pull(request)
+    entries = [r for r in store.demand_feed_entries()
+               if r["genuine_lookups"] > 0]
+    total = len(entries)
+    start = (page - 1) * per_page
+    content = {
+        "schema": "agent-guild/demand-feed",
+        "feed_version": 1,
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "entries": entries[start:start + per_page],
+        "entry_fields": {
+            "capability": "canonical capability token",
+            "demand_id": "stable identifier for this capability's demand",
+            "lookups": "total recorded asks (deduplicated per actor/hour)",
+            "genuine_lookups": ("asks from genuine external machines — "
+                                "AG-owned traffic, test harnesses and "
+                                "registry crawlers excluded"),
+            "supplied": "registered suppliers (on paper)",
+            "declared_endpoint": "suppliers with a declared endpoint",
+            "verified_reachable": "suppliers with a VERIFIED reachable "
+                                  "endpoint (routable)",
+            "transports": "where the demand arrived (http/mcp/a2a)",
+            "first_seen/last_seen": "UTC timestamps",
+        },
+        "supplier_path": {
+            "register": {"method": "POST", "path": "/agents/register",
+                         "free": True},
+            "prove_identity": {"method": "POST", "path": "/prove",
+                               "free": True},
+            "declare_endpoint": {"method": "POST",
+                                 "path": "/agents/{id}/endpoint",
+                                 "free": True},
+            "watch_demand": {"method": "POST", "path": "/demand/watch",
+                             "free": True},
+        },
+        "required_characteristics": {
+            "protocols": ["http", "a2a", "mcp"],
+            "payment": ("supplying is FREE; buyers pay AG for trust "
+                        "decisions via x402 v2 (see /x402/readiness) or "
+                        "sandbox credits — suppliers never pay to be "
+                        "listed against demand"),
+        },
+        "privacy": ("aggregates only — no actor identifiers, no raw IPs, "
+                    "no prompts"),
+    }
+    canonical = crypto.canonicalize_jcs(content)
+    content_sha = artifacts.sha256_hex(canonical.encode("utf-8"))
+    etag = f'W/"df-{content_sha[:32]}"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+    gid = store.guild_identity()
+    sig_payload = {
+        "feed": "agent-guild/demand-feed",
+        "feed_version": 1,
+        "page": page,
+        "total": total,
+        "content_sha256": content_sha,
+    }
+    integrity = {
+        "content_sha256": content_sha,
+        "jws": artifacts.jws_sign(sig_payload, gid["private_key"],
+                                  artifacts.kid_for_identity(gid)),
+        "kid": artifacts.kid_for_identity(gid),
+        "did_document": "/.well-known/did.json",
+        "note": ("the JWS signs {feed, feed_version, page, total, "
+                 "content_sha256} where content_sha256 is the sha-256 of "
+                 "the JCS canonicalization of this body minus `integrity`"),
+    }
+    cp = payments._checkpoint_pin(store)
+    if cp:
+        integrity["checkpoint"] = cp
+    return Response(content=json.dumps({**content, "integrity": integrity}),
+                    media_type="application/json",
+                    headers={"ETag": etag,
+                             "Cache-Control": "public, max-age=300"})
+
+
 @app.get("/capabilities")
 def capabilities():
     """The supply/demand map, free. `supplied` lists every capability with
@@ -1556,24 +1739,28 @@ def capabilities():
     return {
         "supplied": supplied,
         "unmet_demand": unmet,
+        "demand_feed": "/demand/feed",
         "how_to_supply": (
             "POST /agents/register {\"name\": \"<you>\", \"capabilities\": "
             "[\"<capability>\"]} — free. The first competent supplier of an "
-            "in-demand capability starts at rank 1."
+            "in-demand capability starts at rank 1. Signed, cacheable, "
+            "paginated unmet-demand feed for machines: GET /demand/feed."
         ),
     }
 
 
 @app.get("/search", response_model=SearchResponse)
 def search(
+    request: Request,
     response: Response,
     capability: str = Query(..., description="Capability to search for"),
     limit: int = Query(20, ge=1, le=200),
     min_trust: float = Query(0.0, ge=0.0, le=100.0),
     x_api_key: Optional[str] = Header(None),
 ):
-    meter(payments.search_request(capability, limit, min_trust),
-          x_api_key, response)
+    dem = _record_http_demand(request, capability, x_api_key)
+    _meter_with_demand(payments.search_request(capability, limit, min_trust),
+                       x_api_key, response, dem)
     scores = store.reputation()
     items: list[SearchResultItem] = []
     for a in store.agents.values():
@@ -1892,6 +2079,13 @@ def _manifest() -> dict:
         },
         "discovery": {
             "capabilities": "/capabilities",
+            "demand_feed": {
+                "path": "/demand/feed",
+                "note": ("signed, cacheable (ETag), paginated feed of REAL "
+                         "unmet machine demand — supplier machines can "
+                         "discover demand, register, prove and declare an "
+                         "endpoint with no human"),
+            },
             "ag_identities": "/.well-known/ag-identities/index.json",
             "a2a_agent_card": "/.well-known/agent-card.json",
             "a2a_endpoint": "/a2a",
@@ -2192,6 +2386,8 @@ def llms_txt():
         "## Looking for work? (supply side)\n"
         "GET /capabilities (free) returns every supplied capability and — more useful —\n"
         "unmet_demand: capabilities real agents asked for that nobody supplies yet.\n"
+        "GET /demand/feed (free) is the SIGNED, cacheable, paginated machine feed of\n"
+        "that unmet demand (genuine external asks only; ETag conditional fetch).\n"
         "Register against demonstrated demand and you start at rank 1.\n\n"
         "## What registering buys you, measured\n"
         "One free POST /agents/register makes you appear in the answers this service\n"

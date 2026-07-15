@@ -32,6 +32,8 @@ from fastapi import APIRouter, Request, Response
 from . import __version__
 from . import proving
 from . import a2a_x402
+from . import demand
+from . import firstparty as _fp_auth
 from . import payments
 from . import x402
 from .attribution import derive_a2a_actor
@@ -425,6 +427,10 @@ def _agent_card(base: str) -> dict[str, Any]:
                         "passport_endpoint": f"{base}/agents/{{id}}/passport",
                         "checkpoint_feed": f"{base}/ledger/checkpoints",
                         "conformance": f"{base}/standard",
+                        # supplier machines: signed, cacheable feed of REAL
+                        # unmet demand — discover work, register, prove, all
+                        # machine-only.
+                        "demand_feed": f"{base}/demand/feed",
                     },
                 },
                 # Official A2A x402 payments extension (v0.1). Declared ONLY
@@ -784,15 +790,30 @@ async def a2a_endpoint(request: Request):
         # transport). When the x402 rail is active + enforced, an unpaid caller
         # gets a payment-required Task (A2A x402 extension v0.1) instead of the
         # full free decision. In soft-launch it stays free everywhere.
+        #
+        # B1 (2026-07-15): demand is recorded through the shared
+        # PRE-AUTHORIZATION recorder BEFORE the payment gate — the
+        # korean-legal regression was an unpaid ask whose demand vanished
+        # because enforcement ran first. A machine never pays merely to tell
+        # AG what capability it needs.
+        dem = demand.record_demand(
+            caller_cap, transport="a2a", actor=actor, ua=ua_tag,
+            first_party=_fp_auth.is_first_party(
+                request.headers.get("x-agent-guild-first-party"),
+                request.headers.get("x-guild-source")))
         if _x402_a2a_active():
             preq = payments.check_request(caller_cap)
             task = a2a_x402.build_payment_required_task(preq, preq.cost)
+            ns = demand.no_supply_block(dem) if dem else None
+            if ns:
+                task["status"]["message"]["metadata"][
+                    "io.agent-guild/no_supply"] = ns
             store.record_event(actor, "x402_payment_required", ua=ua_tag,
                                endpoint="best_agent", transport="a2a",
                                capability=caller_cap)
             resp = {"jsonrpc": "2.0", "id": id_, "result": task}
             return _with_extension_header(resp, request)
-        payload = store.check(caller_cap)
+        payload = store.check(caller_cap, demand_recorded=True)
     elif caller_kind == "prove_howto":
         # An agent asking how to prove gets the exact executable answer, not a
         # probe_ack. Recorded distinctly so surfaced→asked→completed is a
