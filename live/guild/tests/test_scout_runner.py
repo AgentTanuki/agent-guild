@@ -135,9 +135,10 @@ def test_swarm_status_endpoint_exposes_state_without_secrets(monkeypatch):
 
 
 def test_release_gate_verifies_a_completed_production_scout_cycle(monkeypatch):
-    """The gate must WAIT for one completed post-deploy scout cycle — a
-    zero-demand cycle counts — and fail when the runner is disabled or the
-    cycle errors."""
+    """The gate must WAIT for one completed scout cycle belonging to the
+    expected release — a zero-demand cycle counts — and fail when the
+    runner is disabled or the cycle errors. (Full race/identity coverage:
+    tests/test_release_gate_race.py.)"""
     import importlib.util
     import pathlib
     path = (pathlib.Path(__file__).resolve().parents[2]
@@ -146,12 +147,14 @@ def test_release_gate_verifies_a_completed_production_scout_cycle(monkeypatch):
     gate = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gate)
 
+    sha = "d" * 40
     seq = [
         {"enabled": True, "last_completed_at": None,
          "last_started_at": "2026-07-15T00:00:01+00:00", "last_error": None},
         {"enabled": True, "last_completed_at": "2026-07-15T00:00:05+00:00",
          "last_started_at": "2026-07-15T00:00:01+00:00", "last_error": None,
          "last_run": {"zero_demand": True, "capabilities": [],
+                      "release_sha": sha,
                       "discovered": 0, "refreshed": 0, "adapters": {}}},
     ]
     calls = {"n": 0}
@@ -163,15 +166,13 @@ def test_release_gate_verifies_a_completed_production_scout_cycle(monkeypatch):
         return out
 
     monkeypatch.setattr(gate, "_get", fake_get)
-    fails = gate.check_swarm_cycle("https://prod.example",
-                                   completed_after="2026-07-15T00:00:00+00:00",
+    fails = gate.check_swarm_cycle("https://prod.example", expected_sha=sha,
                                    timeout_s=5.0, interval_s=0.0)
     assert fails == []              # zero-demand cycle is a legitimate PASS
 
     # disabled runner → the gate fails with a clear reason
     monkeypatch.setattr(gate, "_get",
                         lambda *a, **k: {"enabled": False})
-    fails = gate.check_swarm_cycle("https://prod.example",
-                                   completed_after="2026-07-15T00:00:00+00:00",
+    fails = gate.check_swarm_cycle("https://prod.example", expected_sha=sha,
                                    timeout_s=0.5, interval_s=0.0)
     assert fails and "enabled" in fails[0]

@@ -19,9 +19,12 @@ Flow (bounded, machine-verifiable, no continue-on-error escape hatch):
        * issuer/checkpoint continuity: issuer DID document == /ledger/issuer,
          continuity_valid, and the signed checkpoint verifies against the
          issuer key with a fresh, monotonic index;
-       * scout autonomy: wait for + verify ONE completed production scout
-         cycle via /swarm/status (a legitimate zero-demand cycle passes;
-         outbound contact must be OFF).
+       * scout autonomy: wait for + verify ONE successfully completed
+         production scout cycle BELONGING TO THE EXPECTED SHA via
+         /swarm/status (identity-based, not timing-based: a cycle that
+         completed before this gate started still certifies; a stale cycle
+         from a previous release never does; a legitimate zero-demand
+         cycle passes; outbound contact must be OFF).
   3. Write a machine-readable release attestation (commit, production URL,
      every check performed, its result) to --attestation.
 
@@ -142,13 +145,21 @@ def check_signed_decision(host: str, capability: str = "hello",
     return fails
 
 
-def check_swarm_cycle(host: str, completed_after: str,
+def check_swarm_cycle(host: str, expected_sha: str,
                       timeout_s: float = 300.0,
                       interval_s: float = 10.0) -> list[str]:
-    """Wait for ONE completed production scout cycle after `completed_after`
-    (ISO timestamp) and verify it. A ZERO-DEMAND cycle is a legitimate pass —
-    the swarm is autonomous even when there is nothing to scout for. Returns
-    a list of failures (empty == pass)."""
+    """Wait for ONE successfully completed production scout cycle belonging
+    to the EXACT expected release, and verify it.
+
+    Certification is by RELEASE IDENTITY, not timing: every persisted cycle
+    is stamped with the RENDER_GIT_COMMIT it executed under, so a cycle
+    that completed BEFORE this gate process started still certifies —
+    production restarts on deploy and its first jittered cycle routinely
+    beats the CI job. Conversely a cycle stamped with any OTHER SHA (a
+    stale cycle from the previous release) can never certify this one, and
+    a SHA-stamped cycle necessarily ran inside a process deployed/started
+    with that release. A ZERO-DEMAND cycle is a legitimate pass. Returns a
+    list of failures (empty == pass)."""
     deadline = time.time() + timeout_s
     last: dict = {}
     while True:
@@ -161,27 +172,29 @@ def check_swarm_cycle(host: str, completed_after: str,
                 return ["scout runner is not enabled in production "
                         "(GUILD_SCOUT_AUTORUN=1 not set) — autonomy is not "
                         "verified"]
-            done = last.get("last_completed_at")
-            if done and str(done) >= completed_after:
+            run = last.get("last_run") or {}
+            run_sha = run.get("release_sha")
+            if (last.get("last_completed_at") and run
+                    and run_sha == expected_sha):
                 if last.get("last_error"):
                     return [f"scout cycle completed with an error: "
                             f"{last['last_error']}"]
-                run = last.get("last_run") or {}
-                if run.get("zero_demand"):
-                    print("scout cycle PASS (legitimate zero-demand cycle)")
-                else:
-                    print(f"scout cycle PASS: discovered="
-                          f"{run.get('discovered')} refreshed="
-                          f"{run.get('refreshed')} adapters="
-                          f"{list((run.get('adapters') or {}))}")
                 if last.get("contact_enabled"):
                     return ["outbound scout contact is ENABLED in production "
                             "— GUILD_SCOUT_CONTACT must stay 0"]
+                if run.get("zero_demand"):
+                    print(f"scout cycle PASS for {expected_sha[:12]} "
+                          "(legitimate zero-demand cycle)")
+                else:
+                    print(f"scout cycle PASS for {expected_sha[:12]}: "
+                          f"discovered={run.get('discovered')} refreshed="
+                          f"{run.get('refreshed')} adapters="
+                          f"{list((run.get('adapters') or {}))}")
                 return []
         if time.time() >= deadline:
-            return [f"no completed production scout cycle within "
-                    f"{int(timeout_s)}s (last /swarm/status: "
-                    f"{json.dumps(last)[:300]})"]
+            return [f"no completed production scout cycle for release "
+                    f"{expected_sha[:12]} within {int(timeout_s)}s (last "
+                    f"/swarm/status: {json.dumps(last)[:300]})"]
         time.sleep(interval_s)
 
 
@@ -297,7 +310,6 @@ def main() -> int:
          f"--issuer-base={args.host}", f"--capability={args.capability}"],
         REPO / "live" / "trustplane", env=check_env))
 
-    gate_started = attestation["started_at"]
     for name, fn in (("signed_decision_verification",
                       lambda: check_signed_decision(
                           args.host, args.capability, machine_key)),
@@ -305,7 +317,7 @@ def main() -> int:
                       lambda: check_checkpoint_continuity(args.host)),
                      ("production_scout_cycle",
                       lambda: check_swarm_cycle(
-                          args.host, completed_after=gate_started,
+                          args.host, expected_sha=args.sha,
                           timeout_s=args.swarm_timeout))):
         try:
             fails = fn()

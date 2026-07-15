@@ -1729,7 +1729,8 @@ class Store:
                 if status == "reserved":
                     del self.x402_payment_ids[pid]
                     pids_reaped += 1
-                elif status in ("settling", "pending", "settled"):
+                elif status in ("settling", "pending", "settled",
+                                "settled_unconfirmed"):
                     # settlement may exist (or does): keep, flag, stay
                     # recoverable — bounded because flagged records are
                     # excluded from active accounting, never re-flagged.

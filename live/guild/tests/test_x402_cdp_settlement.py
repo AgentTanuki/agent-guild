@@ -65,6 +65,11 @@ def mainnet_env(monkeypatch):
     monkeypatch.delenv("GUILD_X402_FACILITATOR", raising=False)
     monkeypatch.delenv("GUILD_X402_BASE_RPC", raising=False)
     monkeypatch.setenv("GUILD_X402_CONFIRM_TIMEOUT", "0")  # no polling waits
+    # every mainnet settlement persists a recovery anchor pre-facilitator;
+    # the chain head comes from this deterministic stand-in (the anchor
+    # fail-closed path is tested in test_payment_recovery_no_identifier).
+    monkeypatch.setattr(x402_confirm, "current_block",
+                        lambda network=None, timeout=15.0: 5_000_000)
     yield monkeypatch
 
 
@@ -353,7 +358,10 @@ def test_confirmed_mainnet_settlement_serves_and_counts(mainnet_env, monkeypatch
 def test_unconfirmed_then_recovered_is_idempotent(mainnet_env, monkeypatch):
     """RPC outage: paid-but-unconfirmed → 402 (no result, no revenue). The
     SAME payment re-presented after the RPC returns → confirmed, served,
-    counted exactly once. A third presentation → double-settlement reject."""
+    counted exactly once. A third presentation of the identical signed
+    payment → the CACHED result (internal recovery identity, corrective
+    pass 2026-07-15): the buyer keeps access to the one result they paid
+    for and no second settlement can ever occur."""
     monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
     monkeypatch.setattr(x402, "_facilitator",
                         lambda: FakeFacilitator(network=MAINNET))
@@ -377,8 +385,9 @@ def test_unconfirmed_then_recovered_is_idempotent(mainnet_env, monkeypatch):
         r2 = client.get("/search?capability=x", headers=hdr)
         assert r2.status_code == 200
         r3 = client.get("/search?capability=x", headers=hdr)
-        assert r3.status_code == 402
-        assert r3.json()["detail"]["reason"] == "double_settlement_rejected"
+        assert r3.status_code == 200                 # cached result, no charge
+        assert r3.headers.get("X-Guild-Payment-Idempotent-Replay") == "true"
+        assert r3.content == r2.content              # byte-identical
     after = store.escrow_summary()["real_settlement"]
     assert after["transactions"] == before["transactions"] + 1   # exactly once
 

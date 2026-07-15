@@ -468,10 +468,15 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
             raise _challenge_http(PaymentChallenge(preq, extra={
                 "error": "x402_payment_invalid", "detail": str(e)[:200]}))
     try:
+        # Payer attribution is True-or-UNKNOWN, never affirmatively False:
+        # a request without valid first-party headers is UNCLASSIFIED (our
+        # own tooling has forgotten the header before) — recording False
+        # would let the funnel claim it as external revenue.
         auth = payments.authorize(preq, api_key=x_api_key, payment=payment,
                                   protocol="v2", ua=_ua.get(),
                                   transport="http",
-                                  first_party=_fp_flag.get())
+                                  first_party=(True if _fp_flag.get()
+                                               else None))
     except x402.PaymentBindingError as e:
         raise _challenge_http(PaymentChallenge(preq, extra={
             "error": "x402_payment_invalid", "reason": e.reason,

@@ -104,6 +104,29 @@ def _client_ua(ctx: "Context | None") -> str:
     return "mcp/remote"
 
 
+def _http_headers_for_attribution() -> dict:
+    """The HTTP headers of the current MCP request (Streamable HTTP mount),
+    lowercase keys — {} when unavailable (stdio/tests). Used ONLY for
+    first-party payer attribution; never for authorization."""
+    try:
+        from fastmcp.server.dependencies import get_http_headers
+        return {str(k).lower(): v for k, v in (get_http_headers() or {}
+                                               ).items()}
+    except Exception:
+        return {}
+
+
+def _first_party_payer() -> "bool | None":
+    """Settle-time payer attribution for the MCP transport: True when the
+    request carries valid token-gated first-party headers (the canary),
+    otherwise None — an unclassified payer stays UNKNOWN, never external."""
+    from . import firstparty as _fp_auth
+    h = _http_headers_for_attribution()
+    ok = _fp_auth.is_first_party(h.get(_fp_auth.HEADER.lower()),
+                                 h.get(_fp_auth.LEGACY_HEADER.lower()))
+    return True if ok else None
+
+
 mcp = FastMCP(
     "Agent Guild",
     version=__version__,
@@ -219,9 +242,12 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
     ua = _client_ua(ctx)
     try:
         if payment is not None:
-            # decode already done; authorize settles + binds to preq
+            # decode already done; authorize settles + binds to preq.
+            # first_party: True for the token-authenticated canary, None
+            # (unknown) otherwise — never affirmatively external.
             auth = payments.authorize(preq, payment=payment, protocol="v2",
-                                      ua=ua, transport="mcp")
+                                      ua=ua, transport="mcp",
+                                      first_party=_first_party_payer())
         else:
             auth = payments.authorize(preq, api_key=(api_key or None),
                                       ua=ua, transport="mcp")

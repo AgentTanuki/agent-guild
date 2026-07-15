@@ -124,6 +124,18 @@ def record_demand(capability: str, *, transport: str, actor: str = "",
                            demand_first_party=bool(first_party),
                            demand_id=demand_id_for(canon),
                            phase="pre_authorization")
+        # Demand-driven scheduling: NEWLY counted GENUINE external UNMET
+        # demand wakes the scout runner (debounced + rate-limited there;
+        # the overlap lease still serialises runs). First-party, crawler
+        # and tooling asks never wake anything.
+        if counts["verified_reachable"] == 0 and not first_party:
+            from . import attribution
+            if attribution.is_genuine_external({"ua": ua}):
+                try:
+                    from .swarm import runner as _runner
+                    _runner.notify_demand(store, canon)
+                except Exception:   # scheduling is best-effort, never a 500
+                    pass
     return {"capability": canon, "demand_id": demand_id_for(canon),
             "counted": counted, **counts}
 
