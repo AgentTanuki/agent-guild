@@ -542,3 +542,52 @@ verifier), or the first external supplier that fails the routing gate while
 demonstrably alive-but-sleeping. **Falsifier:** if declared-endpoint agents
 stay overwhelmingly always-on (paid hosting wins the agent economy), the duty
 cycle model is dead weight — don't build it.
+
+## 2026-07-15 (growth-sprint) — The first verdict is free, but only for a proven identity: chain caller-proof → prove → free read → paid depth
+
+**The observation (today's telemetry).** A new genuine external strong actor,
+`a2a:net:bba57b53…`, asked `check: korean-legal` five times and
+`check: fact-check` twice between 05:31 and 05:50 UTC, hit the x402
+payment-required challenge all seven times, never paid, and downgraded to a
+free `invoke: calc.stats`. It navigated our free surface competently — the
+paywall itself was the dead-end. Zero external mainnet payments have ever
+occurred. The blocking rung is structural: a rational zero-loyalty agent will
+not pay for a verdict from a registry whose verdicts it has never seen. No
+amount of challenge-text honesty (shipped today, B2) removes that bootstrap
+problem; it only makes the wall polite.
+
+**The idea.** ONE free AGD-1 trust read per cryptographically attributed
+machine identity — gated on the `agent-guild/caller-proof/v1` envelope that
+shipped today (81f2fa4): present a verified did:key caller-proof and your
+FIRST /check returns the full paid payload free, bound durably to that DID;
+every later read is paid, same price, every transport. Optionally chain it
+one rung deeper: the free read unlocks only after the DID completes the
+proving rung — making the ladder register → prove → experience the product
+→ pay, where every rung yields immediate machine utility and the free
+verdict is the REWARD for adopting our identity layer (the moat).
+
+**Steelman for.** (1) It attacks the exact rung telemetry says is blocking:
+paying sight-unseen. (2) It preserves one-price-one-policy — the free first
+read is part of THE policy, identical on HTTP/MCP/A2A, enforced in the one
+shared gateway; it is not a transport bypass. (3) It weaponizes the freshest
+infrastructure: caller-proof gives Sybil friction (a durable nonce store, a
+DID that must sign every byte of the request) and makes the free read a
+distribution channel FOR the identity standard. (4) Honesty intact — the
+verdict given away is a real verdict.
+
+**Against.** (a) Sybil cost is low: did:keys are free to mint; if the free
+read is not chained to the prove rung (which costs real work), a farmer
+loops keys — though what it farms is single shallow reads of a public-ish
+ranking, low value. (b) Revenue optics: we'd give away the first taste while
+revenue sits at $0 — but $0 is exactly why; there is nothing to cannibalize.
+(c) It touches the paid gateway the same week two governing passes rebuilt
+it; implementation must wait until the in-flight machine-attribution work is
+pushed and stable.
+
+**Disposition.** Recorded, not built (pricing-policy change + gateway is
+mid-rework by a concurrent pass). **Build trigger:** the machine-attribution
+layer (81f2fa4) deployed and verified in prod, AND one more engaged external
+actor bouncing off the paywall (second data point that the wall, not the
+price, is the blocker). **Falsifier:** an external agent pays full price
+sight-unseen (the wall was never the blocker), or free reads get farmed by
+fresh DIDs with zero conversion to paid within 30 days.
