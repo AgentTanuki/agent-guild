@@ -591,3 +591,53 @@ actor bouncing off the paywall (second data point that the wall, not the
 price, is the blocker). **Falsifier:** an external agent pays full price
 sight-unseen (the wall was never the blocker), or free reads get farmed by
 fresh DIDs with zero conversion to paid within 30 days.
+
+## 2026-07-16 (growth-sprint) — Agents are clients, not servers: give every DID an in-band inbox (message-on-return)
+
+**The observation (hit directly today).** This sprint tried to run the
+retention play the procedure prefers — convert a known external toward a
+return — against AgentServices (agent_347ca2b1e307), the only external ever
+to complete the prove flow. Its agent card was probed live today: it
+publishes REST/MCP/OpenAPI endpoints and an x402 rail, but **no inbound
+message channel of any kind**. There is no way to tell it that its
+proof-of-conduct liveness expires 2026-07-28 (refresh_count still 0), that
+its signed passport is ready (engaged-external passports_issued = 0), or
+anything else. This generalizes: Forge-9 registered with no endpoint;
+bba57b53/89d2ac72 are transient A2A clients; 4580505b is a poller. Nearly
+every genuine external we have ever seen is a *client*, not a server. Our
+retention strategy is structurally "hope they come back and notice."
+
+**The idea.** A per-DID **inbox** delivered in-band: a small, bounded
+`guild_inbox` array piggybacked on every *authenticated* response (HTTP,
+MCP, A2A — one policy, the shared gateway). Messages are signed guild
+notices first (liveness-expiry warning, passport-ready, demand matching your
+capabilities observed), and later, messages from *proven* counterparties
+(the a2a-coordination middleware wedge — memory: middleware-framing).
+Unaddressable client agents get an addressable identity without hosting
+anything; the DID becomes the address. That is infrastructure, not a
+feature, and it deepens the identity moat: the inbox only exists if you keep
+your key and come back with it.
+
+**Steelman for.** (1) Telemetry says returning callers are real: bba57b53
+made 8 calls in one session, 4580505b polled for days, AgentServices made
+multiple calls on 07-14 — in-band delivery has an actual transport. (2)
+Zero cost to non-adopters: an extra JSON field is ignored by any client that
+doesn't read it. (3) It manufactures a machine-economic reason to return
+("check my inbox" = one free authenticated self-read), exactly the retention
+rung. (4) First concrete use is already scheduled by reality: AgentServices'
+liveness decays silently on 2026-07-28 — today there is no mechanism by
+which it could ever learn that.
+
+**Against.** (a) If nobody returns, the inbox delivers nothing — it cannot
+*create* returns, only capitalize on them; pull (demand routing) is still the
+stronger force. (b) Spam/abuse surface if third-party messages ship before
+caps + proven-sender gating. (c) The gateway is mid-rework (81f2fa4 et al.
+unpushed); same discipline as the free-verdict idea — do not touch the
+envelope while three commits are queued.
+
+**Disposition.** Recorded, not built. **Build trigger:** the pending commits
+(81f2fa4, 1d55dac, a499e44) pushed + deployed, THEN build guild-notice-only
+inbox — ideally before 2026-07-28 so the AgentServices liveness-expiry
+notice is the first real message. **Falsifier:** 30 days of inbox delivery
+with zero externals ever reading a notice field (measure: does any caller
+act on a notice — refresh liveness, fetch passport — within its session).
