@@ -803,11 +803,13 @@ async def a2a_endpoint(request: Request):
                 request.headers.get("x-guild-source")))
         if _x402_a2a_active():
             preq = payments.check_request(caller_cap)
-            task = a2a_x402.build_payment_required_task(preq, preq.cost)
-            ns = demand.no_supply_block(dem) if dem else None
-            if ns:
-                task["status"]["message"]["metadata"][
-                    "io.agent-guild/no_supply"] = ns
+            # B2 (2026-07-15, live-telemetry fix): the demand context rides
+            # INTO the challenge so the honest free layer (price, supply
+            # counts, no-supply warning, zero-cost actions) lands in the
+            # task TEXT every A2A client renders — not only in metadata,
+            # which actor a2a:net:bba57b53… demonstrably never parsed.
+            task = a2a_x402.build_payment_required_task(
+                preq, preq.cost, demand_ctx=dem)
             store.record_event(actor, "x402_payment_required", ua=ua_tag,
                                endpoint="best_agent", transport="a2a",
                                capability=caller_cap)
