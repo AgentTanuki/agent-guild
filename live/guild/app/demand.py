@@ -107,6 +107,12 @@ def record_demand(capability: str, *, transport: str, actor: str = "",
     if not canon:
         return None
     actor = actor or "anon"
+    # a KNOWN first-party DID is first-party demand, however valid its
+    # proof — the Guild asking itself is never external demand.
+    if caller_did:
+        _agent = store.agent_by_did(caller_did)
+        if _agent is not None and _agent.get("first_party"):
+            first_party = True
     counts = supply_counts(store, canon)
     now = time.time()
     # DURABLE dedupe keyed (actor, capability, window): immune to event
@@ -128,13 +134,24 @@ def record_demand(capability: str, *, transport: str, actor: str = "",
                            caller_did=(caller_did or None),
                            demand_id=demand_id_for(canon),
                            phase="pre_authorization")
-        # Demand-driven scheduling: NEWLY counted GENUINE external UNMET
-        # demand wakes the scout runner (debounced + rate-limited there;
-        # the overlap lease still serialises runs). First-party, crawler
-        # and tooling asks never wake anything.
+        # Demand-driven scheduling: NEWLY counted UNMET demand wakes the
+        # scout runner (deadline-aware debounce there; the overlap lease
+        # still serialises runs) when it is either
+        #   * CRYPTOGRAPHICALLY VERIFIED machine demand — a valid caller
+        #     proof from a non-first-party DID; the User-Agent heuristic
+        #     plays NO part (curl/empty/python-requests all count), or
+        #   * heuristically genuine external (the UA rule) for unproven
+        #     asks.
+        # First-party (incl. known first-party DIDs), crawler and AG-test
+        # asks never wake anything.
         if counts["verified_reachable"] == 0 and not first_party:
             from . import attribution
-            if attribution.is_genuine_external({"ua": ua}):
+            wake = (
+                (caller_proof_verified
+                 and attribution.may_count_as_external_growth(
+                     attribution.caller_class({"ua": ua})))
+                or attribution.is_genuine_external({"ua": ua}))
+            if wake:
                 try:
                     from .swarm import runner as _runner
                     _runner.notify_demand(store, canon)

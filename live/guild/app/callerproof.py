@@ -131,6 +131,9 @@ def verify_proof(store: Any, envelope: Any, *, method: str, resource: str,
         return _fail("malformed iat/exp")
     if exp <= now:
         return _fail("proof expired")
+    if iat >= exp:
+        return _fail("iat must be strictly before exp (a proof needs a "
+                     "positive, bounded lifetime)")
     if iat > now + 120:
         return _fail("proof issued in the future (clock skew > 120s)")
     if exp - iat > MAX_TTL_S + 120:

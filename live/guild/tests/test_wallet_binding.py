@@ -59,7 +59,7 @@ def test_full_binding_flow_issues_a_guild_signed_expiring_credential():
         body = {k: v for k, v in cred.items() if k != "proof"}
         assert crypto.verify_jcs(body, cred["proof"], gid["public_key"])
         # active binding is resolvable by payer address
-        active = store.active_wallet_binding(acct.address)
+        active = store.active_wallet_binding(acct.address, MAINNET)
         assert active and active["credential_id"] == cred["credential_id"]
 
 
@@ -129,7 +129,7 @@ def test_self_declared_address_is_never_proof():
                         "network": MAINNET},
             "did_signature": "", "evm_signature": ""})
         assert r.status_code == 422
-    assert store.active_wallet_binding(acct.address) is None
+    assert store.active_wallet_binding(acct.address, MAINNET) is None
 
 
 def test_rotation_and_revocation_are_machine_executable_and_audited():
@@ -140,7 +140,7 @@ def test_rotation_and_revocation_are_machine_executable_and_audited():
         c1 = _bind(client, did, priv, acct1).json()["credential"]
         # ROTATE: bind a new wallet — plain machine call, no human
         c2 = _bind(client, did, priv, acct2).json()["credential"]
-        assert store.active_wallet_binding(acct2.address)
+        assert store.active_wallet_binding(acct2.address, MAINNET)
         # REVOKE the first credential, signed by the DID
         action = {"action": "revoke",
                   "credential_id": c1["credential_id"], "did": did}
@@ -148,7 +148,7 @@ def test_rotation_and_revocation_are_machine_executable_and_audited():
             "request": action,
             "did_signature": crypto.sign_jcs(action, priv)})
         assert r.status_code == 200
-        assert store.active_wallet_binding(acct1.address) is None
+        assert store.active_wallet_binding(acct1.address, MAINNET) is None
         # append-only audit trail
         audit = [e for e in store.events
                  if e.get("type") == "wallet_binding_revoked"
@@ -162,7 +162,7 @@ def test_rotation_and_revocation_are_machine_executable_and_audited():
             "request": action2,
             "did_signature": crypto.sign_jcs(action2, other_priv)})
         assert r.status_code == 422
-        assert store.active_wallet_binding(acct2.address)
+        assert store.active_wallet_binding(acct2.address, MAINNET)
 
 
 def test_expired_credential_is_not_active(monkeypatch):
@@ -173,4 +173,4 @@ def test_expired_credential_is_not_active(monkeypatch):
         cred = _bind(client, did, priv, acct).json()["credential"]
     rec = store.wallet_bindings[cred["credential_id"]]
     rec["expires_at"] = "2020-01-01T00:00:00+00:00"
-    assert store.active_wallet_binding(acct.address) is None
+    assert store.active_wallet_binding(acct.address, MAINNET) is None

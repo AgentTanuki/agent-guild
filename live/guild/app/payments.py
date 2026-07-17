@@ -295,7 +295,13 @@ class Settled:
                 settlement={k: self.record.get(k) for k in (
                     "transaction", "network", "payer", "recipient",
                     "amount_atomic", "asset", "status", "payment_identity",
-                    "mainnet", "confirmed")},
+                    "mainnet", "confirmed",
+                    # attribution MUST survive into the cached idempotent
+                    # record — a replay serves the SAME settlement, so it
+                    # must carry the same attribution evidence.
+                    "payer_attribution", "caller_did",
+                    "wallet_binding_credential", "externality_attestation",
+                    "first_party_payer")},
             )
         self._finalized = {"header": header, "extensions": extensions,
                            "settle_response": settle_response,
@@ -614,19 +620,23 @@ def _apply_attribution(settled: dict[str, Any], *, first_party: Optional[bool],
     """Compute + stamp the cryptographic payer attribution on a settlement
     record (in place). Sets payer_attribution + caller_did +
     wallet_binding_credential, and keeps the legacy first_party_payer flag
-    consistent (True=canary, False=verified external, None=unknown)."""
+    consistent: True = canary, False ONLY for independently attested
+    externality, None = unknown. A cryptographically BOUND payer stays None
+    — identity is proven, ownership is not."""
     from .state import store
     if not isinstance(settled, dict):
         return
     att = classify_payer_attribution(
         store, payer=str(settled.get("payer") or ""),
+        network=str(settled.get("network") or ""),
         caller_did=caller_did or "", first_party_flag=bool(first_party))
     settled["payer_attribution"] = att["class"]
     settled["caller_did"] = att.get("caller_did")
     settled["wallet_binding_credential"] = att.get("wallet_binding_credential")
+    settled["externality_attestation"] = att.get("externality_attestation")
     settled["first_party_payer"] = (
         True if att["class"] == "verified_first_party_canary"
-        else False if att["class"] == "verified_external_machine"
+        else False if att["class"] == "independently_attested_external_machine"
         else None)
 
 
@@ -958,30 +968,68 @@ def authorize(preq: PaidRequest, *,
     return Authorization(mode="free")
 
 
+#: The complete, closed set of payer-attribution classes. Honesty invariant
+#: (machine-integrity correction, 2026-07-17): a self-created did:key plus a
+#: self-controlled wallet proves machine identity continuity and wallet
+#: control — it does NOT prove the payer is external to Agent Guild, so no
+#: class may claim "verified external" from that evidence alone.
+ATTRIBUTION_CLASSES = (
+    "verified_first_party_canary",
+    "cryptographically_bound_machine_payer",
+    "independently_attested_external_machine",
+    "unverified_payer",
+)
+
+# read-time reinterpretation of the RETIRED class label: records written
+# under it only ever proved binding, never externality.
+_LEGACY_ATTRIBUTION = {
+    "verified_external_machine": "cryptographically_bound_machine_payer",
+}
+
+
+def normalize_payer_attribution(label: Any) -> str:
+    """Map any stored attribution label (incl. the retired
+    verified_external_machine and unknown/absent values) onto the closed
+    conservative class set — read-time, append-only history untouched."""
+    if label in ATTRIBUTION_CLASSES:
+        return str(label)
+    return _LEGACY_ATTRIBUTION.get(str(label), "unverified_payer")
+
+
 def classify_payer_attribution(store: Any, *, payer: str,
+                               network: str = "",
                                caller_did: str = "",
                                first_party_flag: bool = False,
                                ) -> dict[str, Any]:
     """Classify a confirmed settlement's payer into EXACTLY one of
-    verified_external_machine / verified_first_party_canary /
-    unverified_payer — cryptographically, never from a descriptive header.
+    ATTRIBUTION_CLASSES — cryptographically, never from a descriptive
+    header.
 
-      * verified_external_machine requires a VALID caller proof (caller_did
-        present, verified upstream), a VALID wallet-binding credential whose
-        DID == caller_did and whose address == the actual x402 payer, and a
-        DID that is NOT a Guild-operated agent;
-      * verified_first_party_canary comes from cryptographic/configured
-        Guild identity: a Guild-operated (first_party) agent DID with a valid
+      * verified_first_party_canary — cryptographic/configured Guild
+        identity: a Guild-operated (first_party) agent DID with a valid
         matching wallet binding, OR a configured canary wallet
-        (GUILD_X402_FIRST_PARTY_PAYERS), OR the token-gated first-party flag;
-      * everything else is unverified_payer (missing proof is UNKNOWN, never
-        external)."""
+        (GUILD_X402_FIRST_PARTY_PAYERS), OR the token-gated first-party
+        flag. Never external revenue.
+      * cryptographically_bound_machine_payer — a VALID caller proof
+        (caller_did present, verified upstream) + a VALID wallet-binding
+        credential whose DID == caller_did and whose (address, network)
+        EXACTLY match the settled payer and network. This proves machine
+        identity continuity and wallet control. It does NOT prove the payer
+        is external to Agent Guild — ownership/externality stay UNPROVEN.
+      * independently_attested_external_machine — additionally requires a
+        currently-valid externality attestation from a SEPARATE allowlisted
+        issuer (app/externality.py). With the default empty allowlist this
+        class is honestly zero.
+      * unverified_payer — everything else (missing proof is UNKNOWN,
+        never external)."""
     import os as _os
+    from . import externality
     payer_l = (payer or "").lower()
     fp_payers = {p.strip().lower() for p in (_os.environ.get(
         "GUILD_X402_FIRST_PARTY_PAYERS") or "").split(",") if p.strip()}
     result = {"class": "unverified_payer", "payer": payer_l,
-              "caller_did": None, "wallet_binding_credential": None}
+              "caller_did": None, "wallet_binding_credential": None,
+              "externality_attestation": None}
 
     # configured / token-gated Guild identity → canary (no proof needed)
     if payer_l and payer_l in fp_payers:
@@ -993,7 +1041,8 @@ def classify_payer_attribution(store: Any, *, payer: str,
 
     if not caller_did or not payer_l:
         return result                              # unknown, never external
-    cred = store.active_wallet_binding(payer_l)
+    # exact (address, network) binding: the SETTLED network decides.
+    cred = store.active_wallet_binding(payer_l, network)
     if not cred or cred.get("did") != caller_did:
         return result                              # binding must match payer+DID
     result["caller_did"] = caller_did
@@ -1001,8 +1050,13 @@ def classify_payer_attribution(store: Any, *, payer: str,
     agent = store.agent_by_did(caller_did)
     if agent and agent.get("first_party"):
         result["class"] = "verified_first_party_canary"
+        return result
+    att = externality.attestation_for(store, caller_did)
+    if att is not None:
+        result["class"] = "independently_attested_external_machine"
+        result["externality_attestation"] = att.get("attestation_id") or True
     else:
-        result["class"] = "verified_external_machine"
+        result["class"] = "cryptographically_bound_machine_payer"
     return result
 
 

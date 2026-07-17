@@ -141,6 +141,11 @@ class Store:
         # credential_id -> credential; challenges: nonce -> {did, expires}.
         self.wallet_bindings: dict[str, dict[str, Any]] = {}
         self.wallet_binding_challenges: dict[str, dict[str, Any]] = {}
+        # independent externality attestations (app/externality.py):
+        # attestation_id -> signed attestation. Re-validated at READ time
+        # against the (default-empty) issuer allowlist — storing a document
+        # can never by itself create "external" revenue.
+        self.externality_attestations: dict[str, dict[str, Any]] = {}
         self._rep_cache: Optional[ScoringResult] = None
         # Append-only sidecar journal for instrumentation events. record_event
         # is deliberately cheap (no full-store _save on read paths), which used
@@ -427,6 +432,8 @@ class Store:
             b.put_kv("wallet_bindings", self.wallet_bindings)
             b.put_kv("wallet_binding_challenges",
                      self.wallet_binding_challenges)
+            b.put_kv("externality_attestations",
+                     self.externality_attestations)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -472,6 +479,8 @@ class Store:
             b.put_kv("wallet_bindings", self.wallet_bindings)
             b.put_kv("wallet_binding_challenges",
                      self.wallet_binding_challenges)
+            b.put_kv("externality_attestations",
+                     self.externality_attestations)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -522,6 +531,8 @@ class Store:
             "wallet_bindings", {}) or {}
         self.wallet_binding_challenges = self.backend.fetch_kv(
             "wallet_binding_challenges", {}) or {}
+        self.externality_attestations = self.backend.fetch_kv(
+            "externality_attestations", {}) or {}
         if d["outbound_invocations"]:
             self.__dict__["outbound_invocations"] = d["outbound_invocations"]
 
@@ -567,6 +578,8 @@ class Store:
             self.wallet_bindings = data.get("wallet_bindings", {})
             self.wallet_binding_challenges = data.get(
                 "wallet_binding_challenges", {})
+            self.externality_attestations = data.get(
+                "externality_attestations", {})
 
     def _migrate_plaintext_keys(self) -> None:
         """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
@@ -689,6 +702,8 @@ class Store:
                        "wallet_bindings": self.wallet_bindings,
                        "wallet_binding_challenges":
                            self.wallet_binding_challenges,
+                       "externality_attestations":
+                           self.externality_attestations,
                        "swarm_state": self.swarm_state}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal
@@ -1535,12 +1550,17 @@ class Store:
                  # canary out of external revenue with this flag.
                  "first_party_payer": settlement.get("first_party_payer"),
                  # cryptographic payer attribution (caller-proof + wallet
-                 # binding): verified_external_machine /
-                 # verified_first_party_canary / unverified_payer.
+                 # binding + optional independent externality attestation):
+                 # verified_first_party_canary /
+                 # cryptographically_bound_machine_payer /
+                 # independently_attested_external_machine /
+                 # unverified_payer. Binding alone NEVER claims externality.
                  "payer_attribution": settlement.get("payer_attribution"),
                  "caller_did": settlement.get("caller_did"),
                  "wallet_binding_credential": settlement.get(
                      "wallet_binding_credential"),
+                 "externality_attestation": settlement.get(
+                     "externality_attestation"),
                  "at": _now()}
         with self.lock, self._txn():
             self.billing_log.append(entry)
@@ -2512,17 +2532,24 @@ class Store:
             self._save()
             return True
 
-    def active_wallet_binding(self, address: str) -> Optional[dict[str, Any]]:
-        """The LATEST active, unexpired wallet-binding credential for one
-        EVM payer address — what settlement attribution resolves."""
+    def active_wallet_binding(self, address: str,
+                              network: str = "") -> Optional[dict[str, Any]]:
+        """The active, unexpired wallet-binding credential for one EXACT
+        (EVM payer address, CAIP-2 network) pair — what settlement
+        attribution resolves. The settled network MUST be supplied and
+        match exactly: a Base-Sepolia binding can never attribute a Base
+        mainnet settlement. Supersession (walletbinding.issue_credential)
+        guarantees at most ONE active credential per (address, network)."""
         addr = (address or "").lower()
-        if not addr:
+        net = (network or "").strip()
+        if not addr or not net:
             return None
         now_iso = _now()
         best: Optional[dict[str, Any]] = None
         with self.lock:
             for cred in self.wallet_bindings.values():
                 if (cred.get("address") == addr
+                        and str(cred.get("network")) == net
                         and cred.get("status") == "active"
                         and str(cred.get("expires_at")) >= now_iso
                         and (best is None
@@ -2530,6 +2557,30 @@ class Store:
                              > str(best.get("issued_at")))):
                     best = cred
         return dict(best) if best else None
+
+    def record_externality_attestation(self, att: dict[str, Any]
+                                       ) -> dict[str, Any]:
+        """Persist one independent externality attestation (bounded store,
+        append-style). Validity — allowlist, independence, window,
+        signature — is ALWAYS re-checked at READ time
+        (app/externality.py), so storing a document grants nothing by
+        itself."""
+        import hashlib as _hl
+        aid = "exta_" + _hl.sha256(json.dumps(
+            att, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:24]
+        with self.lock, self._txn():
+            if len(self.externality_attestations) >= 10_000:
+                raise ValueError("externality attestation store is full")
+            self.externality_attestations[aid] = dict(att)
+            if self.backend is not None:
+                self._persist_kv("externality_attestations",
+                                 self.externality_attestations)
+            self._save()
+        self.record_event(None, "externality_attestation_recorded",
+                          subject_did=att.get("subject_did"),
+                          issuer_did=att.get("issuer_did"),
+                          attestation_id=aid)
+        return {"attestation_id": aid, **att}
 
     def revoke_wallet_binding(self, credential_id: str) -> bool:
         """Direct (store-level) revocation — the HTTP surface enforces the
@@ -2657,12 +2708,25 @@ class Store:
             cap = e.get("capability", "")
             if not cap or not (e.get("explicit") or e.get("supplied")):
                 continue
-            genuine = (not e.get("demand_first_party")
-                       and attribution.is_genuine_external(e))
             verified = bool(e.get("caller_proof_verified"))
+            # VERIFIED machine demand (a valid caller proof) does not
+            # depend on the User-Agent heuristic: identity is proven by
+            # cryptography, so curl/empty/python-requests asks still count
+            # — the only remaining gates are first-party exclusion and the
+            # structural caller-class gate (crawlers/AG-test can never
+            # count). UNPROVEN asks keep the conservative UA heuristic.
+            # NOTE: "verified" here means verified MACHINE IDENTITY —
+            # never verified external OWNERSHIP.
+            if verified:
+                genuine = (not e.get("demand_first_party")
+                           and attribution.may_count_as_external_growth(
+                               attribution.caller_class(e)))
+            else:
+                genuine = (not e.get("demand_first_party")
+                           and attribution.is_genuine_external(e))
             actor = e.get("actor") or e.get("key")
             _count(cap, actor, e.get("at"), e.get("transport"),
-                   genuine=genuine, verified=verified,
+                   genuine=genuine, verified=genuine and verified,
                    heuristic=genuine and not verified,
                    provenance=("verified_machine_demand" if verified
                                else "recorder_heuristic"))
@@ -2795,12 +2859,14 @@ class Store:
         fp_payers = {p.strip().lower() for p in (_os.environ.get(
             "GUILD_X402_FIRST_PARTY_PAYERS") or "").split(",") if p.strip()}
         mainnet = {"external": 0, "first_party": 0, "unknown": 0}
-        # cryptographic three-class attribution (caller-proof + wallet
-        # binding); falls back to the legacy first_party_payer flag /
-        # configured canary wallet for records written before it existed.
-        crypto_att = {"verified_external_machine": 0,
-                      "verified_first_party_canary": 0,
-                      "unverified_payer": 0}
+        # cryptographic CONSERVATIVE attribution (caller-proof + wallet
+        # binding + optional independent externality attestation); the
+        # retired verified_external_machine label is re-interpreted at read
+        # time as cryptographically bound (its evidence only ever proved
+        # binding); legacy records fall back to the first_party_payer flag /
+        # configured canary wallet.
+        from . import payments as _payments
+        crypto_att = {c: 0 for c in _payments.ATTRIBUTION_CLASSES}
         for b in self.billing_log:
             if not (b.get("type") == "x402_payment" and b.get("mainnet")
                     and b.get("status") == "settled_confirmed"
@@ -2815,11 +2881,10 @@ class Store:
             else:
                 mainnet["unknown"] += 1
             att = b.get("payer_attribution")
-            if att not in crypto_att:
-                att = ("verified_first_party_canary"
-                       if (fp_flag is True or (payer and payer in fp_payers))
-                       else "unverified_payer")
-            crypto_att[att] += 1
+            if att is None and (fp_flag is True
+                                or (payer and payer in fp_payers)):
+                att = "verified_first_party_canary"
+            crypto_att[_payments.normalize_payer_attribution(att)] += 1
 
         endpoint_verified_now = sum(
             1 for a in self.agents.values()
@@ -2894,14 +2959,28 @@ class Store:
                            "whose payer attribution is unknown (recorded "
                            "before settle-time first-party flagging) — "
                            "not claimed as external revenue"},
-                # cryptographic three-class attribution (caller-proof +
-                # wallet binding) — the trustworthy economic classes.
-                {"stage": "verified_external_machine_settlement",
-                 "count": crypto_att["verified_external_machine"],
+                # cryptographic CONSERVATIVE attribution (caller-proof +
+                # wallet binding + independent externality attestation).
+                # HONESTY: binding proves identity + wallet control, never
+                # externality — nothing here is called "verified external"
+                # without an independent attestation.
+                {"stage": "cryptographically_bound_machine_settlement",
+                 "count": crypto_att["cryptographically_bound_machine_payer"],
                  "source": "confirmed mainnet settlements with a VALID "
-                           "caller proof + matching wallet-binding "
-                           "credential + a non-Guild DID — the only "
-                           "cryptographically verified external revenue"},
+                           "caller proof + exact (address, network) "
+                           "wallet-binding credential — machine identity "
+                           "and wallet control PROVEN; ownership/"
+                           "externality UNPROVEN (a self-created DID and "
+                           "wallet reach this class)"},
+                {"stage": "independently_attested_external_settlement",
+                 "count": crypto_att[
+                     "independently_attested_external_machine"],
+                 "source": "confirmed mainnet settlements whose payer DID "
+                           "additionally carries a currently-valid "
+                           "externality attestation from a SEPARATE "
+                           "allowlisted issuer — the ONLY class that may "
+                           "be called external machine revenue; honestly "
+                           "zero until such an attestor exists"},
                 {"stage": "verified_first_party_canary_settlement",
                  "count": crypto_att["verified_first_party_canary"],
                  "source": "confirmed mainnet settlements attributed to the "
@@ -4543,21 +4622,17 @@ class Store:
                 "settled_volume_credits": sum(e["amount"] for e in rows),
                 "guild_fee_credits": sum(e["fee"] for e in rows),
             }
-        def _attr(b: dict) -> str:
-            a = b.get("payer_attribution")
-            return a if a in ("verified_external_machine",
-                              "verified_first_party_canary",
-                              "unverified_payer") else "unverified_payer"
+        from . import payments as _payments
 
         def _usd(rows: list) -> float:
             return round(sum(int(b.get("amount_atomic") or 0)
                              for b in rows) / 1e6, 6)
 
-        att_classes = {"verified_external_machine": [],
-                       "verified_first_party_canary": [],
-                       "unverified_payer": []}
+        att_classes: dict[str, list] = {
+            c: [] for c in _payments.ATTRIBUTION_CLASSES}
         for b in x402_mainnet:
-            att_classes[_attr(b)].append(b)
+            att_classes[_payments.normalize_payer_attribution(
+                b.get("payer_attribution"))].append(b)
         out["real_settlement"] = {
             # real_settlement counts ALL independently confirmed money,
             # regardless of attribution (money is money).
@@ -4565,19 +4640,30 @@ class Store:
             "revenue_usd": _usd(x402_mainnet),
             "networks": sorted({b.get("network") for b in x402_mainnet}),
             "transaction_hashes": [b.get("transaction") for b in x402_mainnet],
-            # ... split THREE ways by cryptographic payer attribution.
+            # ... split by CONSERVATIVE cryptographic payer attribution.
             "attribution": {
                 cls: {"transactions": len(rows), "revenue_usd": _usd(rows)}
                 for cls, rows in att_classes.items()},
-            "verified_external_revenue_usd": _usd(
-                att_classes["verified_external_machine"]),
+            # separate, honestly-labelled revenue lines: BOUND is proven
+            # machine identity + wallet control with UNPROVEN ownership;
+            # ATTESTED EXTERNAL additionally requires an independent
+            # allowlisted issuer credential (zero until one exists).
+            "cryptographically_bound_machine_revenue_usd": _usd(
+                att_classes["cryptographically_bound_machine_payer"]),
+            "independently_attested_external_revenue_usd": _usd(
+                att_classes["independently_attested_external_machine"]),
             "note": ("counts ONLY mainnet settlements independently "
                      "CONFIRMED on-chain; `attribution` splits them into "
-                     "verified_external_machine (valid caller proof + "
-                     "matching wallet-binding credential + non-Guild "
-                     "identity), verified_first_party_canary and "
+                     "verified_first_party_canary (Guild identity, never "
+                     "external), cryptographically_bound_machine_payer "
+                     "(valid caller proof + exact (address, network) "
+                     "wallet binding — identity proven, ownership/"
+                     "externality UNPROVEN), "
+                     "independently_attested_external_machine (a SEPARATE "
+                     "allowlisted issuer attests externality) and "
                      "unverified_payer (missing proof is UNKNOWN, never "
-                     "external)"
+                     "external). Unknown ownership is never called "
+                     "verified external."
                      if x402_mainnet else
                      "zero: no independently confirmed mainnet settlement "
                      "exists (testnet/sandbox/unconfirmed activity is "

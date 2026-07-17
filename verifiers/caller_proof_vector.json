@@ -1,44 +1,61 @@
 {
   "note": "Independent verification vectors for agent-guild/caller-proof/v1 and the wallet-binding credential. Verify OFFLINE with no Agent Guild code.",
-  "generated_at": 1784115363,
+  "generated_at": 1784258993,
   "caller_proof": {
     "envelope": {
       "payload": {
         "v": "agent-guild/caller-proof/v1",
-        "did": "did:key:z6Mkg1UDWtqfR6iALMzZRdLQa2HKYwdtsXjb1p3De17K7Nju",
+        "did": "did:key:z6Mkqfug9ZzYZFD7UgofdPcTqezDs6kKxxbufrq7C8ww6FUb",
         "method": "GET",
         "resource": "/check?capability=translation",
         "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "iat": 1760000000,
         "exp": 1760000300,
-        "nonce": "UcnUzni3MMRy4sgdLbsSqtL3oVHFS2Sb",
+        "nonce": "bis_Js5O-NsYJgnpQqBZucEecY1jOGri",
         "aud": "agent-guild"
       },
-      "signature": "56be734e11a164ee1f26c20e25eabe7f4791bba4a5bf23d02c1aa6ac014113370ba261320dcffccf24ad6c0ae568bc6a56f38cf3cba82bfa6ade332753198c0e",
-      "verificationMethod": "did:key:z6Mkg1UDWtqfR6iALMzZRdLQa2HKYwdtsXjb1p3De17K7Nju#z6Mkg1UDWtqfR6iALMzZRdLQa2HKYwdtsXjb1p3De17K7Nju"
+      "signature": "f8dac3cb1a4086a9983178357c87c0a20ee964eee2896b14573a3183a4a4d82998c3fb311248cab27de4d09f42a6acb62bb4a9bf16a99e792cc6132693222508",
+      "verificationMethod": "did:key:z6Mkqfug9ZzYZFD7UgofdPcTqezDs6kKxxbufrq7C8ww6FUb#z6Mkqfug9ZzYZFD7UgofdPcTqezDs6kKxxbufrq7C8ww6FUb"
     },
     "request": {
       "method": "GET",
       "resource": "/check?capability=translation",
       "body_utf8": ""
     },
-    "public_key_hex": "171c08e51fbc6f9ab613896605db8a1c0adc5ec790c5edc8f57fb9f1196287fc",
-    "expected_did": "did:key:z6Mkg1UDWtqfR6iALMzZRdLQa2HKYwdtsXjb1p3De17K7Nju"
+    "public_key_hex": "a6ae1319cfc4bc5f1499abb99ba17b41a7b95faefcc84b24dd0885adb5e88b60",
+    "expected_did": "did:key:z6Mkqfug9ZzYZFD7UgofdPcTqezDs6kKxxbufrq7C8ww6FUb"
   },
   "wallet_binding": {
     "binding": {
       "v": "agent-guild/wallet-binding/v1",
-      "did": "did:key:z6Mkg1UDWtqfR6iALMzZRdLQa2HKYwdtsXjb1p3De17K7Nju",
+      "did": "did:key:z6Mkqfug9ZzYZFD7UgofdPcTqezDs6kKxxbufrq7C8ww6FUb",
       "address": "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
       "network": "eip155:8453",
       "aud": "agent-guild",
       "nonce": "wb_fixed_vector_nonce",
       "expires_at": "2099-01-01T00:00:00+00:00"
     },
-    "did_signature": "159b4f31f356c894609695a18bb8122f43bd059a1e959b7636f0d99b1ef81ddc40edc9b5351dc3d040d9c35192ea5bc149b39b96f7718fd4e9bf8da8238a130d",
-    "evm_signature": "9ac198084fa37423fcca63ba48ba79661e8fc59526621bcc4f2421c7d118c63b24a035bcc3a2b0f89f76621ec1c0d785fc19738c49c60f314eefe42cd5c013fc1b",
-    "did_public_key_hex": "171c08e51fbc6f9ab613896605db8a1c0adc5ec790c5edc8f57fb9f1196287fc",
+    "did_signature": "23ddec93e370c1233e1e180266ee89c9718a12db284a239470b614f1275b866a19c13550afe8195113e162776ec5e1a15158a5ef9441e1f9b7cbe6109d288006",
+    "evm_signature": "4b30698d18bdc494ca6f4687ece0b5a63ec2d2275421cdcc927a2560899915a069365d4f5682df4a0814fc0a689cea83173311e5d3a93358bb7baf07488376141c",
+    "did_public_key_hex": "a6ae1319cfc4bc5f1499abb99ba17b41a7b95faefcc84b24dd0885adb5e88b60",
     "expected_evm_address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
-    "message": "{\"address\":\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",\"aud\":\"agent-guild\",\"did\":\"did:key:z6Mkg1UDWtqfR6iALMzZRdLQa2HKYwdtsXjb1p3De17K7Nju\",\"expires_at\":\"2099-01-01T00:00:00+00:00\",\"network\":\"eip155:8453\",\"nonce\":\"wb_fixed_vector_nonce\",\"v\":\"agent-guild/wallet-binding/v1\"}"
+    "message": "{\"address\":\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",\"aud\":\"agent-guild\",\"did\":\"did:key:z6Mkqfug9ZzYZFD7UgofdPcTqezDs6kKxxbufrq7C8ww6FUb\",\"expires_at\":\"2099-01-01T00:00:00+00:00\",\"network\":\"eip155:8453\",\"nonce\":\"wb_fixed_vector_nonce\",\"v\":\"agent-guild/wallet-binding/v1\"}",
+    "credential": {
+      "type": "AgentGuildWalletBinding",
+      "protocol": "agent-guild/wallet-binding/v1",
+      "credential_id": "wbc_690f5d46b1255cfb633f6b61",
+      "did": "did:key:z6Mkqfug9ZzYZFD7UgofdPcTqezDs6kKxxbufrq7C8ww6FUb",
+      "address": "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
+      "network": "eip155:8453",
+      "issued_at": "2026-07-17T03:29:53.657159+00:00",
+      "expires_at": "2026-10-15T03:29:53.657161+00:00",
+      "issuer": "did:key:z6MkqEwVPayYsLin9Xiftwpa4svz2FHAhz1HL2zLajKnmzrc",
+      "challenge_nonce": "wb_fixed_vector_nonce",
+      "status": "active",
+      "proof": "62fe9edd34347dba6c2ea3ca74613b9658c3d658b078f718544d621f8bff2127c2c5d0b3c35f26c8d0e774f9e4985babf909897a66a8b06468c20736a158e609"
+    },
+    "expected_issuer_did": "did:key:z6MkqEwVPayYsLin9Xiftwpa4svz2FHAhz1HL2zLajKnmzrc",
+    "verified_at": "2026-07-17T03:29:53.657299+00:00",
+    "status_note": "offline verification covers cryptographic validity ONLY (issuer signature + validity window + subject fields); revocation/supersession is LIVE status held by the Guild store and is NOT checkable offline"
   }
 }

@@ -59,8 +59,41 @@ async function verifyWalletBinding(v) {
   console.log("PASS wallet-binding: DID + EVM signatures over the same binding");
 }
 
+// The ACTUAL Guild-issued credential: issuer signature, issuer identity,
+// validity window and subject fields — OFFLINE cryptographic validity only.
+// (Revocation/supersession is LIVE status held by the Guild store; no
+// offline verifier can claim it.)
+async function verifyIssuedCredential(v) {
+  const cred = v.credential, binding = v.binding;
+  if (cred.issuer !== v.expected_issuer_did) throw new Error("unexpected issuer");
+  const body = Object.fromEntries(
+    Object.entries(cred).filter(([k]) => k !== "proof"));
+  if (!(await edVerifyJcs(body, cred.proof, pubFromDid(cred.issuer))))
+    throw new Error("credential issuer signature INVALID");
+  if (cred.type !== "AgentGuildWalletBinding") throw new Error("type");
+  if (cred.protocol !== binding.v) throw new Error("protocol mismatch");
+  if (cred.did !== binding.did) throw new Error("credential subject DID mismatch");
+  if (cred.address.toLowerCase() !== binding.address.toLowerCase())
+    throw new Error("credential address mismatch");
+  if (cred.network !== binding.network) throw new Error("credential network mismatch");
+  const at = v.verified_at;
+  if (!(cred.issued_at <= at && at < cred.expires_at))
+    throw new Error("credential outside its validity window");
+  for (const k of ["did", "address", "network", "expires_at"]) {
+    const t = JSON.parse(JSON.stringify(body));
+    t[k] = "TAMPERED";
+    if (await edVerifyJcs(t, cred.proof, pubFromDid(cred.issuer)))
+      throw new Error(`tampering credential.${k} did NOT break the issuer signature`);
+  }
+  console.log("PASS issued credential: issuer signature + issuer + validity "
+    + "window + subject fields (OFFLINE cryptographic validity)");
+  console.log("NOTE: revocation/supersession is LIVE Guild-store status — "
+    + "NOT verified here and not claimable offline");
+}
+
 const path = process.argv[2] || "caller_proof_vector.json";
 const vec = JSON.parse(readFileSync(path, "utf8"));
 await verifyCallerProof(vec.caller_proof);
 await verifyWalletBinding(vec.wallet_binding);
+await verifyIssuedCredential(vec.wallet_binding);
 console.log("ALL INDEPENDENT NODE CHECKS PASSED");

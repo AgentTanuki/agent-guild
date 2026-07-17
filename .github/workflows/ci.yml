@@ -81,6 +81,40 @@ jobs:
           npm install --no-fund --no-audit
           node verify_node_digitalbazaar.mjs vector.json
 
+  caller-proof-wallet-verification:
+    # caller-proof/v1 + wallet-binding CREDENTIAL verification from
+    # genuinely CLEAN Python and Node environments: the vector is generated
+    # by the live issuer code, then verified by third-party-primitive-only
+    # verifiers installed from their own pinned manifests (never the repo's
+    # runtime environment). The Node deps ship in verifiers/package.json;
+    # the Python deps in verifiers/requirements.txt.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: generate vector from the live issuer code (own venv)
+        run: |
+          python -m venv .venv-gen
+          .venv-gen/bin/pip install --upgrade pip
+          .venv-gen/bin/pip install -r live/guild/requirements.txt
+          .venv-gen/bin/python verifiers/gen_caller_proof_vector.py verifiers/caller_proof_vector.json
+      - name: independent Python verification (CLEAN venv, pinned manifest)
+        run: |
+          python -m venv .venv-cpverify
+          .venv-cpverify/bin/pip install --upgrade pip
+          .venv-cpverify/bin/pip install -r verifiers/requirements.txt
+          .venv-cpverify/bin/python verifiers/verify_caller_proof_python.py verifiers/caller_proof_vector.json
+      - name: independent Node verification (CLEAN install from package.json)
+        working-directory: verifiers
+        run: |
+          npm install --no-fund --no-audit
+          npm run verify-caller-proof
+
   trustplane:
     # trust-plane core: verify-before-use client, binding invariants, cache
     # pin persistence/rotation, sidecar, outcomes readback + local conformance

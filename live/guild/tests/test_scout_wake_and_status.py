@@ -109,6 +109,16 @@ def test_non_genuine_or_first_party_demand_never_wakes():
 
 def test_wake_is_debounced_and_rate_limited(monkeypatch):
     monkeypatch.setenv("GUILD_SCOUT_WAKE_DEBOUNCE_S", "3600")
+    # scope the scout to THIS test's capabilities: the shared store
+    # accumulates unmet demand from the whole process and the scout bounds
+    # capabilities per run — without scoping, this test's caps can be
+    # crowded out and the one-run-drains assertion becomes order-dependent
+    # (observed at HEAD before the 2026-07-17 correction).
+    orig_feed = store.demand_feed_entries
+    monkeypatch.setattr(
+        store, "demand_feed_entries",
+        lambda: [r for r in orig_feed()
+                 if r["capability"].startswith("wake-cap-")])
     caps = [_cap() for _ in range(5)]
     for i, cap in enumerate(caps):
         demand.record_demand(cap, transport="http", actor=f"flood-{i}",

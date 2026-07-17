@@ -13,6 +13,7 @@ told apart from our own tests — see `_client_ua`.
 """
 from __future__ import annotations
 
+import contextvars
 import json as _json
 import os
 from typing import Any, Callable, Optional
@@ -20,11 +21,13 @@ from typing_extensions import TypedDict
 
 from fastmcp import Context, FastMCP
 from fastmcp.tools.tool import ToolResult
+from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from x402.mcp.types import MCP_PAYMENT_META_KEY, MCP_PAYMENT_RESPONSE_META_KEY
 from x402.schemas import PaymentPayload
 
 from . import __version__
+from . import callerproof
 from . import demand
 from . import journey as journey_engine
 from . import payments
@@ -127,6 +130,80 @@ def _first_party_payer() -> "bool | None":
     return True if ok else None
 
 
+# --- caller-proof verification: ONE verification per tools/call --------------
+# The agent-guild/caller-proof/v1 MCP mapping
+# (_meta["io.agent-guild/caller-proof"]) is verified HERE, on the real
+# execution path, exactly once per tool call, bound to:
+#   method   = "tools/call"
+#   resource = the exact MCP tool name
+#   body     = sha256(JCS(visible tool arguments minus api_key/_meta))
+# The (verified, did) outcome rides a request-scoped contextvar into demand
+# recording (_record_mcp_demand) and settlement attribution (_serve_paid →
+# payments.authorize). verify_proof consumes the envelope's nonce durably, so
+# verifying once — and only once — per call is a correctness requirement:
+# a second verification of the same envelope would be a nonce replay.
+
+_mcp_caller_proof: contextvars.ContextVar[tuple[bool, str]] = \
+    contextvars.ContextVar("mcp_caller_proof", default=(False, ""))
+
+
+def _meta_value(meta: Any, key: str) -> Any:
+    if meta is None:
+        return None
+    if isinstance(meta, dict):
+        return meta.get(key)
+    extra = getattr(meta, "model_extra", None)
+    if isinstance(extra, dict):
+        return extra.get(key)
+    return None
+
+
+def _extract_caller_proof_meta(context: "MiddlewareContext") -> Any:
+    """The raw caller-proof envelope from the request _meta, or None.
+    Checked on the message params first, then on the request context (where
+    FastMCP surfaces client-supplied _meta for Streamable HTTP and
+    in-process clients alike)."""
+    env = _meta_value(getattr(context.message, "meta", None),
+                      callerproof.MCP_META_KEY)
+    if env is not None:
+        return env
+    try:
+        rc_meta = context.fastmcp_context.request_context.meta
+    except Exception:
+        return None
+    return _meta_value(rc_meta, callerproof.MCP_META_KEY)
+
+
+class CallerProofMiddleware(Middleware):
+    """Verify the caller-proof envelope for every tools/call — once."""
+
+    async def on_call_tool(self, context: "MiddlewareContext", call_next):
+        verified, did = False, ""
+        try:
+            env = _extract_caller_proof_meta(context)
+            if env is not None:
+                tool_name = str(getattr(context.message, "name", "") or "")
+                arguments = getattr(context.message, "arguments", None) or {}
+                out = callerproof.verify_proof(
+                    store, env, method="tools/call", resource=tool_name,
+                    body=callerproof.mcp_args_body(arguments))
+                verified = bool(out.get("verified"))
+                did = (out.get("did") or "") if verified else ""
+        except Exception:
+            # verification failure NEVER breaks a call — it stays unverified
+            verified, did = False, ""
+        token = _mcp_caller_proof.set((verified, did))
+        try:
+            return await call_next(context)
+        finally:
+            _mcp_caller_proof.reset(token)
+
+
+def _caller_proof_state() -> tuple[bool, str]:
+    """The (verified, did) outcome of THIS call's single verification."""
+    return _mcp_caller_proof.get()
+
+
 mcp = FastMCP(
     "Agent Guild",
     version=__version__,
@@ -153,6 +230,9 @@ mcp = FastMCP(
         "collusion rings do not move scores. Writes are free."
     ),
 )
+
+# one caller-proof verification per tools/call, on the REAL execution path.
+mcp.add_middleware(CallerProofMiddleware())
 
 
 def _rank(capability: str, limit: int, min_trust: float):
@@ -220,14 +300,22 @@ def _record_mcp_demand(capability: str, ctx: "Context | None",
                        api_key: str = "") -> "dict | None":
     """B1: the shared PRE-AUTHORIZATION demand recorder — invoked before
     authorize(), so an unpaid MCP caller's capability need is preserved even
-    when the answer is a payment challenge."""
+    when the answer is a payment challenge. Carries the call's single
+    caller-proof verification outcome: a valid proof records VERIFIED
+    machine demand under the actor `did:<did>` (the UA heuristic plays no
+    part); anything else stays the hashed heuristic actor."""
     import hashlib
     ua = _client_ua(ctx)
-    basis = ("key:" + api_key) if api_key else ("ua:" + ua)
-    actor = "mcp:" + hashlib.sha256(
-        ("agent-guild/demand-actor/" + basis).encode()).hexdigest()[:12]
+    verified, did = _caller_proof_state()
+    if verified and did:
+        actor = "did:" + did
+    else:
+        basis = ("key:" + api_key) if api_key else ("ua:" + ua)
+        actor = "mcp:" + hashlib.sha256(
+            ("agent-guild/demand-actor/" + basis).encode()).hexdigest()[:12]
     return demand.record_demand(capability, transport="mcp", actor=actor,
-                                ua=ua)
+                                ua=ua, caller_proof_verified=verified,
+                                caller_did=(did if verified else ""))
 
 
 def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
@@ -240,6 +328,10 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
     result _meta under 'x402/payment-response'."""
     payment = _mcp_payment(ctx)
     ua = _client_ua(ctx)
+    # the call's SINGLE caller-proof verification (middleware): its DID
+    # feeds settlement attribution — the nonce is already consumed, never
+    # re-verified here.
+    verified, caller_did = _caller_proof_state()
     try:
         if payment is not None:
             # decode already done; authorize settles + binds to preq.
@@ -247,10 +339,14 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
             # (unknown) otherwise — never affirmatively external.
             auth = payments.authorize(preq, payment=payment, protocol="v2",
                                       ua=ua, transport="mcp",
-                                      first_party=_first_party_payer())
+                                      first_party=_first_party_payer(),
+                                      caller_did=(caller_did if verified
+                                                  else ""))
         else:
             auth = payments.authorize(preq, api_key=(api_key or None),
-                                      ua=ua, transport="mcp")
+                                      ua=ua, transport="mcp",
+                                      caller_did=(caller_did if verified
+                                                  else ""))
     except PaymentChallenge as e:
         body = dict(e.body)
         ns = demand.no_supply_block(dem) if dem else None

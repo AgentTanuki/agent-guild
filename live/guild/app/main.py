@@ -1383,7 +1383,10 @@ def wallet_binding_challenge(body: dict):
     did = (body or {}).get("did")
     if not (isinstance(did, str) and did.startswith("did:key:")):
         raise HTTPException(422, "a did:key is required")
-    return walletbinding.new_challenge(store, did)
+    try:
+        return walletbinding.new_challenge(store, did)
+    except walletbinding.BindingError as e:
+        raise HTTPException(422, str(e))
 
 
 @app.post("/wallet-binding/verify")

@@ -1,12 +1,16 @@
-"""Trustworthy economic attribution (machine-attribution pass).
+"""Trustworthy economic attribution (machine-attribution pass; class names
+corrected by the 2026-07-17 machine-integrity pass — binding never claims
+externality).
 
 Every independently confirmed mainnet settlement is classified as EXACTLY
-one of: verified_external_machine | verified_first_party_canary |
-unverified_payer.
+one of: verified_first_party_canary | cryptographically_bound_machine_payer |
+independently_attested_external_machine | unverified_payer.
 
-  * verified_external_machine requires a VALID caller proof + a VALID
-    wallet-binding credential whose DID matches the proof and whose address
-    matches the x402 payer, and an identity not Guild-operated;
+  * cryptographically_bound_machine_payer requires a VALID caller proof + a
+    VALID wallet-binding credential whose DID matches the proof and whose
+    (address, network) match the x402 settlement, and an identity not
+    Guild-operated — it proves machine identity + wallet control, NEVER
+    externality (see tests/test_attribution_honesty.py);
   * first-party status comes from cryptographic/configured Guild identity
     (token-gated credential or configured canary wallets) — never a merely
     descriptive header;
@@ -115,7 +119,7 @@ def test_missing_proof_is_unverified_never_external():
     assert rec["confirmed"] is True          # the money still counts
 
 
-def test_caller_proof_plus_wallet_binding_is_verified_external():
+def test_caller_proof_plus_wallet_binding_is_cryptographically_bound():
     from app.main import app
     cap = _cap()
     with TestClient(app) as client:
@@ -125,7 +129,7 @@ def test_caller_proof_plus_wallet_binding_is_verified_external():
             callerproof.HTTP_HEADER: _proof_header(priv, did, resource)})
         assert r.status_code == 200
     rec = _last_payment()
-    assert rec["payer_attribution"] == "verified_external_machine"
+    assert rec["payer_attribution"] == "cryptographically_bound_machine_payer"
     assert rec["caller_did"] == did
     assert rec["wallet_binding_credential"] == cred["credential_id"]
 
@@ -227,7 +231,7 @@ def test_settlement_receipt_carries_attribution_fields():
     ext = hdr.get("extensions") or {}
     evidence = (ext.get(artifacts.EVIDENCE_EXTENSION) or {}).get("info") or {}
     att = evidence.get("attribution") or {}
-    assert att.get("class") == "verified_external_machine"
+    assert att.get("class") == "cryptographically_bound_machine_payer"
     assert att.get("caller_did") == did
     assert att.get("payer", "").lower() == PAYER.lower()
     assert att.get("wallet_binding_credential") == cred["credential_id"]
@@ -248,18 +252,21 @@ def test_revenue_and_funnel_expose_three_classes():
         _paid_get(client, _cap())                # unverified payer... same
         rev = client.get("/billing/revenue").json()["real_settlement"]
         att = rev["attribution"]
-        assert set(att) >= {"verified_external_machine",
+        assert set(att) >= {"cryptographically_bound_machine_payer",
+                            "independently_attested_external_machine",
                             "verified_first_party_canary",
                             "unverified_payer"}
-        assert att["verified_external_machine"]["transactions"] >= 1
+        assert att["cryptographically_bound_machine_payer"][
+            "transactions"] >= 1
         assert rev["transactions"] == sum(
             v["transactions"] for v in att.values()), (
             "real_settlement counts ALL confirmed money regardless of "
             "attribution")
         funnel = {s["stage"]: s["count"]
                   for s in client.get("/funnel").json()["stages"]}
-        for stage in ("verified_external_machine_settlement",
+        for stage in ("cryptographically_bound_machine_settlement",
+                      "independently_attested_external_settlement",
                       "verified_first_party_canary_settlement",
                       "unverified_payer_settlement"):
             assert stage in funnel
-        assert funnel["verified_external_machine_settlement"] >= 1
+        assert funnel["cryptographically_bound_machine_settlement"] >= 1

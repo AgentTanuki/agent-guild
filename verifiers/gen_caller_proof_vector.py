@@ -9,14 +9,21 @@ credential verify offline anywhere.
 Usage: python verifiers/gen_caller_proof_vector.py [out.json]
 """
 import json
+import os
 import pathlib
 import sys
 import time
+from datetime import datetime, timezone
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "live" / "guild"))
 
+os.environ.setdefault("GUILD_DATA", "")        # ephemeral in-memory store
+os.environ.setdefault("GUILD_STORE", "json")
+os.environ.setdefault("GUILD_BOOTSTRAP_EVAL", "0")
+
 from app import callerproof, crypto, walletbinding   # noqa: E402
+from app.store import Store                            # noqa: E402
 
 
 def _account_from_seed(seed: bytes):
@@ -50,6 +57,17 @@ def main() -> int:
         encode_defunct(text=walletbinding.binding_message(binding)),
         acct.key).signature.hex()
 
+    # the ACTUAL Guild-issued credential, from the live issuer code path —
+    # the independent verifiers must verify ITS signature, issuer, validity
+    # window and subject fields, not merely the two pre-issuance binding
+    # signatures. (Live revocation/status is a separate, ONLINE check that
+    # no offline verifier can perform — the vector says so explicitly.)
+    store = Store(path="")
+    guild = store.guild_identity()
+    credential = walletbinding.issue_credential(
+        store, did=did, address=acct.address, network="eip155:8453",
+        challenge_nonce=nonce)
+
     vector = {
         "note": ("Independent verification vectors for "
                  "agent-guild/caller-proof/v1 and the wallet-binding "
@@ -70,6 +88,16 @@ def main() -> int:
             "did_public_key_hex": pub,
             "expected_evm_address": acct.address,
             "message": walletbinding.binding_message(binding),
+            # the Guild-ISSUED credential + everything needed to verify it
+            # OFFLINE (issuer signature, issuer identity, window, subject).
+            "credential": credential,
+            "expected_issuer_did": guild["did"],
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+            "status_note": ("offline verification covers cryptographic "
+                            "validity ONLY (issuer signature + validity "
+                            "window + subject fields); revocation/"
+                            "supersession is LIVE status held by the Guild "
+                            "store and is NOT checkable offline"),
         },
     }
     pathlib.Path(out_path).write_text(json.dumps(vector, indent=2) + "\n")

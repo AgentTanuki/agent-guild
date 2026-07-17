@@ -86,11 +86,50 @@ def verify_wallet_binding(v: dict) -> None:
     print("PASS wallet-binding tamper: address mutation changes the message")
 
 
+def verify_issued_credential(v: dict) -> None:
+    """Verify the ACTUAL Guild-issued wallet-binding credential — its
+    issuer signature, issuer identity, validity window and subject fields —
+    OFFLINE. This is deliberately more than the two pre-issuance binding
+    signatures: those prove the subject controlled both keys; only the
+    credential proves the GUILD issued the binding."""
+    cred = v["credential"]
+    binding = v["binding"]
+    # issuer signature: Ed25519 by the issuer's did:key over JCS(body-proof)
+    assert cred["issuer"] == v["expected_issuer_did"], "unexpected issuer"
+    body = {k: val for k, val in cred.items() if k != "proof"}
+    assert _ed25519_verify_jcs(body, cred["proof"],
+                               pub_from_did(cred["issuer"])), \
+        "credential issuer signature INVALID"
+    # subject fields must match the binding that was proven
+    assert cred["type"] == "AgentGuildWalletBinding"
+    assert cred["protocol"] == binding["v"], "protocol mismatch"
+    assert cred["did"] == binding["did"], "credential subject DID mismatch"
+    assert cred["address"].lower() == binding["address"].lower(), \
+        "credential address mismatch"
+    assert cred["network"] == binding["network"], "credential network mismatch"
+    # validity window (offline check against the vector's verified_at)
+    at = v["verified_at"]
+    assert cred["issued_at"] <= at < cred["expires_at"], \
+        "credential outside its validity window"
+    # tamper: any body mutation breaks the issuer signature
+    for mut in ("did", "address", "network", "expires_at"):
+        t = json.loads(json.dumps(body))
+        t[mut] = "TAMPERED"
+        assert not _ed25519_verify_jcs(t, cred["proof"],
+                                       pub_from_did(cred["issuer"])), \
+            f"tampering credential.{mut} did NOT break the issuer signature"
+    print("PASS issued credential: issuer signature + issuer + validity "
+          "window + subject fields (OFFLINE cryptographic validity)")
+    print("NOTE: revocation/supersession is LIVE status held by the Guild "
+          "store — NOT verified here and not claimable offline")
+
+
 def main() -> int:
     path = sys.argv[1] if len(sys.argv) > 1 else "caller_proof_vector.json"
     vec = json.load(open(path))
     verify_caller_proof(vec["caller_proof"])
     verify_wallet_binding(vec["wallet_binding"])
+    verify_issued_credential(vec["wallet_binding"])
     print("ALL INDEPENDENT PYTHON CHECKS PASSED")
     return 0
 
