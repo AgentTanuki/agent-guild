@@ -325,6 +325,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/caller-proof"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/capabilities"
   },
   {
@@ -643,6 +649,30 @@
   },
   {
    "methods": [
+    "POST"
+   ],
+   "path": "/wallet-binding/challenge"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/wallet-binding/revoke"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/wallet-binding/status/{credential_id}"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/wallet-binding/verify"
+  },
+  {
+   "methods": [
     "GET"
    ],
    "path": "/x402/readiness"
@@ -657,6 +687,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.0.0"
+  "version": "2.0.1"
  }
 }

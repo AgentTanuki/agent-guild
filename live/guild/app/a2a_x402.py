@@ -37,6 +37,7 @@ from typing import Any, Optional
 
 from x402.schemas import PaymentPayload
 
+from . import demand as demand_mod
 from . import payments
 from . import x402
 from .payments import PaidRequest
@@ -92,7 +93,81 @@ def _task_message(status: str, metadata: dict[str, Any], text: str,
     }
 
 
+def _usd_of(required: dict[str, Any]) -> str:
+    """Human/machine-readable dollar price from the exact atomic quote (USDC,
+    6 decimals) — the REAL on-chain amount, never the credits×CREDIT_USD
+    approximation."""
+    try:
+        atomic = int(required["accepts"][0]["maxAmountRequired"])
+        return f"${atomic / 1_000_000:.6f}".rstrip("0").rstrip(".")
+    except (KeyError, IndexError, TypeError, ValueError):
+        return "$?"
+
+
+def _free_supply_block(ctx: dict[str, Any]) -> dict[str, Any]:
+    """The FREE counts-only supply summary for the asked capability — never
+    the paid shortlist, trust scores, verdict, or evidence."""
+    return {
+        "capability": ctx["capability"],
+        "supplied": ctx["supplied"],
+        "declared_endpoint": ctx["declared_endpoint"],
+        "verified_reachable": ctx["verified_reachable"],
+        "demand_id": ctx["demand_id"],
+        "demand_recorded_free": True,
+    }
+
+
+def _challenge_text(required: dict[str, Any], ctx: Optional[dict[str, Any]],
+                    no_supply: Optional[dict[str, Any]]) -> str:
+    """Honest plain-text body of the payment challenge.
+
+    Live-telemetry fix (2026-07-15): a genuine external agent
+    (a2a:net:bba57b53…) asked `check: korean-legal` five times and
+    `check: fact-check` twice, hit this challenge every time, retried for
+    20 minutes, never paid, and downgraded to a free invoke. The honest
+    no-supply answer existed but ONLY in task metadata; the text part —
+    the one thing every A2A client renders — said nothing but "payment is
+    required". A rational agent deciding whether to pay needs, in the text
+    itself: the exact price, what the paid read returns, whether any
+    candidates even exist (free fact), and the zero-cost alternatives.
+    Counts only — the shortlist, scores, verdict and evidence stay paid.
+    """
+    price = _usd_of(required)
+    if no_supply:
+        return (
+            f"Do NOT pay yet: no supplier of '{no_supply['capability']}' "
+            "currently has a VERIFIED reachable endpoint, so this paid trust "
+            "read would evaluate an empty candidate set. Your demand is "
+            f"already recorded FREE (demand_id {no_supply['demand_id']}). "
+            "Free next steps: POST /demand/watch {\"capability\": "
+            f"\"{no_supply['capability']}\"}} to be notified when supply "
+            "arrives; or register as the first supplier via POST "
+            "/agents/register and prove the capability — first competent "
+            "supplier of an in-demand capability starts at rank 1. Pull "
+            "/demand/feed (free, signed) to see all unmet demand. If you "
+            f"still want the paid read it costs {price} USDC on Base via "
+            "x402: submit a signed payment payload with this taskId "
+            "(x402.payment.status=payment-submitted).")
+    supply_note = ""
+    if ctx:
+        supply_note = (
+            f" Free fact: {ctx['verified_reachable']} verified-reachable "
+            f"candidate(s) for '{ctx['capability']}' are known; your demand "
+            f"is recorded free (demand_id {ctx['demand_id']}).")
+    return (
+        f"This trust read costs {price} USDC on Base via x402."
+        f"{supply_note} Paying returns the full AGD-1 decision: the safest "
+        "known agent for the capability, hire/caution/avoid verdict, the "
+        "ranked candidates, and a signed offer-receipt. Submit a "
+        "signed x402 payment payload with this taskId "
+        "(x402.payment.status=payment-submitted). Free alternatives: "
+        "'capabilities' (supply/demand map), /demand/feed (signed unmet "
+        "demand), or register + prove your own capability (POST "
+        "/agents/register).")
+
+
 def build_payment_required_task(preq: PaidRequest, credits_cost: int,
+                                demand_ctx: Optional[dict[str, Any]] = None,
                                 ) -> dict[str, Any]:
     """Create + persist a payment task and return the input-required Task."""
     task_id = "x402task_" + uuid.uuid4().hex
@@ -110,16 +185,20 @@ def build_payment_required_task(preq: PaidRequest, credits_cost: int,
         "created_at_epoch": time.time(),
     })
     store.x402_gc_maybe()
+    ns = demand_mod.no_supply_block(demand_ctx) if demand_ctx else None
+    meta: dict[str, Any] = {REQUIRED_KEY: required}
+    if demand_ctx:
+        meta["io.agent-guild/supply"] = _free_supply_block(demand_ctx)
+    if ns:
+        meta["io.agent-guild/no_supply"] = ns
     return {
         "kind": "task",
         "id": task_id,
         "status": {
             "state": "input-required",
             "message": _task_message(
-                "payment-required", {REQUIRED_KEY: required},
-                "Payment is required for this trust read. Submit a signed "
-                "x402 payment payload with this taskId "
-                "(x402.payment.status=payment-submitted)."),
+                "payment-required", meta,
+                _challenge_text(required, demand_ctx, ns)),
         },
     }
 
@@ -151,10 +230,14 @@ def _failed_task(task_id: str, code: str, detail: str,
     }
 
 
-def handle_payment_submission(message: dict[str, Any]) -> dict[str, Any]:
+def handle_payment_submission(message: dict[str, Any],
+                              caller_did: str = "") -> dict[str, Any]:
     """Settle a submitted A2A payment against its stored quote and return the
     completed (or failed) Task. Idempotent recovery + double-settlement guards
-    come from the shared gateway."""
+    come from the shared gateway. `caller_did` is the DID of THIS request's
+    already-verified caller proof (verified once at the endpoint — the nonce
+    is consumed there and never re-verified here); it feeds settlement
+    attribution exactly as on HTTP and MCP."""
     task_id, meta = _extract_payment_meta(message)
     if not task_id:
         return _rpc_failure("payment submission missing taskId")
@@ -186,7 +269,8 @@ def handle_payment_submission(message: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:  # malformed payload
         return _failed_task(task_id, "INVALID_SIGNATURE", str(e)[:200], receipts)
     try:
-        settled = payments.settle_x402(payload, preq, protocol=protocol)
+        settled = payments.settle_x402(payload, preq, protocol=protocol,
+                                       caller_did=caller_did)
     except x402.PaymentBindingError as e:
         return _failed_task(task_id, _err_code(e.reason), e.detail or e.reason,
                             receipts)

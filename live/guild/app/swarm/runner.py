@@ -44,9 +44,13 @@ _PROCESS_OWNER = "runner-" + uuid.uuid4().hex[:12]
 _PROCESS_STARTED_AT = datetime.now(timezone.utc).isoformat()
 _thread: Optional[threading.Thread] = None
 _stop = threading.Event()
-# one kick wakes the loop early — set by stop() AND by a demand wake, so the
-# loop can wait on a single event and stay responsive to both.
+# one kick wakes the loop early — set by stop() AND by a demand notification,
+# so the loop can wait on a single event and stay responsive to both. The
+# kick NEVER authorizes a dispatch by itself: it only makes the loop
+# recompute its deadline-aware plan (_plan) from durable state.
 _kick = threading.Event()
+# injectable clock (fake-clock tests) — every scheduling decision reads it.
+_now = time.time
 
 
 def enabled() -> bool:
@@ -118,10 +122,23 @@ def _state(store: Any) -> dict[str, Any]:
     st.setdefault("last_run", None)
     st.setdefault("runs_completed", 0)
     st.setdefault("consecutive_failures", 0)
-    st.setdefault("pending_wake", None)
+    # DURABLE, COALESCING pending-demand queue keyed by canonical
+    # capability: {cap: {"reason", "first_requested_at", "requests"}}. A
+    # wake is ACKNOWLEDGED (removed) only after a completed cycle actually
+    # processed that capability — a lease collision, failed cycle or restart
+    # leaves it in place, so no notification is ever lost.
+    st.setdefault("pending_demand", {})
     st.setdefault("last_wake_at", 0.0)
     st.setdefault("wakes_requested", 0)
+    st.setdefault("last_acknowledged_wake", None)
+    # legacy single-slot field (pre-queue); kept nil so old readers see None
+    st.setdefault("pending_wake", None)
     return st
+
+
+def pending_demand(store: Any) -> dict[str, Any]:
+    """The durable pending-demand queue (capability -> record)."""
+    return dict(_state(store).get("pending_demand") or {})
 
 
 def _persist(store: Any) -> None:
@@ -136,7 +153,7 @@ def _acquire_lease(store: Any, owner: str, ttl_s: float,
     """Take the persisted run lease iff it is free, expired, or already ours.
     Persisted BEFORE the run starts, so a second process (or a restart mid-
     run) can never overlap; a crashed holder's lease recovers after TTL."""
-    now = time.time() if now is None else now
+    now = _now() if now is None else now
     with store.lock:
         st = _state(store)
         lease = st.get("lease")
@@ -165,40 +182,116 @@ def _run_scout(store: Any, *, fetch: Callable, deadline: float,
 
 
 def notify_demand(store: Any, capability: str) -> bool:
-    """Debounced, rate-limited wake signal: newly counted GENUINE external
-    unmet demand schedules a prompt scout cycle instead of waiting for the
-    interval fallback. Coalesces (one pending wake at a time), respects
-    GUILD_SCOUT_WAKE_DEBOUNCE_S between demand-triggered runs, and never
-    bypasses the overlap lease (run_once still takes it). Returns True when
-    a wake was queued."""
+    """Record newly counted verified/genuine unmet demand for `capability`
+    into the DURABLE pending-demand queue and wake the loop so it can
+    RE-PLAN. Recording is NEVER debounced — every new capability is durably
+    queued immediately, so no wake can be lost between runs, during a lease
+    collision, on a failed cycle or across a restart.
+
+    This function NEVER authorizes a dispatch (the historical defect: it
+    computed a debounced `dispatch` decision, then kicked the loop
+    unconditionally — the debounce was decoration). Dispatch is decided by
+    the persisted, deadline-aware scheduler: `dispatch_due()` at run start
+    (claimed atomically in run_once) and `_plan()` in the loop. Coalesces
+    per canonical capability. Returns True when this call newly queued the
+    capability."""
     if not enabled():
         return False
-    now = time.time()
+    canon = scout.canonical_capability(capability)
+    if not canon:
+        return False
+    newly = False
     with store.lock:
         st = _state(store)
-        if st.get("pending_wake"):
-            return False                       # already queued — coalesce
+        pend = st.setdefault("pending_demand", {})
+        rec = pend.get(canon)
+        if rec is None:
+            pend[canon] = {"reason": "genuine_unmet_demand",
+                           "first_requested_at": _now_iso(), "requests": 1}
+            newly = True
+        else:
+            rec["requests"] = int(rec.get("requests") or 0) + 1
+    _persist(store)
+    # the kick only wakes the loop to RE-PLAN against durable state; the
+    # loop re-checks pending_demand + the debounce deadline after clearing
+    # the event, so a notify racing the clear can never be lost — and a
+    # kick can never start a run inside the debounce window.
+    _kick.set()
+    return newly
+
+
+def next_dispatch_at(store: Any) -> Optional[float]:
+    """The PERSISTED epoch at which the pending queue may next dispatch a
+    demand-triggered run, or None when the queue is empty. Derived from
+    durable state (last_wake_at + debounce), so it survives restarts."""
+    with store.lock:
+        st = _state(store)
+        if not st.get("pending_demand"):
+            return None
+        return float(st.get("last_wake_at") or 0.0) + wake_debounce_s()
+
+
+def dispatch_due(store: Any, now: Optional[float] = None) -> bool:
+    """True iff pending demand exists AND the debounce window has expired —
+    the only condition under which a demand-triggered run may begin."""
+    now = _now() if now is None else now
+    deadline = next_dispatch_at(store)
+    return deadline is not None and now >= deadline
+
+
+def _claim_dispatch(store: Any, now: float) -> bool:
+    """Atomically claim the demand-dispatch slot (persisted). Returns False
+    when inside the debounce window — at most ONE demand-triggered run can
+    begin per GUILD_SCOUT_WAKE_DEBOUNCE_S."""
+    with store.lock:
+        st = _state(store)
         if now - float(st.get("last_wake_at") or 0.0) < wake_debounce_s():
-            return False                       # rate-limited
-        st["pending_wake"] = {"reason": "genuine_unmet_demand",
-                              "capability": capability, "at": _now_iso()}
+            return False
         st["last_wake_at"] = now
         st["wakes_requested"] = int(st.get("wakes_requested") or 0) + 1
     _persist(store)
-    _kick.set()
     return True
+
+
+def _ack_processed(store: Any, capabilities: list[str]) -> None:
+    """Acknowledge (remove) only the pending capabilities a completed cycle
+    ACTUALLY processed. Anything still queued (arrived mid-run, or never
+    reached because the run was bounded) survives to the next cycle."""
+    if not capabilities:
+        return
+    processed = {scout.canonical_capability(c) for c in capabilities}
+    with store.lock:
+        st = _state(store)
+        pend = st.get("pending_demand") or {}
+        acked = None
+        for cap in list(pend):
+            if cap in processed:
+                acked = {"capability": cap, "at": _now_iso(),
+                         "requests": pend[cap].get("requests")}
+                del pend[cap]
+        if acked:
+            st["last_acknowledged_wake"] = acked
+    _persist(store)
 
 
 def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
              owner: str = "", trigger: str = "interval") -> dict[str, Any]:
-    """One guarded production cycle: enable-check → lease → bounded
-    run_scout → persisted status. Returns {"completed": bool, ...}."""
+    """One guarded production cycle: enable-check → lease → (demand-wake
+    debounce claim) → bounded run_scout → persisted status. Returns
+    {"completed": bool, ...}. A demand-triggered run must CLAIM the
+    persisted dispatch slot under the lease: no more than one demand-
+    triggered run can begin inside GUILD_SCOUT_WAKE_DEBOUNCE_S; a debounced
+    attempt retains the queue (never a failure, never a loss)."""
     owner = owner or _PROCESS_OWNER
     if not enabled():
         return {"completed": False, "reason": "disabled"}
     ttl = run_timeout_s() + 30.0
     if not _acquire_lease(store, owner, ttl):
         return {"completed": False, "reason": "lease_held_by_other_runner"}
+    if trigger == "demand_wake" and not _claim_dispatch(store, _now()):
+        _release_lease(store, owner)
+        return {"completed": False, "reason": "wake_debounced",
+                "next_dispatch_at": next_dispatch_at(store)}
     st = _state(store)
     st["last_started_at"] = _now_iso()
     _persist(store)
@@ -206,14 +299,16 @@ def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
         deadline = time.time() + run_timeout_s()
         summary = _run_scout(store, fetch=fetch, deadline=deadline)
         zero_demand = not summary.get("capabilities")
+        # ACK only the capabilities this cycle actually processed — demand
+        # that arrived mid-run stays queued for the next cycle.
+        _ack_processed(store, summary.get("capabilities", []))
         with store.lock:
             st = _state(store)
             st["last_completed_at"] = _now_iso()
             st["last_error"] = None
             st["runs_completed"] = int(st.get("runs_completed") or 0) + 1
             st["consecutive_failures"] = 0
-            consumed_wake = st.get("pending_wake")
-            st["pending_wake"] = None          # the wake is consumed by this run
+            consumed_wake = st.get("last_acknowledged_wake")
             st["last_run"] = {
                 "zero_demand": zero_demand,
                 "classification": ("zero_demand" if zero_demand
@@ -256,26 +351,51 @@ def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
         _release_lease(store, owner)
 
 
+def _plan(store: Any, next_interval_at: float,
+          now: Optional[float] = None) -> tuple[Optional[str], float]:
+    """The deadline-aware scheduling decision, computed from DURABLE state:
+    returns (trigger, wait_s). trigger is "demand_wake" when pending demand
+    exists and its debounce deadline has passed, "interval" when the
+    interval fallback is due, else None with the seconds to sleep until the
+    EARLIEST of the two deadlines — so pending work is processed as soon as
+    the debounce expires, never six hours later, and repeated demand can
+    never busy-loop the runner."""
+    now = _now() if now is None else now
+    deadline = next_dispatch_at(store)
+    if deadline is not None and now >= deadline:
+        return "demand_wake", 0.0
+    if now >= next_interval_at:
+        return "interval", 0.0
+    waits = [next_interval_at - now]
+    if deadline is not None:
+        waits.append(deadline - now)
+    return None, max(0.05, min(waits))
+
+
 def _loop(store: Any) -> None:
     if _stop.wait(initial_delay_s()):
         return
-    trigger = "interval"
+    next_interval_at = _now()          # first cycle runs promptly at boot
     while not _stop.is_set():
+        # Clear-event-plus-state-RECHECK: clear the kick, then re-plan from
+        # the DURABLE queue + persisted deadline. A notify that fired
+        # between the clear and the wait left its capability (and deadline)
+        # in persisted state, so we never sleep through it — the durable
+        # plan, not the transient event, is the source of truth.
+        _kick.clear()
+        trigger, wait = _plan(store, next_interval_at)
+        if trigger is None:
+            _kick.wait(wait)
+            if _stop.is_set():
+                return
+            continue
         try:
             run_once(store, trigger=trigger)
         except Exception as e:  # noqa: BLE001 — the loop must survive anything
             _log.warning("scout runner loop error: %s", e)
-        failures = int(_state(store).get("consecutive_failures") or 0)
-        # wait for the jittered interval (fallback) OR an early kick —
-        # a demand wake or stop(). One pending wake = at most one early run;
-        # notify_demand's debounce keeps repeated demand from flooding.
-        _kick.clear()
-        woke = _kick.wait(next_delay_s(failures=failures))
-        if _stop.is_set():
-            return
-        trigger = ("demand_wake"
-                   if woke and _state(store).get("pending_wake")
-                   else "interval")
+        if trigger == "interval" or _now() >= next_interval_at:
+            failures = int(_state(store).get("consecutive_failures") or 0)
+            next_interval_at = _now() + next_delay_s(failures=failures)
 
 
 def start(store: Any) -> bool:
@@ -300,11 +420,27 @@ def stop() -> None:
     _kick.set()
 
 
+def _oldest_wake_age_s(st: dict[str, Any]) -> Optional[float]:
+    pend = st.get("pending_demand") or {}
+    if not pend:
+        return None
+    from datetime import datetime as _dt
+    now = datetime.now(timezone.utc)
+    ages = []
+    for rec in pend.values():
+        try:
+            ts = _dt.fromisoformat(str(rec.get("first_requested_at")))
+            ages.append((now - ts).total_seconds())
+        except (ValueError, TypeError):
+            continue
+    return round(max(ages), 1) if ages else 0.0
+
+
 def status(store: Any) -> dict[str, Any]:
     """The public /swarm/status document — state, never secrets."""
     st = _state(store)
     lease = st.get("lease")
-    now = time.time()
+    now = _now()
     return {
         "enabled": enabled(),
         "contact_enabled": scout.contact_enabled(),
@@ -320,9 +456,16 @@ def status(store: Any) -> dict[str, Any]:
         "last_error": st.get("last_error"),
         "runs_completed": st.get("runs_completed", 0),
         "consecutive_failures": st.get("consecutive_failures", 0),
-        # wake visibility: the queued (not yet consumed) wake, if any —
-        # reason + capability + timestamp only, never actor identifiers.
-        "wake": st.get("pending_wake"),
+        # DURABLE wake-queue health — counts, ages and the last ack only;
+        # never actor identifiers or secrets.
+        "pending_capabilities": len(st.get("pending_demand") or {}),
+        "wake_debounce_s": wake_debounce_s(),
+        # persisted deadline-aware scheduling: when the pending queue may
+        # next dispatch a demand-triggered run (None = queue empty).
+        "next_dispatch_at": next_dispatch_at(store),
+        "oldest_wake_age_s": _oldest_wake_age_s(st),
+        "last_acknowledged_wake": st.get("last_acknowledged_wake"),
+        "wake": (next(iter((st.get("pending_demand") or {}).values()), None)),
         "wakes_requested": st.get("wakes_requested", 0),
         "last_run": st.get("last_run"),
         "candidates_recorded": len(

@@ -42,8 +42,10 @@ from .state import store
 from .reachability import url_policy_check
 from . import abuse
 from . import crypto
+from . import callerproof
 from . import demand
 from . import market
+from . import walletbinding
 from . import x402
 from . import payments
 from .payments import (
@@ -162,6 +164,11 @@ _xpay_v1: contextvars.ContextVar[str] = contextvars.ContextVar("xpay_v1", defaul
 # first-party canary's mainnet settlement can never read as external revenue.
 _fp_flag: contextvars.ContextVar[bool] = contextvars.ContextVar("fp_flag",
                                                                 default=False)
+# the verified caller DID for THIS request (from a valid caller proof), so
+# settlement attribution can bind the x402 payer to a proven machine
+# identity. Empty when the request carried no valid proof.
+_caller_did: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "caller_did", default="")
 _xpay_settled_holder: contextvars.ContextVar[Optional[list]] = \
     contextvars.ContextVar("xpay_settled_holder", default=None)
 
@@ -202,6 +209,7 @@ async def _capture_ua(request: Request, call_next):
     _fp_flag.set(_is_first_party(request.headers.get("x-guild-source"),
                                  request.headers.get(
                                      "x-agent-guild-first-party")))
+    _caller_did.set("")     # reset per request; set on a valid caller proof
     # --- abuse controls (registration flood / trial farming / read bursts /
     # --- storage exhaustion) — see app/abuse.py; GUILD_ABUSE_CONTROLS=0 disables
     if abuse.enabled():
@@ -397,18 +405,45 @@ def _http_demand_actor(request: Request, x_api_key: Optional[str]) -> str:
         ("agent-guild/demand-actor/" + basis).encode()).hexdigest()[:12]
 
 
+def _verify_http_caller_proof(request: Request) -> tuple[bool, str]:
+    """Verify an agent-guild/caller-proof/v1 envelope on an HTTP read, bound
+    to the EXACT request-target this server received. Returns
+    (verified, did). A missing/invalid proof leaves the call UNVERIFIED
+    (anonymous is allowed); a user-agent string can never substitute."""
+    raw = request.headers.get(callerproof.HTTP_HEADER.lower())
+    if not raw:
+        return False, ""
+    env = callerproof.parse_http_header(raw)
+    if env is None:
+        return False, ""
+    resource = callerproof.http_resource(
+        request.url.path, request.url.query)
+    out = callerproof.verify_proof(store, env, method=request.method,
+                                   resource=resource, body=b"")
+    verified, did = bool(out.get("verified")), (out.get("did") or "")
+    if verified:
+        # stash for settle-time payer attribution (single verification per
+        # request — the nonce is now consumed, never re-verified downstream).
+        _caller_did.set(did)
+    return verified, did
+
+
 def _record_http_demand(request: Request, capability: str,
                         x_api_key: Optional[str]) -> Optional[dict]:
     """B1: the shared PRE-AUTHORIZATION demand recorder (app/demand.py) —
     runs before meter(), so an unpaid caller's need is preserved even when
-    the answer is a payment challenge."""
+    the answer is a payment challenge. A valid caller proof marks the demand
+    as cryptographically VERIFIED machine demand."""
+    verified, did = _verify_http_caller_proof(request)
     return demand.record_demand(
         capability, transport="http",
-        actor=_http_demand_actor(request, x_api_key),
+        actor=(("did:" + did) if verified
+               else _http_demand_actor(request, x_api_key)),
         ua=_ua.get(),
         first_party=_is_first_party(
             request.headers.get("x-guild-source"),
-            request.headers.get("x-agent-guild-first-party")))
+            request.headers.get("x-agent-guild-first-party")),
+        caller_proof_verified=verified, caller_did=did)
 
 
 def _meter_with_demand(preq: PaidRequest, x_api_key: Optional[str],
@@ -476,7 +511,8 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
                                   protocol="v2", ua=_ua.get(),
                                   transport="http",
                                   first_party=(True if _fp_flag.get()
-                                               else None))
+                                               else None),
+                                  caller_did=_caller_did.get())
     except x402.PaymentBindingError as e:
         raise _challenge_http(PaymentChallenge(preq, extra={
             "error": "x402_payment_invalid", "reason": e.reason,
@@ -1331,6 +1367,70 @@ def get_revenue():
     return store.escrow_summary()
 
 
+# --- cryptographic machine attribution: caller-proof + wallet-binding --------
+@app.get("/caller-proof")
+def caller_proof_doc(request: Request):
+    """The machine-readable agent-guild/caller-proof/v1 schema, transport
+    mappings, an example envelope and verification instructions. Free; this
+    is how a machine learns to prove who it is without a human."""
+    return callerproof.schema_document(str(request.base_url).rstrip("/"))
+
+
+@app.post("/wallet-binding/challenge")
+def wallet_binding_challenge(body: dict):
+    """Step 1 of the no-gas DID↔wallet binding: request a single-use,
+    expiring challenge for your did:key. Free, self-serve, no human."""
+    did = (body or {}).get("did")
+    if not (isinstance(did, str) and did.startswith("did:key:")):
+        raise HTTPException(422, "a did:key is required")
+    try:
+        return walletbinding.new_challenge(store, did)
+    except walletbinding.BindingError as e:
+        raise HTTPException(422, str(e))
+
+
+@app.post("/wallet-binding/verify")
+def wallet_binding_verify(body: dict):
+    """Step 2: submit the binding signed by BOTH your did:key and your EVM
+    wallet. On success the Guild issues a signed, expiring wallet-binding
+    credential. A self-declared address never passes."""
+    try:
+        cred = walletbinding.verify_and_issue(
+            store, (body or {}).get("binding"),
+            (body or {}).get("did_signature") or "",
+            (body or {}).get("evm_signature") or "")
+    except walletbinding.BindingError as e:
+        raise HTTPException(422, str(e))
+    return {"credential": cred}
+
+
+@app.get("/wallet-binding/status/{credential_id}")
+def wallet_binding_status(credential_id: str):
+    """FREE machine-readable live status for one wallet-binding credential:
+    the IMMUTABLE signed credential document plus its CURRENT status
+    (active/revoked/superseded), `as_of`, issuer DID, and a Guild signature
+    over the status body. Offline signature validity and live status are
+    separate claims — this endpoint is how a third party checks the live
+    half."""
+    out = walletbinding.status_document(store, credential_id)
+    if out is None:
+        raise HTTPException(404, "unknown credential")
+    return out
+
+
+@app.post("/wallet-binding/revoke")
+def wallet_binding_revoke(body: dict):
+    """Machine-executable, DID-signed revocation of a wallet-binding
+    credential. Append-only audited."""
+    try:
+        out = walletbinding.revoke(
+            store, (body or {}).get("request"),
+            (body or {}).get("did_signature") or "")
+    except walletbinding.BindingError as e:
+        raise HTTPException(422, str(e))
+    return out
+
+
 # --- portable reputation: Agent Passports (the propagation loop) -------------
 @app.get("/agents/{agent_id}/passport")
 def get_passport(agent_id: str, request: Request, response: Response):
@@ -1696,6 +1796,16 @@ def demand_feed(request: Request,
             "genuine_lookups": ("asks from genuine external machines — "
                                 "AG-owned traffic, test harnesses and "
                                 "registry crawlers excluded"),
+            "verified_lookups": ("asks carrying a valid agent-guild/"
+                                 "caller-proof/v1 envelope — cryptographically "
+                                 "VERIFIED machine demand"),
+            "heuristic_lookups": ("genuine-external asks WITHOUT a caller "
+                                  "proof, including legacy_derived_heuristic "
+                                  "demand recovered from pre-recorder A2A "
+                                  "capability asks — never called verified"),
+            "provenance": ("how each count was derived: "
+                           "verified_machine_demand / recorder_heuristic / "
+                           "legacy_derived_heuristic"),
             "supplied": "registered suppliers (on paper)",
             "declared_endpoint": "suppliers with a declared endpoint",
             "verified_reachable": "suppliers with a VERIFIED reachable "
@@ -1906,6 +2016,16 @@ def _manifest() -> dict:
         "name": "Agent Guild",
         "description": "Attack-resistant reputation for autonomous agents. Ask "
                        "'who is the safest agent for this job?' and attest to work.",
+        "caller_proof": {
+            "protocol": callerproof.PROTOCOL,
+            "http_header": callerproof.HTTP_HEADER,
+            "mcp_meta_key": callerproof.MCP_META_KEY,
+            "a2a_metadata_key": callerproof.A2A_METADATA_KEY,
+            "doc": "/caller-proof",
+            "note": ("sign a JCS caller envelope with your did:key to prove "
+                     "this request came from your machine — no account, no "
+                     "human, no trusted user-agent"),
+        },
         "version": __version__,
         "for_agents": "You (an AI agent) can use Agent Guild with no human: hosted, free "
                       "writes, self-serve credits (POST /billing/trial), did:key identity. "
@@ -2123,6 +2243,12 @@ def _manifest() -> dict:
             "ag_identities": "/.well-known/ag-identities/index.json",
             "a2a_agent_card": "/.well-known/agent-card.json",
             "a2a_endpoint": "/a2a",
+            "caller_proof_doc": "/caller-proof",
+            "wallet_binding": {"challenge": "/wallet-binding/challenge",
+                               "verify": "/wallet-binding/verify",
+                               "revoke": "/wallet-binding/revoke",
+                               "status":
+                                   "/wallet-binding/status/{credential_id}"},
             "badges": {"generic": "/badge.svg", "per_agent": "/agents/{id}/badge.svg"},
             "openapi": "/openapi.json",
             "ai_plugin": "/.well-known/ai-plugin.json",

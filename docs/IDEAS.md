@@ -542,3 +542,102 @@ verifier), or the first external supplier that fails the routing gate while
 demonstrably alive-but-sleeping. **Falsifier:** if declared-endpoint agents
 stay overwhelmingly always-on (paid hosting wins the agent economy), the duty
 cycle model is dead weight — don't build it.
+
+## 2026-07-15 (growth-sprint) — The first verdict is free, but only for a proven identity: chain caller-proof → prove → free read → paid depth
+
+**The observation (today's telemetry).** A new genuine external strong actor,
+`a2a:net:bba57b53…`, asked `check: korean-legal` five times and
+`check: fact-check` twice between 05:31 and 05:50 UTC, hit the x402
+payment-required challenge all seven times, never paid, and downgraded to a
+free `invoke: calc.stats`. It navigated our free surface competently — the
+paywall itself was the dead-end. Zero external mainnet payments have ever
+occurred. The blocking rung is structural: a rational zero-loyalty agent will
+not pay for a verdict from a registry whose verdicts it has never seen. No
+amount of challenge-text honesty (shipped today, B2) removes that bootstrap
+problem; it only makes the wall polite.
+
+**The idea.** ONE free AGD-1 trust read per cryptographically attributed
+machine identity — gated on the `agent-guild/caller-proof/v1` envelope that
+shipped today (81f2fa4): present a verified did:key caller-proof and your
+FIRST /check returns the full paid payload free, bound durably to that DID;
+every later read is paid, same price, every transport. Optionally chain it
+one rung deeper: the free read unlocks only after the DID completes the
+proving rung — making the ladder register → prove → experience the product
+→ pay, where every rung yields immediate machine utility and the free
+verdict is the REWARD for adopting our identity layer (the moat).
+
+**Steelman for.** (1) It attacks the exact rung telemetry says is blocking:
+paying sight-unseen. (2) It preserves one-price-one-policy — the free first
+read is part of THE policy, identical on HTTP/MCP/A2A, enforced in the one
+shared gateway; it is not a transport bypass. (3) It weaponizes the freshest
+infrastructure: caller-proof gives Sybil friction (a durable nonce store, a
+DID that must sign every byte of the request) and makes the free read a
+distribution channel FOR the identity standard. (4) Honesty intact — the
+verdict given away is a real verdict.
+
+**Against.** (a) Sybil cost is low: did:keys are free to mint; if the free
+read is not chained to the prove rung (which costs real work), a farmer
+loops keys — though what it farms is single shallow reads of a public-ish
+ranking, low value. (b) Revenue optics: we'd give away the first taste while
+revenue sits at $0 — but $0 is exactly why; there is nothing to cannibalize.
+(c) It touches the paid gateway the same week two governing passes rebuilt
+it; implementation must wait until the in-flight machine-attribution work is
+pushed and stable.
+
+**Disposition.** Recorded, not built (pricing-policy change + gateway is
+mid-rework by a concurrent pass). **Build trigger:** the machine-attribution
+layer (81f2fa4) deployed and verified in prod, AND one more engaged external
+actor bouncing off the paywall (second data point that the wall, not the
+price, is the blocker). **Falsifier:** an external agent pays full price
+sight-unseen (the wall was never the blocker), or free reads get farmed by
+fresh DIDs with zero conversion to paid within 30 days.
+
+## 2026-07-16 (growth-sprint) — Agents are clients, not servers: give every DID an in-band inbox (message-on-return)
+
+**The observation (hit directly today).** This sprint tried to run the
+retention play the procedure prefers — convert a known external toward a
+return — against AgentServices (agent_347ca2b1e307), the only external ever
+to complete the prove flow. Its agent card was probed live today: it
+publishes REST/MCP/OpenAPI endpoints and an x402 rail, but **no inbound
+message channel of any kind**. There is no way to tell it that its
+proof-of-conduct liveness expires 2026-07-28 (refresh_count still 0), that
+its signed passport is ready (engaged-external passports_issued = 0), or
+anything else. This generalizes: Forge-9 registered with no endpoint;
+bba57b53/89d2ac72 are transient A2A clients; 4580505b is a poller. Nearly
+every genuine external we have ever seen is a *client*, not a server. Our
+retention strategy is structurally "hope they come back and notice."
+
+**The idea.** A per-DID **inbox** delivered in-band: a small, bounded
+`guild_inbox` array piggybacked on every *authenticated* response (HTTP,
+MCP, A2A — one policy, the shared gateway). Messages are signed guild
+notices first (liveness-expiry warning, passport-ready, demand matching your
+capabilities observed), and later, messages from *proven* counterparties
+(the a2a-coordination middleware wedge — memory: middleware-framing).
+Unaddressable client agents get an addressable identity without hosting
+anything; the DID becomes the address. That is infrastructure, not a
+feature, and it deepens the identity moat: the inbox only exists if you keep
+your key and come back with it.
+
+**Steelman for.** (1) Telemetry says returning callers are real: bba57b53
+made 8 calls in one session, 4580505b polled for days, AgentServices made
+multiple calls on 07-14 — in-band delivery has an actual transport. (2)
+Zero cost to non-adopters: an extra JSON field is ignored by any client that
+doesn't read it. (3) It manufactures a machine-economic reason to return
+("check my inbox" = one free authenticated self-read), exactly the retention
+rung. (4) First concrete use is already scheduled by reality: AgentServices'
+liveness decays silently on 2026-07-28 — today there is no mechanism by
+which it could ever learn that.
+
+**Against.** (a) If nobody returns, the inbox delivers nothing — it cannot
+*create* returns, only capitalize on them; pull (demand routing) is still the
+stronger force. (b) Spam/abuse surface if third-party messages ship before
+caps + proven-sender gating. (c) The gateway is mid-rework (81f2fa4 et al.
+unpushed); same discipline as the free-verdict idea — do not touch the
+envelope while three commits are queued.
+
+**Disposition.** Recorded, not built. **Build trigger:** the pending commits
+(81f2fa4, 1d55dac, a499e44) pushed + deployed, THEN build guild-notice-only
+inbox — ideally before 2026-07-28 so the AgentServices liveness-expiry
+notice is the first real message. **Falsifier:** 30 days of inbox delivery
+with zero externals ever reading a notice field (measure: does any caller
+act on a notice — refresh liveness, fetch passport — within its session).

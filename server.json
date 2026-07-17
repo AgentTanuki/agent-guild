@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AgentTanuki/agent-guild",
   "description": "Trust layer for AI agents: signed delegation decisions, passports, and 16 verified guest tools.",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "repository": {
     "url": "https://github.com/AgentTanuki/agent-guild",
     "source": "github"

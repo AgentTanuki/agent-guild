@@ -3,7 +3,18 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.0.0"   # DELIBERATE MAJOR BUMP (machine-visible semver,
+__version__ = "2.0.1"   # PATCH (machine-visible semver, 2026-07-17):
+                        # machine-integrity correction — adds the PUBLIC
+                        # caller-proof (agent-guild/caller-proof/v1) and
+                        # wallet-binding contracts to every surface, wires
+                        # MCP _meta caller-proof verification on the real
+                        # execution path, and replaces the self-mintable
+                        # "verified_external_machine" settlement class with
+                        # conservative classes (cryptographically bound ≠
+                        # external; externality needs an independent
+                        # allowlisted attestor). No breaking changes.
+                        # History of 2.0.0:
+                        # DELIBERATE MAJOR BUMP (machine-visible semver,
                         # 2026-07-15): payment enforcement on previously-free
                         # MCP tools (guild_check/guild_search/guild_best_agent/
                         # guild_risk_score) and the A2A `check` skill shipped

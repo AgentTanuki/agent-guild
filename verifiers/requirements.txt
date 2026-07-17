@@ -1,0 +1,8 @@
+# Independent Python verifier dependencies (verify_caller_proof_python.py +
+# verify_python_independent.py). NO Agent Guild code — third-party
+# primitives only. Install into a CLEAN environment:
+#   python -m venv .venv && .venv/bin/pip install -r verifiers/requirements.txt
+rfc8785>=0.1.4          # RFC 8785 JCS canonicalization
+base58>=2.1.1           # did:key multibase decoding
+cryptography>=42.0      # Ed25519 verification (pyca)
+eth-account>=0.13,<0.14 # EIP-191 recoverable signature verification

@@ -11,3 +11,7 @@ jsonschema>=4.21        # discovery swarm: capability schema validation
 python-dateutil>=2.9    # discovery swarm: text.date_normalize capability
 x402==2.15.0    # official x402 v2 SDK (schemas, header codecs, facilitator client)
                 # — PINNED; core install pulls only pydantic/nest-asyncio/typing_extensions
+eth-account>=0.13,<0.14   # wallet-binding EVM signature recovery (app/walletbinding.py)
+                # — a NORMAL runtime dependency of /wallet-binding/verify, not a test
+                # extra; was missing from this manifest while the code imported it
+                # (clean-install truth, 2026-07-17)

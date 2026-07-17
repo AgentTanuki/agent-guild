@@ -42,8 +42,13 @@ from __future__ import annotations
 import json
 import os
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 from urllib.parse import urlparse, quote
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 from .. import reachability
 
@@ -250,6 +255,13 @@ def _s(v: Any) -> str:
     return str(v)[:MAX_STRING] if v is not None else ""
 
 
+def canonical_capability(capability: str) -> str:
+    """Shared canonical capability form (same rule the demand recorder
+    uses), so the wake queue, demand rows and adapters all key alike."""
+    from .. import demand as _demand
+    return _demand.canonical_capability(capability)
+
+
 # ---------------------------------------------------------------------------
 # protocol probes (bounded, read-only, never paid)
 # ---------------------------------------------------------------------------
@@ -421,10 +433,16 @@ def adapter_a2a_registry(capability: str, fetch: Callable) -> list[dict]:
 
 
 BAZAAR_PAGE_SIZE = 100
-BAZAAR_MAX_PAGES = 3     # bounded catalogue scan per capability (300 items)
-# The canonical public Bazaar catalogue (CDP facilitator). DISCOVERY is
-# read-only public data and independent of whichever facilitator settles
-# OUR payments — the testnet facilitator serves no catalogue at all.
+BAZAAR_PAGES_PER_CYCLE = 3   # bounded catalogue pages swept per cycle
+# The canonical public Bazaar catalogue (CDP facilitator). Confirmed against
+# primary docs (docs.cdp.coinbase.com/x402/bazaar, 2026-07-15):
+#   * /discovery/search  — documented server-side semantic search (query +
+#     filters, limit ≤ 20, response {"resources": [...]}); used FIRST;
+#   * /discovery/resources — paginated catalogue (limit/offset, 25k+ items,
+#     "browse order newest first"); a PERSISTENT cursor sweeps it to
+#     completion a bounded number of pages per cycle (never restart at 0).
+# DISCOVERY is read-only public data, independent of whichever facilitator
+# settles OUR payments (the testnet facilitator serves no catalogue).
 BAZAAR_DISCOVERY_BASE = "https://api.cdp.coinbase.com/platform/v2/x402"
 
 
@@ -433,45 +451,109 @@ def _bazaar_base() -> str:
             or BAZAAR_DISCOVERY_BASE).rstrip("/")
 
 
-def adapter_x402_bazaar(capability: str, fetch: Callable) -> list[dict]:
-    """x402 Bazaar: the canonical machine-readable catalogue of priced
-    resources (CDP facilitator's /discovery/resources). The Bazaar ITEM is
-    the candidate's manifest; its `resource` is the endpoint. The catalogue
-    holds tens of thousands of items and the server pages by limit/offset,
-    so a bounded multi-page scan is required — matching a term against only
-    the first arbitrary page found nothing."""
+def canonical_sweep_key(capability: str) -> str:
+    return canonical_capability(capability) or "_all"
+
+
+def _sweep_state(store: Any, cap: str) -> dict[str, Any]:
+    st = store.swarm_state.setdefault(SCOUT_STATE_KEY, {})
+    sweeps = st.setdefault("bazaar_sweeps", {})
+    return sweeps.setdefault(canonical_sweep_key(cap), {
+        "cursor": 0, "pages_scanned": 0, "catalogue_total": 0,
+        "candidates_found": 0, "last_complete_sweep_at": None,
+        "coverage": 0.0})
+
+
+def bazaar_sweep_stats(store: Any, cap: str) -> dict[str, Any]:
+    return dict(_sweep_state(store, cap))
+
+
+def _match_bazaar_item(it: Any, needle: str, url: str,
+                       out: list[dict], seen: set) -> None:
+    if not isinstance(it, dict):
+        return
+    res = _s(it.get("resource") or (it.get("resourceInfo") or {}).get("url"))
+    if not res or res in seen:                       # dedupe by resource
+        return
+    if needle and needle not in json.dumps(it).lower():
+        return
+    seen.add(res)
+    accepts = [a for a in (it.get("accepts") or []) if isinstance(a, dict)]
+    out.append({"source": "x402_bazaar", "source_url": url,
+                "name": _s(it.get("serviceName") or it.get("name") or res),
+                "description": _s(it.get("description")),
+                "endpoint": res, "protocol": "x402", "manifest": it,
+                "wallet": _s(it.get("payTo") or (
+                    accepts[0].get("payTo") if accepts else ""))})
+
+
+def adapter_x402_bazaar(capability: str, fetch: Callable,
+                        store: Any = None) -> list[dict]:
+    """x402 Bazaar discovery, eventually complete.
+
+    1. DOCUMENTED SERVER-SIDE SEARCH first (/discovery/search) — relevance +
+       filters, {"resources": [...]}; the fast path for a specific
+       capability.
+    2. PERSISTENT-CURSOR CATALOGUE SWEEP (/discovery/resources) — a bounded
+       number of pages per cycle, RESUMING from the per-capability cursor so
+       the 25k+-item catalogue is swept to completion across cycles instead
+       of re-scanning page 0 forever. Duplicates (by resource) collapse; an
+       out-of-range cursor (catalogue shrank) resets; coverage/cursor/pages/
+       last-complete-sweep are recorded for /swarm/status."""
+    if store is None:
+        from ..state import store as _store
+        store = _store
     base = _bazaar_base()
-    needle = capability.lower()
+    needle = (capability or "").lower()
     out: list[dict] = []
-    for page in range(BAZAAR_MAX_PAGES):
+    seen: set = set()
+
+    # 1. documented semantic search (limit hard-capped at 20 by CDP). CDP
+    # already ranked these by relevance server-side, so they are accepted
+    # without re-applying the literal-substring needle.
+    surl = f"{base}/discovery/search?query={quote(capability)}&limit=20"
+    sdoc, _sr = fetch(surl, max_bytes=MAX_REGISTRY_BYTES)
+    for it in (sdoc or {}).get("resources", []):
+        _match_bazaar_item(it, "", surl, out, seen)
+        if len(out) >= MAX_CANDIDATES_PER_REGISTRY:
+            return out
+
+    # 2. persistent-cursor catalogue sweep
+    sw = _sweep_state(store, capability)
+    total = int(sw.get("catalogue_total") or 0)
+    cursor = int(sw.get("cursor") or 0)
+    if total and cursor >= total:            # sweep complete OR shrank: reset
+        cursor = 0
+    pages = 0
+    while pages < BAZAAR_PAGES_PER_CYCLE:
         url = (f"{base}/discovery/resources"
-               f"?limit={BAZAAR_PAGE_SIZE}&offset={page * BAZAAR_PAGE_SIZE}")
-        doc, reason = fetch(url, max_bytes=MAX_REGISTRY_BYTES)
+               f"?limit={BAZAAR_PAGE_SIZE}&offset={cursor}")
+        doc, _r = fetch(url, max_bytes=MAX_REGISTRY_BYTES)
         items = (doc or {}).get("items") or (doc or {}).get("resources") or []
-        if not items:
-            break
+        total = int(((doc or {}).get("pagination") or {}).get("total")
+                    or total)
+        if cursor > max(total, 0):           # expired/out-of-range cursor
+            cursor = 0
+            continue
+        pages += 1
+        sw["pages_scanned"] = int(sw.get("pages_scanned") or 0) + 1
         for it in items:
-            if not isinstance(it, dict):
-                continue
-            if needle not in json.dumps(it).lower():
-                continue
-            res = _s(it.get("resource") or (it.get("resourceInfo") or {}
-                                            ).get("url"))
-            accepts = [a for a in (it.get("accepts") or [])
-                       if isinstance(a, dict)]
-            out.append({"source": "x402_bazaar", "source_url": url,
-                        "name": _s(it.get("serviceName") or it.get("name")
-                                   or res),
-                        "description": _s(it.get("description")),
-                        "endpoint": res, "protocol": "x402",
-                        "manifest": it,
-                        "wallet": _s(it.get("payTo") or (
-                            accepts[0].get("payTo") if accepts else ""))})
-            if len(out) >= MAX_CANDIDATES_PER_REGISTRY:
-                return out
-        if len(items) < BAZAAR_PAGE_SIZE:
+            _match_bazaar_item(it, needle, url, out, seen)
+        cursor += BAZAAR_PAGE_SIZE
+        if not items or len(items) < BAZAAR_PAGE_SIZE or (
+                total and cursor >= total):
+            # reached the end of the catalogue → sweep complete, restart next
+            sw["last_complete_sweep_at"] = _now_iso()
+            cursor = 0
             break
-    return out
+        if len(out) >= MAX_CANDIDATES_PER_REGISTRY:
+            break
+    sw["cursor"] = cursor
+    sw["catalogue_total"] = total
+    sw["candidates_found"] = int(sw.get("candidates_found") or 0) + len(out)
+    sw["coverage"] = round(min(1.0, (sw["pages_scanned"] * BAZAAR_PAGE_SIZE)
+                               / total), 4) if total else 0.0
+    return out[:MAX_CANDIDATES_PER_REGISTRY]
 
 
 def adapter_erc8004(capability: str, fetch: Callable) -> list[dict]:
@@ -550,32 +632,44 @@ def qualify_candidate(cand: dict, fetch: Callable,
                       probe: Optional[Callable] = None,
                       mcp_probe: Optional[Callable] = None,
                       x402_probe: Optional[Callable] = None) -> dict:
-    """Validate the candidate's discovery evidence and record it in FOUR
-    separate classes (rec["evidence"]) that are never conflated:
+    """Validate the candidate's discovery evidence and record it in FIVE
+    strictly separated classes (rec["evidence"]) that are never conflated:
 
-      ag_verified             what AG checked itself (card/manifest validity,
-                              domain binding, the card fetch outcome);
-      registry_attested       health/conformance the REGISTRY asserts —
-                              recorded verbatim, clearly labelled, NEVER
-                              promoted into AG-independent verification;
-      independently_reachable AG itself got a protocol-appropriate answer
-                              from the candidate's infrastructure;
-      protocol_verified       AG independently verified the DECLARED
-                              protocol (initialize result / 402 challenge /
-                              valid A2A agent card at the well-known URI).
+      discovery_document_reachable  AG fetched/holds the candidate's own
+                                    discovery document (A2A agent card / MCP
+                                    registry manifest / x402 Bazaar item);
+      discovery_protocol_verified   that discovery document is VALID for the
+                                    declared protocol;
+      execution_endpoint_reachable  the candidate's EXECUTION endpoint itself
+                                    answered AG (only via a genuinely
+                                    side-effect-free protocol operation);
+      execution_protocol_verified   the execution endpoint answered with its
+                                    DECLARED protocol via a side-effect-free
+                                    operation;
+      registry_attested             health/conformance the REGISTRY asserts —
+                                    recorded verbatim, clearly labelled,
+                                    NEVER promoted into AG-independent
+                                    evidence.
 
-    Per protocol — never a paid call, never work creation:
-      * a2a  — fetch + validate the public agent card (the side-effect-free
-               A2A discovery step). The EXECUTION endpoint is a JSON-RPC
-               POST surface and is NEVER generic-GETted (a 404 there is not
-               an A2A failure), and no message is ever sent to it;
-      * mcp  — the registry manifest is the evidence; bounded Streamable
-               HTTP `initialize` probe (never GET-a-card);
-      * x402 — the Bazaar item is the manifest; a valid HTTP 402 challenge
-               is protocol reachability (never require unpaid 200 JSON).
+    Per protocol — never a paid call, never work creation, never a
+    generic-GET of an execution endpoint:
+      * a2a  — the public agent card (a side-effect-free discovery step)
+               proves ONLY discovery_document_reachable +
+               discovery_protocol_verified. The A2A spec offers no
+               side-effect-free EXECUTION operation (a message-send creates
+               work), so execution_* stay FALSE — a card is never execution
+               proof, and no message is ever sent to probe;
+      * mcp  — the registry manifest is the discovery document; the bounded
+               Streamable HTTP `initialize` probe is a genuinely
+               side-effect-free EXECUTION operation → it sets execution_*;
+      * x402 — the Bazaar item is the discovery document; a valid unpaid
+               HTTP 402 challenge is a side-effect-free EXECUTION probe →
+               it sets execution_*.
 
-    Returns the candidate record — ALWAYS `discovered_unverified`: being
-    discoverable is not evidence."""
+    Only AG-INDEPENDENT execution evidence emits candidate_execution_verified
+    and the legacy candidate_endpoint_verified; a valid discovery document
+    emits candidate_discovery_verified. Returns the candidate record —
+    ALWAYS `discovered_unverified`: being discoverable is not evidence."""
     mcp_probe = mcp_probe or mcp_initialize_probe
     x402_probe = x402_probe or x402_challenge_probe
     protocol = cand.get("protocol", "")
@@ -587,11 +681,16 @@ def qualify_candidate(cand: dict, fetch: Callable,
            "protocol_declared": protocol,
            "bindings": {}, "checks": {}}
     evidence: dict[str, Any] = {
-        "ag_verified": {"card_valid": False},
+        "discovery_document_reachable": False,
+        "discovery_protocol_verified": False,
+        "execution_endpoint_reachable": False,
+        "execution_protocol_verified": False,
         "registry_attested": dict(cand.get("registry_attested") or {}),
         "registry_attested_note": (
             "attested by the registry, not verified by Agent Guild — "
             "never promoted into AG-independent evidence"),
+        # kept for back-compat with the previous 4-class readers.
+        "ag_verified": {"card_valid": False},
         "independently_reachable": False,
         "protocol_verified": False,
     }
@@ -603,83 +702,92 @@ def qualify_candidate(cand: dict, fetch: Callable,
     if not ok:
         return rec
 
-    # --- discovery evidence (protocol-appropriate; never a paid call) -------
-    if protocol in ("mcp", "x402"):
+    # --- DISCOVERY-document evidence (protocol-appropriate; never paid) -----
+    if protocol == "mcp":
         manifest = cand.get("manifest")
         valid, facts = _validate_card(manifest, protocol)
+        rec["checks"]["evidence"] = "registry_manifest"
+        evidence["discovery_document_reachable"] = manifest is not None
+        evidence["discovery_protocol_verified"] = valid
         rec["card_valid"] = valid
-        evidence["ag_verified"]["card_valid"] = valid
-        rec["checks"]["evidence"] = ("registry_manifest" if protocol == "mcp"
-                                     else "bazaar_item")
         if valid:
             rec["card_facts"] = facts
             rec["bindings"] = {k: v for k, v in facts.items()
                                if k.startswith("declared_")}
-    else:
+    elif protocol == "x402":
+        manifest = cand.get("manifest")
+        valid, facts = _validate_card(manifest, protocol)
+        rec["checks"]["evidence"] = "bazaar_item"
+        evidence["discovery_document_reachable"] = manifest is not None
+        evidence["discovery_protocol_verified"] = valid
+        rec["card_valid"] = valid
+        if valid:
+            rec["card_facts"] = facts
+            rec["bindings"] = {k: v for k, v in facts.items()
+                               if k.startswith("declared_")}
+    else:  # a2a: the public agent card (side-effect-free discovery step)
         card_url = cand.get("card_url") or (
             endpoint.rstrip("/") + "/.well-known/agent-card.json")
         card, fetch_reason = fetch(card_url)
         rec["checks"]["card_fetch"] = fetch_reason
-        evidence["ag_verified"]["card_fetch"] = fetch_reason
+        evidence["discovery_document_reachable"] = (fetch_reason == "ok"
+                                                    and card is not None)
         if card is not None:
             valid, facts = _validate_card(card, protocol)
+            evidence["discovery_protocol_verified"] = valid
             rec["card_valid"] = valid
-            evidence["ag_verified"]["card_valid"] = valid
             if valid:
                 rec["bindings"] = {k: v for k, v in facts.items()
                                    if k.startswith("declared_")}
                 rec["card_facts"] = facts
-                # domain binding: card's own url vs the endpoint host?
                 cu = urlparse(facts.get("card_url_field") or "")
                 eu = urlparse(endpoint)
                 if cu.hostname and eu.hostname:
                     binding = ("match" if cu.hostname == eu.hostname
                                else "mismatch")
                     rec["checks"]["domain_binding"] = binding
-                    evidence["ag_verified"]["domain_binding"] = binding
 
-    # --- protocol-appropriate INDEPENDENT reachability evidence --------------
+    # --- EXECUTION-endpoint evidence (only side-effect-free operations) -----
     try:
         if protocol == "mcp":
             live = mcp_probe(endpoint)
-            evidence["independently_reachable"] = bool(live.get("reachable"))
-            evidence["protocol_verified"] = bool(
+            evidence["execution_endpoint_reachable"] = bool(
+                live.get("reachable"))
+            evidence["execution_protocol_verified"] = bool(
                 live.get("protocol_verified"))
             rec["checks"]["protocol_probe"] = _s(live.get("detail"))
-            rec["checks"]["protocol_verified"] = evidence[
-                "protocol_verified"]
         elif protocol == "x402":
             live = x402_probe(endpoint, manifest=cand.get("manifest"))
-            evidence["independently_reachable"] = bool(live.get("reachable"))
-            evidence["protocol_verified"] = bool(
+            evidence["execution_endpoint_reachable"] = bool(
+                live.get("reachable"))
+            evidence["execution_protocol_verified"] = bool(
                 live.get("protocol_verified"))
             rec["checks"]["protocol_probe"] = _s(live.get("detail"))
-            rec["checks"]["protocol_verified"] = evidence[
-                "protocol_verified"]
         elif protocol == "a2a":
-            # the successful SIDE-EFFECT-FREE agent-card fetch IS the
-            # independent evidence: AG contacted the candidate's own
-            # infrastructure and it answered the A2A discovery protocol.
-            # The execution endpoint is never generic-GETted and never
-            # messaged — no work is ever created merely to test an agent.
-            fetched_ok = (rec["checks"].get("card_fetch") == "ok")
-            evidence["independently_reachable"] = fetched_ok
-            evidence["protocol_verified"] = bool(fetched_ok
-                                                 and rec["card_valid"])
+            # A2A has NO side-effect-free execution operation (a message-send
+            # creates work), so execution verification honestly stays FALSE.
+            # The execution endpoint is never generic-GETted or sent a message.
             rec["checks"]["protocol_probe"] = (
-                "a2a_card_handshake_ok" if evidence["protocol_verified"]
-                else "a2a_card_handshake_failed: "
-                     + _s(rec["checks"].get("card_fetch")))
-            rec["checks"]["protocol_verified"] = evidence[
-                "protocol_verified"]
+                "a2a_execution_verification_unavailable: the A2A spec has no "
+                "side-effect-free execution probe; card proves discovery only")
         else:
             live = (probe or reachability.liveness_probe)(endpoint)
-            evidence["independently_reachable"] = bool(live.get("reachable"))
+            evidence["execution_endpoint_reachable"] = bool(
+                live.get("reachable"))
             rec["checks"]["liveness"] = _s(live.get("detail")
                                            or live.get("status"))
     except Exception as e:  # noqa: BLE001
         rec["checks"]["liveness"] = f"probe_failed: {type(e).__name__}"
-    rec["endpoint_reachable"] = evidence["independently_reachable"]
+
+    # back-compat mirror for the previous 4-class readers: "protocol_verified"
+    # / "independently_reachable" reflect INDEPENDENT execution evidence only
+    # (never card-only), so callers that gated on them keep their meaning.
+    evidence["ag_verified"]["card_valid"] = rec["card_valid"]
+    evidence["independently_reachable"] = evidence[
+        "execution_endpoint_reachable"]
+    evidence["protocol_verified"] = evidence["execution_protocol_verified"]
+    rec["checks"]["protocol_verified"] = evidence["execution_protocol_verified"]
+    rec["endpoint_reachable"] = evidence["execution_endpoint_reachable"]
     return rec
 
 
@@ -781,8 +889,24 @@ def run_scout(store: Any, fetch: Callable = safe_fetch_json,
                                        endpoint_reachable=rec[
                                            "endpoint_reachable"],
                                        scout=True)
-                if rec["endpoint_reachable"] and rec["card_valid"]:
+                ev = rec.get("evidence") or {}
+                # DISCOVERY-document verification: its own event.
+                if ev.get("discovery_protocol_verified"):
+                    store.record_event(None, "candidate_discovery_verified",
+                                       capability=cap,
+                                       source=cand.get("source"),
+                                       scout=True)
+                # AG-INDEPENDENT EXECUTION verification: a SEPARATE event, and
+                # the ONLY thing that fires the legacy endpoint_verified —
+                # never from card-only discovery evidence.
+                if ev.get("execution_protocol_verified"):
                     summary["endpoint_verified"] += 1
+                    summary["execution_verified"] = summary.get(
+                        "execution_verified", 0) + 1
+                    store.record_event(None, "candidate_execution_verified",
+                                       capability=cap,
+                                       source=cand.get("source"),
+                                       scout=True)
                     store.record_event(None, "candidate_endpoint_verified",
                                        capability=cap,
                                        source=cand.get("source"),
