@@ -30,6 +30,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Request, Response
 
 from . import __version__
+from . import callerproof
 from . import proving
 from . import a2a_x402
 from . import demand
@@ -525,6 +526,28 @@ def _rpc_error(id_: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": id_, "error": {"code": code, "message": message}}
 
 
+def _verify_a2a_caller_proof(message: dict[str, Any]) -> tuple[bool, str]:
+    """Verify the agent-guild/caller-proof/v1 A2A mapping — EXACTLY ONCE per
+    message/send. The envelope rides message.metadata
+    ["io.agent-guild/caller-proof"] and binds method="message/send",
+    resource="/a2a" and body = JCS of the message PARTS only (the metadata —
+    including the proof itself — is excluded, so the proof is never
+    circularly signed). Returns (verified, did). Invalid, absent, tampered
+    or replayed proofs leave the call UNVERIFIED without breaking it —
+    anonymous A2A stays supported."""
+    env = (message.get("metadata") or {}).get(callerproof.A2A_METADATA_KEY)
+    if env is None:
+        return False, ""
+    try:
+        out = callerproof.verify_proof(
+            store, env, method="message/send", resource="/a2a",
+            body=callerproof.a2a_parts_body(message.get("parts")))
+    except Exception:      # verification failure must never break a request
+        return False, ""
+    verified = bool(out.get("verified"))
+    return verified, (out.get("did") or "") if verified else ""
+
+
 def _with_extension_header(resp: dict[str, Any], request: Request):
     """Echo the x402 extension URI in the response header to confirm
     activation (A2A extension activation §7)."""
@@ -564,11 +587,18 @@ async def a2a_endpoint(request: Request):
     params = body.get("params") or {}
     message = params.get("message") or {}
 
+    # agent-guild/caller-proof/v1, A2A mapping — verified ONCE per request,
+    # here, before any branch. The (verified, did) outcome feeds demand
+    # recording AND x402 settlement attribution below; the nonce is consumed
+    # by this single verification and never re-verified downstream.
+    proof_verified, caller_did = _verify_a2a_caller_proof(message)
+
     # A2A x402 extension v0.1: a payment submission carries the signed payload
     # in message metadata + the correlating taskId, NOT a text part. Settle it
     # through the shared gateway and return the completed/failed Task.
     if a2a_x402.is_payment_submission(message):
-        result = a2a_x402.handle_payment_submission(message)
+        result = a2a_x402.handle_payment_submission(
+            message, caller_did=(caller_did if proof_verified else ""))
         if "_a2a_x402_error" in result:
             return _rpc_error(id_, -32602, result["_a2a_x402_error"])
         resp = {"jsonrpc": "2.0", "id": id_, "result": result}
@@ -591,7 +621,12 @@ async def a2a_endpoint(request: Request):
     # token fingerprint → network+UA fingerprint → stable anon). Always
     # namespaced "a2a:" so it can never collide with a real billing key.
     client_host = request.client.host if request.client else ""
-    actor = derive_a2a_actor(request.headers, client_host, text)
+    # A VALID caller proof is the strongest identity signal there is: the
+    # actor becomes the proven DID. Anything else falls back to the derived
+    # heuristic key (a proof can never be spoofed into an actor id — an
+    # invalid envelope is simply ignored).
+    actor = (("did:" + caller_did) if (proof_verified and caller_did)
+             else derive_a2a_actor(request.headers, client_host, text))
 
     # Infer the caller's intent BEFORE recording, so the caller's OWN event
     # carries the deciding signal (capability ask / prove question / advert)
@@ -674,7 +709,9 @@ async def a2a_endpoint(request: Request):
     # The message body is the only artifact of the encounter; keep it.
     store.record_event(actor, "query", ua=ua_tag,
                        endpoint="a2a_message", text=text[:300],
-                       caller_kind=caller_kind, capability=caller_cap)
+                       caller_kind=caller_kind, capability=caller_cap,
+                       caller_proof_verified=proof_verified,
+                       caller_did=(caller_did or None))
 
     import json as _json
     if caller_kind == "swarm_invoke_ask":
@@ -800,7 +837,9 @@ async def a2a_endpoint(request: Request):
             caller_cap, transport="a2a", actor=actor, ua=ua_tag,
             first_party=_fp_auth.is_first_party(
                 request.headers.get("x-agent-guild-first-party"),
-                request.headers.get("x-guild-source")))
+                request.headers.get("x-guild-source")),
+            caller_proof_verified=proof_verified,
+            caller_did=(caller_did if proof_verified else ""))
         if _x402_a2a_active():
             preq = payments.check_request(caller_cap)
             # B2 (2026-07-15, live-telemetry fix): the demand context rides

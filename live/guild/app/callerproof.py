@@ -69,6 +69,15 @@ def mcp_args_body(arguments: dict[str, Any]) -> bytes:
     return crypto.canonicalize_jcs(visible).encode("utf-8")
 
 
+def a2a_parts_body(parts: Any) -> bytes:
+    """The canonical A2A 'body': JCS of the message PARTS only. The proof
+    envelope itself rides message.metadata, which is deliberately excluded —
+    a proof must never (circularly) sign itself, and adding/altering
+    metadata must not invalidate a proof over the actual content."""
+    return crypto.canonicalize_jcs(
+        parts if isinstance(parts, list) else []).encode("utf-8")
+
+
 def create_proof(private_hex: str, did: str, *, method: str, resource: str,
                  body: bytes = b"", ttl_s: float = 300.0,
                  nonce: Optional[str] = None,

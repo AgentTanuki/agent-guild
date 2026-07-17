@@ -203,7 +203,14 @@ def issue_credential(store: Any, *, did: str, address: str, network: str,
                      challenge_nonce: str) -> dict[str, Any]:
     """Persist + return the Guild-signed, expiring wallet-binding
     credential (called ONLY after both signatures verified, or from tests
-    that construct the post-verification state directly)."""
+    that construct the post-verification state directly).
+
+    IMMUTABILITY CONTRACT (2026-07-17): the signed credential document is
+    IMMUTABLE — it contains no mutable fields and is never touched after
+    signing, so its signature verifies offline for its whole validity
+    window. Live state (active/revoked/superseded, timestamps, successor)
+    lives in a SEPARATE status record keyed by credential_id
+    (store.wallet_binding_status_*)."""
     gid = store.guild_identity()
     cred = {
         "type": "AgentGuildWalletBinding",
@@ -216,30 +223,35 @@ def issue_credential(store: Any, *, did: str, address: str, network: str,
         "expires_at": _iso_in(CREDENTIAL_TTL_DAYS * 86400),
         "issuer": gid["did"],
         "challenge_nonce": challenge_nonce,
-        "status": "active",
     }
     cred["proof"] = crypto.sign_jcs(
         {k: v for k, v in cred.items() if k != "proof"},
         gid["private_key"])
+    # DETERMINISTIC rotation/supersession: issuing a credential for an
+    # (address, network) pair supersedes EVERY previously-active credential
+    # for that exact pair (whatever its DID), so one address/network can
+    # never ambiguously represent multiple active DIDs — the newest
+    # issuance wins. Supersession flips STATUS RECORDS only; the signed
+    # documents remain byte-for-byte unchanged.
     superseded: list[str] = []
-    with store.lock, store._txn():
-        # DETERMINISTIC rotation/supersession: issuing a credential for an
-        # (address, network) pair supersedes EVERY previously-active
-        # credential for that exact pair (whatever its DID), so one
-        # address/network can never ambiguously represent multiple active
-        # DIDs — the newest issuance wins, append-only audited.
-        for old in store.wallet_bindings.values():
+    with store.lock:
+        candidates = [
+            old_id for old_id, old in store.wallet_bindings.items()
             if (old.get("address") == address.lower()
-                    and str(old.get("network")) == network
-                    and old.get("status") == "active"):
-                old["status"] = "superseded"
-                old["superseded_at"] = _now_iso()
-                old["superseded_by"] = cred["credential_id"]
-                superseded.append(old["credential_id"])
+                and str(old.get("network")) == network
+                and (store.wallet_binding_status_get(old_id) or {})
+                .get("status") == "active")]
+    with store.lock, store._txn():
         store.wallet_bindings[cred["credential_id"]] = cred
         if store.backend is not None:
             store._persist_kv("wallet_bindings", store.wallet_bindings)
         store._save()
+    for old_id in candidates:
+        if store.wallet_binding_status_set(
+                old_id, "superseded", superseded_at=_now_iso(),
+                superseded_by=cred["credential_id"]):
+            superseded.append(old_id)
+    store.wallet_binding_status_set(cred["credential_id"], "active")
     store.record_event(None, "wallet_binding_issued", did=did,
                        credential_id=cred["credential_id"],
                        address=address.lower(), network=network,
@@ -267,14 +279,19 @@ def credential_offline_valid(store: Any, cred: Any) -> bool:
 
 
 def credential_status_live(store: Any, cred: Any) -> bool:
-    """LIVE revocation/status check against the Guild's credential store —
-    NOT an offline verification (it requires the live store). True iff the
-    credential is currently active and unexpired there."""
+    """LIVE revocation/status check against the Guild's SEPARATE status
+    records — NOT an offline verification (it requires the live store).
+    True iff the credential exists, its status record reads active, and it
+    is unexpired. The signed document itself is never consulted for status
+    (it is immutable and carries none)."""
     if not isinstance(cred, dict):
         return False
-    live = store.wallet_bindings.get(cred.get("credential_id") or "")
-    return bool(live and live.get("status") == "active"
-                and str(live.get("expires_at")) >= _now_iso())
+    cred_id = cred.get("credential_id") or ""
+    live = store.wallet_bindings.get(cred_id)
+    if not live or str(live.get("expires_at")) < _now_iso():
+        return False
+    st = store.wallet_binding_status_get(cred_id)
+    return bool(st and st.get("status") == "active")
 
 
 def verify_credential(store: Any, cred: Any) -> bool:
@@ -289,8 +306,9 @@ def verify_credential(store: Any, cred: Any) -> bool:
 def revoke(store: Any, request: Any, did_signature: str) -> dict[str, Any]:
     """Machine-executable revocation: the request {action:'revoke',
     credential_id, did} must be signed by the credential's own DID.
-    Append-only: the credential record flips to revoked and an audit event
-    is recorded; nothing is deleted."""
+    Append-only AND immutable: only the SEPARATE status record flips to
+    revoked (one-way; replay can never re-activate it); the signed
+    credential document is never touched, so its signature stays intact."""
     if not isinstance(request, dict) or request.get("action") != "revoke":
         raise BindingError("malformed revoke request")
     cred_id = str(request.get("credential_id") or "")
@@ -308,12 +326,37 @@ def revoke(store: Any, request: Any, did_signature: str) -> dict[str, Any]:
         raise
     except Exception:
         raise BindingError("revoke signature invalid")
-    with store.lock, store._txn():
-        cred["status"] = "revoked"
-        cred["revoked_at"] = _now_iso()
-        if store.backend is not None:
-            store._persist_kv("wallet_bindings", store.wallet_bindings)
-        store._save()
-    store.record_event(None, "wallet_binding_revoked", did=did,
-                       credential_id=cred_id)
+    store.revoke_wallet_binding(cred_id)
     return {"credential_id": cred_id, "status": "revoked"}
+
+
+def status_document(store: Any, credential_id: str) -> "dict[str, Any] | None":
+    """The FREE machine-readable status answer for one credential: the
+    IMMUTABLE signed credential document (byte-for-byte as issued) plus the
+    CURRENT live status, `as_of`, issuer DID, and a Guild signature over
+    the status body — so a third party can cache the answer and verify it
+    offline against the Guild's did:key while understanding that status is
+    a point-in-time LIVE claim, not an offline property."""
+    cred = store.wallet_bindings.get(credential_id)
+    if cred is None:
+        return None
+    st = store.wallet_binding_status_get(credential_id) or {}
+    gid = store.guild_identity()
+    body = {
+        "type": "AgentGuildWalletBindingStatus",
+        "credential_id": credential_id,
+        "status": st.get("status"),
+        "superseded_by": st.get("superseded_by"),
+        "revoked_at": st.get("revoked_at"),
+        "credential_expires_at": cred.get("expires_at"),
+        "as_of": _now_iso(),
+        "issuer": gid["did"],
+        "note": ("`credential` is the immutable signed document — its "
+                 "signature verifies offline until credential_expires_at. "
+                 "`status` is LIVE state as_of the stated time; it is not "
+                 "an offline property and may change (active → revoked/"
+                 "superseded, never back)."),
+    }
+    return {"credential": dict(cred),
+            "status": {**body,
+                       "proof": crypto.sign_jcs(body, gid["private_key"])}}

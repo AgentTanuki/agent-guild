@@ -661,6 +661,12 @@
   },
   {
    "methods": [
+    "GET"
+   ],
+   "path": "/wallet-binding/status/{credential_id}"
+  },
+  {
+   "methods": [
     "POST"
    ],
    "path": "/wallet-binding/verify"

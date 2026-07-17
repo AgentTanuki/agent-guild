@@ -141,6 +141,12 @@ class Store:
         # credential_id -> credential; challenges: nonce -> {did, expires}.
         self.wallet_bindings: dict[str, dict[str, Any]] = {}
         self.wallet_binding_challenges: dict[str, dict[str, Any]] = {}
+        # MUTABLE live status for wallet-binding credentials, keyed by
+        # credential_id: {status: active|revoked|superseded, timestamps,
+        # superseded_by}. Kept SEPARATE from the signed credential documents
+        # (immutable after signing) so revocation/supersession never breaks
+        # a credential's offline signature. Transitions are one-way.
+        self.wallet_binding_status: dict[str, dict[str, Any]] = {}
         # independent externality attestations (app/externality.py):
         # attestation_id -> signed attestation. Re-validated at READ time
         # against the (default-empty) issuer allowlist — storing a document
@@ -432,6 +438,7 @@ class Store:
             b.put_kv("wallet_bindings", self.wallet_bindings)
             b.put_kv("wallet_binding_challenges",
                      self.wallet_binding_challenges)
+            b.put_kv("wallet_binding_status", self.wallet_binding_status)
             b.put_kv("externality_attestations",
                      self.externality_attestations)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
@@ -479,6 +486,7 @@ class Store:
             b.put_kv("wallet_bindings", self.wallet_bindings)
             b.put_kv("wallet_binding_challenges",
                      self.wallet_binding_challenges)
+            b.put_kv("wallet_binding_status", self.wallet_binding_status)
             b.put_kv("externality_attestations",
                      self.externality_attestations)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
@@ -531,6 +539,8 @@ class Store:
             "wallet_bindings", {}) or {}
         self.wallet_binding_challenges = self.backend.fetch_kv(
             "wallet_binding_challenges", {}) or {}
+        self.wallet_binding_status = self.backend.fetch_kv(
+            "wallet_binding_status", {}) or {}
         self.externality_attestations = self.backend.fetch_kv(
             "externality_attestations", {}) or {}
         if d["outbound_invocations"]:
@@ -578,6 +588,8 @@ class Store:
             self.wallet_bindings = data.get("wallet_bindings", {})
             self.wallet_binding_challenges = data.get(
                 "wallet_binding_challenges", {})
+            self.wallet_binding_status = data.get(
+                "wallet_binding_status", {})
             self.externality_attestations = data.get(
                 "externality_attestations", {})
 
@@ -702,6 +714,7 @@ class Store:
                        "wallet_bindings": self.wallet_bindings,
                        "wallet_binding_challenges":
                            self.wallet_binding_challenges,
+                       "wallet_binding_status": self.wallet_binding_status,
                        "externality_attestations":
                            self.externality_attestations,
                        "swarm_state": self.swarm_state}, f, indent=2)
@@ -2547,16 +2560,68 @@ class Store:
         now_iso = _now()
         best: Optional[dict[str, Any]] = None
         with self.lock:
-            for cred in self.wallet_bindings.values():
+            for cred_id, cred in self.wallet_bindings.items():
                 if (cred.get("address") == addr
                         and str(cred.get("network")) == net
-                        and cred.get("status") == "active"
                         and str(cred.get("expires_at")) >= now_iso
+                        # LIVE status record only — the signed document is
+                        # immutable and carries no status; settlement
+                        # attribution accepts ACTIVE live status only.
+                        and (self.wallet_binding_status_get(cred_id) or {}
+                             ).get("status") == "active"
                         and (best is None
                              or str(cred.get("issued_at"))
                              > str(best.get("issued_at")))):
                     best = cred
         return dict(best) if best else None
+
+    def wallet_binding_status_get(self, credential_id: str
+                                  ) -> Optional[dict[str, Any]]:
+        """The MUTABLE live status record for one credential. Legacy
+        credentials issued before the immutability split (which carried an
+        embedded `status` field inside the signed document) are read
+        CONSERVATIVELY: an embedded non-active status counts as that
+        terminal status; an embedded/absent active reads active. Returns
+        None for an unknown credential."""
+        with self.lock:
+            rec = self.wallet_binding_status.get(credential_id)
+            if rec is not None:
+                return dict(rec)
+            cred = self.wallet_bindings.get(credential_id)
+            if cred is None:
+                return None
+            legacy = cred.get("status")
+            if legacy and legacy != "active":
+                return {"status": str(legacy),
+                        "updated_at": cred.get("revoked_at")
+                        or cred.get("superseded_at"),
+                        "superseded_by": cred.get("superseded_by"),
+                        "revoked_at": cred.get("revoked_at"),
+                        "legacy_embedded_status": True}
+            return {"status": "active", "implicit": True}
+
+    def wallet_binding_status_set(self, credential_id: str, status: str,
+                                  **fields: Any) -> bool:
+        """One-way status transition for one credential's SEPARATE status
+        record. The signed credential document is never touched. A revoked
+        or superseded credential is TERMINAL — no replay (including
+        re-setting 'active') can ever resurrect it."""
+        if status not in ("active", "revoked", "superseded"):
+            return False
+        with self.lock, self._txn():
+            if credential_id not in self.wallet_bindings:
+                return False
+            current = (self.wallet_binding_status_get(credential_id)
+                       or {}).get("status")
+            if current in ("revoked", "superseded"):
+                return False                     # terminal, forever
+            self.wallet_binding_status[credential_id] = {
+                "status": status, "updated_at": _now(), **fields}
+            if self.backend is not None:
+                self._persist_kv("wallet_binding_status",
+                                 self.wallet_binding_status)
+            self._save()
+            return True
 
     def record_externality_attestation(self, att: dict[str, Any]
                                        ) -> dict[str, Any]:
@@ -2585,16 +2650,16 @@ class Store:
     def revoke_wallet_binding(self, credential_id: str) -> bool:
         """Direct (store-level) revocation — the HTTP surface enforces the
         DID signature (app/walletbinding.revoke); this is the shared
-        append-only state flip both paths use."""
-        with self.lock, self._txn():
+        one-way STATUS flip both paths use. The signed credential document
+        is IMMUTABLE and never modified — only the separate status record
+        changes, so the credential's offline signature stays intact."""
+        with self.lock:
             cred = self.wallet_bindings.get(credential_id)
-            if cred is None:
-                return False
-            cred["status"] = "revoked"
-            cred["revoked_at"] = _now()
-            if self.backend is not None:
-                self._persist_kv("wallet_bindings", self.wallet_bindings)
-            self._save()
+        if cred is None:
+            return False
+        if not self.wallet_binding_status_set(credential_id, "revoked",
+                                              revoked_at=_now()):
+            return False
         self.record_event(None, "wallet_binding_revoked",
                           did=cred.get("did"), credential_id=credential_id)
         return True

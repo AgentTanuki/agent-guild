@@ -109,6 +109,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /tasks/{task_id}/receipt`
 - `POST /wallet-binding/challenge`
 - `POST /wallet-binding/revoke`
+- `GET /wallet-binding/status/{credential_id}`
 - `POST /wallet-binding/verify`
 - `GET /x402/readiness`
 

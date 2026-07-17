@@ -1404,6 +1404,20 @@ def wallet_binding_verify(body: dict):
     return {"credential": cred}
 
 
+@app.get("/wallet-binding/status/{credential_id}")
+def wallet_binding_status(credential_id: str):
+    """FREE machine-readable live status for one wallet-binding credential:
+    the IMMUTABLE signed credential document plus its CURRENT status
+    (active/revoked/superseded), `as_of`, issuer DID, and a Guild signature
+    over the status body. Offline signature validity and live status are
+    separate claims — this endpoint is how a third party checks the live
+    half."""
+    out = walletbinding.status_document(store, credential_id)
+    if out is None:
+        raise HTTPException(404, "unknown credential")
+    return out
+
+
 @app.post("/wallet-binding/revoke")
 def wallet_binding_revoke(body: dict):
     """Machine-executable, DID-signed revocation of a wallet-binding
@@ -2232,7 +2246,9 @@ def _manifest() -> dict:
             "caller_proof_doc": "/caller-proof",
             "wallet_binding": {"challenge": "/wallet-binding/challenge",
                                "verify": "/wallet-binding/verify",
-                               "revoke": "/wallet-binding/revoke"},
+                               "revoke": "/wallet-binding/revoke",
+                               "status":
+                                   "/wallet-binding/status/{credential_id}"},
             "badges": {"generic": "/badge.svg", "per_agent": "/agents/{id}/badge.svg"},
             "openapi": "/openapi.json",
             "ai_plugin": "/.well-known/ai-plugin.json",

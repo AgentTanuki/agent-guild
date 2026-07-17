@@ -230,10 +230,14 @@ def _failed_task(task_id: str, code: str, detail: str,
     }
 
 
-def handle_payment_submission(message: dict[str, Any]) -> dict[str, Any]:
+def handle_payment_submission(message: dict[str, Any],
+                              caller_did: str = "") -> dict[str, Any]:
     """Settle a submitted A2A payment against its stored quote and return the
     completed (or failed) Task. Idempotent recovery + double-settlement guards
-    come from the shared gateway."""
+    come from the shared gateway. `caller_did` is the DID of THIS request's
+    already-verified caller proof (verified once at the endpoint — the nonce
+    is consumed there and never re-verified here); it feeds settlement
+    attribution exactly as on HTTP and MCP."""
     task_id, meta = _extract_payment_meta(message)
     if not task_id:
         return _rpc_failure("payment submission missing taskId")
@@ -265,7 +269,8 @@ def handle_payment_submission(message: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:  # malformed payload
         return _failed_task(task_id, "INVALID_SIGNATURE", str(e)[:200], receipts)
     try:
-        settled = payments.settle_x402(payload, preq, protocol=protocol)
+        settled = payments.settle_x402(payload, preq, protocol=protocol,
+                                       caller_did=caller_did)
     except x402.PaymentBindingError as e:
         return _failed_task(task_id, _err_code(e.reason), e.detail or e.reason,
                             receipts)

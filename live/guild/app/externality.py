@@ -50,6 +50,27 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+#: tolerated forward clock skew for an issuer's `issued_at` (seconds)
+ISSUED_AT_SKEW_S = 120.0
+
+
+def _parse_rfc3339(value: Any) -> Optional[datetime]:
+    """STRICT timezone-aware RFC 3339 parse for UNTRUSTED issuer
+    timestamps. Returns None for anything that is not a string parsing to
+    a timezone-AWARE datetime — naive datetimes, garbage, numbers and
+    empty values all fail. Lexicographic string comparison is never used
+    on these fields (differing offsets/precision would order wrongly)."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+        return None                       # naive timestamps are rejected
+    return dt
+
+
 def _valid_shape(att: Any) -> bool:
     if not isinstance(att, dict):
         return False
@@ -83,8 +104,20 @@ def verify_attestation(store: Any, att: Any, subject_did: str) -> bool:
             return False
     except Exception:
         return False
-    now = _now_iso()
-    if not (str(att["issued_at"]) <= now < str(att["expires_at"])):
+    # STRICT time validation on untrusted issuer timestamps: both bounds
+    # must parse as timezone-aware RFC 3339 datetimes; the window must not
+    # be inverted; a future-issued attestation (beyond small skew) is
+    # invalid; the attestation must be currently inside its window.
+    issued = _parse_rfc3339(att["issued_at"])
+    expires = _parse_rfc3339(att["expires_at"])
+    if issued is None or expires is None:
+        return False
+    if issued >= expires:
+        return False                      # inverted/empty validity window
+    now = datetime.now(timezone.utc)
+    if (issued - now).total_seconds() > ISSUED_AT_SKEW_S:
+        return False                      # issued in the future
+    if not (issued <= now < expires):
         return False
     body = {k: v for k, v in att.items() if k != "proof"}
     try:

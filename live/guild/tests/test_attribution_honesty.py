@@ -378,6 +378,60 @@ def test_guild_issued_attestation_never_counts(monkeypatch):
     assert out["class"] == "cryptographically_bound_machine_payer"
 
 
+@pytest.mark.parametrize("issued,expires", [
+    ("not-a-date", "2099-01-01T00:00:00+00:00"),          # garbage issued
+    ("2026-01-01T00:00:00+00:00", "eventually"),          # garbage expires
+    ("2026-01-01T00:00:00", "2099-01-01T00:00:00+00:00"),  # NAIVE issued
+    ("2026-01-01T00:00:00+00:00", "2099-01-01T00:00:00"),  # NAIVE expires
+    ("2099-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00"),  # inverted
+    ("2098-01-01T00:00:00+00:00", "2099-01-01T00:00:00+00:00"),  # future-issued
+    ("   ", "2099-01-01T00:00:00+00:00"),                 # blank
+    (12345, "2099-01-01T00:00:00+00:00"),                 # non-string
+])
+def test_attestation_time_validation_is_strict(monkeypatch, issued, expires):
+    """Untrusted issuer timestamps are parsed as strict timezone-aware
+    RFC 3339 — never compared lexicographically. Garbage, naive datetimes,
+    inverted windows and future-issued attestations all fail."""
+    priv, did, cred = _bound_did()
+    ipriv, ipub = crypto.generate_keypair()
+    issuer_did = crypto.did_from_public_key(ipub)
+    monkeypatch.setenv("GUILD_EXTERNALITY_ATTESTOR_DIDS", issuer_did)
+    att = _attestation(ipriv, issuer_did, did,
+                       issued_at=issued, expires_at=expires)
+    store.record_externality_attestation(att)
+    out = payments.classify_payer_attribution(
+        store, payer=PAYER, network=MAINNET, caller_did=did)
+    assert out["class"] == "cryptographically_bound_machine_payer", (
+        f"issued_at={issued!r} expires_at={expires!r} must never validate")
+
+
+def test_attestation_offset_timestamps_compare_temporally(monkeypatch):
+    """A +14:00-offset expiry that is temporally PAST must fail even though
+    it sorts lexicographically after a UTC 'now' — the exact trap of string
+    comparison on RFC 3339 values."""
+    from datetime import datetime, timedelta, timezone
+    priv, did, cred = _bound_did()
+    ipriv, ipub = crypto.generate_keypair()
+    issuer_did = crypto.did_from_public_key(ipub)
+    monkeypatch.setenv("GUILD_EXTERNALITY_ATTESTOR_DIDS", issuer_did)
+    now = datetime.now(timezone.utc)
+    # an instant 2h in the PAST, rendered in a +14:00 zone: its wall-clock
+    # string reads ~12h AHEAD of UTC 'now' (often the next calendar day),
+    # so it sorts lexicographically AFTER now while being temporally
+    # expired.
+    expired_ahead = (now - timedelta(hours=2)).astimezone(
+        timezone(timedelta(hours=14))).isoformat()
+    assert expired_ahead > now.isoformat(), (
+        "test precondition: the string must sort after UTC now")
+    att = _attestation(ipriv, issuer_did, did,
+                       issued_at="2026-01-01T00:00:00+00:00",
+                       expires_at=expired_ahead)
+    store.record_externality_attestation(att)
+    out = payments.classify_payer_attribution(
+        store, payer=PAYER, network=MAINNET, caller_did=did)
+    assert out["class"] == "cryptographically_bound_machine_payer"
+
+
 def test_valid_allowlisted_attestation_reaches_revenue(monkeypatch):
     """End-to-end: with a REAL allowlisted independent attestation the class
     flows into receipts + revenue — proving zero-by-default is a fact about

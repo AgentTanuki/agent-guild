@@ -114,7 +114,8 @@ def test_full_flow_still_works_on_an_allowed_network():
         encode_defunct(text=walletbinding.binding_message(binding)),
         acct.key).signature.hex()
     cred = walletbinding.verify_and_issue(store, binding, did_sig, evm_sig)
-    assert cred["status"] == "active"
+    assert store.wallet_binding_status_get(
+        cred["credential_id"])["status"] == "active"
     assert cred["network"] == TESTNET
 
 
@@ -183,9 +184,11 @@ def test_rebinding_the_same_address_network_supersedes_deterministically():
     _, did_b = _did()
     cred_a = _cred(did_a, address=addr, network=MAINNET)
     cred_b = _cred(did_b, address=addr, network=MAINNET)
-    live_a = store.wallet_bindings[cred_a["credential_id"]]
-    assert live_a["status"] == "superseded"
-    assert live_a["superseded_by"] == cred_b["credential_id"]
+    st_a = store.wallet_binding_status_get(cred_a["credential_id"])
+    assert st_a["status"] == "superseded"
+    assert st_a["superseded_by"] == cred_b["credential_id"]
+    # the signed document itself is untouched by supersession
+    assert store.wallet_bindings[cred_a["credential_id"]] == cred_a
     active = store.active_wallet_binding(addr, MAINNET)
     assert active["credential_id"] == cred_b["credential_id"]
     assert active["did"] == did_b, (

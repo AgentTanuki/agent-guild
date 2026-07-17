@@ -53,7 +53,11 @@ def test_full_binding_flow_issues_a_guild_signed_expiring_credential():
         assert cred["address"].lower() == acct.address.lower()
         assert cred["network"] == MAINNET
         assert cred["expires_at"] > cred["issued_at"]
-        assert cred["status"] == "active"
+        # status lives in a SEPARATE mutable record — the signed credential
+        # document is immutable and carries none.
+        assert "status" not in cred
+        assert store.wallet_binding_status_get(
+            cred["credential_id"])["status"] == "active"
         # Guild-signed: verifiable offline against the Guild's public key
         gid = store.guild_identity()
         body = {k: v for k, v in cred.items() if k != "proof"}

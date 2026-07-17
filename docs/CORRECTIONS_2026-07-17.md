@@ -111,6 +111,37 @@ dispatches, eventual drainage).
   `server.json`, `docs/INTERFACE.md`); registry publish + readback trigger
   on the `server.json` change at the eventual push.
 
+## Addendum — final machine-contract correction (same day, second commit)
+
+* **A2A caller-proof parity**: the JSON-RPC `message/send` path now
+  extracts and verifies `message.metadata["io.agent-guild/caller-proof"]`
+  exactly once per request — bound to method=`message/send`,
+  resource=`/a2a`, body = JCS of the message PARTS only (the proof never
+  circularly signs itself). Verified DID flows into `demand.record_demand`
+  (actor `did:<did>`) and into the A2A x402 settlement
+  (`a2a_x402.handle_payment_submission(caller_did=…)` →
+  `payments.settle_x402`). Known first-party DIDs stay first-party;
+  invalid/absent/tampered/replayed proofs stay unverified without breaking
+  the request. Native JSON-RPC tests: `tests/test_a2a_caller_proof.py`
+  (verified demand, single-verification demand+settlement, body/DID/
+  resource tamper, replay, anonymous support, bound-never-external).
+* **Immutable credentials**: the signed wallet-binding credential document
+  now contains NO mutable fields and is never touched after signing —
+  revocation/supersession flip a SEPARATE status record
+  (`store.wallet_binding_status`, one-way transitions; a revoked
+  credential can never be re-activated by replay). Offline cryptographic
+  validity holds until expiry regardless of live status; settlement
+  attribution accepts ACTIVE live status only; legacy embedded-status
+  records read conservatively. New FREE endpoint
+  `GET /wallet-binding/status/{credential_id}` returns the immutable
+  credential + Guild-signed live status (`as_of`, issuer DID, successor).
+  Tests: `tests/test_credential_immutability.py`. Contract regenerated;
+  version stays 2.0.1 (never published).
+* **Strict externality time validation**: `issued_at`/`expires_at` parse
+  as strict timezone-AWARE RFC 3339; garbage, naive datetimes, inverted
+  windows and future-issued attestations are rejected; lexicographic
+  string comparison is gone (offset-timestamp trap covered by test).
+
 ## Honesty notes
 
 * Real external revenue remains $0; nothing in this pass manufactures
