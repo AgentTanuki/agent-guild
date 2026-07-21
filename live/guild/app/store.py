@@ -2945,11 +2945,10 @@ class Store:
                 mainnet["external"] += 1
             else:
                 mainnet["unknown"] += 1
-            att = b.get("payer_attribution")
-            if att is None and (fp_flag is True
-                                or (payer and payer in fp_payers)):
-                att = "verified_first_party_canary"
-            crypto_att[_payments.normalize_payer_attribution(att)] += 1
+            # read-time, config-aware (effective_): a configured canary
+            # wallet stored as unverified_payer reads as
+            # verified_first_party_canary — upgrades toward first-party only.
+            crypto_att[_payments.effective_payer_attribution(b)] += 1
 
         endpoint_verified_now = sum(
             1 for a in self.agents.values()
@@ -4696,8 +4695,10 @@ class Store:
         att_classes: dict[str, list] = {
             c: [] for c in _payments.ATTRIBUTION_CLASSES}
         for b in x402_mainnet:
-            att_classes[_payments.normalize_payer_attribution(
-                b.get("payer_attribution"))].append(b)
+            # effective_: read-time, config-aware, upgrade-toward-first-party
+            # only (a configured canary wallet stored as unverified_payer
+            # reads as verified_first_party_canary; never the reverse).
+            att_classes[_payments.effective_payer_attribution(b)].append(b)
         out["real_settlement"] = {
             # real_settlement counts ALL independently confirmed money,
             # regardless of attribution (money is money).

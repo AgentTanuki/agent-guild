@@ -996,6 +996,35 @@ def normalize_payer_attribution(label: Any) -> str:
     return _LEGACY_ATTRIBUTION.get(str(label), "unverified_payer")
 
 
+def effective_payer_attribution(record: dict) -> str:
+    """Read-time attribution for a stored settlement record.
+
+    Normalizes the stored label, then applies EXACTLY ONE conservative
+    upgrade: a record stored as `unverified_payer` ("unknown, never
+    external") whose payer address is in the CONFIGURED Guild canary wallet
+    allowlist (GUILD_X402_FIRST_PARTY_PAYERS) — or whose token-gated
+    first_party_payer flag is True — is read as
+    `verified_first_party_canary`. Configuration supplies knowledge the
+    server lacked at settlement time (the 2026-07-21 canary settled before
+    its wallet was configured), and the upgrade only ever moves a record
+    TOWARD first-party, i.e. it can only WEAKEN an externality claim.
+
+    Never applied to bound/attested records, never downgrades, never
+    invents externality; append-only history stays untouched."""
+    import os as _os
+    cls = normalize_payer_attribution(record.get("payer_attribution"))
+    if cls != "unverified_payer":
+        return cls
+    if record.get("first_party_payer") is True:
+        return "verified_first_party_canary"
+    payer = str(record.get("payer") or "").lower()
+    fp_payers = {p.strip().lower() for p in (_os.environ.get(
+        "GUILD_X402_FIRST_PARTY_PAYERS") or "").split(",") if p.strip()}
+    if payer and payer in fp_payers:
+        return "verified_first_party_canary"
+    return cls
+
+
 def classify_payer_attribution(store: Any, *, payer: str,
                                network: str = "",
                                caller_did: str = "",

@@ -290,6 +290,74 @@ def test_legacy_verified_external_records_reinterpreted_conservatively():
     assert att["cryptographically_bound_machine_payer"]["transactions"] >= 1
 
 
+def test_configured_canary_wallet_upgrades_unverified_at_read(monkeypatch):
+    """The 2026-07-21 defect: the first real mainnet canary settled WITHOUT
+    first-party tagging and was stored `unverified_payer` (honest: unknown).
+    Configuring that wallet in GUILD_X402_FIRST_PARTY_PAYERS re-reads the
+    stored record as verified_first_party_canary — configuration supplies
+    the knowledge missing at settlement time. The upgrade moves records
+    TOWARD first-party only; it is read-time and reversible with the
+    config, and the append-only stored label is untouched."""
+    from app.main import app
+    canary_wallet = "0x" + "77" * 20
+    tx = "0x" + "cd" * 32
+    store.billing_log.append({
+        "key": "x402", "type": "x402_payment", "endpoint": "check",
+        "network": MAINNET, "amount_atomic": "10000",
+        "payer": canary_wallet, "transaction": tx,
+        "status": "settled_confirmed", "mainnet": True, "confirmed": True,
+        "payer_attribution": "unverified_payer",
+        "first_party_payer": None, "at": "2026-07-21T05:00:00Z"})
+
+    def _read():
+        with TestClient(app) as client:
+            return client.get("/billing/revenue").json()["real_settlement"]
+
+    before = _read()["attribution"]
+    assert before["verified_first_party_canary"]["transactions"] == 0
+    assert before["unverified_payer"]["transactions"] >= 1
+
+    monkeypatch.setenv("GUILD_X402_FIRST_PARTY_PAYERS",
+                       canary_wallet.upper())        # case-insensitive
+    after = _read()
+    att = after["attribution"]
+    assert att["verified_first_party_canary"]["transactions"] == 1
+    assert att["verified_first_party_canary"]["revenue_usd"] == \
+        pytest.approx(0.01)
+    assert att["unverified_payer"]["transactions"] == \
+        before["unverified_payer"]["transactions"] - 1
+    # stored label untouched (append-only history)
+    assert store.billing_log[-1]["payer_attribution"] == "unverified_payer"
+
+
+def test_effective_attribution_upgrades_toward_first_party_only(monkeypatch):
+    """effective_payer_attribution never relabels proven classes, never
+    downgrades, and never moves any record toward external."""
+    canary_wallet = "0x" + "77" * 20
+    monkeypatch.setenv("GUILD_X402_FIRST_PARTY_PAYERS", canary_wallet)
+    # a BOUND record for the configured wallet stays bound (proof wins)
+    assert payments.effective_payer_attribution({
+        "payer_attribution": "cryptographically_bound_machine_payer",
+        "payer": canary_wallet}) == "cryptographically_bound_machine_payer"
+    # token-gated flag upgrades a stored-unknown record
+    assert payments.effective_payer_attribution({
+        "payer_attribution": "unverified_payer", "payer": "0x" + "88" * 20,
+        "first_party_payer": True}) == "verified_first_party_canary"
+    # unknown wallet, no flag: stays unverified
+    assert payments.effective_payer_attribution({
+        "payer_attribution": None,
+        "payer": "0x" + "99" * 20}) == "unverified_payer"
+    # legacy retired label still reinterprets as bound, config or not
+    assert payments.effective_payer_attribution({
+        "payer_attribution": "verified_external_machine",
+        "payer": canary_wallet}) == "cryptographically_bound_machine_payer"
+    monkeypatch.delenv("GUILD_X402_FIRST_PARTY_PAYERS")
+    # without config the same stored-unknown record reads unverified again
+    assert payments.effective_payer_attribution({
+        "payer_attribution": "unverified_payer",
+        "payer": canary_wallet}) == "unverified_payer"
+
+
 # ---------------------------------------------------------------------------
 # the independent-attestation mechanism: real, but honestly zero by default
 # ---------------------------------------------------------------------------

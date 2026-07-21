@@ -1,26 +1,95 @@
 {
   "label": "first_party_mainnet_canary",
-  "mode": "dry_run",
-  "disclaimer": "First-party canary DRY RUN. Preconditions + signed offer verified; NO signature produced, NO funds moved. NOT a payment, NOT revenue, NOT external adoption.",
+  "disclaimer": "First-party canary. A successful settlement is proof the machine-payment loop works end-to-end; it is NOT external adoption and NOT customer revenue.",
   "target": "https://agent-guild-5d5r.onrender.com",
-  "requested_resource": "https://agent-guild-5d5r.onrender.com/check?capability=code-review",
-  "canonical_resource": "https://agent-guild-5d5r.onrender.com/check?capability=code-review&signed=false&ttl_seconds=3600",
+  "production_sha": "",
+  "resource": "https://agent-guild-5d5r.onrender.com/check?capability=code-review&signed=false&ttl_seconds=3600",
+  "request_hash": null,
   "network": "eip155:8453",
   "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   "recipient": "0xaa4E3ba0Eb5f564cAb54dDC08f5BaAfb3D4cA8E5",
-  "chain_id": 8453,
   "amount_atomic": "10000",
   "amount_usdc": 0.01,
   "lifetime_cap_usdc": 0.01,
-  "signed_offer_verified": true,
   "revenue_before": {
-    "transactions": 0,
-    "revenue_usd": 0.0,
-    "networks": [],
-    "transaction_hashes": [],
-    "note": "zero: no independently confirmed mainnet settlement exists (testnet/sandbox/unconfirmed activity is value-less and listed under testnet_settlement)"
+    "transactions": 1,
+    "revenue_usd": 0.01,
+    "networks": [
+      "eip155:8453"
+    ],
+    "transaction_hashes": [
+      "0x1052fa51aa1412119581194acc1011c51786a59538f46bb5f9d593f1ad16d802"
+    ],
+    "attribution": {
+      "verified_first_party_canary": {
+        "transactions": 0,
+        "revenue_usd": 0.0
+      },
+      "cryptographically_bound_machine_payer": {
+        "transactions": 0,
+        "revenue_usd": 0.0
+      },
+      "independently_attested_external_machine": {
+        "transactions": 0,
+        "revenue_usd": 0.0
+      },
+      "unverified_payer": {
+        "transactions": 1,
+        "revenue_usd": 0.01
+      }
+    },
+    "cryptographically_bound_machine_revenue_usd": 0.0,
+    "independently_attested_external_revenue_usd": 0.0,
+    "note": "counts ONLY mainnet settlements independently CONFIRMED on-chain; `attribution` splits them into verified_first_party_canary (Guild identity, never external), cryptographically_bound_machine_payer (valid caller proof + exact (address, network) wallet binding \u2014 identity proven, ownership/externality UNPROVEN), independently_attested_external_machine (a SEPARATE allowlisted issuer attests externality) and unverified_payer (missing proof is UNKNOWN, never external). Unknown ownership is never called verified external."
   },
-  "generation_note": "Produced against a LOCAL mainnet-shaped stack with a fake RPC (chainId 8453) \u2014 no real network call, no signing, no key. Illustrates the artifact shape --execute would emit with real settlement fields added.",
-  "result": "DRY RUN CLEAN \u2014 refused to sign",
-  "timestamp": "2026-07-15T03:53:31Z"
+  "mode": "execute",
+  "timestamp": "2026-07-21T07:30:25Z",
+  "result": "settled_and_confirmed",
+  "payer": "0x6904b3E1a5007C94b195d054CF2ca06B43a5C45c",
+  "transaction": "0x1052fa51aa1412119581194acc1011c51786a59538f46bb5f9d593f1ad16d802",
+  "block_number": "0x2ea6123",
+  "payment_response": {
+    "success": true,
+    "network": "eip155:8453",
+    "transaction": "0x1052fa51aa1412119581194acc1011c51786a59538f46bb5f9d593f1ad16d802",
+    "payer": "0x6904b3E1a5007C94b195d054CF2ca06B43a5C45c"
+  },
+  "independent_confirmation": {
+    "confirmed": true,
+    "reason": "confirmed",
+    "block_number": "0x2ea6123"
+  },
+  "revenue_after": {
+    "transactions": 1,
+    "revenue_usd": 0.01,
+    "networks": [
+      "eip155:8453"
+    ],
+    "transaction_hashes": [
+      "0x1052fa51aa1412119581194acc1011c51786a59538f46bb5f9d593f1ad16d802"
+    ],
+    "attribution": {
+      "verified_first_party_canary": {
+        "transactions": 0,
+        "revenue_usd": 0.0
+      },
+      "cryptographically_bound_machine_payer": {
+        "transactions": 0,
+        "revenue_usd": 0.0
+      },
+      "independently_attested_external_machine": {
+        "transactions": 0,
+        "revenue_usd": 0.0
+      },
+      "unverified_payer": {
+        "transactions": 1,
+        "revenue_usd": 0.01
+      }
+    },
+    "cryptographically_bound_machine_revenue_usd": 0.0,
+    "independently_attested_external_revenue_usd": 0.0,
+    "note": "counts ONLY mainnet settlements independently CONFIRMED on-chain; `attribution` splits them into verified_first_party_canary (Guild identity, never external), cryptographically_bound_machine_payer (valid caller proof + exact (address, network) wallet binding \u2014 identity proven, ownership/externality UNPROVEN), independently_attested_external_machine (a SEPARATE allowlisted issuer attests externality) and unverified_payer (missing proof is UNKNOWN, never external). Unknown ownership is never called verified external."
+  },
+  "idempotent_replay": true,
+  "result_sha256": "defeee4e141c49b42b38134da858ca734fb0af4057b899bcb549fcb74b6892a2"
 }

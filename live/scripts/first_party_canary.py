@@ -71,6 +71,8 @@ DEFAULT_BASE = "https://agent-guild-5d5r.onrender.com"
 # The protected buyer key (gitignored directory; never read by tooling that
 # could print it). --key-file overrides; CANARY_PRIVATE_KEY env wins.
 DEFAULT_KEY_FILE = REPO / "live" / "secrets" / "x402_mainnet_canary.key"
+# First-party tagging token (gitignored, 0600) — same zero-setup pattern.
+DEFAULT_FP_TOKEN_FILE = REPO / "live" / "secrets" / "first_party_token"
 LIFETIME_CAP_USDC = 0.01                     # hard ceiling, ALL runs, forever
 MAINNET = "eip155:8453"
 BASE_CHAIN_ID = 8453
@@ -84,6 +86,23 @@ class Refuse(Exception):
 
 def _log(msg: str) -> None:
     print(msg, flush=True)
+
+
+def _first_party_headers() -> dict[str, str]:
+    """Default headers tagging every canary request as Guild first-party
+    traffic. Token source: GUILD_FIRST_PARTY_TOKEN env, else the gitignored
+    DEFAULT_FP_TOKEN_FILE (same zero-setup pattern as the buyer key). The
+    token value is NEVER logged. Without it, a settled canary payment is
+    honestly — but uselessly — classified `unverified_payer` (the
+    2026-07-21 mislabel): the server cannot know our own wallet without
+    either this token or the GUILD_X402_FIRST_PARTY_PAYERS allowlist."""
+    token = os.environ.get("GUILD_FIRST_PARTY_TOKEN", "").strip()
+    if not token:
+        try:
+            token = DEFAULT_FP_TOKEN_FILE.read_text().strip()
+        except OSError:
+            token = ""
+    return {"X-Agent-Guild-First-Party": token} if token else {}
 
 
 # --------------------------------------------------------------------------
@@ -350,7 +369,28 @@ def _save_state(path: pathlib.Path, state: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2))
+    tmp.chmod(0o600)
     tmp.replace(path)
+    path.chmod(0o600)
+
+
+def _verify_revenue_transition(rs_before: dict[str, Any],
+                               rs_after: dict[str, Any], tx: str,
+                               *, replayed_signed_payload: bool) -> None:
+    """Require one new settlement on the first send, while allowing an
+    idempotent recovery to observe either the just-created settlement or the
+    already-cached one.  In every case the exact transaction must be present
+    and the ledger may never jump by more than one."""
+    before = int(rs_before.get("transactions", 0))
+    after = int(rs_after.get("transactions", 0))
+    delta = after - before
+    allowed = {0, 1} if replayed_signed_payload else {1}
+    if delta not in allowed:
+        expected = "zero or one" if replayed_signed_payload else "exactly one"
+        raise Refuse(f"real_settlement.transactions did not increase by "
+                     f"{expected}")
+    if tx not in (rs_after.get("transaction_hashes") or []):
+        raise Refuse("the settled tx hash is not in real_settlement")
 
 
 # --------------------------------------------------------------------------
@@ -365,11 +405,23 @@ def run(args) -> int:
     base = args.base.rstrip("/")
     state_path = pathlib.Path(args.state).expanduser()
     evidence_path = pathlib.Path(args.evidence).expanduser()
-    http = httpx.Client(follow_redirects=True)
+    fp_headers = _first_party_headers()
+    if args.execute and not fp_headers and not getattr(
+            args, "allow_untagged", False):
+        raise Refuse(
+            "refusing --execute without first-party tagging: set "
+            "GUILD_FIRST_PARTY_TOKEN so the settlement classifies as "
+            "verified_first_party_canary (or pass --allow-untagged to "
+            "knowingly produce an unverified_payer settlement)")
+    http = httpx.Client(follow_redirects=True, headers=fp_headers)
 
     _log(f"Agent Guild first-party mainnet canary — target {base}")
     _log(f"  mode: {'EXECUTE' if args.execute else 'DRY-RUN'}   "
          f"lifetime cap: {LIFETIME_CAP_USDC} USDC")
+    _log("  first-party tagging: "
+         + ("ON (X-Agent-Guild-First-Party sent; token value never logged)"
+            if fp_headers else "OFF — settlement would classify as "
+                               "unverified_payer"))
 
     # 1. discover the paid resource + capture the production SHA
     resource_url = discover_resource(http, base)
@@ -417,6 +469,7 @@ def run(args) -> int:
         "amount_atomic": amount_atomic,
         "amount_usdc": int(amount_atomic) / 1e6,
         "lifetime_cap_usdc": LIFETIME_CAP_USDC,
+        "first_party_tagged": bool(fp_headers),
         "revenue_before": rs_before,
         "mode": "execute" if args.execute else "dry_run",
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -462,7 +515,10 @@ def run(args) -> int:
         return 0
 
     pr = decode_payment_required_header(r0.headers[x402.PAYMENT_REQUIRED_HEADER])
-    if "signed_payload" in state and state.get("resource") == resource_url:
+    replayed_signed_payload = (
+        "signed_payload" in state and state.get("resource") == resource_url
+    )
+    if replayed_signed_payload:
         sig_header = state["signed_payload"]
         _log("  reusing the persisted signed payload (idempotent replay)")
     else:
@@ -498,7 +554,7 @@ def run(args) -> int:
         raise Refuse(f"PAYMENT-RESPONSE not a valid success: {settle}")
     if settle.network != MAINNET:
         raise Refuse(f"settlement network {settle.network} != {MAINNET}")
-    receipt_ok = _verify_settle_receipt(rp, resource_url, payer, tx)
+    receipt_ok = _verify_settle_receipt(rp, resource_url, payer, tx, http=http)
     if not receipt_ok:
         raise Refuse("signed receipt in PAYMENT-RESPONSE did not verify")
 
@@ -513,11 +569,10 @@ def run(args) -> int:
     # 8. revenue rose by exactly one and contains this tx
     revenue_after = http.get(base + "/billing/revenue", timeout=20).json()
     rs_after = revenue_after.get("real_settlement", {})
-    if rs_after.get("transactions", 0) != rs_before.get("transactions", 0) + 1:
-        raise Refuse("real_settlement.transactions did not increase by exactly "
-                     "one")
-    if tx not in (rs_after.get("transaction_hashes") or []):
-        raise Refuse("the settled tx hash is not in real_settlement")
+    _verify_revenue_transition(
+        rs_before, rs_after, tx,
+        replayed_signed_payload=replayed_signed_payload,
+    )
 
     state.update({"status": "completed", "transaction": tx})
     _save_state(state_path, state)
@@ -532,6 +587,7 @@ def run(args) -> int:
         "independent_confirmation": {k: conf.get(k) for k in
                                      ("confirmed", "reason", "block_number")},
         "revenue_after": rs_after,
+        "idempotent_replay": replayed_signed_payload,
         "result_sha256": artifacts.sha256_hex(rp.content),
     })
     _write_evidence(evidence_path, evidence)
@@ -542,13 +598,13 @@ def run(args) -> int:
 
 
 def _verify_settle_receipt(response, resource_url: str, payer: str,
-                           tx: str) -> bool:
+                           tx: str, http: Any = None) -> bool:
     """Verify the JWS-signed receipt carried in the PAYMENT-RESPONSE header's
-    SettleResponse.extensions against the Guild signing key (self-describing
-    kid)."""
+    SettleResponse.extensions against the Guild signing key.  Resolve did:web
+    from the trusted service origin exactly as the signed-offer verifier does;
+    legacy self-describing did:key kids remain supported."""
     from app import x402
     from app import x402_artifacts as artifacts
-    from app.crypto import public_key_from_did
     raw = json.loads(_b64(response.headers[x402.PAYMENT_RESPONSE_HEADER]))
     exts = raw.get("extensions") or {}
     receipt = ((exts.get("offer-receipt") or {}).get("info") or {}).get("receipt")
@@ -556,13 +612,13 @@ def _verify_settle_receipt(response, resource_url: str, payer: str,
         return False
     jws = receipt.get("signature")
     kid = artifacts.jws_header(jws).get("kid", "")
-    try:
-        pub = public_key_from_did(kid.split("#")[0])
-    except Exception:
+    pub = _resolve_kid_public_key(kid, http)
+    if not pub:
         return False
     payload = artifacts.jws_verify(jws, pub)
     return bool(payload and payload.get("resourceUrl") == resource_url
-                and payload.get("transaction") == tx)
+                and payload.get("transaction") == tx
+                and (payload.get("payer") or "").lower() == payer.lower())
 
 
 def _b64(s: str) -> bytes:
@@ -608,7 +664,7 @@ def preflight(args) -> int:
              "not installed here; the address is public, deriving it needs "
              "the signing lib but produces no signature)")
 
-    http = httpx.Client(follow_redirects=True)
+    http = httpx.Client(follow_redirects=True, headers=_first_party_headers())
     base = args.base.rstrip("/")
     try:
         target_facts = verify_preconditions(http, base, args.expect_sha)
@@ -650,6 +706,10 @@ def main() -> int:
                          f"env (default: {DEFAULT_KEY_FILE})")
     ap.add_argument("--expect-sha", default=None,
                     help="refuse to pay unless production /release SHA matches")
+    ap.add_argument("--allow-untagged", action="store_true",
+                    help="permit --execute WITHOUT GUILD_FIRST_PARTY_TOKEN "
+                         "(the settlement will classify as unverified_payer "
+                         "— normally refused)")
     ap.add_argument("--state",
                     default=str(REPO / "live" / "secrets" / "canary_state.json"),
                     help="one-shot state file (gitignored)")

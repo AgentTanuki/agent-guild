@@ -7,8 +7,10 @@ verification, precondition checks, secret-silent key loading, and the
 pay-before-state-is-impossible one-shot file.
 """
 import importlib.util
+import base64
 import json
 import pathlib
+import stat
 import types
 
 import pytest
@@ -308,6 +310,65 @@ def test_state_roundtrip_is_atomic(tmp_path):
                            "signed_payload": "xyz"})
     assert canary._load_state(p)["status"] == "signed"
     assert canary._load_state(p)["signed_payload"] == "xyz"
+    assert stat.S_IMODE(p.stat().st_mode) == 0o600
+
+
+def test_signed_receipt_resolves_trusted_did_web(monkeypatch):
+    monkeypatch.setenv("GUILD_PUBLIC_HOST", "https://guild.example")
+    from app.state import store
+    identity = store.guild_identity()
+    resource = _resource()
+    payer = "0x" + "12" * 20
+    tx = "0x" + "34" * 32
+    payload = artifacts.receipt_payload(
+        network="eip155:8453", resource_url=resource, payer=payer,
+        transaction=tx, issued_at=1,
+    )
+    receipt = artifacts.signed_receipt(identity, payload)
+    raw = {
+        "extensions": {
+            "offer-receipt": artifacts.offer_receipt_settle_extension(receipt)
+        }
+    }
+
+    class Response:
+        headers = {
+            x402.PAYMENT_RESPONSE_HEADER:
+                base64.b64encode(json.dumps(raw).encode()).decode()
+        }
+
+    assert canary._verify_settle_receipt(
+        Response(), resource, payer, tx, http=_did_http(),
+    )
+    assert not canary._verify_settle_receipt(
+        Response(), resource, "0x" + "99" * 20, tx, http=_did_http(),
+    )
+
+
+def test_revenue_transition_allows_idempotent_recovery_only():
+    tx = "0x" + "56" * 32
+    before = {"transactions": 1, "transaction_hashes": [tx]}
+    unchanged = {"transactions": 1, "transaction_hashes": [tx]}
+    increased = {"transactions": 2, "transaction_hashes": [tx]}
+
+    canary._verify_revenue_transition(
+        before, unchanged, tx, replayed_signed_payload=True,
+    )
+    canary._verify_revenue_transition(
+        before, increased, tx, replayed_signed_payload=True,
+    )
+    canary._verify_revenue_transition(
+        before, increased, tx, replayed_signed_payload=False,
+    )
+    with pytest.raises(canary.Refuse, match="exactly one"):
+        canary._verify_revenue_transition(
+            before, unchanged, tx, replayed_signed_payload=False,
+        )
+    with pytest.raises(canary.Refuse, match="not in real_settlement"):
+        canary._verify_revenue_transition(
+            before, {"transactions": 2, "transaction_hashes": []}, tx,
+            replayed_signed_payload=False,
+        )
 
 
 def test_discovery_falls_back_to_canonical_check():
@@ -324,3 +385,34 @@ def test_evidence_is_labelled_first_party_and_secretless(tmp_path):
     canary._write_evidence(p, ev)
     loaded = json.loads(p.read_text())
     assert loaded["label"] == "first_party_mainnet_canary"
+
+
+def test_execute_refuses_without_first_party_tagging(monkeypatch, tmp_path):
+    """--execute without GUILD_FIRST_PARTY_TOKEN would settle a payment the
+    server can only classify unverified_payer (the 2026-07-21 mislabel) —
+    refuse BEFORE any network traffic unless --allow-untagged."""
+    monkeypatch.delenv("GUILD_FIRST_PARTY_TOKEN", raising=False)
+    monkeypatch.setattr(canary, "DEFAULT_FP_TOKEN_FILE",
+                        tmp_path / "absent_token")
+    args = types.SimpleNamespace(
+        base="https://guild.example", execute=True, dry_run=False,
+        allow_untagged=False, state=str(tmp_path / "state.json"),
+        evidence=str(tmp_path / "ev.json"), key_file=None, expect_sha=None)
+    with pytest.raises(canary.Refuse, match="first-party tagging"):
+        canary.run(args)
+    assert not (tmp_path / "state.json").exists()
+
+
+def test_first_party_headers_env_then_token_file(monkeypatch, tmp_path):
+    monkeypatch.delenv("GUILD_FIRST_PARTY_TOKEN", raising=False)
+    missing = tmp_path / "absent_token"
+    monkeypatch.setattr(canary, "DEFAULT_FP_TOKEN_FILE", missing)
+    assert canary._first_party_headers() == {}
+    token_file = tmp_path / "first_party_token"
+    token_file.write_text("file-secret\n")
+    monkeypatch.setattr(canary, "DEFAULT_FP_TOKEN_FILE", token_file)
+    assert canary._first_party_headers() == {
+        "X-Agent-Guild-First-Party": "file-secret"}
+    monkeypatch.setenv("GUILD_FIRST_PARTY_TOKEN", "env-secret")  # env wins
+    assert canary._first_party_headers() == {
+        "X-Agent-Guild-First-Party": "env-secret"}
