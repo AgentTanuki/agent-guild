@@ -152,6 +152,10 @@ class Store:
         # against the (default-empty) issuer allowlist — storing a document
         # can never by itself create "external" revenue.
         self.externality_attestations: dict[str, dict[str, Any]] = {}
+        # per-agent in-band inbox (app/inbox.py): agent_id -> [message].
+        # The Guild's ONLY channel to an agent with no inbound endpoint is
+        # the agent's own next call — messages wait here until then.
+        self.guild_inbox: dict[str, list] = {}
         self._rep_cache: Optional[ScoringResult] = None
         # Append-only sidecar journal for instrumentation events. record_event
         # is deliberately cheap (no full-store _save on read paths), which used
@@ -441,6 +445,7 @@ class Store:
             b.put_kv("wallet_binding_status", self.wallet_binding_status)
             b.put_kv("externality_attestations",
                      self.externality_attestations)
+            b.put_kv("guild_inbox", self.guild_inbox)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -489,6 +494,7 @@ class Store:
             b.put_kv("wallet_binding_status", self.wallet_binding_status)
             b.put_kv("externality_attestations",
                      self.externality_attestations)
+            b.put_kv("guild_inbox", self.guild_inbox)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -543,6 +549,7 @@ class Store:
             "wallet_binding_status", {}) or {}
         self.externality_attestations = self.backend.fetch_kv(
             "externality_attestations", {}) or {}
+        self.guild_inbox = self.backend.fetch_kv("guild_inbox", {}) or {}
         if d["outbound_invocations"]:
             self.__dict__["outbound_invocations"] = d["outbound_invocations"]
 
@@ -592,6 +599,7 @@ class Store:
                 "wallet_binding_status", {})
             self.externality_attestations = data.get(
                 "externality_attestations", {})
+            self.guild_inbox = data.get("guild_inbox", {})
 
     def _migrate_plaintext_keys(self) -> None:
         """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
@@ -717,6 +725,7 @@ class Store:
                        "wallet_binding_status": self.wallet_binding_status,
                        "externality_attestations":
                            self.externality_attestations,
+                       "guild_inbox": self.guild_inbox,
                        "swarm_state": self.swarm_state}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal

@@ -33,7 +33,7 @@ from .models import (
     EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
     ReferralsResponse, HealthSnapshot, HealthHistoryResponse,
-    ConfigurationRequest, ConfigurationResponse,
+    ConfigurationRequest, ConfigurationResponse, InboxPost,
 )
 from . import __version__
 from . import billing
@@ -53,6 +53,7 @@ from .payments import (
 )
 from . import credentials as creds
 from . import journey as journey_engine
+from . import inbox as inbox_engine
 from . import proving
 from .a2a import router as a2a_router
 from .mcp_server import mcp_app
@@ -1577,6 +1578,54 @@ def get_journey(agent_id: str, response: Response,
     _meter_unless_self(payments.journey_request(agent_id), rec,
                        x_api_key, response)
     return journey_engine.journey(store, rec)
+
+
+@app.get("/agents/{agent_id}/inbox")
+def get_inbox(agent_id: str, response: Response,
+              x_api_key: Optional[str] = Header(None)):
+    """The agent's guild_inbox — Guild→agent messages that ride in-band
+    because most agents have no inbound endpoint. SUBJECT-ONLY and free:
+    unlike the metered reputation surfaces, inbox contents are private
+    correspondence, never sold to third parties."""
+    rec = store.get_agent(agent_id)
+    if not rec:
+        raise HTTPException(404, "agent not found")
+    if not _is_self_read(rec, x_api_key):
+        raise HTTPException(
+            403, "inbox is subject-only: present the agent's own X-Api-Key")
+    response.headers["X-Guild-Cost"] = "0"
+    response.headers["X-Guild-Self-Read"] = "free"
+    return inbox_engine.inbox_view(store, rec)
+
+
+@app.post("/agents/{agent_id}/inbox")
+def post_inbox(agent_id: str, body: InboxPost, response: Response,
+               x_admin_token: Optional[str] = Header(None),
+               x_guild_source: Optional[str] = Header(None),
+               x_agent_guild_first_party: Optional[str] = Header(None)):
+    """Queue one message for one agent (internal ops channel — how the Guild
+    reaches an agent that only ever calls in). Gated: admin token, or the
+    first-party token when one is configured. NEVER external-writable: an
+    open inbox write would be a spam/impersonation channel."""
+    # strict mode required: in honor mode ANY non-empty header reads
+    # first-party, which would make this an open spam/impersonation channel.
+    first_party_ok = (_fp_auth.strict_mode()
+                      and _is_first_party(x_guild_source,
+                                          x_agent_guild_first_party))
+    admin_ok = bool(ADMIN_TOKEN) and x_admin_token == ADMIN_TOKEN
+    if not (admin_ok or first_party_ok):
+        raise HTTPException(403, "requires X-Admin-Token or the configured "
+                                 "first-party token")
+    rec = store.get_agent(agent_id)
+    if not rec:
+        raise HTTPException(404, "agent not found")
+    msg = inbox_engine.queue_message(
+        store, agent_id, topic=body.topic, body=body.body,
+        action=body.action, ttl_days=body.ttl_days,
+        dedupe_key=body.dedupe_key, source="guild_operator")
+    if msg is None:
+        return {"queued": False, "reason": "dedupe_key already live"}
+    return {"queued": True, "message": msg}
 
 
 @app.get("/agents/{agent_id}/evidence", response_model=EvidenceResponse)

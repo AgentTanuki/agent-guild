@@ -232,6 +232,13 @@
   },
   {
    "methods": [
+    "GET",
+    "POST"
+   ],
+   "path": "/agents/{agent_id}/inbox"
+  },
+  {
+   "methods": [
     "POST"
    ],
    "path": "/agents/{agent_id}/invoke"

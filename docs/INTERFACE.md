@@ -38,6 +38,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /agents/{agent_id}/endpoint`
 - `GET /agents/{agent_id}/evidence`
 - `GET /agents/{agent_id}/flags`
+- `GET | POST /agents/{agent_id}/inbox`
 - `POST /agents/{agent_id}/invoke`
 - `GET /agents/{agent_id}/journey`
 - `POST /agents/{agent_id}/key/revoke`

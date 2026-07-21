@@ -414,3 +414,14 @@ class HealthSnapshot(BaseModel):
 class HealthHistoryResponse(BaseModel):
     count: int
     snapshots: list[HealthSnapshot]
+
+
+class InboxPost(BaseModel):
+    """One Guild→agent inbox message (internal ops write; app/inbox.py)."""
+    topic: str = Field(..., max_length=64)
+    body: str = Field(..., max_length=4000)
+    action: Optional[dict[str, Any]] = Field(
+        None, description="optional machine-readable next step, "
+                          "guild_next-style: {'action': ..., 'call': ...}")
+    ttl_days: int = Field(45, ge=1, le=365)
+    dedupe_key: Optional[str] = Field(None, max_length=128)

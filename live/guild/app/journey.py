@@ -396,7 +396,7 @@ def guild_next(store, agent: dict[str, Any],
     if steps[0]["action"] == "prove_key_control":
         if store.record_milestone(agent["id"], "prove_offered"):
             store._save()
-    return {
+    out = {
         "note": note or (f"Journey stage {stage}/4 ({STAGE_NAMES[stage]}). "
                          "One action advances you now:"),
         "primary": steps[0],
@@ -404,6 +404,19 @@ def guild_next(store, agent: dict[str, Any],
                    "+ counterfactuals (free to you)",
         "path_to_citizenship": f"GET {BASE}/citizenship",
     }
+    # In-band inbox delivery: the agent's own next call is the Guild's only
+    # reliable channel to an agent with no inbound endpoint (app/inbox.py) —
+    # undelivered messages ride here, on the block every authenticated
+    # surface already embeds.
+    from . import inbox as _inbox
+    msgs = _inbox.pending(store, agent)
+    if msgs:
+        out["inbox"] = {
+            "messages": msgs,
+            "read_all": f"GET {BASE}/agents/{agent['id']}/inbox "
+                        "(free to you)",
+        }
+    return out
 
 
 def journey(store, agent: dict[str, Any]) -> dict[str, Any]:
