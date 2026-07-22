@@ -1006,6 +1006,24 @@ async def a2a_endpoint(request: Request):
     store.record_event(actor, "prove_surfaced", ua=ua_tag,
                        endpoint="a2a_message")
 
+    # In-band guild_inbox delivery on A2A (corrective pass 2026-07-22): a
+    # message/send carrying the agent's own X-API-Key is an authenticated
+    # subject interaction, so pending Guild messages (e.g. the liveness-expiry
+    # warning) ride on the reply — the same block guild_next embeds on HTTP
+    # and every authenticated MCP tool carries. No credential, no inbox: the
+    # inbox is private correspondence, never exposed to anonymous callers.
+    try:
+        from . import inbox as _inbox
+        _subject = _inbox.subject_for_presented_key(
+            store, request.headers.get("x-api-key"))
+        if _subject is not None and isinstance(payload, dict):
+            _blk = _inbox.deliver_in_band(store, _subject)
+            if _blk:
+                payload["inbox"] = _blk
+    except Exception:
+        # delivery is best-effort transport, never a reason to fail the call
+        pass
+
     reply_text = _json.dumps(payload, default=str)
     return {
         "jsonrpc": "2.0",

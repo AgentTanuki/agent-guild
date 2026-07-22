@@ -91,5 +91,18 @@
     "note": "counts ONLY mainnet settlements independently CONFIRMED on-chain; `attribution` splits them into verified_first_party_canary (Guild identity, never external), cryptographically_bound_machine_payer (valid caller proof + exact (address, network) wallet binding \u2014 identity proven, ownership/externality UNPROVEN), independently_attested_external_machine (a SEPARATE allowlisted issuer attests externality) and unverified_payer (missing proof is UNKNOWN, never external). Unknown ownership is never called verified external."
   },
   "idempotent_replay": true,
-  "result_sha256": "defeee4e141c49b42b38134da858ca734fb0af4057b899bcb549fcb74b6892a2"
+  "result_sha256": "defeee4e141c49b42b38134da858ca734fb0af4057b899bcb549fcb74b6892a2",
+  "production_sha_repair": {
+    "reason": "the canary's production_sha reader read `sha` from GET /release, which serves `git_sha` \u2014 so the capture at settlement time was silently empty (fixed 2026-07-22, regression-pinned against the real /release schema)",
+    "read_only": true,
+    "payment_made": false,
+    "captured_production_sha_left_as_recorded": true,
+    "live_git_sha_at_repair": "5dc7c8e77651d7ca59282b781b8f27720e914cec",
+    "repaired_at": "2026-07-22T03:14:00Z",
+    "settlement_time_sha": {
+      "sha": "7b095482f8cd8d88378737067530bc52dca040d1",
+      "derived_from": "deploy history, not capture: 7b09548 was the last commit pushed to main before the settlement (deployed 2026-07-17; verified live then), the settlement confirmed in Base block 0x2ea6123 at 2026-07-21T07:26:33Z, and the NEXT deploy (b606ae5) was only committed at 2026-07-21T08:24:47Z \u2014 after the settlement. No other commit exists between them on main.",
+      "confidence": "derived_from_deploy_history_not_captured"
+    }
+  }
 }

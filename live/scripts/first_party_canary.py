@@ -199,8 +199,18 @@ def discover_resource(http, base: str) -> str:
 
 
 def production_sha(http, base: str) -> str:
+    """The SHA production is actually serving, from GET /release.
+
+    The endpoint's field is `git_sha` (app/main.py::release) — NOT `sha`.
+    Reading the wrong key here silently produced `production_sha: ""` in the
+    2026-07-21 settlement evidence (found in the post-ship corrective pass),
+    which is why tests/test_first_party_canary.py now pins this reader against
+    the REAL FastAPI /release response, never a hand-mocked schema. `unknown`
+    (Render env absent) is normalized to "" — unverifiable, never a value."""
     try:
-        return http.get(base + "/release", timeout=20).json().get("sha", "")
+        sha = (http.get(base + "/release", timeout=20).json()
+               .get("git_sha") or "").strip()
+        return "" if sha == "unknown" else sha
     except Exception:
         return ""
 
@@ -244,7 +254,15 @@ def verify_preconditions(http, base: str, expected_sha: Optional[str]
 
     if expected_sha:
         sha = production_sha(http, base)
-        if sha and sha != expected_sha:
+        if not sha:
+            # fail CLOSED: an explicit SHA expectation that cannot be verified
+            # is a refusal, not a silent pass (corrective pass 2026-07-22 —
+            # the old reader returned "" on every call and this branch never
+            # fired, so --expect-sha was a no-op in practice).
+            raise Refuse("production SHA is unverifiable (/release returned "
+                         f"no usable git_sha) but --expect-sha={expected_sha} "
+                         "was demanded")
+        if sha != expected_sha:
             raise Refuse(f"production SHA {sha} != expected {expected_sha}")
 
     return {
@@ -631,6 +649,81 @@ def _write_evidence(path: pathlib.Path, evidence: dict[str, Any]) -> None:
     path.write_text(json.dumps(evidence, indent=2))
 
 
+# Settlement-time SHA derivations for KNOWN historical settlements whose
+# evidence was captured with the broken `sha` reader (empty production_sha).
+# Keyed by transaction hash so the derivation can never attach to any other
+# artifact. These are derived-from-deploy-history facts, labelled as such —
+# never presented as a value captured at settlement time.
+KNOWN_SETTLEMENT_SHA_DERIVATIONS: dict[str, dict[str, str]] = {
+    "0x1052fa51aa1412119581194acc1011c51786a59538f46bb5f9d593f1ad16d802": {
+        "sha": "7b095482f8cd8d88378737067530bc52dca040d1",
+        "derived_from": (
+            "deploy history, not capture: 7b09548 was the last commit pushed "
+            "to main before the settlement (deployed 2026-07-17; verified live "
+            "then), the settlement confirmed in Base block 0x2ea6123 at "
+            "2026-07-21T07:26:33Z, and the NEXT deploy (b606ae5) was only "
+            "committed at 2026-07-21T08:24:47Z — after the settlement. No "
+            "other commit exists between them on main."),
+        "confidence": "derived_from_deploy_history_not_captured",
+    },
+}
+
+
+def repair_evidence(args) -> int:
+    """Idempotently repair an evidence artifact whose production_sha capture
+    failed (the pre-2026-07-22 reader read `sha`; /release serves `git_sha`).
+
+    READ-ONLY against the target: performs GET /release only — no signing, no
+    payment, no 402 flow. The captured `production_sha` field is left exactly
+    as recorded (an empty capture stays an empty capture — history is not
+    rewritten); the repair adds a clearly-labelled `production_sha_repair`
+    block instead. Running it again is a no-op, so the artifact bytes are
+    stable once repaired."""
+    path = pathlib.Path(args.evidence)
+    if not path.exists():
+        _log(f"repair-evidence: no artifact at {path}")
+        return 1
+    evidence = json.loads(path.read_text())
+    if evidence.get("production_sha"):
+        _log("repair-evidence: production_sha already captured non-empty — "
+             "nothing to repair")
+        return 0
+    if "production_sha_repair" in evidence:
+        _log("repair-evidence: already repaired — idempotent no-op")
+        return 0
+    import httpx
+    http = httpx.Client(follow_redirects=True)
+    base = (evidence.get("target") or args.base).rstrip("/")
+    live_sha = production_sha(http, base)
+    tx = (evidence.get("transaction") or "").lower()
+    repair: dict[str, Any] = {
+        "reason": ("the canary's production_sha reader read `sha` from "
+                   "GET /release, which serves `git_sha` — so the capture "
+                   "at settlement time was silently empty (fixed 2026-07-22, "
+                   "regression-pinned against the real /release schema)"),
+        "read_only": True,
+        "payment_made": False,
+        "captured_production_sha_left_as_recorded": True,
+        "live_git_sha_at_repair": live_sha,
+        "repaired_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    deriv = KNOWN_SETTLEMENT_SHA_DERIVATIONS.get(tx)
+    if deriv:
+        repair["settlement_time_sha"] = dict(deriv)
+    else:
+        repair["settlement_time_sha"] = {
+            "sha": None,
+            "note": "no recorded derivation for this transaction — unknown, "
+                    "honestly left absent"}
+    evidence["production_sha_repair"] = repair
+    _write_evidence(path, evidence)
+    _log(f"repair-evidence: wrote {path.name} — live git_sha at repair "
+         f"{live_sha or '(unverifiable)'}; settlement-time sha "
+         f"{repair['settlement_time_sha'].get('sha') or 'unknown'} "
+         "(derived, labelled as such). No payment was made.")
+    return 0
+
+
 def preflight(args) -> int:
     """SECRET-SILENT readiness preflight: validates the key file (existence,
     private permissions, accepted format), derives ONLY the public buyer
@@ -696,6 +789,10 @@ def main() -> int:
                            "never signs, never pays")
     mode.add_argument("--execute", action="store_true",
                       help="actually pay ONE trust decision (<= 0.01 USDC)")
+    mode.add_argument("--repair-evidence", action="store_true",
+                      help="idempotently repair a recorded evidence artifact "
+                           "whose production_sha capture failed (read-only: "
+                           "GET /release only — never signs, never pays)")
     ap.add_argument("--watch", action="store_true",
                     help="with --execute: wait for the buyer wallet to be "
                          "funded, then complete exactly once")
@@ -723,6 +820,8 @@ def main() -> int:
     try:
         if args.preflight:
             return preflight(args)
+        if args.repair_evidence:
+            return repair_evidence(args)
         if args.execute and args.watch:
             return _watch_loop(args)
         return run(args)

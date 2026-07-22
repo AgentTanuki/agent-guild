@@ -406,16 +406,13 @@ def guild_next(store, agent: dict[str, Any],
     }
     # In-band inbox delivery: the agent's own next call is the Guild's only
     # reliable channel to an agent with no inbound endpoint (app/inbox.py) —
-    # undelivered messages ride here, on the block every authenticated
-    # surface already embeds.
+    # undelivered messages ride here on every response that embeds guild_next
+    # (see app/inbox.py's module docstring for the PRECISE surface list; MCP
+    # and A2A deliver via their own authenticated paths).
     from . import inbox as _inbox
-    msgs = _inbox.pending(store, agent)
-    if msgs:
-        out["inbox"] = {
-            "messages": msgs,
-            "read_all": f"GET {BASE}/agents/{agent['id']}/inbox "
-                        "(free to you)",
-        }
+    blk = _inbox.deliver_in_band(store, agent)
+    if blk:
+        out["inbox"] = blk
     return out
 
 
