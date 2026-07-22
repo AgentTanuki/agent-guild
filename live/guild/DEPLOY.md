@@ -78,25 +78,29 @@ loop (`.github/workflows/ship.yml`; decisions unit-tested in
 `live/scripts/ship_decision.py` + `tests/test_ship_decision.py`):
 
 1. Push your change to a branch named `ship/<topic>`.
-2. The `ship` workflow opens the PR to `main` and dispatches the full `ci`
-   workflow against the branch head (both store backends, strict-KDF,
-   contract drift, independent VC + caller-proof verifiers, trust-plane,
-   x402 interop).
-3. On a green `ci` conclusion the workflow merges (squash) ONLY when the PR
+2. The `ship` workflow (triggered by the push — always a user event) opens
+   the PR to `main`, dispatches the full `ci` workflow against the branch
+   head (both store backends, strict-KDF, contract drift, independent VC +
+   caller-proof verifiers, trust-plane, x402 interop) and WAITS for that
+   exact run inline. It never relies on `workflow_run` events: GitHub does
+   not emit them for runs dispatched with `GITHUB_TOKEN` (found by live
+   operation, 2026-07-22).
+3. On a green `ci` conclusion the same run merges (squash) ONLY when the PR
    head is exactly the certified SHA **and already contains current `main`**.
    If `main` advanced after certification — including when two concurrently
    certified branches race and one lands first — the branch is automatically
-   updated with `main`, `ci` is dispatched again, and nothing merges until
-   the COMBINED state is certified.
+   updated with `main`, `ci` is dispatched and awaited again, and nothing
+   merges until the COMBINED state is certified (bounded rounds, loud on
+   exhaustion).
 4. The workflow then checks out **the exact merged SHA** and runs the
    deployment-aware release gate (`live/scripts/release_gate.py`) from that
    tree: production must serve that SHA and pass the live probes, and the
    machine-readable attestation is uploaded per merged SHA.
-5. A red gate triggers machine-complete recovery: an automatic
-   `ship/revert-<sha>` branch carrying the revert goes back through this
-   same loop — certified, merged, deployed, and the RECOVERY gate-certified.
-   The issue that is also filed is telemetry, never the recovery mechanism.
-   A failed revert halts rather than oscillating.
+5. A red gate triggers machine-complete recovery IN THE SAME RUN: an
+   automatic `ship/revert-<sha>` branch is created, certified by a dispatched
+   and awaited `ci` run, merged, and the RECOVERY is gate-certified — all
+   inline. The issue that is also filed is telemetry, never the recovery
+   mechanism. A red recovery gate halts (no revert-of-revert).
 6. If the ship changed `server.json`, the pinned MCP-registry publish is
    dispatched automatically.
 
