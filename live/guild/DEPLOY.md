@@ -1,9 +1,17 @@
 # Deploying the Agent Guild API
 
-The service is a single FastAPI app (`app.main:app`) with **no database** — it
-persists to one JSON file at `$GUILD_DATA`. Point that at a mounted disk and it
-survives restarts. No blockchain, no external services required; Stripe is
-optional and only needed for live card top-ups.
+The service is a single FastAPI app (`app.main:app`) with two store backends:
+the default single-JSON-file store at `$GUILD_DATA` (zero setup, fine for
+local dev) and a SQLite backend (`GUILD_STORE=sqlite` — what production runs;
+single-instance only, move to Postgres before scaling out). Point the data
+path at a mounted disk and it survives restarts.
+
+External services, honestly stated: when the x402 rail is enabled the app
+settles REAL USDC on Base mainnet through the authenticated Coinbase CDP
+facilitator and independently confirms settlements against a public Base RPC
+— so a payments-enabled deployment depends on both. Stripe is optional and
+only needed for live card top-ups. With the rail disabled (the local-dev
+default) none of these are contacted.
 
 ## Run it locally
 
@@ -61,3 +69,42 @@ docker run -p 8000:8000 -v $PWD/data:/data \
 Until then the service runs in **soft-launch**: writes are free, reads are free
 unless a billing key is presented, and you can mint pilot credits with the dev
 token — so you can prove agents *use* it before you make them *pay*.
+
+## Shipping changes (machine-operated — the ONLY sanctioned path)
+
+Since 2026-07-22, **nothing is pushed to `main` directly** — not by humans,
+not by scheduled autonomous sessions, and branch protection enforces it. The
+loop (`.github/workflows/ship.yml`; decisions unit-tested in
+`live/scripts/ship_decision.py` + `tests/test_ship_decision.py`):
+
+1. Push your change to a branch named `ship/<topic>`.
+2. The `ship` workflow opens the PR to `main` and dispatches the full `ci`
+   workflow against the branch head (both store backends, strict-KDF,
+   contract drift, independent VC + caller-proof verifiers, trust-plane,
+   x402 interop).
+3. On a green `ci` conclusion the workflow merges (squash) ONLY when the PR
+   head is exactly the certified SHA **and already contains current `main`**.
+   If `main` advanced after certification — including when two concurrently
+   certified branches race and one lands first — the branch is automatically
+   updated with `main`, `ci` is dispatched again, and nothing merges until
+   the COMBINED state is certified.
+4. The workflow then checks out **the exact merged SHA** and runs the
+   deployment-aware release gate (`live/scripts/release_gate.py`) from that
+   tree: production must serve that SHA and pass the live probes, and the
+   machine-readable attestation is uploaded per merged SHA.
+5. A red gate triggers machine-complete recovery: an automatic
+   `ship/revert-<sha>` branch carrying the revert goes back through this
+   same loop — certified, merged, deployed, and the RECOVERY gate-certified.
+   The issue that is also filed is telemetry, never the recovery mechanism.
+   A failed revert halts rather than oscillating.
+6. If the ship changed `server.json`, the pinned MCP-registry publish is
+   dispatched automatically.
+
+**Branch protection on `main` is REQUIRED, not optional.** The workflow
+refuses to merge anything while `main` is unprotected. The one-time,
+admin-only setup is `live/scripts/protect_main.sh`: pull requests required
+(zero approvals — certification comes from `ci`, not from human eyes), every
+non-release `ci` job a required status check, strict up-to-date enforcement,
+`enforce_admins` on, force pushes and deletions off. GitHub Actions'
+`GITHUB_TOKEN` cannot administer branch protection, which is exactly why this
+single settings action belongs to the repo owner and to no one else.
