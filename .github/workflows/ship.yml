@@ -84,7 +84,10 @@ jobs:
             before=$(gh run list --workflow=ci.yml --branch "$BRANCH" \
                        --event workflow_dispatch --limit 1 \
                        --json databaseId --jq '.[0].databaseId // 0')
-            gh workflow run ci.yml --ref "$BRANCH"
+            # r4: EVERYTHING except the final SHA goes to stderr — gh's
+            # informational stdout (a URL, found live in ship #3 attempt 2)
+            # otherwise contaminates the captured "certified" value.
+            gh workflow run ci.yml --ref "$BRANCH" >&2
             rid="$before"; tries=0
             while [ "$rid" = "$before" ] && [ $tries -lt 24 ]; do
               sleep 5; tries=$((tries+1))
@@ -102,6 +105,12 @@ jobs:
             echo "=== certification round $round ==="
             certified=$(dispatch_and_wait) || {
               echo "ci is RED for $BRANCH — nothing merges. Fix and push again."; exit 1; }
+            # r4: accept ONLY a 40-hex SHA; anything else is stdout noise
+            certified=$(printf '%s\n' "$certified" | grep -E '^[0-9a-f]{40}$' | tail -n1 || true)
+            if [ -z "$certified" ]; then
+              echo "could not extract a certified SHA from the ci wait — refusing to decide on garbage"
+              exit 1
+            fi
             git fetch --force origin main "refs/heads/$BRANCH"
             head=$(gh pr view "$number" --json headRefOid --jq .headRefOid)
             main_sha=$(git rev-parse origin/main)
@@ -209,7 +218,7 @@ jobs:
                       --json number --jq '.[0].number')
           before=$(gh run list --workflow=ci.yml --branch "ship/revert-$short" \
                      --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
-          gh workflow run ci.yml --ref "ship/revert-$short"
+          gh workflow run ci.yml --ref "ship/revert-$short" >&2
           rid="$before"; tries=0
           while [ "$rid" = "$before" ] && [ $tries -lt 24 ]; do
             sleep 5; tries=$((tries+1))
