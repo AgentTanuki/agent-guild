@@ -1,29 +1,32 @@
-# Agent Guild — machine-operated ship loop (corrective pass 2026-07-22, r2).
+# Agent Guild — machine-operated ship loop (corrective pass 2026-07-22, r3).
 #
-#   ship/<name> push → PR to main (opened here) → full `ci` certifies the head
-#   (explicitly dispatched: GITHUB_TOKEN-created PRs never trigger
-#   pull_request runs) → on green ci this workflow decides via the
-#   UNIT-TESTED live/scripts/ship_decision.py:
+# r3 root cause (found by LIVE operation, not review): workflow_run events are
+# NOT emitted for workflow runs that were themselves dispatched with
+# GITHUB_TOKEN — GitHub's recursion guard swallows the completion event, so an
+# auto-merge leg hung off `workflow_run` never fires for the ci runs this loop
+# dispatches. The r3 design removes that dependency: the push-triggered ship
+# run (always a USER event — pushes come from an authenticated session, never
+# from GITHUB_TOKEN) drives the ENTIRE loop inline:
 #
-#     refuse_unprotected    main not branch-protected → the loop refuses.
-#                           Protection is MANDATORY (required PRs, required
-#                           non-release ci checks, strict up-to-date,
-#                           enforce_admins/no bypass) — see
-#                           live/scripts/protect_main.sh.
-#     refuse_head_mismatch  a newer push supersedes this certification.
-#     update_and_recertify  main advanced after certification: the COMBINED
-#                           state was never tested → update the branch with
-#                           main, dispatch ci again, merge only the
-#                           re-certified result.
-#     merge                 head == certified SHA and already contains main.
-#
-#   After the merge, the job checks out THE EXACT MERGED SHA and runs the
-#   deployment-aware release gate from that tree (production must serve that
-#   SHA and pass the live probes). A red gate triggers MACHINE-COMPLETE
-#   recovery: an automatic revert shipped back through this same certified
-#   loop (revert → PR → ci → merge → gate). The issue it also files is
-#   telemetry, never the recovery mechanism. A failed revert halts instead of
-#   oscillating.
+#   push ship/<topic>
+#     → open (or reuse) the PR to main
+#     → dispatch the full `ci` workflow on the branch and WAIT for that exact
+#       run (workflow_dispatch is the documented exception that DOES create
+#       runs from GITHUB_TOKEN)
+#     → decide via the UNIT-TESTED live/scripts/ship_decision.py:
+#         merge                  head == certified SHA and contains main
+#         update_and_recertify   main advanced: update branch, dispatch ci
+#                                again, wait again — merge only the COMBINED
+#                                state (bounded rounds, never silent)
+#         refuse_unprotected     protection on main is MANDATORY — halt + issue
+#         refuse_head_mismatch   a newer push owns its own run — stop here
+#     → merge (squash) → check out THE EXACT MERGED SHA → deployment-aware
+#       release gate from that tree → upload attestation → dispatch registry
+#       publish if server.json changed
+#     → red gate: machine-complete recovery — revert branch + PR + ci wait +
+#       merge + RE-GATE the recovery, all inline. The issue filed is
+#       telemetry, never the mechanism. A failed recovery halts (no
+#       oscillation).
 #
 # No human anywhere in the loop. Autonomous sessions: push `ship/<topic>` and
 # stop. Direct pushes to main are refused by branch protection.
@@ -32,9 +35,6 @@ name: ship
 on:
   push:
     branches: ["ship/**"]
-  workflow_run:
-    workflows: [ci]
-    types: [completed]
 
 permissions:
   contents: write
@@ -42,118 +42,123 @@ permissions:
   actions: write
   issues: write
 
+concurrency:
+  group: release-gate-production
+  cancel-in-progress: false
+
 jobs:
-  open-pr:
-    if: github.event_name == 'push'
+  ship:
+    if: "!startsWith(github.ref_name, 'ship/revert-')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: open (or reuse) the PR to main, then certify the head
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: open PR, certify via dispatched ci, merge only the certified combined state
+        id: merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          echo "merged=false" >> "$GITHUB_OUTPUT"
           existing=$(gh pr list --head "$BRANCH" --base main --state open \
                        --json number --jq '.[0].number // empty')
           if [ -z "$existing" ]; then
             title=$(git log -1 --format=%s)
             gh pr create --base main --head "$BRANCH" \
               --title "$title" \
-              --body "$(printf 'Machine-operated ship branch `%s`.\n\nMerges automatically when the full `ci` workflow certifies the exact combined state with main; the deployment-aware release gate then verifies production serves the merged SHA, with automatic certified revert on a red gate. See .github/workflows/ship.yml.' "$BRANCH")"
-          else
-            echo "PR #$existing already open for $BRANCH"
+              --body "$(printf 'Machine-operated ship branch `%s`.\n\nThe ship workflow dispatches the full `ci` matrix, waits for it, merges only the certified combined state with main, then runs the deployment-aware release gate against the merged SHA — with automatic certified revert on a red gate. See .github/workflows/ship.yml.' "$BRANCH")"
           fi
-          # GITHUB_TOKEN-created PRs never trigger ci's pull_request run
-          # (GitHub's recursion guard); workflow_dispatch is the documented
-          # exception that DOES create runs.
-          gh workflow run ci.yml --ref "$BRANCH"
+          number=$(gh pr list --head "$BRANCH" --base main --state open \
+                     --json number --jq '.[0].number')
 
-  auto-merge-and-gate:
-    if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_branch, 'ship/') &&
-      github.event.workflow_run.head_repository.full_name == github.repository
-    runs-on: ubuntu-latest
-    # same group as ci's release-gate: one production certification at a time.
-    concurrency:
-      group: release-gate-production
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: decide (unit-tested core), then merge only a certified combined state
-        id: merge
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: ${{ github.event.workflow_run.head_branch }}
-          CERTIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          set -euo pipefail
-          echo "merged=false" >> "$GITHUB_OUTPUT"
-          pr=$(gh pr list --head "$BRANCH" --base main --state open \
-                 --json number,headRefOid --jq '.[0] // empty')
-          if [ -z "$pr" ]; then
-            echo "no open PR for $BRANCH (already merged or closed) — nothing to do"
-            exit 0
-          fi
-          number=$(echo "$pr" | jq -r .number)
-          head=$(echo "$pr" | jq -r .headRefOid)
-          git fetch --force origin main "refs/heads/$BRANCH" || git fetch --force origin main
-          main_sha=$(git rev-parse origin/main)
-          if git merge-base --is-ancestor "$main_sha" "$head" 2>/dev/null; then
-            ancestor=true
-          else
-            ancestor=false
-          fi
-          protected=$(gh api "repos/${{ github.repository }}/branches/main" --jq .protected)
-          decision=$(python3 live/scripts/ship_decision.py merge \
-                       --protected "$protected" \
-                       --pr-head "$head" \
-                       --certified "$CERTIFIED_SHA" \
-                       --main-is-ancestor "$ancestor")
-          action=$(echo "$decision" | jq -r .action)
-          echo "decision: $decision"
-          case "$action" in
-            refuse_unprotected)
-              # protection is mandatory — refuse loudly, once per repo state
-              gh issue list --state open --search "SHIP LOOP HALTED: main unprotected" --json number --jq '.[0].number // empty' | grep -q . || \
-                gh issue create --title "SHIP LOOP HALTED: main unprotected" \
-                  --body "The ship workflow refuses to merge while main has no branch protection. Run live/scripts/protect_main.sh (required PRs + required non-release ci checks + strict up-to-date + enforce_admins). This is the one-time settings action."
-              exit 0 ;;
-            refuse_head_mismatch)
-              echo "newer push will re-certify; refusing this round"
-              exit 0 ;;
-            update_and_recertify)
-              echo "main advanced after certification — updating branch + re-dispatching ci"
-              if gh api -X PUT "repos/${{ github.repository }}/pulls/$number/update-branch" \
-                   -f expected_head_sha="$head"; then
-                gh workflow run ci.yml --ref "$BRANCH"
-              else
-                gh issue create --title "SHIP BLOCKED: cannot auto-update $BRANCH with main" \
-                  --body "PR #$number is behind main and the automatic update failed (likely a conflict). The next autonomous session should rebase and push $BRANCH again — the loop takes it from there."
-              fi
-              exit 0 ;;
-            merge) ;;
-            *) echo "unknown action $action"; exit 1 ;;
-          esac
-          # decision: merge — server.json diff decided BEFORE merging
-          server_json_changed=$(gh pr diff "$number" --name-only | grep -cx 'server.json' || true)
-          if ! gh pr merge "$number" --squash --delete-branch; then
-            # raced by another landing between decision and merge: go around
-            echo "merge refused by GitHub (raced or newly stale) — updating + re-certifying"
-            gh api -X PUT "repos/${{ github.repository }}/pulls/$number/update-branch" \
-              -f expected_head_sha="$head" || true
-            gh workflow run ci.yml --ref "$BRANCH"
-            exit 0
-          fi
-          merged_sha=$(gh pr view "$number" --json mergeCommit --jq .mergeCommit.oid)
-          echo "merged PR #$number → main @ $merged_sha"
-          echo "merged=true" >> "$GITHUB_OUTPUT"
-          echo "merged_sha=$merged_sha" >> "$GITHUB_OUTPUT"
-          echo "server_json_changed=$server_json_changed" >> "$GITHUB_OUTPUT"
+          dispatch_and_wait() {
+            # dispatch ci on $BRANCH and wait for THAT run; echoes the run's
+            # head SHA on success, fails the function on a red run.
+            local before rid tries
+            before=$(gh run list --workflow=ci.yml --branch "$BRANCH" \
+                       --event workflow_dispatch --limit 1 \
+                       --json databaseId --jq '.[0].databaseId // 0')
+            # r4: EVERYTHING except the final SHA goes to stderr — gh's
+            # informational stdout (a URL, found live in ship #3 attempt 2)
+            # otherwise contaminates the captured "certified" value.
+            gh workflow run ci.yml --ref "$BRANCH" >&2
+            rid="$before"; tries=0
+            while [ "$rid" = "$before" ] && [ $tries -lt 24 ]; do
+              sleep 5; tries=$((tries+1))
+              rid=$(gh run list --workflow=ci.yml --branch "$BRANCH" \
+                      --event workflow_dispatch --limit 1 \
+                      --json databaseId --jq '.[0].databaseId // 0')
+            done
+            [ "$rid" != "$before" ] || { echo "dispatched ci run never appeared" >&2; return 1; }
+            echo "waiting on ci run $rid" >&2
+            gh run watch "$rid" --exit-status --interval 15 >&2
+            gh run view "$rid" --json headSha --jq .headSha
+          }
+
+          for round in 1 2 3; do
+            echo "=== certification round $round ==="
+            certified=$(dispatch_and_wait) || {
+              echo "ci is RED for $BRANCH — nothing merges. Fix and push again."; exit 1; }
+            # r4: accept ONLY a 40-hex SHA; anything else is stdout noise
+            certified=$(printf '%s\n' "$certified" | grep -E '^[0-9a-f]{40}$' | tail -n1 || true)
+            if [ -z "$certified" ]; then
+              echo "could not extract a certified SHA from the ci wait — refusing to decide on garbage"
+              exit 1
+            fi
+            git fetch --force origin main "refs/heads/$BRANCH"
+            head=$(gh pr view "$number" --json headRefOid --jq .headRefOid)
+            main_sha=$(git rev-parse origin/main)
+            if git merge-base --is-ancestor "$main_sha" "$head" 2>/dev/null; then
+              ancestor=true; else ancestor=false; fi
+            protected=$(gh api "repos/$REPO/branches/main" --jq .protected)
+            decision=$(python3 live/scripts/ship_decision.py merge \
+                         --protected "$protected" --pr-head "$head" \
+                         --certified "$certified" --main-is-ancestor "$ancestor")
+            action=$(echo "$decision" | jq -r .action)
+            echo "decision: $decision"
+            case "$action" in
+              merge)
+                server_json_changed=$(gh pr diff "$number" --name-only | grep -cx 'server.json' || true)
+                if gh pr merge "$number" --squash --delete-branch; then
+                  merged_sha=$(gh pr view "$number" --json mergeCommit --jq .mergeCommit.oid)
+                  echo "merged PR #$number → main @ $merged_sha"
+                  echo "merged=true" >> "$GITHUB_OUTPUT"
+                  echo "merged_sha=$merged_sha" >> "$GITHUB_OUTPUT"
+                  echo "server_json_changed=$server_json_changed" >> "$GITHUB_OUTPUT"
+                  exit 0
+                fi
+                echo "merge refused by GitHub (raced) — updating and re-certifying"
+                gh api -X PUT "repos/$REPO/pulls/$number/update-branch" \
+                  -f expected_head_sha="$head" || true
+                continue ;;
+              update_and_recertify)
+                if ! gh api -X PUT "repos/$REPO/pulls/$number/update-branch" \
+                       -f expected_head_sha="$head"; then
+                  gh issue create --title "SHIP BLOCKED: cannot auto-update $BRANCH with main" \
+                    --body "PR #$number is behind main and the automatic update failed (likely a conflict). The next autonomous session should rebase and push $BRANCH again — the loop takes it from there."
+                  exit 1
+                fi
+                continue ;;
+              refuse_unprotected)
+                gh issue list --state open --search "SHIP LOOP HALTED: main unprotected" \
+                  --json number --jq '.[0].number // empty' | grep -q . || \
+                  gh issue create --title "SHIP LOOP HALTED: main unprotected" \
+                    --body "The ship workflow refuses to merge while main has no branch protection. Run live/scripts/protect_main.sh (required PRs + required non-release ci checks + strict up-to-date + enforce_admins). Re-run this workflow run once protection is on."
+                echo "halting: protection is mandatory"; exit 1 ;;
+              refuse_head_mismatch)
+                echo "a newer push owns its own ship run — stopping this one"; exit 0 ;;
+              *) echo "unknown action $action"; exit 1 ;;
+            esac
+          done
+          gh issue create --title "SHIP BLOCKED: $BRANCH could not certify a combined state in 3 rounds" \
+            --body "main kept advancing (or updates kept failing) during certification of PR #$number. Investigate and push the branch again."
+          exit 1
       - name: check out THE EXACT MERGED SHA (the gate must run from the code production serves)
         if: steps.merge.outputs.merged == 'true'
         run: |
@@ -161,10 +166,6 @@ jobs:
           git fetch --force origin main
           git checkout --force "${{ steps.merge.outputs.merged_sha }}"
           git rev-parse HEAD
-      - uses: actions/setup-python@v5
-        if: steps.merge.outputs.merged == 'true'
-        with:
-          python-version: "3.11"
       - if: steps.merge.outputs.merged == 'true'
         run: pip install -r live/guild/requirements.txt -r live/trustplane/requirements/core.txt
       - name: deployment-aware release gate (production must serve the merged SHA)
@@ -186,11 +187,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run publish-mcp.yml --ref main
-      - name: red gate → machine-complete recovery (certified revert) + telemetry issue
+      - name: red gate → machine-complete recovery (certified revert, merged and re-gated inline)
         if: failure() && steps.merge.outputs.merged == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
           MERGED_SHA: ${{ steps.merge.outputs.merged_sha }}
         run: |
           set -euo pipefail
@@ -199,10 +201,9 @@ jobs:
           short=${MERGED_SHA:0:9}
           gh issue create \
             --title "RED RELEASE: gate failed for $MERGED_SHA" \
-            --body "The ship workflow merged $MERGED_SHA but the deployment-aware release gate did NOT certify production. Recovery decision: $decision. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. This issue is telemetry — recovery (if any) is the automatic certified revert." || true
+            --body "The ship workflow merged $MERGED_SHA but the deployment-aware release gate did NOT certify production. Recovery decision: $decision. Run: ${{ github.server_url }}/$REPO/actions/runs/${{ github.run_id }}. This issue is telemetry — recovery is the automatic certified revert below (if any)." || true
           if [ "$action" != "revert" ]; then
-            echo "halting: $decision"
-            exit 0
+            echo "halting: $decision"; exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -210,8 +211,26 @@ jobs:
           git checkout -B "ship/revert-$short" origin/main
           git revert --no-edit "$MERGED_SHA"
           git push --force origin "ship/revert-$short"
-          # token pushes don't trigger `on: push` — drive the loop directly
           gh pr create --base main --head "ship/revert-$short" \
             --title "Automatic certified revert of red release $short" \
-            --body "The release gate failed for $MERGED_SHA. This revert ships through the SAME loop: ci certifies it, the workflow merges it, Render deploys it, and the gate certifies the RECOVERY. No human is required." || true
-          gh workflow run ci.yml --ref "ship/revert-$short"
+            --body "The release gate failed for $MERGED_SHA. This revert is certified, merged and re-gated by the SAME run that detected the failure. No human is required." || true
+          rnumber=$(gh pr list --head "ship/revert-$short" --base main --state open \
+                      --json number --jq '.[0].number')
+          before=$(gh run list --workflow=ci.yml --branch "ship/revert-$short" \
+                     --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+          gh workflow run ci.yml --ref "ship/revert-$short" >&2
+          rid="$before"; tries=0
+          while [ "$rid" = "$before" ] && [ $tries -lt 24 ]; do
+            sleep 5; tries=$((tries+1))
+            rid=$(gh run list --workflow=ci.yml --branch "ship/revert-$short" \
+                    --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+          done
+          gh run watch "$rid" --exit-status --interval 15
+          gh pr merge "$rnumber" --squash --delete-branch
+          recovery_sha=$(gh pr view "$rnumber" --json mergeCommit --jq .mergeCommit.oid)
+          echo "recovery merged → main @ $recovery_sha — certifying the RECOVERY"
+          python live/scripts/release_gate.py \
+            --sha "$recovery_sha" --timeout 900 --interval 20 \
+            --attestation recovery_attestation.json || {
+            gh issue create --title "RECOVERY GATE ALSO RED: $recovery_sha" \
+              --body "The certified revert of $MERGED_SHA merged as $recovery_sha but the recovery gate did not certify production either. Halting (no revert-of-revert). Manual-free next step: the next autonomous session pushes a fresh ship/ branch with a fix."; exit 1; }

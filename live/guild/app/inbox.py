@@ -4,9 +4,22 @@ The problem this closes (2026-07-21, idea `7da30ef`): most external agents
 have NO inbound channel. AgentServices — the first credible organic prove
 completion — could not be told its liveness was about to expire, because the
 Guild had no way to reach it. The ONLY reliable channel to such an agent is
-the agent's own next call, so messages queue server-side and ride in-band on
-the next authenticated response (embedded next to `guild_next`, the block
-every authenticated surface already carries — HTTP, MCP and A2A alike).
+the agent's own next call, so messages queue server-side and ride in-band.
+
+DELIVERY SURFACES — the precise set (corrective pass 2026-07-22; the earlier
+"every authenticated surface — HTTP, MCP and A2A alike" claim overstated what
+shipped, and claims must match code exactly):
+  * HTTP: every response that embeds `guild_next` (register, configuration,
+    endpoint declaration, prove verify, receipt, attestation, escrow release,
+    demand watch), the subject's free self-read of its own journey
+    (GET /agents/{id}/journey with its key), and the inbox itself
+    (GET /agents/{id}/inbox).
+  * MCP: EVERY tool call whose `api_key` argument authenticates a subject
+    agent (delivery keys off the credential, not off the specific tool).
+  * A2A: every message/send carrying the agent's X-API-Key header.
+An interaction that presents no subject credential (an anonymous read, a
+guest swarm invocation without api_key) carries nothing — the inbox is
+private correspondence and is never exposed on an unauthenticated path.
 
 Honesty invariants:
   * The inbox NEVER creates evidence, standing, liveness or attribution —
@@ -148,6 +161,42 @@ def pending(store, agent: dict[str, Any],
                            topic=m.get("topic"), message_id=m.get("id"))
     store._save()
     return [_public(m) for m in out]
+
+
+def deliver_in_band(store, agent: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """The in-band delivery block (the same shape guild_next embeds), or None
+    when nothing is pending. One helper so every transport delivers
+    identically and the delivered_at bookkeeping lives in exactly one place."""
+    msgs = pending(store, agent)
+    if not msgs:
+        return None
+    from . import journey as journey_engine
+    return {
+        "messages": msgs,
+        "read_all": (f"GET {journey_engine.BASE}/agents/{agent['id']}/inbox "
+                     "(free to you)"),
+    }
+
+
+def subject_for_presented_key(store, presented: Optional[str]
+                              ) -> Optional[dict[str, Any]]:
+    """Resolve a PRESENTED credential to the agent it authenticates, or None.
+
+    Authentication-grade on purpose — the inbox is private correspondence.
+    Exactly the two forms the REST self-read rule (main._is_self_read)
+    accepts: the agent's own credential (Store.agent_for_presented_key —
+    constant-time compare, revocation- and expiry-aware), or a billing key
+    resolving through Store._account_key (which never accepts a bare public
+    key_id) to the account that owns the agent."""
+    if not presented:
+        return None
+    agent = store.agent_for_presented_key(presented)
+    if agent is not None:
+        return agent
+    key = store._account_key(presented)
+    acct = store.accounts.get(key) if key else None
+    aid = (acct or {}).get("owner_agent_id")
+    return store.agents.get(aid) if aid else None
 
 
 def inbox_view(store, agent: dict[str, Any]) -> dict[str, Any]:

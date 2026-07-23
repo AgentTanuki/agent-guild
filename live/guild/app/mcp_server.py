@@ -29,6 +29,7 @@ from x402.schemas import PaymentPayload
 from . import __version__
 from . import callerproof
 from . import demand
+from . import inbox as inbox_engine
 from . import journey as journey_engine
 from . import payments
 from . import proving
@@ -318,6 +319,33 @@ def _record_mcp_demand(capability: str, ctx: "Context | None",
                                 caller_did=(did if verified else ""))
 
 
+def _with_inbox(result: Any, presented_key: str) -> Any:
+    """In-band guild_inbox delivery for the MCP transport: when a tool call's
+    credential authenticates a subject agent and the result is a plain dict
+    (not an error), pending messages ride on it. Never attaches to error
+    results, never without authentication, and never double-delivers next to
+    a guild_next that already embeds the inbox block."""
+    try:
+        if not isinstance(result, dict) or result.get("error"):
+            return result
+        gn = result.get("guild_next")
+        if "inbox" in result or (isinstance(gn, dict) and "inbox" in gn):
+            return result
+        agent = inbox_engine.subject_for_presented_key(store, presented_key)
+        if agent is None:
+            return result
+        blk = inbox_engine.deliver_in_band(store, agent)
+        if blk:
+            # shallow copy: never mutate an object produce() may share with
+            # store state or a cache
+            result = dict(result)
+            result["inbox"] = blk
+    except Exception:
+        # delivery is best-effort transport, never a reason to fail the call
+        pass
+    return result
+
+
 def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
                 ctx: "Context | None", api_key: str = "",
                 structured: bool = True,
@@ -375,6 +403,10 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
                                 else {"result": result}),
             meta=meta)
     result = produce()
+    # in-band inbox delivery: the paid read is many agents' ONLY interaction
+    # with the Guild, so an authenticated subject's pending messages ride on
+    # it (never on the byte-stable idempotent-replay path above).
+    result = _with_inbox(result, api_key)
     body = _json.dumps(result, default=str)
     sc = result if isinstance(result, dict) else {"result": result}
     if auth.mode == "x402" and auth.settled is not None:
@@ -559,7 +591,7 @@ def guild_prove(agent_id: str, api_key: str = "", ctx: Context = None) -> dict:
                        agent_first_party=bool(agent.get("first_party")))
     out["verify_with"] = ("guild_prove_verify(agent_id=..., api_key=... "
                           "[, signature=<hex> if self-sovereign])")
-    return out
+    return _with_inbox(out, api_key)
 
 
 @mcp.tool
@@ -629,7 +661,8 @@ def guild_attest(issuer_api_key: str, subject_id: str, capability: str,
         return {"error": "an agent cannot attest to itself"}
     rec = store.add_custodial_attestation(
         issuer, subject, capability, float(rating), task_id, "", stake=0.0)
-    return {"id": rec["id"], "verified": rec["verified"]}
+    return _with_inbox({"id": rec["id"], "verified": rec["verified"]},
+                       issuer_api_key)
 
 
 @mcp.tool
@@ -657,10 +690,10 @@ def guild_record(issuer_api_key: str, worker_id: str, capability: str,
     store.record_event("mcp", "delegation", ua=_client_ua(ctx),
                        endpoint="collaboration", followed=False)
     try:
-        return store.record_collaboration(
+        return _with_inbox(store.record_collaboration(
             issuer, worker_id, capability, outcome, float(rating),
             deliverable=(deliverable or None),
-            deliverable_hash=(deliverable_hash or None))
+            deliverable_hash=(deliverable_hash or None)), issuer_api_key)
     except ValueError as e:
         return {"error": str(e)}
 
@@ -682,8 +715,9 @@ def guild_escrow_open(issuer_api_key: str, worker_id: str, amount: int,
                        endpoint="escrow", worker_id=worker_id)
     try:
         esc = store.open_escrow(issuer_api_key, worker_id, int(amount), capability)
-        return {k: esc[k] for k in ("id", "worker_id", "amount", "fee", "fee_bps",
-                                    "status", "worker_risk")}
+        return _with_inbox(
+            {k: esc[k] for k in ("id", "worker_id", "amount", "fee", "fee_bps",
+                                 "status", "worker_risk")}, issuer_api_key)
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 
@@ -701,9 +735,10 @@ def guild_escrow_release(issuer_api_key: str, escrow_id: str,
     deliverable="<the work product>", rating=0.95)
     """
     try:
-        return store.release_escrow(escrow_id, issuer_api_key,
-                                    deliverable=(deliverable or None),
-                                    rating=float(rating))
+        return _with_inbox(store.release_escrow(
+            escrow_id, issuer_api_key,
+            deliverable=(deliverable or None),
+            rating=float(rating)), issuer_api_key)
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 
@@ -753,7 +788,7 @@ def _swarm_invoke(capability_id: str, payload: dict, api_key: str, ctx) -> dict:
             store, capability_id, payload, x_api_key=(api_key or None),
             client_host="mcp", ua=_client_ua(ctx), first_party=False,
             base=journey_engine.BASE)
-        return body
+        return _with_inbox(body, api_key)
     except gateway.Denied as d:
         return {"ok": False, "denied": d.kind, **d.detail}
 

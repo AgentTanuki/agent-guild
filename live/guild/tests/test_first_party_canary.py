@@ -177,7 +177,14 @@ class _FakeHTTP:
         if url.endswith("/x402/readiness"):
             return _FakeResp(self._readiness)
         if url.endswith("/release"):
-            return _FakeResp({"sha": self._sha})
+            # REAL /release schema (app/main.py::release). The field is
+            # `git_sha`; a hand-mocked `{"sha": ...}` here is exactly what
+            # concealed the broken reader until 2026-07-22 — never regress
+            # this back to an invented shape.
+            return _FakeResp({"service": "Agent Guild", "version": "0.0.0",
+                              "git_sha": self._sha,
+                              "deployed_at": "2026-01-01T00:00:00+00:00",
+                              "build": {}})
         return _FakeResp({})
 
     def post(self, url, json=None, timeout=0):
@@ -223,6 +230,88 @@ def test_production_sha_mismatch_refused():
     http = _FakeHTTP(_good_readiness(), release_sha="deadbeef")
     with pytest.raises(canary.Refuse, match="production SHA"):
         canary.verify_preconditions(http, "https://x", "expected-different-sha")
+
+
+def test_production_sha_reads_the_real_release_endpoint(monkeypatch):
+    """REGRESSION (2026-07-22): the reader must work against the ACTUAL
+    /release response served by the app — not a hand-mocked schema. The
+    pre-fix reader read `sha` (a key /release never served), so every capture
+    was silently empty and the settlement evidence recorded
+    production_sha: ""."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    monkeypatch.setenv("RENDER_GIT_COMMIT",
+                       "1234567890abcdef1234567890abcdef12345678")
+    client = TestClient(app)
+    assert canary.production_sha(client, "") == (
+        "1234567890abcdef1234567890abcdef12345678")
+
+
+def test_production_sha_normalizes_unknown_to_unverifiable(monkeypatch):
+    """/release honestly serves git_sha='unknown' when the platform env is
+    absent; the canary must treat that as UNVERIFIABLE (''), never as a
+    comparable value."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    monkeypatch.delenv("GUILD_GIT_SHA", raising=False)
+    client = TestClient(app)
+    assert canary.production_sha(client, "") == ""
+
+
+def test_expect_sha_fails_closed_when_unverifiable():
+    """An EXPLICIT SHA expectation that cannot be verified is a refusal, not
+    a silent pass. (Pre-fix, the broken reader returned '' on every call, so
+    --expect-sha never refused anything — a no-op safety flag.)"""
+    class _NoShaHTTP(_FakeHTTP):
+        def get(self, url, timeout=0):
+            if url.endswith("/release"):
+                return _FakeResp({"service": "Agent Guild",
+                                  "git_sha": "unknown"})
+            return super().get(url, timeout)
+    with pytest.raises(canary.Refuse, match="unverifiable"):
+        canary.verify_preconditions(_NoShaHTTP(_good_readiness()),
+                                    "https://x", "expected-sha")
+
+
+def test_repair_evidence_is_idempotent_and_paymentless(tmp_path, monkeypatch):
+    """--repair-evidence: fills a labelled repair block on an artifact whose
+    capture was empty, leaves the captured field untouched, never pays, and
+    is byte-stable on a second run."""
+    ev = {"label": "first_party_mainnet_canary", "production_sha": "",
+          "transaction": "0x1052fa51aa1412119581194acc1011c51786a59538f46bb"
+                         "5f9d593f1ad16d802",
+          "target": "https://guild.example"}
+    path = tmp_path / "evidence.json"
+    path.write_text(json.dumps(ev))
+
+    class _ReleaseOnlyClient:
+        calls = []
+
+        def __init__(self, *a, **k):
+            pass
+
+        def get(self, url, timeout=0):
+            _ReleaseOnlyClient.calls.append(url)
+            assert url.endswith("/release"), "repair must be read-only"
+            return _FakeResp({"git_sha": "livesha123"})
+
+    import httpx as _httpx
+    monkeypatch.setattr(_httpx, "Client", _ReleaseOnlyClient)
+    args = types.SimpleNamespace(evidence=str(path),
+                                 base="https://guild.example")
+    assert canary.repair_evidence(args) == 0
+    repaired = json.loads(path.read_text())
+    assert repaired["production_sha"] == ""          # capture NOT rewritten
+    rep = repaired["production_sha_repair"]
+    assert rep["payment_made"] is False and rep["read_only"] is True
+    assert rep["live_git_sha_at_repair"] == "livesha123"
+    # the known settlement derivation attaches by tx hash, labelled derived
+    assert rep["settlement_time_sha"]["sha"].startswith("7b09548")
+    assert "derived" in rep["settlement_time_sha"]["confidence"]
+    first_bytes = path.read_bytes()
+    assert canary.repair_evidence(args) == 0          # idempotent no-op
+    assert path.read_bytes() == first_bytes
 
 
 # --- secret-silent key loading + one-shot state ------------------------------

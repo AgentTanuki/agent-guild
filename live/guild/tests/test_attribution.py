@@ -10,7 +10,8 @@ import os
 os.environ["GUILD_DATA"] = ""  # in-memory only
 
 from app.store import Store  # noqa: E402
-from app.attribution import is_genuine_external, attribution_class  # noqa: E402
+from app.attribution import (is_genuine_external, attribution_class,  # noqa: E402
+                             caller_class)
 
 
 def test_our_own_tooling_traffic_is_not_genuine_external():
@@ -120,3 +121,68 @@ def test_known_first_party_incident_excluded_inside_window_only():
                   "user_agent": "crewai-tools-agentguild/1.0",
                   "at": "2026-07-02T08:16:07.119496+00:00"}
     assert is_genuine_external(feed_shape) is False
+
+
+def test_mainnet_canary_incident_read_time_correction():
+    """The 2026-07-21 mainnet canary paid twice through /check (settlement
+    07:26:33Z + idempotent re-serve, evidence 07:30:25Z) BEFORE first-party
+    self-tagging shipped, under httpx's default framework UA. Read-time
+    correction: inside the 20-minute window, python-httpx is a known
+    first-party incident — outside it, python-httpx keeps counting."""
+    settle = {"fp": False, "key": "anon", "ua": "python-httpx/0.27.2",
+              "at": "2026-07-21T07:26:40.500000+00:00",
+              "type": "query", "paid": True, "rail": "x402"}
+    reserve = dict(settle, at="2026-07-21T07:30:10.000000+00:00")
+    for e in (settle, reserve):
+        assert is_genuine_external(e) is False
+        assert attribution_class(e) == "first_party_incident"
+        assert caller_class(e) == "AG_TEST"
+
+    # python-httpx OUTSIDE the window is NOT demoted — a real external
+    # agent on httpx still counts, before and after the incident.
+    before = dict(settle, at="2026-07-21T07:19:59+00:00")
+    after = dict(settle, at="2026-07-21T07:40:01+00:00")
+    next_day = dict(settle, at="2026-07-22T09:00:00+00:00")
+    for e in (before, after, next_day):
+        assert is_genuine_external(e) is True, e["at"]
+        assert attribution_class(e) == "genuine_external"
+
+    # a DIFFERENT framework UA inside the window is untouched.
+    other = dict(settle, ua="langchain/0.2.1")
+    assert is_genuine_external(other) is True
+
+    # version-suffix variations of the canary UA are covered; lookalike
+    # prefixes are not.
+    assert is_genuine_external(dict(settle, ua="python-httpx")) is False
+    assert is_genuine_external(dict(settle, ua="python-httpxish/1.0")) is True
+
+
+def test_canary_incident_moves_funnel_paid_decision_to_first_party():
+    """End-to-end through the store: a paid x402 query event recorded inside
+    the canary window lands in the funnel's paid_decision FIRST_PARTY bucket
+    (and out of genuine_external paid_query), without touching the
+    append-only event history."""
+    s = Store(path="")
+    s.record_event(None, "query", ua="python-httpx/0.27.2", paid=True,
+                   rail="x402", endpoint="check.get")
+    # pin the recorded timestamps into the incident window (read-time
+    # classification means ONLY the read changes, never the stored event)
+    s.events[-1]["at"] = "2026-07-21T07:26:40+00:00"
+    s.record_event(None, "query", ua="python-httpx/0.27.2", paid=True,
+                   rail="x402", endpoint="check.get")
+    s.events[-1]["at"] = "2026-07-21T07:30:10+00:00"
+    # a genuinely external paid read outside the window, for contrast
+    s.record_event(None, "query", ua="langchain/0.2.1", paid=True,
+                   rail="credits_sandbox", endpoint="check.get")
+    s.events[-1]["at"] = "2026-07-22T09:00:00+00:00"
+
+    funnel = s.conversion_funnel()
+    paid = next(st for st in funnel["stages"]
+                if st["stage"] == "paid_decision")
+    assert paid["breakdown"]["first_party"] == 2
+    assert paid["count"] == paid["breakdown"]["external"] == 1
+
+    instr = s.instrumentation()
+    assert instr["genuine_external"]["paid_query"] == 1
+    # the stored events themselves are untouched (append-only history)
+    assert [e["ua"] for e in s.events[:2]] == ["python-httpx/0.27.2"] * 2

@@ -1575,9 +1575,20 @@ def get_journey(agent_id: str, response: Response,
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
-    _meter_unless_self(payments.journey_request(agent_id), rec,
-                       x_api_key, response)
-    return journey_engine.journey(store, rec)
+    self_read = _is_self_read(rec, x_api_key)
+    if self_read:
+        response.headers["X-Guild-Cost"] = "0"
+        response.headers["X-Guild-Self-Read"] = "free"
+    else:
+        meter(payments.journey_request(agent_id), x_api_key, response)
+    out = journey_engine.journey(store, rec)
+    if self_read:
+        # authenticated subject interaction → pending Guild messages ride
+        # in-band (app/inbox.py); never on a third-party read.
+        blk = inbox_engine.deliver_in_band(store, rec)
+        if blk:
+            out["inbox"] = blk
+    return out
 
 
 @app.get("/agents/{agent_id}/inbox")

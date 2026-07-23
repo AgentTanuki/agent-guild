@@ -75,6 +75,25 @@ KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
                   "by design it sent no X-Guild-Source header, so without this "
                   "entry it reads as a genuine external MCP client.",
     },
+    {
+        # `ua_re` (anchored) instead of an exact `ua` because the recorded UA
+        # carries the client library's version suffix; the 20-minute window is
+        # what keeps this narrow — python-httpx OUTSIDE it still counts as a
+        # framework UA, exactly as before. This entry demotes the two known
+        # canary events and nothing else.
+        "ua_re": r"^python-httpx(/|$)",
+        "from": "2026-07-21T07:20:00+00:00",
+        "to": "2026-07-21T07:40:00+00:00",
+        "reason": "First-party mainnet canary settlement (tx 0x1052fa51aa1412"
+                  "119581194acc1011c51786a59538f46bb5f9d593f1ad16d802, Base "
+                  "block 0x2ea6123 at 2026-07-21T07:26:33Z) and its idempotent "
+                  "crash-recovery re-serve (evidence written 07:30:25Z). The "
+                  "canary predates first-party self-tagging (shipped in "
+                  "b606ae5 the same morning), so its paid /check reads carried "
+                  "no first-party header and — via the httpx framework UA — "
+                  "inflated genuine_external and external paid_decision "
+                  "telemetry. Guild-operated spend is NEVER external.",
+    },
 ]
 
 
@@ -82,7 +101,11 @@ def _is_known_first_party_incident(event: dict[str, Any]) -> bool:
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
     at = event.get("at") or ""
     for inc in KNOWN_FIRST_PARTY_INCIDENTS:
-        if ua == inc["ua"] and inc["from"] <= at <= inc["to"]:
+        if not (inc["from"] <= at <= inc["to"]):
+            continue
+        if "ua" in inc and ua == inc["ua"]:
+            return True
+        if "ua_re" in inc and re.match(inc["ua_re"], ua):
             return True
     return False
 
