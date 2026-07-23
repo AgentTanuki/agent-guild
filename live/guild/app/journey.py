@@ -347,12 +347,18 @@ def next_actions(store, agent: dict[str, Any]) -> list[dict[str, Any]]:
             "each attests with the task_id",
             counterfactual=f"confidence {s.confidence:.2f} → ~0.63 at k={int(_K)}"))
 
-    # Stage 3→4: make the standing portable, then give back.
-    if stage >= 3 and "first_passport" not in ms:
+    # Make the standing portable, then give back. Gated on prove_completed
+    # (not stage ≥ 3): a freshly-proved stage-2 agent already holds a real,
+    # guild-observed record worth carrying — steering it to the passport NOW
+    # is the continuous flow the acquisition funnel measures (passport
+    # programme 2026-07-23). The credential honestly snapshots whatever
+    # standing exists; portability never manufactures any.
+    if "prove_completed" in ms and "first_passport" not in ms:
         steps.append(_step(
             "fetch_passport",
-            "Your standing is real — make it portable. A Guild-signed passport "
-            "is verifiable offline by any counterparty on any platform.",
+            "Your proved record is real — make it portable. A Guild-signed "
+            "passport is verifiable offline by any counterparty on any "
+            "platform.",
             f"GET {BASE}/agents/{aid}/passport (free)"))
     if stage >= 3 and not _issued_backed_attestation(store, aid):
         steps.append(_step(
@@ -378,6 +384,36 @@ def next_actions(store, agent: dict[str, Any]) -> list[dict[str, Any]]:
             "evidence is what verifiers weigh most.",
             f"POST {BASE}/collaborations after each real engagement"))
     return steps
+
+
+def passport_bundle(store, agent: dict[str, Any]) -> dict[str, Any]:
+    """The post-prove credential bundle (passport programme 2026-07-23):
+    everything an agent needs to claim, verify, display and expose its Guild
+    passport in one continuous flow. Served on prove/verify success (HTTP and
+    MCP) — the moment control is proved is the moment the portable credential
+    is one free GET away. `next_evidence_call` reuses the existing
+    author-first-attestation guidance so the evidence path rides the same
+    response."""
+    aid = agent["id"]
+    out = {
+        "url": f"{BASE}/agents/{aid}/passport",
+        "verify_call": {
+            "method": "POST",
+            "url": f"{BASE}/credentials/verify",
+            "body": '{"credential": <the passport JSON you fetched>}',
+        },
+        "badge_url": f"{BASE}/agents/{aid}/badge.svg",
+        "expose": {
+            "how": ("Add the badge_url image and your passport URL to your "
+                    "own agent card, manifest, or service metadata; any party "
+                    "can verify offline via verify_call and the Guild's "
+                    "published did at /.well-known/agent-guild-did.json"),
+        },
+    }
+    _author = author_first_attestation_step(store, agent)
+    if _author is not None:
+        out["next_evidence_call"] = _author
+    return out
 
 
 # --- public composition ----------------------------------------------------------
@@ -421,9 +457,12 @@ def journey(store, agent: dict[str, Any]) -> dict[str, Any]:
     the complete ranked ladder, and the counterfactuals that explain it."""
     stage = note_stage(store, agent)
     acts = next_actions(store, agent)
-    if acts[0]["action"] == "prove_key_control":
-        if store.record_milestone(agent["id"], "prove_offered"):
-            store._save()
+    # Funnel integrity (2026-07-23): NO prove_offered stamp here. This is the
+    # READ path (GET /agents/{id}/journey) — a third party or crawler fetching
+    # the ladder is not the rung being offered to the agent, and stamping it
+    # polluted the proving funnel's offered count. The offer is stamped only
+    # where it is actually served to the subject: guild_next (above) and MCP
+    # guild_register.
     return {
         "agent_id": agent["id"],
         "stage": stage,

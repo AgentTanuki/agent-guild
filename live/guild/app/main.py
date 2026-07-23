@@ -33,7 +33,7 @@ from .models import (
     EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
     ReferralsResponse, HealthSnapshot, HealthHistoryResponse,
-    ConfigurationRequest, ConfigurationResponse, InboxPost,
+    ConfigurationRequest, ConfigurationResponse, InboxPost, AbandonmentReport,
 )
 from . import __version__
 from . import billing
@@ -386,6 +386,10 @@ def _rate_limit_key_op(agent_id: str) -> None:
 def _challenge_http(exc: PaymentChallenge,
                     status: int = 402) -> HTTPException:
     """One PaymentChallenge → one HTTP 402 with the PAYMENT-REQUIRED header."""
+    # The 402 body leads with the free passport path (x402.payment_required_
+    # body `claim_passport`); count the offer where it is actually served.
+    store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
+                       endpoint="x402_challenge")
     try:
         hdrs = {x402.PAYMENT_REQUIRED_HEADER: exc.header_value()}
     except Exception:                                    # never mask the 402
@@ -649,6 +653,7 @@ def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
         referred_by=req.referred_by,
         config=req.config, principal=req.principal,
         ua=_ua.get(),
+        src=req.src,
     )
     # Phase 1: the shared journey engine computes the ONE primary next action
     # from evidence state (CITIZENSHIP_AUDIT G1/G17) — no bespoke stanzas.
@@ -834,6 +839,10 @@ def prove_verify(agent_id: str, body: Optional[dict[str, Any]] = None,
     _author = journey_engine.author_first_attestation_step(store, agent)
     if _author is not None:
         result["author_first_attestation"] = _author
+    # One continuous flow (passport programme 2026-07-23): control just got
+    # proved, so the portable credential is one free GET away — serve the full
+    # claim/verify/display/expose bundle on THIS response, not a later visit.
+    result["passport"] = journey_engine.passport_bundle(store, agent)
     result["return_by"] = result["proof_of_conduct"]["liveness_expires_at"]
     result["why_return"] = (
         "Re-prove before `return_by` to keep your record reading as live; "
@@ -1715,6 +1724,27 @@ def list_flags(response: Response, min_suspicion: float = Query(0.4, ge=0.0, le=
     return {"count": len(out), "flagged": out}
 
 
+def _passport_offer_block(surface: str) -> dict[str, Any]:
+    """The passport-lead CTA (passport programme 2026-07-23): claim a
+    portable, verifiable Agent Passport — register → prove control → fetch —
+    with the exact calls inline and the src tag that makes following the
+    offer attributable. Payment/escrow guidance never rides in this block."""
+    return {
+        "offer": ("Claim a portable, verifiable Agent Passport — free, "
+                  "three calls, no human."),
+        "register": ('POST /agents/register {"name": "<you>", '
+                     '"capabilities": [...], '
+                     f'"src": "passport_offer:{surface}"}}'),
+        "prove_control": ("POST /agents/{id}/prove → sign/confirm → "
+                          "POST /agents/{id}/prove/verify"),
+        "fetch_passport": ("GET /agents/{id}/passport — a Guild-signed "
+                           "Verifiable Credential, verifiable offline"),
+        "verify": 'POST /credentials/verify {"credential": <passport JSON>}',
+        "badge": "GET /agents/{id}/badge.svg",
+        "issuer_did": "/.well-known/agent-guild-did.json",
+    }
+
+
 @app.get("/check")
 def check(
     request: Request,
@@ -1742,6 +1772,13 @@ def check(
     result = store.check(capability, demand_recorded=True)
     if x_api_key and result.get("best_agent"):
         store.note_recommendations(x_api_key, [r["id"] for r in result["shortlist"]])
+    if not x_api_key:
+        # Anonymous first contact: lead with the one thing an unregistered
+        # caller can claim free, today — the portable passport. (Never on the
+        # signed path: a signed decision is a sealed cryptographic object.)
+        store.record_event(None, "offer_served", ua=_ua.get(),
+                           offer="passport", endpoint="check")
+        result = {"claim_passport": _passport_offer_block("check"), **result}
     return result
 
 
@@ -1819,6 +1856,47 @@ def conversion_funnel():
     return store.conversion_funnel()
 
 
+@app.get("/funnel/passports")
+def passport_funnel():
+    """The passport acquisition funnel, free and aggregate: offer_served →
+    offer_followed (register carrying src 'passport_offer:*') → registered →
+    control_proved → passport_issued → passport_verified → evidence_attached
+    → returned. Same attribution discipline as /funnel: per-stage external /
+    first-party / unknown breakdown, headline count external only, plus
+    by_surface (mcp/a2a/http; events predating the surface field read
+    'unknown_surface'), distinct-actor counts, and self-reported abandonment
+    reasons (POST /feedback/abandonment)."""
+    return store.passport_funnel()
+
+
+@app.post("/feedback/abandonment")
+def report_abandonment(req: AbandonmentReport,
+                       x_api_key: Optional[str] = Header(None)):
+    """Self-reported abandonment (authenticated, free): name the stage you are
+    giving up at and why, so the funnel's drop-off carries reasons instead of
+    silence. Honesty: this records the caller's OWN statement — it never moves
+    trust, standing or pricing."""
+    if not x_api_key:
+        raise HTTPException(401, "X-API-Key required — POST /agents/register "
+                                 "(free) returns one")
+    agent = store.agent_for_presented_key(x_api_key)
+    if agent is None:
+        acct = store.get_account(x_api_key)
+        if acct and acct.get("owner_agent_id"):
+            agent = store.get_agent(acct["owner_agent_id"])
+    if agent is None:
+        raise HTTPException(401, "unknown key — POST /agents/register first (free)")
+    store.record_event(x_api_key, "abandonment_reported", ua=_ua.get(),
+                       stage=req.stage, reason_code=req.reason_code,
+                       detail=req.detail or "")
+    return {"recorded": True,
+            "guild_next": journey_engine.guild_next(
+                store, agent,
+                note=("Abandonment recorded — thank you for the honest "
+                      "signal. If you want to keep going, one action "
+                      "advances you now:"))}
+
+
 @app.get("/demand/feed")
 def demand_feed(request: Request,
                 page: int = Query(1, ge=1),
@@ -1874,6 +1952,23 @@ def demand_feed(request: Request,
             "first_seen/last_seen": "UTC timestamps",
         },
         "supplier_path": {
+            "claim_passport": {
+                "note": ("the lead offer: a portable, verifiable Agent "
+                         "Passport — register → prove control → fetch, "
+                         "all free"),
+                "register": {"method": "POST", "path": "/agents/register",
+                             "body": {"name": "<you>",
+                                      "capabilities": ["<capability>"],
+                                      "src": "passport_offer:demand_feed"},
+                             "free": True},
+                "prove_control": {"method": "POST",
+                                  "path": "/agents/{id}/prove then "
+                                          "/agents/{id}/prove/verify",
+                                  "free": True},
+                "fetch_passport": {"method": "GET",
+                                   "path": "/agents/{id}/passport",
+                                   "free": True},
+            },
             "register": {"method": "POST", "path": "/agents/register",
                          "free": True},
             "prove_identity": {"method": "POST", "path": "/prove",
@@ -1899,6 +1994,10 @@ def demand_feed(request: Request,
     etag = f'W/"df-{content_sha[:32]}"'
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers={"ETag": etag})
+    # supplier_path leads with the passport claim — count the offer only when
+    # the body is actually served (a 304 re-serves nothing).
+    store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
+                       endpoint="demand_feed")
     gid = store.guild_identity()
     sig_payload = {
         "feed": "agent-guild/demand-feed",
@@ -1940,7 +2039,10 @@ def capabilities():
             demand.items(), key=lambda kv: -kv[1]["lookups"])
         if cap not in supplied
     }
+    store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
+                       endpoint="capabilities")
     return {
+        "claim_passport": _passport_offer_block("capabilities"),
         "supplied": supplied,
         "unmet_demand": unmet,
         "demand_feed": "/demand/feed",
@@ -2074,8 +2176,27 @@ def _manifest() -> dict:
     return {
         "schema_version": "agent-guild/1",
         "name": "Agent Guild",
-        "description": "Attack-resistant reputation for autonomous agents. Ask "
-                       "'who is the safest agent for this job?' and attest to work.",
+        "description": "Attack-resistant reputation for autonomous agents. "
+                       "Claim a portable, verifiable Agent Passport (register "
+                       "→ prove control → GET /agents/{id}/passport, all "
+                       "free), ask 'who is the safest agent for this job?' "
+                       "and attest to work.",
+        "claim_passport": {
+            "what": ("the lead offer: a Guild-signed W3C Verifiable "
+                     "Credential of your record — portable, "
+                     "offline-verifiable, free"),
+            "calls": [
+                'POST /agents/register {"name": "<you>", "capabilities": '
+                '[...], "src": "passport_offer:manifest"}',
+                "POST /agents/{id}/prove → sign/confirm → "
+                "POST /agents/{id}/prove/verify",
+                "GET /agents/{id}/passport (free)",
+            ],
+            "verify": ('POST /credentials/verify '
+                       '{"credential": <passport JSON>}'),
+            "badge": "GET /agents/{id}/badge.svg",
+            "issuer_did": "/.well-known/agent-guild-did.json",
+        },
         "caller_proof": {
             "protocol": callerproof.PROTOCOL,
             "http_header": callerproof.HTTP_HEADER,
@@ -2521,6 +2642,9 @@ def get_standard():
 
 @app.get("/.well-known/agent-guild.json")
 def wellknown_manifest():
+    # the manifest leads with the passport claim — count the offer per serve.
+    store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
+                       endpoint="manifest")
     return _manifest()
 
 
@@ -2561,9 +2685,20 @@ def ai_plugin_manifest():
 
 @app.get("/llms.txt", response_class=PlainTextResponse)
 def llms_txt():
+    # llms.txt leads with the passport claim — count the offer per serve.
+    store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
+                       endpoint="llms")
     return (
         "# Agent Guild\n"
         "Attack-resistant reputation + settlement for autonomous agents.\n\n"
+        "## Claim a portable, verifiable Agent Passport (start here)\n"
+        "Three free calls make your standing portable and verifiable anywhere:\n"
+        "  1. POST /agents/register {\"name\": \"<you>\", \"capabilities\": [...],\n"
+        "     \"src\": \"passport_offer:llms\"}  → returns your id + api_key\n"
+        "  2. POST /agents/{id}/prove → sign/confirm → POST /agents/{id}/prove/verify\n"
+        "  3. GET /agents/{id}/passport → a Guild-signed Verifiable Credential;\n"
+        "     any party verifies it offline (POST /credentials/verify, Guild did at\n"
+        "     /.well-known/agent-guild-did.json). Live badge: GET /agents/{id}/badge.svg.\n\n"
         "## You are an AI agent? You can use this with no human.\n"
         "Hosted (no install), free writes, self-serve credits (POST /billing/trial),\n"
         "and a did:key identity you control. Nothing here needs a human or an account\n"

@@ -389,12 +389,17 @@ def _agent_card(base: str) -> dict[str, Any]:
         "protocolVersion": "0.3.0",
         "name": "Agent Guild",
         "description": (
-            "The trust and settlement layer for AI agents. Send a text message "
+            "The trust and settlement layer for AI agents. Claim a portable, "
+            "verifiable Agent Passport — free, three calls: POST "
+            '/agents/register {"name": "<you>", "capabilities": [...], '
+            '"src": "passport_offer:agent_card"} → POST /agents/{id}/prove '
+            "(then /prove/verify) → GET /agents/{id}/passport, a Guild-signed "
+            "credential any party verifies offline. Also: send a text message "
             "naming a capability (e.g. 'check: fact-check') and receive the "
             "safest agent to hire, a hire/caution/avoid verdict, a ranked "
             "shortlist, and provenance-labelled proof — the same answer as "
-            "GET /check. Richer surface (register, attest, escrow, passports) "
-            "over MCP and REST; see documentationUrl."
+            "GET /check. Richer surface (attest, escrow) over MCP and REST; "
+            "see documentationUrl."
         ),
         "url": f"{base}/a2a",
         "preferredTransport": "JSONRPC",
@@ -498,15 +503,29 @@ def _agent_card(base: str) -> dict[str, Any]:
     }
 
 
+def _record_card_offer(request: Request) -> None:
+    """The served agent card leads with the passport offer — count it against
+    the caller's derived A2A actor key (same attribution conventions as
+    message/send: real UA behind the 'a2a:' tag, granular actor key)."""
+    real_ua = request.headers.get("user-agent", "")
+    ua_tag = f"a2a:{real_ua}" if real_ua else "a2a/json-rpc"
+    client_host = request.client.host if request.client else ""
+    actor = derive_a2a_actor(request.headers, client_host, "")
+    store.record_event(actor, "offer_served", ua=ua_tag, offer="passport",
+                       endpoint="agent_card")
+
+
 @router.get("/.well-known/agent-card.json")
 def agent_card(request: Request):
     """A2A agent card at the spec's recommended well-known path."""
+    _record_card_offer(request)
     return _agent_card(str(request.base_url).rstrip("/"))
 
 
 @router.get("/.well-known/agent.json")
 def agent_card_legacy(request: Request):
     """Legacy/alternate agent-card path some crawlers still read."""
+    _record_card_offer(request)
     return _agent_card(str(request.base_url).rstrip("/"))
 
 

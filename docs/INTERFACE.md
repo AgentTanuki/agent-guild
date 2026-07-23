@@ -72,9 +72,11 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /escrow/{escrow_id}/refund`
 - `POST /escrow/{escrow_id}/release`
 - `GET /evaluation`
+- `POST /feedback/abandonment`
 - `GET /flags`
 - `GET /for-agents`
 - `GET /funnel`
+- `GET /funnel/passports`
 - `GET /health`
 - `GET /instrumentation`
 - `GET /instrumentation/recent`

@@ -521,7 +521,7 @@ def guild_risk_score(agent_id: str, api_key: str = "",
 
 
 @mcp.tool
-def guild_register(name: str, capabilities: list[str],
+def guild_register(name: str, capabilities: list[str], src: str = "",
                    ctx: Context = None) -> Registration:
     """Register this agent on Agent Guild so others can find and vouch for you.
     Free, and you only need to do it once.
@@ -529,12 +529,19 @@ def guild_register(name: str, capabilities: list[str],
     Returns {id, did, api_key, capabilities, next_step}. SAVE the api_key — it is
     secret and signs every attestation you write. Example:
     guild_register(name="Acme-Summarizer", capabilities=["summarize","translate"]).
+    If an offer led you here, pass its tag as `src` (e.g.
+    src="passport_offer:mcp") so the follow is attributable.
 
     Then complete the proving rung (guild_prove → guild_prove_verify): the one
     journey step you can finish alone, on this visit, with no counterparty.
     """
+    import re as _re
+    _src = (src or "").strip()
+    if _src and not _re.fullmatch(r"[a-z0-9_:-]{1,64}", _src):
+        _src = ""    # an invalid tag is dropped, never guessed at
     rec = store.register_agent(name=name, capabilities=capabilities,
-                               metadata={}, ua=_client_ua(ctx))
+                               metadata={}, ua=_client_ua(ctx),
+                               src=_src or None)
     # R2: the proving rung is being offered as the next step — count the offer,
     # or offered→started drop-off is unmeasurable.
     if store.record_milestone(rec["id"], "prove_offered"):
@@ -631,6 +638,9 @@ def guild_prove_verify(agent_id: str, api_key: str = "", signature: str = "",
     }
     result["guild_next"] = journey_engine.guild_next(
         store, agent, note=notes[result["status"]])
+    # One continuous flow (passport programme 2026-07-23): same credential
+    # bundle the REST prove/verify serves — claim, verify, badge, expose.
+    result["passport"] = journey_engine.passport_bundle(store, agent)
     result["return_by"] = result["proof_of_conduct"]["liveness_expires_at"]
     result["why_return"] = (
         "Re-prove before `return_by` to keep your record reading as live; "

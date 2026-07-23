@@ -769,6 +769,7 @@ class Store:
         config: Optional[dict[str, Any]] = None,
         principal: Optional[str] = None,
         ua: str = "",
+        src: Optional[str] = None,
     ) -> dict[str, Any]:
         with self.lock, self._txn():
             agent_id = "agent_" + secrets.token_hex(6)
@@ -860,10 +861,13 @@ class Store:
                                   referrer_id=referred_by, referred_id=agent_id)
             # The funnel's t0: without this event, no time-to-anything exists
             # (CITIZENSHIP_AUDIT G2). Recorded against the agent's own key so
-            # first-party traffic stays separable.
+            # first-party traffic stays separable. `src` (caller-declared,
+            # e.g. 'passport_offer:llms') attributes the register to the offer
+            # that led here — offer_followed is measured off it, no new event.
             self.record_event(api_key, "register", agent_id=agent_id, ua=ua,
                               custodial=custodial, referred=bool(referred_by),
-                              agent_first_party=fp)
+                              agent_first_party=fp,
+                              **({"src": src} if src else {}))
             if hashed:
                 # credential audit trail (issue/rotate/revoke); key_id only,
                 # never the secret.
@@ -1938,16 +1942,33 @@ class Store:
             return acct
 
     # --- agent-native instrumentation ---------------------------------------
+    @staticmethod
+    def _surface_of(key: Optional[str], ua: str) -> str:
+        """Which transport surface produced an event: 'mcp' (the hosted MCP
+        mount), 'a2a' (JSON-RPC agent-to-agent), else 'http'. Derived from the
+        conventions the transports already use (MCP records key='mcp' or
+        ua='mcp:<client>'; A2A namespaces both actor keys and UAs under
+        'a2a:'), so no call site changes; events predating the field read
+        honestly as 'unknown_surface' at read time, never backfilled."""
+        if key == "mcp" or ua.startswith("mcp:"):
+            return "mcp"
+        if ua.startswith("a2a:") or (key or "").startswith("a2a:"):
+            return "a2a"
+        return "http"
+
     def record_event(self, key: Optional[str], etype: str, ua: str = "", **meta) -> None:
         """Record a funnel event (query / delegation). `key` is the billing key
         (the agent's identity for instrumentation purposes). `fp` marks whether
         the actor is first-party (our own seed/test traffic) so external,
-        third-party usage can be isolated."""
+        third-party usage can be isolated. `surface` names the transport the
+        event arrived on (mcp / a2a / http), stamped at write time so
+        per-surface funnels never guess."""
         key = creds.sanitize_actor_key(key)
         acct = self.accounts.get(key or "")
         fp = bool(acct and acct.get("first_party"))
         event = {"key": key or "anon", "type": etype, "ua": ua or "",
-                 "fp": fp, "at": _now(), **meta}
+                 "fp": fp, "surface": self._surface_of(key, ua or ""),
+                 "at": _now(), **meta}
         self.events.append(event)
         if self.backend is not None:
             self._persist_event(event)   # durable per-row (events table)
@@ -3072,6 +3093,117 @@ class Store:
                            "attribution.is_genuine_external), and shown "
                            "under first_party/unknown breakdowns instead "
                            "of being merged"),
+        }
+
+    def passport_funnel(self) -> dict[str, Any]:
+        """The passport acquisition funnel (passport programme 2026-07-23):
+
+          offer_served → offer_followed (register carrying src
+          'passport_offer:*') → registered → control_proved (prove_completed)
+          → passport_issued → passport_verified → evidence_attached
+          (first_attestation_received) → returned (liveness_refreshed).
+
+        Same attribution discipline as conversion_funnel: every stage carries
+        an external / first-party / unknown breakdown computed through the ONE
+        central rule (attribution.caller_class +
+        attribution.is_genuine_external), the headline `count` is the genuine
+        external number, and first-party or unknown activity is NEVER merged
+        into an external figure. `by_surface` uses the surface field stamped
+        at write time (mcp / a2a / http); events predating the field read
+        honestly as 'unknown_surface'. `distinct_actors` counts distinct real
+        actor keys (never 'anon'). `abandonment` tallies self-reported
+        abandonment_reported reason codes (POST /feedback/abandonment)."""
+        from . import attribution
+
+        def _class_of(e: dict[str, Any]) -> str:
+            if e.get("demand_first_party"):
+                return "first_party"
+            cls = attribution.caller_class(e)
+            if cls in ("AG_INTERNAL", "AG_TEST", "OPERATOR"):
+                return "first_party"
+            if (attribution.may_count_as_external_growth(cls)
+                    and attribution.is_genuine_external(e)):
+                return "external"
+            return "unknown"
+
+        order = ["offer_served", "offer_followed", "registered",
+                 "control_proved", "passport_issued", "passport_verified",
+                 "evidence_attached", "returned"]
+        sources = {
+            "offer_served": "serves of the passport CTA (offer='passport') on "
+                            "llms.txt, the manifest, the agent card, anonymous "
+                            "/check, /capabilities, /demand/feed and the x402 "
+                            "402 challenge",
+            "offer_followed": "register events carrying a caller-declared src "
+                              "beginning 'passport_offer' — the offer was "
+                              "followed, by the caller's own statement",
+            "registered": "agent registrations (all)",
+            "control_proved": "prove_completed milestones",
+            "passport_issued": "passport issuances (GET /agents/{id}/passport)",
+            "passport_verified": "passport verifications "
+                                 "(POST /credentials/verify)",
+            "evidence_attached": "first_attestation_received milestones",
+            "returned": "liveness refreshes (a proved agent came back)",
+        }
+        stage_types = {"register": "registered",
+                       "prove_completed": "control_proved",
+                       "passport_issued": "passport_issued",
+                       "passport_verified": "passport_verified",
+                       "first_attestation_received": "evidence_attached",
+                       "liveness_refreshed": "returned"}
+        stages: dict[str, dict[str, Any]] = {
+            s: {"total": 0,
+                "breakdown": {"external": 0, "first_party": 0, "unknown": 0},
+                "by_surface": {}, "actors": set()} for s in order}
+        abandonment: dict[str, int] = {}
+        for e in self.events:
+            t = e.get("type")
+            if t == "abandonment_reported":
+                rc = str(e.get("reason_code") or "other")
+                abandonment[rc] = abandonment.get(rc, 0) + 1
+                continue
+            hit: list[str] = []
+            if t == "offer_served" and e.get("offer") == "passport":
+                hit.append("offer_served")
+            if (t == "register"
+                    and str(e.get("src") or "").startswith("passport_offer")):
+                hit.append("offer_followed")
+            if t in stage_types:
+                hit.append(stage_types[t])
+            if not hit:
+                continue
+            cls = _class_of(e)
+            surface = e.get("surface") or "unknown_surface"
+            actor = e.get("key")
+            for s in hit:
+                row = stages[s]
+                row["total"] += 1
+                row["breakdown"][cls] += 1
+                row["by_surface"][surface] = \
+                    row["by_surface"].get(surface, 0) + 1
+                if actor and actor != "anon":
+                    row["actors"].add(actor)
+        return {
+            "stages": [
+                {"stage": s,
+                 "count": stages[s]["breakdown"]["external"],
+                 "total": stages[s]["total"],
+                 "breakdown": dict(stages[s]["breakdown"]),
+                 "by_surface": dict(sorted(stages[s]["by_surface"].items())),
+                 "distinct_actors": len(stages[s]["actors"]),
+                 "source": (f"{sources[s]} — count = genuine external only "
+                            "(attribution.is_genuine_external); first-party "
+                            "and unknown/unattributable shown separately, "
+                            "never merged")}
+                for s in order],
+            "abandonment": abandonment,
+            "exclusions": ("AG-owned probes, release gates, canaries, test "
+                           "harnesses and registry crawlers are excluded from "
+                           "external counts structurally "
+                           "(attribution.caller_class EXTERNAL_* gate + "
+                           "attribution.is_genuine_external), and shown under "
+                           "first_party/unknown breakdowns instead of being "
+                           "merged"),
         }
 
     def evidence_staleness(self, agent_id: str) -> Optional[dict[str, Any]]:

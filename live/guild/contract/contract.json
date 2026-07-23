@@ -438,6 +438,12 @@
   },
   {
    "methods": [
+    "POST"
+   ],
+   "path": "/feedback/abandonment"
+  },
+  {
+   "methods": [
     "GET"
    ],
    "path": "/flags"
@@ -453,6 +459,12 @@
     "GET"
    ],
    "path": "/funnel"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/funnel/passports"
   },
   {
    "methods": [

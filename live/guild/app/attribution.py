@@ -340,8 +340,12 @@ def derive_a2a_actor(headers: Mapping[str, str], client_host: str = "",
 # ---------------------------------------------------------------------------
 
 # Guild-side responses recorded against the caller's key — never engagement.
+# offer_served (2026-07-23) is the Guild serving the passport CTA on a
+# discovery surface — OUR offer, not the caller's action; counting it as
+# engagement would let any crawler with a framework UA trip the detector.
 GUILD_SURFACING_TYPES = {
     "prove_surfaced", "prove_howto_served", "endpoint_declare_howto_served",
+    "offer_served",
 }
 
 # Caller actions that, on their own, are strong evidence of a deciding agent
