@@ -433,6 +433,20 @@ def payment_required_body(preq: "PaidRequest", credits_cost: int,
     if model is None:
         model = payment_required_model(preq, credits_cost)
     body: dict[str, Any] = model.model_dump(by_alias=True, exclude_none=True)
+    body["claim_passport"] = {
+        "note": ("No payment is needed to JOIN. The lead offer is a free, "
+                 "portable, verifiable Agent Passport: register → prove "
+                 "control → fetch. Payment below buys trust reads, never "
+                 "membership."),
+        "register": ('POST /agents/register {"name": "<you>", '
+                     '"capabilities": [...], '
+                     '"src": "passport_offer:x402_challenge"}'),
+        "prove_control": ("POST /agents/{id}/prove → sign/confirm → "
+                          "POST /agents/{id}/prove/verify"),
+        "fetch_passport": "GET /agents/{id}/passport (free, Guild-signed VC)",
+        "verify": 'POST /credentials/verify {"credential": <passport JSON>}',
+        "badge": "GET /agents/{id}/badge.svg",
+    }
     body["sandbox"] = {
         "unit": "credits_sandbox",
         "note": ("Credits are a SANDBOX settlement unit (not money). "

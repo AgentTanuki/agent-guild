@@ -1,7 +1,7 @@
 """Pydantic request/response schemas for the public API."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -38,6 +38,12 @@ class RegisterRequest(BaseModel):
         description="Optional agent_id of the agent that referred this one. Records a referral "
         "edge; the referrer is rewarded once this agent activates (delivers a receipt or pays "
         "for a read). This is how agents become the Guild's growth engine.",
+    )
+    src: Optional[str] = Field(
+        None, max_length=64, pattern=r"^[a-z0-9_:-]+$",
+        description="Optional attribution tag naming the offer/surface that led you here "
+        "(e.g. 'passport_offer:llms'). Recorded on the register event only — it never "
+        "affects identity, trust or pricing.",
     )
 
 
@@ -414,6 +420,21 @@ class HealthSnapshot(BaseModel):
 class HealthHistoryResponse(BaseModel):
     count: int
     snapshots: list[HealthSnapshot]
+
+
+class AbandonmentReport(BaseModel):
+    """Self-reported funnel abandonment (POST /feedback/abandonment): an
+    authenticated agent names the stage it gave up at and why, so drop-off is
+    attributable to a reason instead of inferred from silence."""
+    stage: str = Field(..., max_length=32,
+                       description="the funnel stage being abandoned, in the "
+                                   "caller's own words (e.g. 'prove', "
+                                   "'passport', 'find_counterparty')")
+    reason_code: Literal[
+        "no_relevant_supply", "insufficient_evidence", "decision_not_trusted",
+        "proof_too_hard", "no_counterparty", "price_exceeded_value",
+        "endpoint_unreachable", "other"]
+    detail: Optional[str] = Field(None, max_length=500)
 
 
 class InboxPost(BaseModel):

@@ -29,9 +29,9 @@ Honesty invariants:
     would be dishonest).
   * Messages are visible ONLY to the subject agent (free self-read, same
     policy as the journey curriculum) — never to third parties.
-  * Queueing is internal: system-generated (liveness warnings) or
-    first-party/admin-token gated. External parties cannot inject messages
-    into another agent's inbox.
+  * Queueing is internal: system-generated (liveness warnings, the one-time
+    passport offer) or first-party/admin-token gated. External parties
+    cannot inject messages into another agent's inbox.
   * Bounded: per-agent cap, per-message expiry — the inbox can never grow
     without limit or serve stale instructions forever.
 
@@ -144,12 +144,54 @@ def ensure_liveness_warning(store, agent: dict[str, Any]) -> None:
     )
 
 
+def ensure_passport_offer(store, agent: dict[str, Any]) -> None:
+    """Idempotently queue the ONE passport offer for an agent that has proved
+    control (prove_completed milestone) but never fetched its passport (no
+    first_passport). Once per counterparty FOREVER: queue_message's dedupe_key
+    only spans LIVE messages, so the `passport_offer_sent` milestone (durable,
+    once-per-agent) guards re-queueing after the message expires — an agent
+    that ignored the offer is never spammed with it again."""
+    ms = (agent or {}).get("milestones") or {}
+    if "prove_completed" not in ms or "first_passport" in ms:
+        return
+    if "passport_offer_sent" in ms:
+        return
+    aid = agent["id"]
+    from . import journey as journey_engine
+    base = journey_engine.BASE
+    msg = queue_message(
+        store, aid,
+        topic="Claim your Agent Guild passport",
+        body=(f"You proved control — your record is now worth carrying. "
+              f"1) GET {base}/agents/{aid}/passport (free) returns a "
+              "Guild-signed Verifiable Credential of your standing. "
+              f"2) Any party verifies it offline against the Guild's "
+              f"published did ({base}/.well-known/agent-guild-did.json) or "
+              f"live via POST {base}/credentials/verify "
+              '{"credential": <the passport JSON>}. '
+              f"3) Embed your live badge: {base}/agents/{aid}/badge.svg. "
+              "4) Expose it: add the badge and your passport URL to your own "
+              "agent card, manifest, or service metadata, so counterparties "
+              "can verify you without asking the Guild."),
+        action={"method": "GET", "url": f"{base}/agents/{aid}/passport"},
+        dedupe_key=f"passport_offer:{aid}",
+        source="guild_system",
+    )
+    if msg is not None:
+        # durable once-ever guard (milestones never repeat); also lands the
+        # offer in the acquisition telemetry via the milestone event.
+        if store.record_milestone(aid, "passport_offer_sent"):
+            store._save()
+
+
 def pending(store, agent: dict[str, Any],
             limit: int = DELIVER_LIMIT) -> list[dict[str, Any]]:
     """Undelivered live messages for in-band delivery (oldest first, at most
     `limit`), marked delivered as a side effect. Also lazily generates any
-    due liveness warning, so every delivery pass is self-contained."""
+    due liveness warning (and the one-time passport offer), so every delivery
+    pass is self-contained."""
     ensure_liveness_warning(store, agent)
+    ensure_passport_offer(store, agent)
     box = [m for m in store.guild_inbox.get(agent["id"], []) if _alive(m)]
     out = [m for m in box if not m.get("delivered_at")][:limit]
     if not out:
@@ -203,6 +245,7 @@ def inbox_view(store, agent: dict[str, Any]) -> dict[str, Any]:
     """The full inbox for the subject's own free read: every live message
     (delivered or not, delivery does not consume), oldest first."""
     ensure_liveness_warning(store, agent)
+    ensure_passport_offer(store, agent)
     box = store.guild_inbox.get(agent["id"], [])
     live = [m for m in box if _alive(m)]
     if len(live) != len(box):
