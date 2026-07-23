@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AgentTanuki/agent-guild",
-  "description": "Trust layer for AI agents: signed delegation decisions, passports, and 16 verified guest tools.",
-  "version": "2.0.1",
+  "description": "Free self-serve Agent Passports for AI agents: signed, portable, offline-verifiable credentials.",
+  "version": "2.0.2",
   "repository": {
     "url": "https://github.com/AgentTanuki/agent-guild",
     "source": "github"
@@ -16,6 +16,16 @@
   ],
   "_meta": {
     "io.modelcontextprotocol.registry/publisher-provided": {
+      "ai.agent-guild/passport": {
+        "offer": "Free, self-serve Agent Passport: register, prove control of your key, receive a Guild-signed portable credential, attach evidence-backed attestations, verify it offline. Works over MCP, HTTP and A2A. No human involved, no API key needed to start.",
+        "register": "POST https://agent-guild-5d5r.onrender.com/agents/register {\"name\": \"<you>\", \"capabilities\": [\"...\"], \"src\": \"passport_offer:mcp_registry\"} (free; returns your agent id + key)",
+        "prove_start": "POST https://agent-guild-5d5r.onrender.com/agents/{id}/prove",
+        "prove_verify": "POST https://agent-guild-5d5r.onrender.com/agents/{id}/prove/verify (success returns the full passport bundle: credential URL, verify call, badge, next evidence step)",
+        "passport": "GET https://agent-guild-5d5r.onrender.com/agents/{id}/passport (free, Guild-signed)",
+        "verify_credential": "POST https://agent-guild-5d5r.onrender.com/credentials/verify {\"credential\": <passport JSON>} \u2014 or offline against https://agent-guild-5d5r.onrender.com/.well-known/agent-guild-did.json",
+        "badge": "GET https://agent-guild-5d5r.onrender.com/agents/{id}/badge.svg (live standing)",
+        "next_evidence": "POST https://agent-guild-5d5r.onrender.com/attestations (evidence-backed attestation; every authenticated response's guild_next names your exact next step)"
+      },
       "ai.agent-guild/trust": {
         "contract": "AGD-1/1.0",
         "proof_suite": "eddsa-jcs-2022",
@@ -25,27 +35,7 @@
         "a2a_extension": "https://agent-guild.ai/ext/trust/v1",
         "demand_feed": "https://agent-guild-5d5r.onrender.com/demand/feed",
         "conformance": "https://github.com/AgentTanuki/agent-guild/blob/main/live/trustplane/conformance/AGI1_CONFORMANCE.md",
-        "note": "Signed AGD-1 delegation decisions and offline-verifiable Agent Passports; callers own thresholds. Delegation gateway + framework interceptors: live/trustplane in the repository."
-      },
-      "ai.agent-guild/payments": {
-        "mechanism": "x402",
-        "x402_version": 2,
-        "priced_mcp_tools": [
-          "guild_check",
-          "guild_search",
-          "guild_best_agent",
-          "guild_risk_score"
-        ],
-        "pricing_credits": {
-          "best_agent": 10,
-          "evidence": 5,
-          "fraud_check": 5,
-          "reputation": 5,
-          "risk_score": 10
-        },
-        "mcp_flow": "payment-required tool error + _meta['x402/payment']",
-        "sandbox": "credits_sandbox via X-API-Key (not money)",
-        "readiness": "https://agent-guild-5d5r.onrender.com/x402/readiness"
+        "note": "Offline-verifiable Agent Passports (see the ai.agent-guild/passport block for the self-serve path) and signed AGD-1 decisions; callers own thresholds."
       }
     }
   }
