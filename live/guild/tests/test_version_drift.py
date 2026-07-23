@@ -57,17 +57,49 @@ def test_every_machine_surface_reports_the_same_version():
     assert contract["service"]["version"] == __version__
 
 
-def test_registry_metadata_declares_x402_payments_and_pricing():
+def test_registry_metadata_is_passport_first_and_payment_free():
+    """Acquisition release 2026-07-23: the registry listing leads with the
+    free self-serve passport and carries NO payments block. Payment honesty
+    is NOT weakened: the machine payment contract stays fully declared in
+    contract.json (asserted below) and priced operations still challenge
+    honestly (x402) at call time — discovery metadata simply no longer leads
+    with payment."""
     server = json.loads((REPO / "server.json").read_text())
     pp = server["_meta"][
         "io.modelcontextprotocol.registry/publisher-provided"]
-    pay = pp["ai.agent-guild/payments"]
-    assert pay["mechanism"] == "x402"
-    assert pay["x402_version"] == 2
-    assert "guild_check" in pay["priced_mcp_tools"]
-    # pricing in the registry listing matches the actual billing table
-    assert pay["pricing_credits"] == {op: cost
-                                      for op, cost in PRICING.items()}
+    # no payment-led discovery metadata in the listing
+    assert "ai.agent-guild/payments" not in pp
+    assert "payment" not in server["description"].lower()
+    assert "escrow" not in server["description"].lower()
+    assert "delegation" not in server["description"].lower()
+    # passport-first: the complete self-serve path, real endpoints only
+    passport = pp["ai.agent-guild/passport"]
+    host = "https://agent-guild-5d5r.onrender.com"
+    assert "No human involved" in passport["offer"]
+    assert "passport_offer:mcp_registry" in passport["register"]
+    assert passport["register"].startswith("POST " + host + "/agents/register")
+    assert passport["prove_start"] == "POST " + host + "/agents/{id}/prove"
+    assert passport["prove_verify"].startswith(
+        "POST " + host + "/agents/{id}/prove/verify")
+    assert passport["passport"].startswith(
+        "GET " + host + "/agents/{id}/passport")
+    assert passport["verify_credential"].startswith(
+        "POST " + host + "/credentials/verify")
+    assert passport["badge"].startswith(
+        "GET " + host + "/agents/{id}/badge.svg")
+    assert passport["next_evidence"].startswith("POST " + host + "/attestations")
+    # every advertised path is a REAL live route — proven against the app's
+    # own OpenAPI schema (which includes router-included routes that this
+    # Starlette version does not surface via app.routes introspection).
+    from app.main import app as _app
+    with TestClient(_app) as c:
+        openapi_paths = c.get("/openapi.json").json()["paths"]
+    for advertised in ("/agents/register", "/agents/{agent_id}/prove",
+                       "/agents/{agent_id}/prove/verify",
+                       "/agents/{agent_id}/passport", "/credentials/verify",
+                       "/agents/{agent_id}/badge.svg", "/attestations"):
+        assert advertised in openapi_paths, (
+            f"listing advertises a dead endpoint: {advertised}")
     # the whole publisher-provided blob stays under the registry's 4KB cap
     assert len(json.dumps(pp).encode()) < 4096
 

@@ -3,7 +3,18 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.0.1"   # PATCH (machine-visible semver, 2026-07-17):
+__version__ = "2.0.2"   # PATCH (machine-visible semver, 2026-07-23):
+                        # acquisition-only metadata release — the MCP Registry
+                        # listing becomes passport-first (free self-serve
+                        # Agent Passports: register → prove control → signed
+                        # portable credential → evidence → offline verify)
+                        # and the ai.agent-guild/payments block leaves the
+                        # registry discovery metadata (payment behaviour on
+                        # the service itself is UNCHANGED: same x402 gateway,
+                        # same priced operations, still declared in
+                        # contract.json and challenged honestly at call time).
+                        # No API behaviour changes.
+                        # History of 2.0.1 (2026-07-17):
                         # machine-integrity correction — adds the PUBLIC
                         # caller-proof (agent-guild/caller-proof/v1) and
                         # wallet-binding contracts to every surface, wires

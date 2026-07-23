@@ -137,9 +137,12 @@ def derived_server_json(contract: dict) -> dict:
         # 29274449452. Same identity as the published 1.0.0/1.1.0 listing.
         # See docs/CORRECTIONS_2026-07-14.md.
         "name": "io.github.AgentTanuki/agent-guild",
-        # registry schema caps description at 100 chars — keep this short
-        "description": ("Trust layer for AI agents: signed delegation "
-                        "decisions, passports, and 16 verified guest tools."),
+        # registry schema caps description at 100 chars — keep this short.
+        # Passport-first acquisition copy (programme 2026-07-23): the full
+        # proposition set (control proof, evidence, MCP/HTTP/A2A, no human or
+        # API key) lives in the publisher-provided passport block below.
+        "description": ("Free self-serve Agent Passports for AI agents: "
+                        "signed, portable, offline-verifiable credentials."),
         "version": s["version"],
         "repository": {"url": s["repository"], "source": "github"},
         "websiteUrl": s["host"],
@@ -150,28 +153,51 @@ def derived_server_json(contract: dict) -> dict:
         # dropped; 4KB limit). Our trust block therefore nests under it.
         "_meta": {
             "io.modelcontextprotocol.registry/publisher-provided": {
+                "ai.agent-guild/passport": _passport_meta(s),
                 "ai.agent-guild/trust": _trust_meta(s),
-                "ai.agent-guild/payments": _payments_meta(contract),
+                # NO ai.agent-guild/payments block (acquisition release
+                # 2026-07-23): the registry listing leads with the free
+                # passport; payment behaviour on the service is UNCHANGED and
+                # stays fully machine-declared in contract.json `payments` and
+                # honestly challenged (x402) at call time on priced
+                # operations. Discovery metadata simply no longer leads with
+                # it.
             },
         },
     }
 
 
-def _payments_meta(contract: dict) -> dict:
-    """Machine-readable payment declaration for the MCP Registry listing:
-    a consumer discovers BEFORE connecting that trust reads are x402-priced
-    and exactly which tools challenge for payment. Kept compact (the
-    registry's publisher-provided blob is limited to 4KB total)."""
-    p = contract["payments"]
+def _passport_meta(s: dict) -> dict:
+    """Passport-first acquisition block (programme 2026-07-23): the complete
+    self-serve path from discovery to a verified portable credential, using
+    ONLY real production endpoints — a machine reading the registry listing
+    can go register → prove → passport → verify without any other document.
+    Kept well under the registry's 4KB publisher-provided limit."""
+    h = s["host"]
     return {
-        "mechanism": p["mechanism"],
-        "x402_version": p["x402_version"],
-        "priced_mcp_tools": p["priced_mcp_tools"],
-        "pricing_credits": {op: v["credits"]
-                            for op, v in p["priced_operations"].items()},
-        "mcp_flow": p["transports"]["mcp"],
-        "sandbox": p["sandbox"],
-        "readiness": contract["service"]["host"] + "/x402/readiness",
+        "offer": ("Free, self-serve Agent Passport: register, prove control "
+                  "of your key, receive a Guild-signed portable credential, "
+                  "attach evidence-backed attestations, verify it offline. "
+                  "Works over MCP, HTTP and A2A. No human involved, no API "
+                  "key needed to start."),
+        "register": ("POST " + h + "/agents/register "
+                     '{"name": "<you>", "capabilities": ["..."], '
+                     '"src": "passport_offer:mcp_registry"} (free; returns '
+                     "your agent id + key)"),
+        "prove_start": "POST " + h + "/agents/{id}/prove",
+        "prove_verify": ("POST " + h + "/agents/{id}/prove/verify "
+                         "(success returns the full passport bundle: "
+                         "credential URL, verify call, badge, next evidence "
+                         "step)"),
+        "passport": "GET " + h + "/agents/{id}/passport (free, Guild-signed)",
+        "verify_credential": ("POST " + h + "/credentials/verify "
+                              '{"credential": <passport JSON>} — or offline '
+                              "against " + h +
+                              "/.well-known/agent-guild-did.json"),
+        "badge": "GET " + h + "/agents/{id}/badge.svg (live standing)",
+        "next_evidence": ("POST " + h + "/attestations (evidence-backed "
+                          "attestation; every authenticated response's "
+                          "guild_next names your exact next step)"),
     }
 
 
@@ -190,10 +216,10 @@ def _trust_meta(s: dict) -> dict:
                 "demand_feed": s["host"] + "/demand/feed",
                 "conformance": (s["repository"] + "/blob/main/live/"
                                 "trustplane/conformance/AGI1_CONFORMANCE.md"),
-                "note": ("Signed AGD-1 delegation decisions and offline-"
-                         "verifiable Agent Passports; callers own thresholds. "
-                         "Delegation gateway + framework interceptors: "
-                         "live/trustplane in the repository."),
+                "note": ("Offline-verifiable Agent Passports (see the "
+                         "ai.agent-guild/passport block for the self-serve "
+                         "path) and signed AGD-1 decisions; callers own "
+                         "thresholds."),
     }
 
 
