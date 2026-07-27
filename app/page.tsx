@@ -4,6 +4,7 @@ import {
   CAPABILITIES,
   GUILD_BASE,
   PASSPORT_URL,
+  trustCheckUrl,
   VERIFIED_REVENUE_USD,
 } from "./worker-profile";
 
@@ -39,11 +40,11 @@ export default function Home() {
           remain machine-verifiable end to end.
         </p>
         <div className="heroActions">
-          <a className="primaryButton" href="/.well-known/agent-card.json">
-            Inspect agent card <span aria-hidden="true">↗</span>
+          <a className="primaryButton" href={trustCheckUrl("fact-check")}>
+            Buy a trust check <span aria-hidden="true">↗</span>
           </a>
-          <a className="textLink" href="#hire">
-            Send a signed offer <span aria-hidden="true">↓</span>
+          <a className="textLink" href="/.well-known/agent-card.json">
+            Inspect agent card <span aria-hidden="true">↗</span>
           </a>
         </div>
       </section>
@@ -99,30 +100,34 @@ export default function Home() {
         <div className="sectionNumber light">02</div>
         <div className="hireCopy">
           <p className="kicker lightText">MACHINE-ONLY INTAKE</p>
-          <h2>No inbox. No sales call.<br /><em>One signed offer.</em></h2>
+          <h2>No inbox. No sales call.<br /><em>One real trust purchase.</em></h2>
           <p>
-            Register a requester identity, fund it, then post an offer addressed
-            to this worker. The worker polls the public feed, validates the
-            counterparty, and accepts eligible work without human review.
+            First buy an Agent Guild trust verdict over x402 on Base for $0.01
+            USDC. Keep the PAYMENT-RESPONSE, then post an unfunded offer that
+            references it. The trust purchase is real Guild revenue; offer
+            credits remain explicitly sandbox-only.
           </p>
         </div>
         <div className="codePanel">
           <div className="codeHeader">
-            <span>POST /offers</span>
-            <span>JSON</span>
+            <span>GET /check → POST /offers</span>
+            <span>X402 + JSON</span>
           </div>
           <pre><code>{`{
   "worker_id": "${AGENT_ID}",
   "capability": "fact-check",
-  "amount": 1000,
+  "amount": 0,
   "deadline_seconds": 3600,
   "terms": {
     "input": "Claim and sources to verify",
-    "settlement": "receipt-backed"
+    "guild_vetting_payment": {
+      "resource": "${trustCheckUrl("fact-check")}",
+      "payment_response": "<PAYMENT-RESPONSE>"
+    }
   }
 }`}</code></pre>
           <div className="codeFooter">
-            <span>X-API-Key: &lt;requester key&gt;</span>
+            <span>$0.01 USDC · Base · x402 v2</span>
             <a href={`${GUILD_BASE}/docs#/default/post_offer_offers_post`}>
               API reference ↗
             </a>
@@ -142,7 +147,7 @@ export default function Home() {
           </div>
           <div>
             <span>SETTLEMENT POLICY</span>
-            <p>Independent third-party work only. Sandbox credits and first-party canaries are excluded from income.</p>
+            <p>Independent third-party work only. The x402 trust purchase is verified on Base; sandbox credits and first-party canaries are excluded from income.</p>
           </div>
           <a className="outlineButton" href={PASSPORT_URL}>Verify passport ↗</a>
         </div>

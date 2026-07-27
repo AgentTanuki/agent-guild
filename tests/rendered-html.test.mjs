@@ -33,7 +33,8 @@ test("server-renders the worker identity and honest revenue state", async () => 
   assert.match(html, /EXTERNAL REVENUE/);
   assert.match(html, /\$0\.00/);
   assert.match(html, /Machine work/);
-  assert.match(html, /signed offer/i);
+  assert.match(html, /trust purchase/i);
+  assert.match(html, /&quot;amount&quot;: 0/);
 });
 
 test("publishes an A2A agent card", async () => {
@@ -44,15 +45,21 @@ test("publishes an A2A agent card", async () => {
   assert.equal(card.version, "1.0.0");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
+  assert.equal(card.agentGuild.commerce.paid_action.price_usd, 0.01);
+  assert.equal(
+    card.agentGuild.commerce.paid_action.network,
+    "eip155:8453",
+  );
   assert.deepEqual(
     card.skills.map((skill) => skill.id),
     ["fact-check", "code-review", "research"],
   );
 });
 
-test("publishes legacy and LLM discovery surfaces", async () => {
-  const [legacy, llms, robots, sitemap] = await Promise.all([
+test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
+  const [legacy, commerce, llms, robots, sitemap] = await Promise.all([
     render("/.well-known/agent.json"),
+    render("/commerce.json"),
     render("/llms.txt"),
     render("/robots.txt"),
     render("/sitemap.xml"),
@@ -63,11 +70,23 @@ test("publishes legacy and LLM discovery surfaces", async () => {
   assert.equal(legacyCard.agentGuild.agent_id, "agent_c7d2e902dc50");
   assert.equal(legacyCard.version, "1.0.0");
 
+  assert.equal(commerce.status, 200);
+  const catalog = await commerce.json();
+  assert.equal(catalog.paid_action.protocol, "x402-v2");
+  assert.equal(catalog.paid_action.price.amount, 0.01);
+  assert.equal(catalog.work_intake.template.amount, 0);
+  assert.match(
+    catalog.paid_action.endpoints["fact-check"],
+    /\/check\?capability=fact-check$/,
+  );
+
   assert.equal(llms.status, 200);
   assert.match(llms.headers.get("content-type") ?? "", /^text\/plain\b/i);
   const llmsText = await llms.text();
   assert.match(llmsText, /Agent Guild worker/);
   assert.match(llmsText, /POST https:\/\/agent-guild-5d5r\.onrender\.com\/offers/);
+  assert.match(llmsText, /\$0\.01 USDC/);
+  assert.match(llmsText, /PAYMENT-RESPONSE/);
   assert.match(llmsText, /agent_c7d2e902dc50/);
 
   assert.equal(robots.status, 200);
@@ -76,6 +95,7 @@ test("publishes legacy and LLM discovery surfaces", async () => {
   assert.equal(sitemap.status, 200);
   assert.match(sitemap.headers.get("content-type") ?? "", /^application\/xml\b/i);
   assert.match(await sitemap.text(), /\/\.well-known\/agent-card\.json/);
+  assert.match(await (await render("/sitemap.xml")).text(), /\/commerce\.json/);
 });
 
 test("answers A2A message/send with signed-offer instructions", async () => {
@@ -115,6 +135,13 @@ test("answers A2A message/send with signed-offer instructions", async () => {
   const message = JSON.parse(payload.result.parts[0].text);
   assert.equal(message.kind, "signed_offer_intake");
   assert.equal(message.requested_capability, "fact-check");
+  assert.equal(message.paid_action.protocol, "x402-v2");
+  assert.equal(message.paid_action.price.amount, 0.01);
+  assert.equal(message.next_action.body.amount, 0);
+  assert.match(
+    message.next_action.body.terms.guild_vetting_payment.resource,
+    /capability=fact-check$/,
+  );
   assert.equal(message.next_action.body.worker_id, "agent_c7d2e902dc50");
   assert.match(message.next_action.call, /\/offers$/);
 });

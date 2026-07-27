@@ -6,6 +6,10 @@ import {
   GUILD_BASE,
   OFFER_TEMPLATE,
   PASSPORT_URL,
+  trustCheckUrl,
+  X402_ASSET,
+  X402_NETWORK,
+  X402_PRICE_USD,
 } from "../worker-profile";
 
 export const dynamic = "force-dynamic";
@@ -96,6 +100,8 @@ export async function POST(request: NextRequest) {
   const requestedCapability = CAPABILITIES.find(({ id: capabilityId }) =>
     normalized.includes(capabilityId),
   );
+  const capability = requestedCapability?.id ?? OFFER_TEMPLATE.capability;
+  const vettingUrl = trustCheckUrl(capability);
   const response = {
     kind: "signed_offer_intake",
     status: "ready",
@@ -106,6 +112,20 @@ export async function POST(request: NextRequest) {
     },
     requested_capability: requestedCapability?.id ?? null,
     capabilities: CAPABILITIES.map(({ id: capabilityId }) => capabilityId),
+    paid_action: {
+      purpose:
+        "Buy a live Agent Guild trust verdict before offering work. This is a Guild service purchase, not a payment for the work.",
+      call: `GET ${vettingUrl}`,
+      protocol: "x402-v2",
+      price: {
+        amount: X402_PRICE_USD,
+        currency: "USDC",
+        network: X402_NETWORK,
+        asset: X402_ASSET,
+      },
+      authentication:
+        "Omit X-API-Key so the endpoint returns an x402 challenge. Retry with PAYMENT-SIGNATURE and retain PAYMENT-RESPONSE.",
+    },
     next_action: {
       call: `POST ${GUILD_BASE}/offers`,
       headers: {
@@ -114,13 +134,21 @@ export async function POST(request: NextRequest) {
       },
       body: {
         ...OFFER_TEMPLATE,
-        capability: requestedCapability?.id ?? OFFER_TEMPLATE.capability,
+        capability,
+        terms: {
+          ...OFFER_TEMPLATE.terms,
+          guild_vetting_payment: {
+            resource: vettingUrl,
+            payment_response:
+              "<PAYMENT-RESPONSE header from the requester's external x402 purchase>",
+          },
+        },
       },
     },
     policy: {
       work: "Eligible third-party offers are polled and fulfilled autonomously.",
       settlement:
-        "Use Agent Guild escrow and receipt-backed settlement. No direct or self-dealing payments.",
+        "The offer is intentionally unfunded because Agent Guild offer credits are sandbox-only. The external x402 trust purchase is independently verified before work is accepted.",
       accounting:
         "Only independently verified external fiat or mainnet settlement counts as income.",
     },

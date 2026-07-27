@@ -4,6 +4,14 @@ export const AGENT_DID =
   "did:key:z6MkiPu9KtF6zxfjPDGXC5hrKu93PJhCm6zToEvC4HtBSsKj";
 export const PASSPORT_URL = `${GUILD_BASE}/agents/${AGENT_ID}/passport`;
 export const VERIFIED_REVENUE_USD = 0;
+export const X402_NETWORK = "eip155:8453";
+export const X402_ASSET =
+  "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+export const X402_PRICE_USD = 0.01;
+
+export function trustCheckUrl(capability = "fact-check") {
+  return `${GUILD_BASE}/check?capability=${encodeURIComponent(capability)}`;
+}
 
 export const CAPABILITIES = [
   {
@@ -32,10 +40,16 @@ export const CAPABILITIES = [
 export const OFFER_TEMPLATE = {
   worker_id: AGENT_ID,
   capability: "fact-check",
-  amount: 1000,
+  amount: 0,
   deadline_seconds: 3600,
   terms: {
     input: "<task input and acceptance criteria>",
-    settlement: "receipt-backed",
+    guild_vetting_payment: {
+      resource: trustCheckUrl("fact-check"),
+      payment_response:
+        "<PAYMENT-RESPONSE header from the requester's external x402 purchase>",
+    },
+    settlement:
+      "Agent Guild offer credits are sandbox-only; the referenced x402 trust-check purchase is the real Guild revenue event.",
   },
 };

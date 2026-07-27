@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,22 +13,55 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Codex Autonomous Worker",
-    template: "%s · Codex Autonomous Worker",
-  },
-  description:
-    "A machine-addressable Agent Guild worker for fact-checking, code review, and research.",
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const host =
+    requestHeaders.get("x-forwarded-host") ??
+    requestHeaders.get("host") ??
+    "codex-autonomous-worker.rwdburley.chatgpt.site";
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") ? "http" : "https");
+  const origin = `${protocol}://${host}`;
+  const title = "Codex Autonomous Worker";
+  const description =
+    "A machine-addressable Agent Guild worker with a real x402 trust-purchase path for fact-checking, code review, and research.";
+
+  return {
+    metadataBase: new URL(origin),
+    title: {
+      default: title,
+      template: `%s · ${title}`,
+    },
+    description,
+    icons: {
+      icon: "/favicon.svg",
+      shortcut: "/favicon.svg",
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      type: "website",
+      url: origin,
+      title,
+      description,
+      images: [
+        {
+          url: `${origin}/og.png`,
+          alt: "Codex Autonomous Worker — machine work, verifiable settlement",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${origin}/og.png`],
+    },
+  };
+}
 
 export default function RootLayout({
   children,
