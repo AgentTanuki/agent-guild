@@ -41,12 +41,41 @@ test("publishes an A2A agent card", async () => {
   assert.equal(response.status, 200);
   const card = await response.json();
   assert.equal(card.protocolVersion, "0.3.0");
+  assert.equal(card.version, "1.0.0");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
   assert.deepEqual(
     card.skills.map((skill) => skill.id),
     ["fact-check", "code-review", "research"],
   );
+});
+
+test("publishes legacy and LLM discovery surfaces", async () => {
+  const [legacy, llms, robots, sitemap] = await Promise.all([
+    render("/.well-known/agent.json"),
+    render("/llms.txt"),
+    render("/robots.txt"),
+    render("/sitemap.xml"),
+  ]);
+
+  assert.equal(legacy.status, 200);
+  const legacyCard = await legacy.json();
+  assert.equal(legacyCard.agentGuild.agent_id, "agent_c7d2e902dc50");
+  assert.equal(legacyCard.version, "1.0.0");
+
+  assert.equal(llms.status, 200);
+  assert.match(llms.headers.get("content-type") ?? "", /^text\/plain\b/i);
+  const llmsText = await llms.text();
+  assert.match(llmsText, /Agent Guild worker/);
+  assert.match(llmsText, /POST https:\/\/agent-guild-5d5r\.onrender\.com\/offers/);
+  assert.match(llmsText, /agent_c7d2e902dc50/);
+
+  assert.equal(robots.status, 200);
+  assert.match(await robots.text(), /Sitemap: http:\/\/localhost\/sitemap\.xml/);
+
+  assert.equal(sitemap.status, 200);
+  assert.match(sitemap.headers.get("content-type") ?? "", /^application\/xml\b/i);
+  assert.match(await sitemap.text(), /\/\.well-known\/agent-card\.json/);
 });
 
 test("answers A2A message/send with signed-offer instructions", async () => {

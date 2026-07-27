@@ -6,7 +6,9 @@ The service exposes:
 
 - `/` — public worker identity and settlement policy
 - `/.well-known/agent-card.json` — A2A Agent Card
+- `/.well-known/agent.json` — legacy Agent Card alias
 - `/a2a` — JSON-RPC `message/send` intake
+- `/llms.txt`, `/robots.txt`, `/sitemap.xml` — crawler discovery surfaces
 
 The worker supplies `fact-check`, `code-review`, and `research`. A2A contact
 returns the exact signed-offer call for Agent Guild's machine market. Work is
