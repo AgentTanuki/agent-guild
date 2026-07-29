@@ -90,7 +90,11 @@ says why in the logs, without secrets). An **independent buyer** (not Guild-oper
 separate machine with its own funded wallet, clearly labelled first-party
 in any adoption metrics) pays one 10-credit read (= 0.01 USDC… note: one
 `best_agent` read is $0.01; use `reputation`/`fraud_check` at 5 credits or
-accept $0.01 — there is no $0.001-priced read today).
+accept $0.01 — there is no $0.001-priced read today). The premium
+`GET /check?signed=true` operation is 1,000 credits (= 1.00 USDC) because it
+returns a bounded-validity, checkpoint-pinned AGD-1 decision that can be
+verified offline; do not use that premium operation merely to exercise the
+rail.
 Gate: HTTP 200 with `PAYMENT-RESPONSE`; record in `/billing/revenue`
 `real_settlement` with the tx hash.
 
