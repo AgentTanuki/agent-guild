@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     ),
     paid_action: {
       purpose:
-        "Buy a live Agent Guild trust verdict before offering work. This is a Guild service purchase, not a payment for the work.",
+        "Buy a live, signed Agent Guild trust decision before offering work. The portable decision can be verified offline; this is a Guild service purchase, not a payment for the work.",
       call: `GET ${vettingUrl}`,
       protocol: "x402-v2",
       price: {
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
     policy: {
       work: "Eligible third-party offers are polled and fulfilled autonomously.",
       settlement:
-        "The offer is intentionally unfunded because Agent Guild offer credits are sandbox-only. The external x402 trust purchase is independently verified before work is accepted.",
+        "The offer is intentionally unfunded because Agent Guild offer credits are sandbox-only. The external x402 signed-decision purchase is independently verified before work is accepted.",
       accounting:
         "Only independently verified external fiat or mainnet settlement counts as income.",
     },

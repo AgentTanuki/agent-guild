@@ -42,10 +42,10 @@ test("publishes an A2A agent card", async () => {
   assert.equal(response.status, 200);
   const card = await response.json();
   assert.equal(card.protocolVersion, "0.3.0");
-  assert.equal(card.version, "1.0.0");
+  assert.equal(card.version, "1.1.0");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
-  assert.equal(card.agentGuild.commerce.paid_action.price_usd, 0.01);
+  assert.equal(card.agentGuild.commerce.paid_action.price_usd, 1);
   assert.equal(
     card.agentGuild.commerce.paid_action.network,
     "eip155:8453",
@@ -75,24 +75,24 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   assert.equal(legacy.status, 200);
   const legacyCard = await legacy.json();
   assert.equal(legacyCard.agentGuild.agent_id, "agent_c7d2e902dc50");
-  assert.equal(legacyCard.version, "1.0.0");
+  assert.equal(legacyCard.version, "1.1.0");
 
   assert.equal(commerce.status, 200);
   const catalog = await commerce.json();
   assert.equal(catalog.paid_action.protocol, "x402-v2");
-  assert.equal(catalog.paid_action.price.amount, 0.01);
+  assert.equal(catalog.paid_action.price.amount, 1);
   assert.equal(catalog.work_intake.template.amount, 0);
   assert.match(
     catalog.paid_action.endpoints["fact-check"],
-    /\/check\?capability=fact-check$/,
+    /\/check\?capability=fact-check&signed=true&ttl_seconds=3600$/,
   );
   assert.match(
     catalog.paid_action.endpoints.coding,
-    /\/check\?capability=coding$/,
+    /\/check\?capability=coding&signed=true&ttl_seconds=3600$/,
   );
   assert.match(
     catalog.paid_action.endpoints["web-research"],
-    /\/check\?capability=web-research$/,
+    /\/check\?capability=web-research&signed=true&ttl_seconds=3600$/,
   );
 
   assert.equal(llms.status, 200);
@@ -100,7 +100,9 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   const llmsText = await llms.text();
   assert.match(llmsText, /Agent Guild worker/);
   assert.match(llmsText, /POST https:\/\/agent-guild-5d5r\.onrender\.com\/offers/);
-  assert.match(llmsText, /\$0\.01 USDC/);
+  assert.match(llmsText, /\$1\.00 USDC/);
+  assert.match(llmsText, /offline-verifiable/);
+  assert.match(llmsText, /signed=true&ttl_seconds=3600/);
   assert.match(llmsText, /PAYMENT-RESPONSE/);
   assert.match(llmsText, /agent_c7d2e902dc50/);
   assert.match(llmsText, /coding:/);
@@ -153,11 +155,11 @@ test("answers A2A message/send with signed-offer instructions", async () => {
   assert.equal(message.kind, "signed_offer_intake");
   assert.equal(message.requested_capability, "fact-check");
   assert.equal(message.paid_action.protocol, "x402-v2");
-  assert.equal(message.paid_action.price.amount, 0.01);
+  assert.equal(message.paid_action.price.amount, 1);
   assert.equal(message.next_action.body.amount, 0);
   assert.match(
     message.next_action.body.terms.guild_vetting_payment.resource,
-    /capability=fact-check$/,
+    /capability=fact-check&signed=true&ttl_seconds=3600$/,
   );
   assert.equal(message.next_action.body.worker_id, "agent_c7d2e902dc50");
   assert.match(message.next_action.call, /\/offers$/);
@@ -202,6 +204,6 @@ test("routes exact unmet-demand aliases into the signed-offer flow", async () =>
   assert.equal(message.next_action.body.capability, "coding");
   assert.match(
     message.paid_action.call,
-    /\/check\?capability=coding$/,
+    /\/check\?capability=coding&signed=true&ttl_seconds=3600$/,
   );
 });

@@ -7,10 +7,11 @@ export const VERIFIED_REVENUE_USD = 0;
 export const X402_NETWORK = "eip155:8453";
 export const X402_ASSET =
   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-export const X402_PRICE_USD = 0.01;
+export const X402_PRICE_USD = 1;
+export const X402_TTL_SECONDS = 3600;
 
 export function trustCheckUrl(capability = "fact-check") {
-  return `${GUILD_BASE}/check?capability=${encodeURIComponent(capability)}`;
+  return `${GUILD_BASE}/check?capability=${encodeURIComponent(capability)}&signed=true&ttl_seconds=${X402_TTL_SECONDS}`;
 }
 
 export const CAPABILITIES = [

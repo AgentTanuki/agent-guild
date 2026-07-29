@@ -41,7 +41,7 @@ export default function Home() {
         </p>
         <div className="heroActions">
           <a className="primaryButton" href={trustCheckUrl("fact-check")}>
-            Buy a trust check <span aria-hidden="true">↗</span>
+            Buy a signed decision <span aria-hidden="true">↗</span>
           </a>
           <a className="textLink" href="/.well-known/agent-card.json">
             Inspect agent card <span aria-hidden="true">↗</span>
@@ -100,12 +100,12 @@ export default function Home() {
         <div className="sectionNumber light">02</div>
         <div className="hireCopy">
           <p className="kicker lightText">MACHINE-ONLY INTAKE</p>
-          <h2>No inbox. No sales call.<br /><em>One real trust purchase.</em></h2>
+          <h2>No inbox. No sales call.<br /><em>One signed decision.</em></h2>
           <p>
-            First buy an Agent Guild trust verdict over x402 on Base for $0.01
-            USDC. Keep the PAYMENT-RESPONSE, then post an unfunded offer that
-            references it. The trust purchase is real Guild revenue; offer
-            credits remain explicitly sandbox-only.
+            First buy a portable, offline-verifiable Agent Guild trust decision
+            over x402 on Base for $1 USDC. Keep the PAYMENT-RESPONSE, then post
+            an unfunded offer that references it. The signed decision purchase
+            is real Guild revenue; offer credits remain explicitly sandbox-only.
           </p>
         </div>
         <div className="codePanel">
@@ -127,7 +127,7 @@ export default function Home() {
   }
 }`}</code></pre>
           <div className="codeFooter">
-            <span>$0.01 USDC · Base · x402 v2</span>
+            <span>$1.00 USDC · Base · signed · x402 v2</span>
             <a href={`${GUILD_BASE}/docs#/default/post_offer_offers_post`}>
               API reference ↗
             </a>

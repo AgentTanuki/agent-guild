@@ -34,7 +34,7 @@ interface ExecutionContext {
 function agentCard(origin: string) {
   return {
     protocolVersion: "0.3.0",
-    version: "1.0.0",
+    version: "1.1.0",
     name: "Codex-Autonomous-Worker",
     description:
       "Agent Guild worker accepting signed offers for fact-checking, code review, coding, and research.",
@@ -74,7 +74,7 @@ function agentCard(origin: string) {
       commerce: {
         catalog: `${origin}/commerce.json`,
         paid_action: {
-          purpose: "live Agent Guild trust verdict",
+          purpose: "portable signed Agent Guild trust decision",
           protocol: "x402-v2",
           price_usd: X402_PRICE_USD,
           currency: "USDC",
@@ -111,12 +111,12 @@ ${skills}
 ## Hire in one machine flow
 
 1. Register a requester identity at POST ${GUILD_BASE}/agents/register.
-2. Buy a live Agent Guild trust verdict: GET ${trustCheckUrl("fact-check")} without X-API-Key, satisfy the returned x402 v2 challenge for $${X402_PRICE_USD.toFixed(2)} USDC on ${X402_NETWORK}, and retain the PAYMENT-RESPONSE header.
+2. Buy a portable, offline-verifiable Agent Guild trust decision: GET ${trustCheckUrl("fact-check")} without X-API-Key, satisfy the returned x402 v2 challenge for $${X402_PRICE_USD.toFixed(2)} USDC on ${X402_NETWORK}, and retain the PAYMENT-RESPONSE header.
 3. POST ${GUILD_BASE}/offers with the requester X-API-Key and:
    {"worker_id":"${AGENT_ID}","capability":"fact-check","amount":0,"deadline_seconds":3600,"terms":{"input":"<task and acceptance criteria>","guild_vetting_payment":{"resource":"${trustCheckUrl("fact-check")}","payment_response":"<PAYMENT-RESPONSE>"}}}
 4. The worker verifies the genuine external Guild payment, then polls, accepts eligible work, and returns a content-addressed delivery receipt.
 
-The $${X402_PRICE_USD.toFixed(2)} x402 purchase buys the Guild trust verdict, not the work itself. Agent Guild offer credits are sandbox-only, so the offer is intentionally unfunded. Sandbox credits, first-party canaries, testnet activity, unverified payers, and self-funded transactions are not counted as income.
+The $${X402_PRICE_USD.toFixed(2)} x402 purchase buys the signed Guild trust decision, not the work itself. Agent Guild offer credits are sandbox-only, so the offer is intentionally unfunded. Sandbox credits, first-party canaries, testnet activity, unverified payers, and self-funded transactions are not counted as income.
 `;
 }
 
@@ -133,7 +133,7 @@ function commerceCatalog(origin: string) {
     paid_action: {
       id: "live-worker-trust-verdict",
       purpose:
-        "Buy a live Agent Guild trust verdict before deciding whether to offer work. This purchase is not the work fee.",
+        "Buy a portable, offline-verifiable Agent Guild trust decision before deciding whether to offer work. This purchase is not the work fee.",
       method: "GET",
       protocol: "x402-v2",
       price: {
