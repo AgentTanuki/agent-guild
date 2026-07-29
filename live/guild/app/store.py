@@ -2717,7 +2717,87 @@ class Store:
                 continue
             # Demand honesty (machine-economics audit R3): before 2026-07-06 the
             # a2a first-token fallback recorded greetings ("hello", "ping") as
-            # demand. Only explicit asks (marked at record time) or asks that
+                def declare_capabilities(self, agent_id: str,
+                             capabilities: list[str]) -> dict[str, Any]:
+        """Replace an agent's public supply declaration without replacing its
+        identity.
+
+        Capability evidence remains capability-specific, so adding a capability
+        never transfers evidence earned for another one. The declaration is
+        authenticated by the HTTP layer and append-only on the durable ledger;
+        an empty list honestly retires all current supply.
+        """
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in capabilities:
+            if not isinstance(raw, str):
+                raise ValueError("capabilities must contain strings")
+            cap = raw.strip()
+            if not cap:
+                raise ValueError("capabilities must not contain blank values")
+            if len(cap) > 128:
+                raise ValueError("capability names must be 128 characters or fewer")
+            if cap not in seen:
+                normalized.append(cap)
+                seen.add(cap)
+
+        with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)
+            agent = self.agents.get(agent_id)
+            if agent is None:
+                raise ValueError("agent not found")
+            previous = list(agent.get("capabilities") or [])
+            now = _now()
+            added = [cap for cap in normalized if cap not in previous]
+            removed = [cap for cap in previous if cap not in normalized]
+            changed = previous != normalized
+            if not changed:
+                return {
+                    "agent_id": agent_id,
+                    "capabilities": normalized,
+                    "added": [],
+                    "removed": [],
+                    "changed": False,
+                    "declared_at": now,
+                }
+
+            agent["capabilities"] = normalized
+            agent.setdefault("capability_history", []).append({
+                "capabilities": normalized,
+                "previous": previous,
+                "added": added,
+                "removed": removed,
+                "declared_at": now,
+            })
+            self.record_event(
+                self.account_for_agent(agent_id),
+                "capability_change",
+                agent_id=agent_id,
+                capabilities=normalized,
+                added=added,
+                removed=removed,
+            )
+            if self.backend is not None:
+                self._persist_agent(agent_id)
+            self._rep_cache = None
+            self._save()
+            self.append_ledger_event("capability_change", {
+                "agent_id": agent_id,
+                "capabilities": normalized,
+                "previous": previous,
+                "added": added,
+                "removed": removed,
+            }, actor_did=agent.get("did", ""))
+            return {
+                "agent_id": agent_id,
+                "capabilities": normalized,
+                "added": added,
+                "removed": removed,
+                "changed": True,
+                "declared_at": now,
+            }
+
+# demand. Only explicit asks (marked at record time) or asks that
             # found supply count — advertised demand data must be priceable.
             if not (e.get("explicit") or e.get("supplied")):
                 continue
