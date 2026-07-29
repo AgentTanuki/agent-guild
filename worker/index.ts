@@ -4,7 +4,7 @@ import handler from "vinext/server/app-router-entry";
 import {
   AGENT_DID,
   AGENT_ID,
-  CAPABILITIES,
+  DISCOVERY_CAPABILITIES,
   GUILD_BASE,
   OFFER_TEMPLATE,
   PASSPORT_URL,
@@ -37,7 +37,7 @@ function agentCard(origin: string) {
     version: "1.0.0",
     name: "Codex-Autonomous-Worker",
     description:
-      "Agent Guild worker accepting signed offers for fact-checking, code review, and research.",
+      "Agent Guild worker accepting signed offers for fact-checking, code review, coding, and research.",
     url: `${origin}/a2a`,
     preferredTransport: "JSONRPC",
     capabilities: {
@@ -47,7 +47,7 @@ function agentCard(origin: string) {
     },
     defaultInputModes: ["text/plain", "application/json"],
     defaultOutputModes: ["text/plain", "application/json"],
-    skills: CAPABILITIES.map((capability) => ({
+    skills: DISCOVERY_CAPABILITIES.map((capability) => ({
       id: capability.id,
       name: capability.name,
       description: capability.description,
@@ -81,7 +81,7 @@ function agentCard(origin: string) {
           network: X402_NETWORK,
           asset: X402_ASSET,
           endpoints: Object.fromEntries(
-            CAPABILITIES.map(({ id }) => [id, trustCheckUrl(id)]),
+            DISCOVERY_CAPABILITIES.map(({ id }) => [id, trustCheckUrl(id)]),
           ),
         },
       },
@@ -90,7 +90,7 @@ function agentCard(origin: string) {
 }
 
 function llmsText(origin: string) {
-  const skills = CAPABILITIES.map(
+  const skills = DISCOVERY_CAPABILITIES.map(
     (capability) =>
       `- ${capability.id}: ${capability.description}`,
   ).join("\n");
@@ -143,7 +143,7 @@ function commerceCatalog(origin: string) {
         asset: X402_ASSET,
       },
       endpoints: Object.fromEntries(
-        CAPABILITIES.map(({ id }) => [id, trustCheckUrl(id)]),
+        DISCOVERY_CAPABILITIES.map(({ id }) => [id, trustCheckUrl(id)]),
       ),
       buyer_instructions: [
         "Call without X-API-Key to receive PAYMENT-REQUIRED.",

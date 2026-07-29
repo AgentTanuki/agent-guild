@@ -52,7 +52,14 @@ test("publishes an A2A agent card", async () => {
   );
   assert.deepEqual(
     card.skills.map((skill) => skill.id),
-    ["fact-check", "code-review", "research"],
+    [
+      "fact-check",
+      "code-review",
+      "research",
+      "coding",
+      "web-research",
+      "code_review",
+    ],
   );
 });
 
@@ -79,6 +86,14 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
     catalog.paid_action.endpoints["fact-check"],
     /\/check\?capability=fact-check$/,
   );
+  assert.match(
+    catalog.paid_action.endpoints.coding,
+    /\/check\?capability=coding$/,
+  );
+  assert.match(
+    catalog.paid_action.endpoints["web-research"],
+    /\/check\?capability=web-research$/,
+  );
 
   assert.equal(llms.status, 200);
   assert.match(llms.headers.get("content-type") ?? "", /^text\/plain\b/i);
@@ -88,6 +103,8 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   assert.match(llmsText, /\$0\.01 USDC/);
   assert.match(llmsText, /PAYMENT-RESPONSE/);
   assert.match(llmsText, /agent_c7d2e902dc50/);
+  assert.match(llmsText, /coding:/);
+  assert.match(llmsText, /web-research:/);
 
   assert.equal(robots.status, 200);
   assert.match(await robots.text(), /Sitemap: http:\/\/localhost\/sitemap\.xml/);
@@ -144,4 +161,47 @@ test("answers A2A message/send with signed-offer instructions", async () => {
   );
   assert.equal(message.next_action.body.worker_id, "agent_c7d2e902dc50");
   assert.match(message.next_action.call, /\/offers$/);
+});
+
+test("routes exact unmet-demand aliases into the signed-offer flow", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("alias", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const response = await worker.fetch(
+    new Request("http://localhost/a2a", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "alias-1",
+        method: "message/send",
+        params: {
+          message: {
+            role: "user",
+            messageId: "test-alias-1",
+            parts: [{ kind: "text", text: "coding offer" }],
+          },
+        },
+      }),
+    }),
+    {
+      ASSETS: {
+        fetch: async () => new Response("Not found", { status: 404 }),
+      },
+    },
+    {
+      waitUntil() {},
+      passThroughOnException() {},
+    },
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  const message = JSON.parse(payload.result.parts[0].text);
+  assert.equal(message.requested_capability, "coding");
+  assert.equal(message.next_action.body.capability, "coding");
+  assert.match(
+    message.paid_action.call,
+    /\/check\?capability=coding$/,
+  );
 });

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   AGENT_DID,
   AGENT_ID,
-  CAPABILITIES,
+  DISCOVERY_CAPABILITIES,
   GUILD_BASE,
   OFFER_TEMPLATE,
   PASSPORT_URL,
@@ -44,7 +44,7 @@ export function GET() {
     agent_id: AGENT_ID,
     did: AGENT_DID,
     passport: PASSPORT_URL,
-    capabilities: CAPABILITIES.map(({ id }) => id),
+    capabilities: DISCOVERY_CAPABILITIES.map(({ id }) => id),
   });
 }
 
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
   }
 
   const normalized = text.toLowerCase();
-  const requestedCapability = CAPABILITIES.find(({ id: capabilityId }) =>
+  const requestedCapability = DISCOVERY_CAPABILITIES.find(({ id: capabilityId }) =>
     normalized.includes(capabilityId),
   );
   const capability = requestedCapability?.id ?? OFFER_TEMPLATE.capability;
@@ -111,7 +111,9 @@ export async function POST(request: NextRequest) {
       passport: PASSPORT_URL,
     },
     requested_capability: requestedCapability?.id ?? null,
-    capabilities: CAPABILITIES.map(({ id: capabilityId }) => capabilityId),
+    capabilities: DISCOVERY_CAPABILITIES.map(
+      ({ id: capabilityId }) => capabilityId,
+    ),
     paid_action: {
       purpose:
         "Buy a live Agent Guild trust verdict before offering work. This is a Guild service purchase, not a payment for the work.",

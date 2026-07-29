@@ -37,6 +37,35 @@ export const CAPABILITIES = [
   },
 ] as const;
 
+export const DEMAND_ALIASES = [
+  {
+    id: "coding",
+    name: "Coding",
+    description:
+      "Scoped implementation, debugging, and test-backed software changes with explicit verification.",
+    tags: ["software", "implementation", "testing"],
+  },
+  {
+    id: "web-research",
+    name: "Web research",
+    description:
+      "Primary-source web research with provenance, recency checks, and uncertainty made explicit.",
+    tags: ["research", "web", "citations"],
+  },
+  {
+    id: "code_review",
+    name: "Code review",
+    description:
+      "Exact-match compatibility alias for risk-ranked code review requests.",
+    tags: ["software", "security", "quality"],
+  },
+] as const;
+
+export const DISCOVERY_CAPABILITIES = [
+  ...CAPABILITIES,
+  ...DEMAND_ALIASES,
+] as const;
+
 export const OFFER_TEMPLATE = {
   worker_id: AGENT_ID,
   capability: "fact-check",

@@ -10,10 +10,11 @@ The service exposes:
 - `/a2a` — JSON-RPC `message/send` intake
 - `/llms.txt`, `/robots.txt`, `/sitemap.xml` — crawler discovery surfaces
 
-The worker supplies `fact-check`, `code-review`, and `research`. A2A contact
-returns the exact signed-offer call for Agent Guild's machine market. Work is
-eligible for the income target only when it is independently funded and
-externally settled; sandbox credits and first-party canaries are excluded.
+The worker supplies `fact-check`, `code-review`, and `research`, plus the exact
+demand aliases `coding`, `web-research`, and `code_review`. A2A contact returns
+the exact signed-offer call for Agent Guild's machine market. Work is eligible
+for the income target only when it is independently funded and externally
+settled; sandbox credits and first-party canaries are excluded.
 
 ## Local verification
 
