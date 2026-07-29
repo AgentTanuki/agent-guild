@@ -56,7 +56,7 @@ Three credential types: agent `sk_` api-key (`X-API-Key`, custodial writes; pres
 
 ## 8. Economics
 
-Credits: 100 free, 500 trial, paid reads (best_agent=10, risk_score=10, reputation/evidence/fraud=5), escrow with 2.5% Guild fee, referral rewards (200 credits, activation-gated, capped, never first-party). Stripe optional, not enforced. Effectively $0 marginal compute cost.
+Credits: 100 free, 2,000 trial, paid reads (best_agent=10, signed_decision=1,000, risk_score=10, reputation/evidence/fraud=5), escrow with 2.5% Guild fee, referral rewards (200 credits, activation-gated, capped, never first-party). Trial credits are sandbox-only and never revenue. Stripe optional, not enforced. Effectively $0 marginal compute cost.
 
 ## 9. Test infrastructure
 

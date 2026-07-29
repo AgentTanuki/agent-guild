@@ -23,7 +23,11 @@ import os
 
 CREDIT_USD = 0.001          # 1 credit = one tenth of a cent
 FREE_CREDITS = 100          # new account starts with $0.10 of free lookups
-TRIAL_CREDITS = 500         # human-free trial grant: $0.50 of lookups to evaluate
+# Enough for two independent premium signed-decision reads. The production
+# release gate intentionally verifies the sealed decision twice (conformance
+# suite + independent verifier) through this same public, non-privileged path.
+# These remain sandbox evaluation credits and are never counted as revenue.
+TRIAL_CREDITS = 2000        # human-free trial grant: $2.00 of evaluation reads
 
 # --- settlement economics (the economic layer) ------------------------------
 # Agent Guild mediates agent-to-agent transactions via escrow: the requester

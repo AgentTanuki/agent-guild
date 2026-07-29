@@ -9,6 +9,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+from app.billing import FREE_CREDITS, PRICING, TRIAL_CREDITS
+
 
 _PATH = Path(__file__).resolve().parents[2] / "scripts" / "release_gate.py"
 _SPEC = importlib.util.spec_from_file_location("release_gate_under_test", _PATH)
@@ -61,3 +63,11 @@ def test_metered_get_carries_ephemeral_machine_key(monkeypatch):
 
     assert out == {"verified": True}
     assert seen[0].get_header("X-api-key") == "ak_ephemeral_secret"
+
+
+def test_public_trial_covers_both_independent_signed_release_checks():
+    """The gate performs one live AGI-1 conformance fetch and one independent
+    signed-decision verification. Its ordinary trial account must fund both;
+    a privileged CI bypass would make the production check economically false.
+    """
+    assert FREE_CREDITS + TRIAL_CREDITS >= 2 * PRICING["signed_decision"]

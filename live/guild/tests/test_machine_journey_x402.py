@@ -56,7 +56,8 @@ def test_clean_client_full_journey(clean_market):
     trial_path = manifest["economics"]["acquire_credits"]["trial"]["path"]
     trial = client.post(trial_path)
     assert trial.status_code == 200
-    key = trial.json()["key"]
+    trial_body = trial.json()
+    key = trial_body["key"]
     assert agent["id"]  # identity provisioned in step 2 (no human involved)
 
     # 4. CHECK TRUST on the trial balance.
@@ -65,9 +66,13 @@ def test_clean_client_full_journey(clean_market):
     assert r.status_code == 200
 
     # 5. RECEIVE 402 WHEN APPROPRIATE — drain the trial; the 402 carries the
-    # standards-compliant v2 challenge.
+    # standards-compliant v2 challenge. Derive the bound from the service's
+    # own advertised balance and price so changing the evaluation budget does
+    # not silently turn this black-box journey into a partial drain.
     challenge = None
-    for _ in range(200):
+    basic_cost = manifest["economics"]["pricing_credits"]["best_agent"]
+    max_reads_to_402 = trial_body["balance"] // basic_cost + 2
+    for _ in range(max_reads_to_402):
         r = client.get("/check?capability=journey.test",
                        headers={"X-API-Key": key})
         if r.status_code == 402:
