@@ -134,7 +134,7 @@ class CollaborationRecord:
 GENERIC_ENTRY_TYPES = (
     "register",        # an identity joined (public fields only — never keys)
     "config_change",   # a declared behavioral-configuration change (§7.3)
-     "capability_change",  # authenticated supply declaration; history is append-only
+    "capability_change",  # authenticated supply declaration; history is append-only
     "receipt",         # a task receipt landed (raw event; provenance composed later)
     "attestation",     # an attestation was recorded (body carries credential hash)
     "escrow_event",    # escrow opened / released / refunded / disputed
