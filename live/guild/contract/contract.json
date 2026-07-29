@@ -210,6 +210,12 @@
    "methods": [
     "POST"
    ],
+   "path": "/agents/{agent_id}/capabilities"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
    "path": "/agents/{agent_id}/configuration"
   },
   {

@@ -106,6 +106,28 @@ class ConfigurationResponse(BaseModel):
     guild_next: Optional[dict[str, Any]] = None
 
 
+class CapabilitiesRequest(BaseModel):
+    """Replace the capabilities publicly supplied by an existing agent."""
+    capabilities: list[str] = Field(
+        ...,
+        max_length=64,
+        description=(
+            "Complete replacement list of capabilities this agent currently "
+            "supplies. Empty retires all supply without deleting the identity."
+        ),
+    )
+
+
+class CapabilitiesResponse(BaseModel):
+    agent_id: str
+    capabilities: list[str]
+    added: list[str]
+    removed: list[str]
+    changed: bool
+    declared_at: str
+    guild_next: Optional[dict[str, Any]] = None
+
+
 class CreateTaskRequest(BaseModel):
     requester_id: str = Field(..., description="Agent that commissioned the work")
     worker_id: str = Field(..., description="Agent that will perform the work")

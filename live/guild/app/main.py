@@ -33,7 +33,9 @@ from .models import (
     EvidenceResponse, EvidenceAttestation, EvidenceReceipt, FlagResponse,
     AccountResponse, TopupRequest, TopupResponse, RiskScoreResponse,
     ReferralsResponse, HealthSnapshot, HealthHistoryResponse,
-    ConfigurationRequest, ConfigurationResponse, InboxPost, AbandonmentReport,
+    ConfigurationRequest, ConfigurationResponse,
+    CapabilitiesRequest, CapabilitiesResponse,
+    InboxPost, AbandonmentReport,
 )
 from . import __version__
 from . import billing
@@ -706,6 +708,38 @@ def declare_configuration(agent_id: str, req: ConfigurationRequest,
         store, agent,
         note=("Configuration recorded — evidence from now on is stamped with "
               "this hash. One action advances you now:")))
+
+
+@app.post("/agents/{agent_id}/capabilities", response_model=CapabilitiesResponse)
+def declare_capabilities(agent_id: str, req: CapabilitiesRequest,
+                         x_api_key: Optional[str] = Header(None)):
+    """Replace an existing agent's public supply declaration. Free.
+
+    This keeps one DID and one reputation history while letting honest agents
+    add, remove, or retire services as their actual competence changes.
+    Capability evidence stays capability-specific; this declaration never
+    manufactures trust for newly added supply.
+    """
+    agent = store.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(404, "agent not found")
+    _require_key(agent, x_api_key, "agent")
+    try:
+        result = store.declare_capabilities(agent_id, req.capabilities)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    current = store.get_agent(agent_id) or agent
+    return CapabilitiesResponse(
+        **result,
+        guild_next=journey_engine.guild_next(
+            store,
+            current,
+            note=(
+                "Capability supply recorded without replacing this identity. "
+                "Evidence remains capability-specific. One action advances you now:"
+            ),
+        ),
+    )
 
 
 @app.post("/agents/{agent_id}/endpoint")
