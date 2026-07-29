@@ -67,6 +67,7 @@ def seeded(guild_server):
     """Register a requester + a worker with earned evidence; return ids/keys."""
     import json as _json
     import urllib.request
+    from app.billing import PRICING
 
     def call(method, path, body=None, key=None):
         req = urllib.request.Request(
@@ -83,6 +84,15 @@ def seeded(guild_server):
               "metadata": {"endpoint": "https://example.com/a2a"}})
     r = call("POST", "/agents/register", {"name": "tp-requester",
                                           "capabilities": []})
+    # Two gateway tests intentionally authenticate the signed-decision read so
+    # they exercise the same charged path as production callers. Fund that
+    # exact test budget explicitly now that signed decisions are a distinct
+    # premium operation; the requester's $0.10 starter balance is deliberately
+    # insufficient for either $1.00 read.
+    guild_server["store"].credit(
+        r["api_key"], 2 * PRICING["signed_decision"],
+        reason="trustplane_test_funding",
+    )
     for i in range(4):
         call("POST", "/collaborations", key=r["api_key"], body={
             "worker_id": w["id"], "capability": "tp-echo",
