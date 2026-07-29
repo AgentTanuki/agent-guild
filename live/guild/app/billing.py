@@ -64,6 +64,11 @@ REFERRAL_MIN_PAID_READS = 3          # …paid discovery reads, before reward
 # Per-endpoint price in credits. Writes are absent here = free.
 PRICING: dict[str, int] = {
     "best_agent": 10,       # GET /search   — discovery, the headline product
+    # Premium trust product: a Guild-signed AGD-1 decision with a bounded
+    # validity window and checkpoint pin.  It is portable/offline-verifiable,
+    # unlike the transient shortlist read, and is therefore priced separately
+    # at $1.00 on the real x402 rail (1,000 credits × $0.001).
+    "signed_decision": 1000,  # GET /check?signed=true
     "reputation": 5,        # GET /agents/{id}/reputation
     "evidence": 5,          # GET /agents/{id}/evidence
     "risk_score": 10,       # GET /agents/{id}/risk-score
