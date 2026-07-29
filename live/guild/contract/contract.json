@@ -87,10 +87,6 @@
    "risk_score": {
     "credits": 10,
     "usdc_atomic": 10000
-   },
-   "signed_decision": {
-    "credits": 1000,
-    "usdc_atomic": 1000000
    }
   },
   "sandbox": "credits_sandbox via X-API-Key (not money)",

@@ -117,8 +117,7 @@ class PaidRequest:
 
 def check_request(capability: str, signed: bool = False,
                   ttl_seconds: int = 3600) -> PaidRequest:
-    operation = "signed_decision" if signed else "best_agent"
-    return PaidRequest.build(operation, "GET", "/check", {
+    return PaidRequest.build("best_agent", "GET", "/check", {
         "capability": capability, "signed": signed, "ttl_seconds": ttl_seconds})
 
 
