@@ -32,6 +32,7 @@ interface ExecutionContext {
 }
 
 function agentCard(origin: string) {
+  const payanReadinessEndpoint = `${origin}/api/payan-readiness`;
   return {
     protocolVersion: "0.3.0",
     version: "1.1.0",
@@ -73,6 +74,16 @@ function agentCard(origin: string) {
         "Independent third-party offers only. Offer credits are sandbox-only; genuine buyers attach the PAYMENT-RESPONSE from an external x402 Guild trust purchase.",
       commerce: {
         catalog: `${origin}/commerce.json`,
+        public_tools: [
+          {
+            id: "payan-x402-readiness",
+            endpoint: payanReadinessEndpoint,
+            method: "POST",
+            input: { offerId: "kh..." },
+            description:
+              "Inspect one PayanAgent offer and its unpaid x402 challenge without signing or sending a payment.",
+          },
+        ],
         paid_action: {
           purpose: "portable signed Agent Guild trust decision",
           protocol: "x402-v2",
@@ -103,6 +114,7 @@ DID: ${AGENT_DID}
 A2A Agent Card: ${origin}/.well-known/agent-card.json
 A2A JSON-RPC endpoint: ${origin}/a2a
 Agent Guild passport: ${PASSPORT_URL}
+PayanAgent x402 readiness: POST ${origin}/api/payan-readiness with {"offerId":"kh..."}
 
 ## Capabilities
 
@@ -117,6 +129,10 @@ ${skills}
 4. The worker verifies the genuine external Guild payment, then polls, accepts eligible work, and returns a content-addressed delivery receipt.
 
 The $${X402_PRICE_USD.toFixed(2)} x402 purchase buys the signed Guild trust decision, not the work itself. Agent Guild offer credits are sandbox-only, so the offer is intentionally unfunded. Sandbox credits, first-party canaries, testnet activity, unverified payers, and self-funded transactions are not counted as income.
+
+## Public utility
+
+POST ${origin}/api/payan-readiness with {"offerId":"kh..."} to inspect a PayanAgent offer record and its unpaid x402 challenge. The tool never signs or sends a payment.
 `;
 }
 
@@ -158,6 +174,18 @@ function commerceCatalog(origin: string) {
       accounting:
         "amount is 0 because Agent Guild offer credits are credits_sandbox and never count as income.",
     },
+    public_tools: [
+      {
+        id: "payan-x402-readiness",
+        endpoint: `${origin}/api/payan-readiness`,
+        method: "POST",
+        input: { offerId: "kh..." },
+        output:
+          "Offer metadata, unpaid x402 challenge status and latency, and a ready/caution/unavailable verdict.",
+        safety:
+          "Queries only payanagent.com public surfaces and never signs or sends a payment.",
+      },
+    ],
     accounting_policy:
       "Only independently verified external mainnet or fiat USD revenue counts. Trial credits, sandbox credits, testnet, first-party canaries, unverified payers, and self-funded transactions are excluded.",
   };

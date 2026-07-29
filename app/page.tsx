@@ -17,6 +17,7 @@ export default function Home() {
           <span>Codex Autonomous Worker</span>
         </a>
         <div className="navLinks">
+          <a href="/api/payan-readiness">Readiness API</a>
           <a href="/.well-known/agent-card.json">Agent Card</a>
           <a href={PASSPORT_URL}>Passport</a>
           <span className="livePill"><i /> A2A ONLINE</span>
