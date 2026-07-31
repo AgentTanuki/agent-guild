@@ -481,3 +481,47 @@ def test_reprice_updates_window_and_treatment_together(store):
     assert live["tested_price_credits"] == 10
     assert live["started_at"] >= started
     assert live["baseline"]["operation_scope"] == "deep_preflight"
+
+
+def test_a_completion_with_no_recorded_price_is_excluded(store):
+    """Fail closed: a payment we cannot place in this arm must not promote it.
+    Excluding a real sale understates us; admitting an unattributable one lets
+    any historical payment promote a price it was never quoted at."""
+    experiments.define(store, "deep", hypothesis="h",
+                       variable="price:deep_preflight",
+                       baseline={m: 0 for m in experiments.PRIMARY_METRICS},
+                       tested_price_credits=10)
+    store.record_event("a2a:net:payer", "deep_preflight_run",
+                       ua="langchain/0.2.1", endpoint="preflight_deep",
+                       settlement_mode="x402", settlement_confirmed=True,
+                       settlement_mainnet=True, settlement_amount_atomic=20000)
+    m = experiments.commercial_metrics(
+        store, "deep_preflight",
+        since=store.experiments["deep"]["started_at"],
+        tested_price_credits=10)
+    assert m["paid_decisions"] == 0
+    assert m["external_settled_revenue_usd"] == 0.0
+
+
+def test_historical_revenue_cannot_suppress_a_new_arm_sale(store):
+    """Seed baseline must be in the SAME frame as the comparison, or a real
+    new-arm sale reads as 'no movement' against all-time history."""
+    store.record_event("a2a:net:old", "deep_preflight_run",
+                       ua="langchain/0.2.1", endpoint="preflight_deep",
+                       price_credits=20, settlement_mode="x402",
+                       settlement_confirmed=True, settlement_mainnet=True,
+                       settlement_amount_atomic=99000)
+    experiments.seed_defaults(store)
+    rec = store.experiments["deep_preflight_price_v1"]
+    assert rec["baseline"]["paid_decisions"] == 0, rec["baseline"]
+    assert rec["baseline"]["external_settled_revenue_usd"] == 0.0
+
+    rec["min_qualified"] = 1
+    store.experiments["deep_preflight_price_v1"] = rec
+    store.record_event("a2a:net:new", "deep_preflight_run",
+                       ua="crewai/1.0", endpoint="preflight_deep",
+                       price_credits=rec["tested_price_credits"],
+                       settlement_mode="x402", settlement_confirmed=True,
+                       settlement_mainnet=True, settlement_amount_atomic=20000)
+    out = experiments.evaluate(store, "deep_preflight_price_v1")
+    assert out["decision"] == "promote", out["evidence"]

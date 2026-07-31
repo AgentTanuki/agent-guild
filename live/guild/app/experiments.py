@@ -328,10 +328,15 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
         # about the price the payer was actually shown.
         if not _at_or_after(e, since):
             continue
-        if (tested_price_credits is not None
-                and e.get("price_credits") is not None
-                and e.get("price_credits") != tested_price_credits):
-            continue
+        # EXACT TREATMENT, FAIL CLOSED. A completion with NO recorded price
+        # cannot be shown to belong to this arm, so it is excluded rather than
+        # admitted. Excluding a real sale understates us; admitting an
+        # unattributable one would let any historical payment promote a price
+        # it was never quoted at, which is the failure being fixed.
+        if tested_price_credits is not None:
+            price = e.get("price_credits")
+            if price is None or price != tested_price_credits:
+                continue
         key = e.get("key") or ""
         if e.get("settlement_mode") != SETTLED_MODE:
             if e.get("settlement_mode") == "credits_sandbox" or e.get("paid"):
@@ -566,10 +571,24 @@ def seed_defaults(store: Any) -> dict[str, Any]:
         if os.environ.get(pricing._env_key(operation)) is not None:
             skipped.append({"key": key, "reason": "price_pinned_by_operator"})
             continue
-        define(store, key, hypothesis=spec["hypothesis"],
-               variable=spec["variable"],
-               baseline=commercial_metrics(store, operation),
-               tested_price_credits=pricing.price(operation))
+        # BASELINE IN THE SAME FRAME AS THE COMPARISON. evaluate() measures
+        # this arm (since started_at, at the tested price), so an all-time
+        # baseline would compare different frames: historical revenue would
+        # sit in the baseline while a genuine new-arm sale sat in the metrics,
+        # and the sale would read as "no movement". The arm opens at zero,
+        # which is the truth about a window that has just started.
+        arm_price = pricing.price(operation)
+        arm_start = _now().isoformat()
+        rec = define(store, key, hypothesis=spec["hypothesis"],
+                     variable=spec["variable"],
+                     baseline=commercial_metrics(
+                         store, operation, since=arm_start,
+                         tested_price_credits=arm_price),
+                     tested_price_credits=arm_price)
+        # keep the window and the baseline frame identical
+        if rec.get("started_at") and rec["started_at"] < arm_start:
+            rec["started_at"] = arm_start
+            store.experiments[key] = rec
         seeded.append(key)
     return {"seeded": seeded, "already_present": skipped,
             "note": ("idempotent: an existing experiment is never overwritten, "
