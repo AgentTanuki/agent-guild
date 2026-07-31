@@ -153,15 +153,6 @@ class Store:
         self.guild_revenue: int = 0                        # settlement fees earned (credits)
         self.demand_watches: list[dict[str, Any]] = []     # attributable demand callbacks (Phase 0, G5)
         self.swarm_state: dict[str, Any] = {}              # discovery swarm: counters, actions, referral tokens, kill flag
-        # --- autonomous trust index (product-led pivot 2026-07-31) ----------
-        # endpoint fingerprint -> index entry. The public product surface: what
-        # is out there, and which of it we have actually called. Persisted as
-        # kv like swarm_state, so it survives restarts without a schema change.
-        self.trust_index: dict[str, dict[str, Any]] = {}
-        # watch id -> continuous-monitoring subscription (self-provisioned)
-        self.watches: dict[str, dict[str, Any]] = {}
-        # experiment key -> bounded reversible experiment state
-        self.experiments: dict[str, dict[str, Any]] = {}
         # machine-market state (app/market.py): signed offers, bonded machine
         # adjudicators, dispute cases — all persisted like swarm_state (kv)
         self.offers: dict[str, dict[str, Any]] = {}
@@ -479,9 +470,6 @@ class Store:
                 b.put_checkpoint(r)
             b.put_kv("identity", self.identity)
             b.put_kv("swarm_state", self.swarm_state)
-            b.put_kv("trust_index", self.trust_index)
-            b.put_kv("watches", self.watches)
-            b.put_kv("experiments", self.experiments)
             b.put_kv("offers", self.offers)
             b.put_kv("adjudicators", self.adjudicators)
             b.put_kv("dispute_cases", self.dispute_cases)
@@ -533,9 +521,6 @@ class Store:
                 b.append_demand_watch(r)
             b.put_kv("identity", self.identity)
             b.put_kv("swarm_state", self.swarm_state)
-            b.put_kv("trust_index", self.trust_index)
-            b.put_kv("watches", self.watches)
-            b.put_kv("experiments", self.experiments)
             b.put_kv("offers", self.offers)
             b.put_kv("adjudicators", self.adjudicators)
             b.put_kv("dispute_cases", self.dispute_cases)
@@ -586,9 +571,6 @@ class Store:
         self.guild_revenue = d["guild_revenue"]
         self.demand_watches = d["demand_watches"]
         self.swarm_state = d["swarm_state"]
-        self.trust_index = self.backend.fetch_kv("trust_index", {}) or {}
-        self.watches = self.backend.fetch_kv("watches", {}) or {}
-        self.experiments = self.backend.fetch_kv("experiments", {}) or {}
         self.offers = self.backend.fetch_kv("offers", {}) or {}
         self.adjudicators = self.backend.fetch_kv("adjudicators", {}) or {}
         self.dispute_cases = self.backend.fetch_kv("dispute_cases", {}) or {}
@@ -643,9 +625,6 @@ class Store:
             self.guild_revenue = data.get("guild_revenue", 0)
             self.demand_watches = data.get("demand_watches", [])
             self.swarm_state = data.get("swarm_state", {})
-            self.trust_index = data.get("trust_index", {})
-            self.watches = data.get("watches", {})
-            self.experiments = data.get("experiments", {})
             self.offers = data.get("offers", {})
             self.adjudicators = data.get("adjudicators", {})
             self.dispute_cases = data.get("dispute_cases", {})
@@ -788,10 +767,7 @@ class Store:
                        "externality_attestations":
                            self.externality_attestations,
                        "guild_inbox": self.guild_inbox,
-                       "swarm_state": self.swarm_state,
-                       "trust_index": self.trust_index,
-                       "watches": self.watches,
-                       "experiments": self.experiments}, f, indent=2)
+                       "swarm_state": self.swarm_state}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal
         if self.events_path:
