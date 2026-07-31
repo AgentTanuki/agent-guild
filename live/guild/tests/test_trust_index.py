@@ -435,26 +435,10 @@ def test_recheck_is_capped_per_cycle(store):
     assert len(calls) == 5
 
 
-def test_remote_ingest_has_a_working_kill_switch(monkeypatch):
-    """Remote ingest is now ON for CLEARED sources only (a bounded local cycle
-    ran clean in production first). The property that still matters is that it
-    can be stopped in one config change, with no deploy."""
+def test_remote_ingest_is_off_by_default(monkeypatch):
     from app import indexsources
-    monkeypatch.setenv("GUILD_INDEX_INGEST", "0")
-    assert indexsources.enabled() is False
     monkeypatch.delenv("GUILD_INDEX_INGEST", raising=False)
-    assert indexsources.enabled() is True
-
-
-def test_only_cleared_sources_are_ingested():
-    """A source ships only with a documented public read-only API and terms
-    that permit automated reading. Everything else is excluded WITH ITS
-    REASON, not silently omitted."""
-    from app import indexsources
-    assert indexsources.CLEARED_SOURCES == ("mcp_registry",)
-    for name, why in indexsources.UNAVAILABLE_SOURCES.items():
-        assert len(why) > 40, f"{name} must state its actual gate"
-    assert "a2a_registry" in indexsources.UNAVAILABLE_SOURCES
+    assert indexsources.enabled() is False
 
 
 def test_source_adapter_identifies_itself_truthfully():

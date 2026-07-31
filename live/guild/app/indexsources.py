@@ -37,64 +37,12 @@ MAX_PAGES = 3
 MAX_RECORDS_PER_RUN = 200
 
 
-#: Remote sources cleared for automatic ingest. A source appears here ONLY
-#: when three things are true: it publishes a documented public read-only API,
-#: its terms permit automated reading, and we can identify ourselves honestly
-#: while doing it. Anything requiring a credential, an account, or a scrape of
-#: a rendered page is NOT here and does not ship — see UNAVAILABLE_SOURCES for
-#: what is excluded and exactly why.
-CLEARED_SOURCES = ("mcp_registry",)
-
-#: Sources deliberately NOT enabled, with the specific gate. Documented rather
-#: than silently omitted, because "we index everything" and "we index what we
-#: are allowed to index" are different products and the difference matters.
-UNAVAILABLE_SOURCES = {
-    "a2a_registry": (
-        "no documented public read-only API contract we can rely on; the A2A "
-        "discovery specification states it prescribes no registry API, so any "
-        "endpoint we used would be undocumented and could change without "
-        "notice. Enabling it would mean scraping, which the mandate forbids."),
-    "x402_bazaar": (
-        "listing data is reachable, but automated bulk reading is not covered "
-        "by a documented public API contract. A trade-listing surface is "
-        "exactly where an unclear permission should be resolved BEFORE we "
-        "read it at machine speed, not after."),
-}
-
-
 def enabled() -> bool:
-    """Is remote registry ingest active?
+    """Ingest is OFF unless explicitly enabled.
 
-    ON by default now that a bounded local-only cycle has run in production
-    without incident, and only for CLEARED_SOURCES. The explicit "0" kill
-    switch still wins over everything, so this stays a one-config-change stop
-    with no deploy — the property that matters when the traffic is outbound and
-    lands on someone else's servers."""
-    raw = (os.environ.get("GUILD_INDEX_INGEST") or "").strip()
-    if raw == "0":
-        return False
-    if raw == "1":
-        return True
-    return True
-
-
-def active_sources() -> dict:
-    """What we ingest, what we do not, and why — publishable as-is."""
-    return {
-        "enabled": enabled(),
-        "cleared": list(CLEARED_SOURCES),
-        "excluded": UNAVAILABLE_SOURCES,
-        "kill_switch": "GUILD_INDEX_INGEST=0",
-        "user_agent": USER_AGENT,
-        "bounds": {"max_pages": MAX_PAGES,
-                   "max_records_per_run": MAX_RECORDS_PER_RUN,
-                   "timeout_s": TIMEOUT_S},
-        "policy": ("documented public read-only APIs only, with a truthful "
-                   "contactable User-Agent, capped pages and records per run. "
-                   "No authentication bypass, no scraping, no Terms-of-Service "
-                   "circumvention. Indexed inventory is a SUPPORTING metric "
-                   "and is never reported as adoption."),
-    }
+    Default-off is deliberate: outbound traffic to third-party infrastructure
+    should never start because a container restarted."""
+    return (os.environ.get("GUILD_INDEX_INGEST") or "0").strip() == "1"
 
 
 def _get_json(url: str, timeout: float = TIMEOUT_S) -> Optional[Any]:

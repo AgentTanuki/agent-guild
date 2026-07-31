@@ -118,8 +118,7 @@ def define(store: Any, key: str, *, hypothesis: str, variable: str,
     return rec
 
 
-def qualified_exposure(store: Any, operation: Optional[str] = None
-                       ) -> dict[str, Any]:
+def qualified_exposure(store: Any) -> dict[str, Any]:
     """Genuinely-external actors who reached a decision surface.
 
     Uses the SAME central attribution rule as every other honest number in the
@@ -128,16 +127,9 @@ def qualified_exposure(store: Any, operation: Optional[str] = None
     which is exactly how self-traffic gets laundered into a growth metric."""
     from . import attribution
 
-    # Scoped to the experiment's own surface where one is given: exposure to a
-    # DIFFERENT offer is not exposure to this one.
-    decision_surfaces = ({"preflight_run", "deep_preflight_run"}
-                         if operation == "deep_preflight" else
-                         {"evidence_bundle_issued"}
-                         if operation == "evidence_bundle" else
-                         {"watch_provisioned"} if operation == "watch_cycle"
-                         else {"preflight_run", "deep_preflight_run",
-                               "evidence_bundle_issued", "watch_provisioned",
-                               "index_view"})
+    decision_surfaces = {"preflight_run", "deep_preflight_run",
+                         "evidence_bundle_issued", "watch_provisioned",
+                         "index_view"}
     actors: set[str] = set()
     events = 0
     for e in getattr(store, "events", []):
@@ -165,90 +157,70 @@ def qualified_exposure(store: Any, operation: Optional[str] = None
     }
 
 
-#: The three INDEPENDENT conditions that must all hold before a settlement may
-#: be called revenue. `mode == "x402"` alone is not money: the same rail runs
-#: on Base Sepolia by default, where a successful settlement is a successful
-#: payment of nothing, and a facilitator's word is not a chain receipt.
+#: The ONLY settlement mode that is money. `credits_sandbox` is an internal
+#: unit we mint and hand out as trial credits; `free` is the soft launch.
 SETTLED_MODE = "x402"
 
-#: Which events belong to which paid operation. An experiment on the
-#: deep_preflight price must be judged on deep_preflight revenue — not on
-#: unrelated escrow settlement or a watch sold for a different offer.
-OPERATION_EVENTS: dict[str, tuple[str, ...]] = {
-    "deep_preflight": ("deep_preflight_run",),
-    "evidence_bundle": ("evidence_bundle_issued",),
-    "watch_cycle": ("watch_provisioned",),
-}
 
-ALL_PAID_EVENTS = tuple(t for v in OPERATION_EVENTS.values() for t in v)
-
-
-def is_revenue(event: dict) -> bool:
-    """Did real, confirmed, mainnet money move for this event?
-
-    All three conditions, deliberately: mode (not sandbox credits we mint),
-    confirmed (the chain receipt was verified, not merely claimed by the
-    facilitator) and mainnet (not the value-less default network). Events
-    predating settlement metadata have none of these and are never revenue."""
-    return (event.get("settlement_mode") == SETTLED_MODE
-            and bool(event.get("settlement_confirmed"))
-            and bool(event.get("settlement_mainnet")))
-
-
-def _is_external(event: dict) -> bool:
-    from . import attribution
-    cls = attribution.caller_class(event)
-    return (not event.get("fp")
-            and cls not in ("AG_INTERNAL", "AG_TEST", "OPERATOR",
-                            "REGISTRY_CRAWLER")
-            and attribution.may_count_as_external_growth(cls)
-            and attribution.is_genuine_external(event))
-
-
-def commercial_metrics(store: Any, operation: Optional[str] = None
-                       ) -> dict[str, Any]:
+def commercial_metrics(store: Any) -> dict[str, Any]:
     """The primary metrics. Revenue is REAL money only.
 
-    `operation` scopes every figure to ONE paid operation. Without it, an
-    experiment on the deep_preflight price could be promoted by unrelated
-    escrow revenue or by a watch sold for a different offer — the experiment
-    would "work" for reasons that had nothing to do with the change it made.
-    Global (operation=None) figures remain available for the commercial report,
-    where a total is what is wanted."""
-    want = (OPERATION_EVENTS.get(operation) if operation else ALL_PAID_EVENTS)
+    SETTLEMENT MODE, NOT `paid=True` (correction 2026-07-31). The HTTP routes
+    previously stamped `paid=True` after the meter passed — but the meter
+    passes for three completely different reasons: an independently confirmed
+    x402 mainnet settlement, a draw against sandbox trial credits we minted
+    ourselves, and the soft-launch free path when enforcement is off. Counting
+    all three as paying customers meant our own trial grant could promote an
+    experiment. Only `settlement_mode == "x402"` from a genuinely external
+    caller counts here; sandbox decisions are reported separately, as
+    supporting, and can never promote.
+
+    Events recorded before this correction carry no `settlement_mode`. They are
+    counted as SANDBOX, never as settled — the conservative direction, and the
+    one that cannot flatter us."""
+    from . import attribution
 
     payers: set[str] = set()
     paid_decisions = 0
     repeat: dict[str, int] = {}
-    revenue_usd = 0.0
     sandbox_decisions = 0
     sandbox_actors: set[str] = set()
     unattributed_settled = 0
-    testnet_settlements = 0
 
     for e in getattr(store, "events", []):
-        if e.get("type") not in want:
+        if e.get("type") not in ("deep_preflight_run", "evidence_bundle_issued"):
             continue
+        mode = e.get("settlement_mode") or ("legacy_unlabelled"
+                                            if e.get("paid") else "free")
         key = e.get("key") or ""
-        if e.get("settlement_mode") != SETTLED_MODE:
-            if e.get("settlement_mode") == "credits_sandbox" or e.get("paid"):
+        if mode != SETTLED_MODE:
+            if mode in ("credits_sandbox", "legacy_unlabelled"):
                 sandbox_decisions += 1
                 if key and key != "anon":
                     sandbox_actors.add(key)
             continue
-        if not is_revenue(e):
-            # settled on the rail, but testnet and/or unconfirmed — a
-            # successful payment of nothing
-            testnet_settlements += 1
-            continue
-        if not _is_external(e):
+        # A settled call still has to be EXTERNAL to be a customer.
+        cls = attribution.caller_class(e)
+        external = (not e.get("fp")
+                    and cls not in ("AG_INTERNAL", "AG_TEST", "OPERATOR",
+                                    "REGISTRY_CRAWLER")
+                    and attribution.may_count_as_external_growth(cls)
+                    and attribution.is_genuine_external(e))
+        if not external:
             unattributed_settled += 1
             continue
         paid_decisions += 1
-        revenue_usd += float(e.get("settlement_amount_atomic") or 0) / 1e6
         if key and key != "anon":
             payers.add(key)
             repeat[key] = repeat.get(key, 0) + 1
+
+    revenue_usd = 0.0
+    try:
+        real = (store.escrow_summary() or {}).get("real_settlement") or {}
+        revenue_usd = float(
+            real.get("independently_attested_external_revenue_usd") or 0.0)
+    except Exception:  # noqa: BLE001
+        revenue_usd = 0.0
 
     monitored = 0
     for w in getattr(store, "watches", {}).values():
@@ -258,43 +230,28 @@ def commercial_metrics(store: Any, operation: Optional[str] = None
         if acct and acct.get("first_party"):
             continue        # our own watch is not a customer
         monitored += 1
-    if operation and operation != "watch_cycle":
-        monitored = 0       # not attributable to this experiment
 
     return {
-        "operation_scope": operation or "all",
-        "external_settled_revenue_usd": round(revenue_usd, 6),
+        "external_settled_revenue_usd": revenue_usd,
         "distinct_external_payers": len(payers),
         "paid_decisions": paid_decisions,
         "externally_monitored_endpoints": monitored,
         "repeat_paid_callers": sum(1 for n in repeat.values() if n > 1),
         "supporting_sandbox_decisions_NOT_REVENUE": sandbox_decisions,
         "supporting_sandbox_distinct_actors_NOT_PAYERS": len(sandbox_actors),
-        "supporting_testnet_or_unconfirmed_NOT_REVENUE": testnet_settlements,
         "settled_but_not_attributable_external": unattributed_settled,
         "settlement_rule": (
-            "revenue requires ALL of: settlement_mode == 'x402', "
-            "settlement_confirmed (chain receipt verified, not the "
-            "facilitator's word), settlement_mainnet (the rail defaults to "
-            "Base Sepolia, where a successful settlement is a successful "
-            "payment of nothing), AND a genuinely external caller. Sandbox "
-            "credits, testnet settlements, unconfirmed settlements and "
-            "unattributable callers are reported separately and can never "
-            "promote an experiment."),
+            "a paid decision requires settlement_mode == 'x402' (independently "
+            "confirmed mainnet money) AND a genuinely external caller. Sandbox "
+            "trial credits, soft-launch free calls and settled-but-unattributed "
+            "calls are reported separately and can never promote an experiment. "
+            "Events predating this correction carry no settlement_mode and are "
+            "counted as sandbox, never as settled."),
         "revenue_definition": (
             "independently confirmed EXTERNAL mainnet settlement only. "
             "Sandbox credits, first-party canaries, testnet funds and internal "
             "transfers are excluded by construction and are not money."),
     }
-
-
-def experiment_operation(rec: dict) -> Optional[str]:
-    """The paid operation an experiment is bound to, from its variable."""
-    variable = str((rec or {}).get("variable") or "")
-    if variable.startswith("price:"):
-        op = variable.split(":", 1)[1]
-        return op if op in OPERATION_EVENTS else None
-    return None
 
 
 def evaluate(store: Any, key: str) -> dict[str, Any]:
@@ -303,9 +260,8 @@ def evaluate(store: Any, key: str) -> dict[str, Any]:
     if not rec:
         return {"key": key, "decision": None, "reason": "unknown experiment"}
 
-    operation = experiment_operation(rec)
-    exposure = qualified_exposure(store, operation)
-    metrics = commercial_metrics(store, operation)
+    exposure = qualified_exposure(store)
+    metrics = commercial_metrics(store)
     baseline = rec.get("baseline") or {}
     started = rec.get("started_at")
     try:
@@ -339,8 +295,7 @@ def evaluate(store: Any, key: str) -> dict[str, Any]:
             "and no primary commercial metric moved. Supporting metrics "
             "(reach, inventory, free checks) cannot rescue this verdict.")
 
-    evidence = {"operation": operation,
-                "exposure": exposure, "metrics": metrics, "baseline": baseline,
+    evidence = {"exposure": exposure, "metrics": metrics, "baseline": baseline,
                 "elapsed_days": round(elapsed.total_seconds() / 86400, 2),
                 "window_expired": expired}
     with store.lock, store._txn():
@@ -427,18 +382,9 @@ def apply_next_action(store: Any) -> list[dict[str, Any]]:
       * a price already at zero is not "changed" again — the engine reports
         `offer_exhausted` rather than pretending a no-op was an action.
 
-    ONE CHANGE PER CYCLE, GLOBALLY. The mandate is "one independently
-    measurable change at a time", and that is a property of the SYSTEM, not of
-    each experiment: two prices moving in the same cycle makes both results
-    uninterpretable, because either change could explain whatever happens next.
-    Remaining experiments are evaluated and reported, and simply wait their
-    turn — the loop runs on a multi-hour schedule, so deferring costs one
-    cycle and buys an attributable result.
-
-    Returns one record per experiment. Never raises: a failure to act must not
-    take the scheduled cycle down."""
+    Returns one record per experiment acted on. Never raises: a failure to act
+    must not take the scheduled cycle down."""
     applied: list[dict[str, Any]] = []
-    acted_this_cycle = False
     for key in list(getattr(store, "experiments", {}) or {}):
         try:
             action = next_action(store, key)
@@ -448,13 +394,6 @@ def apply_next_action(store: Any) -> list[dict[str, Any]]:
         if action.get("action") != "reprice" or not action.get("change"):
             applied.append({"key": key, "decision": action.get("decision"),
                             "acted": False, "action": action.get("action")})
-            continue
-        if acted_this_cycle:
-            applied.append({"key": key, "decision": action.get("decision"),
-                            "acted": False, "reason": "deferred_one_change_per_cycle",
-                            "detail": ("another experiment already applied this "
-                                       "cycle; two simultaneous changes would "
-                                       "make both results unattributable")})
             continue
         change = action["change"]
         op, before, after = (change["operation"], change["from_credits"],
@@ -489,8 +428,7 @@ def apply_next_action(store: Any) -> list[dict[str, Any]]:
             })
             live["changes_applied"] = live["changes_applied"][-20:]
             # restart the measurement window against a FRESH baseline
-            live["baseline"] = commercial_metrics(
-                store, experiment_operation(live))
+            live["baseline"] = commercial_metrics(store)
             live["started_at"] = _now().isoformat()
             live["status"] = "running"
             live["decision"] = None
@@ -500,7 +438,6 @@ def apply_next_action(store: Any) -> list[dict[str, Any]]:
                 store._persist_kv("experiments", store.experiments)
                 store._persist_kv("price_overrides", store.price_overrides)
             store._save()
-        acted_this_cycle = True
         applied.append({
             "key": key, "acted": True, "operation": op,
             "before_credits": before, "after_credits": after,
