@@ -47,6 +47,7 @@ from . import pricing
 from . import trustindex
 from . import indexops
 from . import deepcheck
+from . import indexsources
 from . import experiments
 from .state import store
 from .store import CanonicalWriteRefused
@@ -3215,6 +3216,26 @@ runs live at request time.</p>
 <p class="k">Agent Guild publishes this page only for endpoints it has actually
 called. <a href="/index">Index</a> &middot; <a href="/pricing">Pricing</a></p>
 </body></html>""")
+
+
+@app.post("/admin/index/cycle")
+def admin_index_cycle(x_admin_token: Optional[str] = Header(None)):
+    """Force ONE bounded index cycle now. Admin-gated.
+
+    The autonomous loop runs on a jittered multi-hour schedule, which is right
+    for steady state and useless when you need to verify a deploy or refresh
+    after an incident. This runs exactly the same code path with exactly the
+    same bounds — it is a trigger, not a second implementation, so there is no
+    way for the manual path and the scheduled path to drift apart."""
+    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(403, "an index cycle requires a valid X-Admin-Token")
+    from .swarm import runner as _runner
+    return {"cycle": _runner._run_index_cycle(store),
+            "autorun_enabled": _runner.index_autorun(store),
+            "bounds": {
+                "recheck_batch": trustindex.recheck_batch(),
+                "remote_ingest_enabled": indexsources.enabled(),
+                "fresh_ttl_s": trustindex.fresh_ttl_s()}}
 
 
 @app.get("/commercial")
