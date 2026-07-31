@@ -306,6 +306,48 @@ def _mcp_payment(ctx: "Context | None") -> Optional[PaymentPayload]:
     return None
 
 
+def _mcp_actor(ctx, api_key: str = "") -> tuple[str, bool]:
+    """(actor, distinct) for an MCP caller.
+
+    An authenticated caller is its account. An UNAUTHENTICATED one used to
+    collapse into the literal string "mcp", so a thousand different clients
+    counted as one actor and an experiment could never reach its denominator.
+
+    We do not invent an identity. The strongest stable, non-secret signal an
+    MCP caller offers is the clientInfo it advertised at initialize, so the
+    actor is a purpose-scoped hash of that — stable for one client, different
+    across clients, reversible to nothing. When the client advertises nothing
+    distinguishing (a bare `mcp/remote`), distinctness is genuinely UNKNOWABLE
+    and we say so rather than manufacturing a unique id per call: `distinct`
+    comes back False and the caller is not counted toward an actor threshold."""
+    if api_key:
+        return _creds.sanitize_actor_key(api_key), True
+    ua = _client_ua(ctx) or ""
+    if not ua or ua in ("mcp/remote", "mcp"):
+        return "mcp:unidentified", False
+    import hashlib
+    fp = hashlib.sha256(
+        ("agent-guild/mcp-actor/" + ua).encode()).hexdigest()[:12]
+    return f"mcp:net:{fp}", True
+
+
+def _record_paid_offer(preq, ctx, api_key: str = "") -> None:
+    """MCP twin of the HTTP paid-offer impression — same event, same fields."""
+    try:
+        operation = getattr(preq, "operation", None)
+        if not operation:
+            return
+        actor, distinct = _mcp_actor(ctx, api_key)
+        store.record_event(
+            actor, "paid_offer_shown", ua=_client_ua(ctx),
+            endpoint="x402_challenge", transport="mcp",
+            challenged_operation=operation, impression="challenge_402",
+            actor_distinct=distinct,
+            price_credits=getattr(preq, "cost", None))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _challenge_result(body: dict[str, Any]) -> ToolResult:
     """A complete, machine-readable payment-required challenge as an MCP tool
     error — the unpaid caller never receives the paid payload."""
@@ -397,6 +439,7 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
         ns = demand.no_supply_block(dem) if dem else None
         if ns:
             body["no_supply"] = ns
+        _record_paid_offer(preq, ctx, api_key)
         return _challenge_result(body)
     except PaymentIdConflict as e:
         return _challenge_result({"error": "payment_identifier_conflict",
@@ -406,6 +449,7 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
         ch = PaymentChallenge(preq, extra={"error": "x402_payment_invalid",
                                            "reason": e.reason,
                                            "detail": e.detail[:300]})
+        _record_paid_offer(preq, ctx, api_key)
         return _challenge_result(ch.body)
     except CachedPaidResult as e:
         # official idempotency: same id + same request → cached result, no
@@ -518,6 +562,8 @@ def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> di
 
     Example: guild_preflight_deep(url="https://some-agent.example/a2a")
     """
+    _quoted = payments.deep_preflight_request(url).cost
+
     def _produce():
         out = deepcheck.deep_preflight(store, url)
         facts = settlement_mode()
@@ -525,6 +571,7 @@ def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> di
             _creds.sanitize_actor_key(api_key) if api_key else "mcp",
             "deep_preflight_run", ua=_client_ua(ctx),
             endpoint="preflight_deep", target=url, transport="mcp",
+            price_credits=_quoted,
             paid=(facts.get("settlement_mode") == "x402"),
             verdict=(out.get("policy") or {}).get("decision"), **facts)
         return out
@@ -560,6 +607,12 @@ def guild_watch(url: str, api_key: str, interval_seconds: int = 3600,
     store.record_event(_creds.sanitize_actor_key(api_key), "watch_provisioned",
                        ua=_client_ua(ctx), endpoint="watch", target=url,
                        transport="mcp")
+    # A watch has no 402; this response is where the per-cycle price is shown.
+    store.record_event(_creds.sanitize_actor_key(api_key), "paid_offer_shown",
+                       ua=_client_ua(ctx), endpoint="price_shown",
+                       transport="mcp", challenged_operation="watch_cycle",
+                       impression="price_displayed", actor_distinct=True,
+                       price_credits=pricing.price("watch_cycle"))
     return {**rec, "price_per_cycle_credits": pricing.price("watch_cycle")}
 
 

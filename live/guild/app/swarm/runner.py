@@ -223,6 +223,11 @@ def _run_index_cycle(store: Any) -> dict[str, Any]:
         return {"skipped": "GUILD_INDEX_AUTORUN is not enabled"}
     out: dict[str, Any] = {}
     try:
+        # fold any pre-existing same-DID duplicates before ingesting more
+        out["reconcile"] = indexops.reconcile_identities(store)
+    except Exception as exc:  # noqa: BLE001
+        out["reconcile_error"] = type(exc).__name__
+    try:
         out["ingest"] = indexops.ingest(store)
     except Exception as exc:  # noqa: BLE001
         out["ingest_error"] = type(exc).__name__
@@ -234,6 +239,13 @@ def _run_index_cycle(store: Any) -> dict[str, Any]:
         out["watch_cycles"] = _run_watch_cycles(store)
     except Exception as exc:  # noqa: BLE001
         out["watch_error"] = type(exc).__name__
+    try:
+        # Make sure there IS an experiment. An engine with nothing to learn
+        # from is inert, and idempotent seeding is the only way a fresh
+        # deployment starts measuring without a human.
+        out["seeded"] = _experiments.seed_defaults(store)
+    except Exception as exc:  # noqa: BLE001
+        out["seed_error"] = type(exc).__name__
     try:
         # DECIDE AND ACT. Calling evaluate() alone produced a recommendation
         # nobody read — the loop could see that an offer had failed and was

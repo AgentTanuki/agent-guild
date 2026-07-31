@@ -186,9 +186,10 @@ def test_unrelated_settlement_cannot_promote_a_deep_preflight_experiment(store):
                             baseline={m: 0 for m in experiments.PRIMARY_METRICS})
     exp["min_qualified"] = 1
     store.experiments["deep"] = exp
-    # qualified exposure on the deep-preflight surface
-    store.record_event("a2a:net:looker", "deep_preflight_run",
-                       ua="a2a:langchain/0.2.1", endpoint="preflight_deep")
+    # qualified exposure = actually shown the deep-preflight price
+    store.record_event("a2a:net:looker", "paid_offer_shown",
+                       ua="a2a:langchain/0.2.1", endpoint="x402_challenge",
+                       challenged_operation="deep_preflight")
     # ...and a pile of REAL money from an entirely different operation
     for i in range(20):
         _settled_event(store, etype="evidence_bundle_issued",
@@ -210,8 +211,11 @@ def test_the_experiments_own_operation_does_promote(store):
 
 
 def test_exposure_is_scoped_to_the_experiments_surface(store):
-    store.record_event("a2a:net:a", "watch_provisioned",
-                       ua="a2a:langchain/0.2.1", endpoint="watch")
+    """Exposure is being SHOWN a specific operation's price (correction:
+    tests/test_index_fixes3.py) — so the impression must name the operation."""
+    store.record_event("a2a:net:a", "paid_offer_shown",
+                       ua="a2a:langchain/0.2.1", endpoint="x402_challenge",
+                       challenged_operation="watch_cycle")
     deep = experiments.qualified_exposure(store, "deep_preflight")
     watch = experiments.qualified_exposure(store, "watch_cycle")
     assert deep["qualified_actors"] == 0
@@ -226,10 +230,12 @@ def test_only_one_change_is_applied_per_cycle_globally(store):
                                  baseline={m: 0 for m in experiments.PRIMARY_METRICS})
         exp["min_qualified"] = 1
         store.experiments[key] = exp
-    store.record_event("a2a:net:x", "deep_preflight_run",
-                       ua="a2a:langchain/0.2.1", endpoint="preflight_deep")
-    store.record_event("a2a:net:y", "evidence_bundle_issued",
-                       ua="a2a:langchain/0.2.2", endpoint="evidence_bundle")
+    store.record_event("a2a:net:x", "paid_offer_shown",
+                       ua="a2a:langchain/0.2.1", endpoint="x402_challenge",
+                       challenged_operation="deep_preflight")
+    store.record_event("a2a:net:y", "paid_offer_shown",
+                       ua="a2a:langchain/0.2.2", endpoint="x402_challenge",
+                       challenged_operation="evidence_bundle")
     applied = experiments.apply_next_action(store)
     acted = [r for r in applied if r.get("acted")]
     assert len(acted) == 1, applied

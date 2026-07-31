@@ -373,6 +373,10 @@ def _produce_for(preq: PaidRequest, settled: Any,
         "settlement_tx": (settled.record or {}).get("transaction"),
     }
     params = dict(preq.query)
+    # The credits QUOTED when this task was created — not today's price. A
+    # payment settled late must count as evidence about the price the payer
+    # was actually shown.
+    quoted = task.get("credits_cost")
     actor = task.get("actor") or "a2a"
     ua = task.get("ua") or "a2a/x402"
     if preq.operation == "deep_preflight":
@@ -380,7 +384,7 @@ def _produce_for(preq: PaidRequest, settled: Any,
         out = deepcheck.deep_preflight(store, url)
         store.record_event(actor, "deep_preflight_run", ua=ua,
                            endpoint="preflight_deep", transport="a2a",
-                           target=url, paid=True,
+                           target=url, paid=True, price_credits=quoted,
                            verdict=(out.get("policy") or {}).get("decision"),
                            **facts)
         return out
@@ -390,7 +394,8 @@ def _produce_for(preq: PaidRequest, settled: Any,
             store, url, ttl_s=int(params.get("ttl_seconds") or 3600))
         store.record_event(actor, "evidence_bundle_issued", ua=ua,
                            endpoint="evidence_bundle", transport="a2a",
-                           target=url, paid=True, **facts)
+                           target=url, paid=True, price_credits=quoted,
+                           **facts)
         return out
     return store.check(params.get("capability") or "", demand_recorded=True)
 
