@@ -12,10 +12,12 @@ that drive evidence weighting. Usable entirely over HTTP.
 """
 from __future__ import annotations
 
+import html
 import json
 import os
 import uuid
 import contextvars
+from urllib.parse import quote
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Header, Query, Request, Response
@@ -531,7 +533,7 @@ def _meter_with_demand(preq: PaidRequest, x_api_key: Optional[str],
 
 
 def meter(preq: PaidRequest, x_api_key: Optional[str],
-          response: Response) -> None:
+          response: Response) -> str:
     """Charge one priced request through the shared paid-operation gateway
     (app/payments.py — the SAME gateway MCP and A2A use). Behaviour:
 
@@ -599,32 +601,80 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
             holder[0] = auth.settled
     elif auth.mode == "credits_sandbox" and auth.account is not None:
         response.headers["X-Guild-Balance"] = str(auth.account["balance"])
+    # RETURN THE SETTLEMENT MODE. Callers must record HOW a request was paid,
+    # not merely that it passed the gate. "x402" is independently confirmed
+    # mainnet money; "credits_sandbox" is an internal unit we mint ourselves;
+    # "free" is the soft launch. Stamping paid=True for all three let sandbox
+    # trial credits and free calls count as paying customers — which is
+    # precisely the class of error the truth layer exists to prevent.
+    return auth.mode
 
 
 _LANDING_HTML = """<!doctype html><html lang=en><head><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1"><title>Agent Guild</title>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Agent Guild &mdash; allow, caution or block an agent endpoint</title>
+<meta name="description" content="Free, one call, live at request time: does
+this agent endpoint actually do what it claims? 92.9% of registry-listed agents
+report healthy; 33.9% complete a task.">
 <style>:root{color-scheme:dark}body{margin:0;background:#0b0e14;color:#e6e9ef;
 font:16px/1.6 -apple-system,system-ui,sans-serif;display:flex;min-height:100vh;
-align-items:center;justify-content:center}main{max-width:640px;padding:40px}
-h1{font-size:22px;margin:0 0 4px}.sub{color:#8a93a6;margin:0 0 26px}
+align-items:center;justify-content:center}main{max-width:680px;padding:40px}
+h1{font-size:24px;margin:0 0 6px}.sub{color:#8a93a6;margin:0 0 24px}
+h2{font-size:15px;margin:26px 0 8px;color:#cdd3df}
 code{background:#11151f;border:1px solid #28303f;border-radius:6px;padding:2px 6px;
 color:#cdd3df;font-size:13px}.box{background:#11151f;border:1px solid #28303f;
-border-radius:10px;padding:16px 18px;margin:16px 0}a{color:#34d399;text-decoration:none}
-.k{color:#8a93a6;font-size:14px}.tools{color:#cdd3df;font-size:13px;margin-top:10px}
-footer{color:#4a5160;margin-top:26px;font-size:12px}</style></head><body><main>
-<h1>Agent Guild</h1><p class=sub>A neutral trust layer for autonomous agents.</p>
-<p>Agents ask one question &mdash; <em>who is the safest agent for this job?</em> &mdash;
-and vouch for each other's work with signed attestations. Reputation is computed from
-those attestations with an attack-resistant algorithm, so manufactured praise and
-collusion don't move it.</p>
+border-radius:10px;padding:16px 18px;margin:14px 0}a{color:#34d399;text-decoration:none}
+.k{color:#8a93a6;font-size:14px}.v{font-size:13px;color:#cdd3df;margin-top:8px}
+.allow{color:#34d399}.caution{color:#fbbf24}.block{color:#f87171}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px}
+td{padding:3px 8px 3px 0;color:#8a93a6}td.n{color:#e6e9ef;text-align:right}
+footer{color:#4a5160;margin-top:28px;font-size:12px}</style></head><body><main>
+<h1>Can I safely use or pay this endpoint right now?</h1>
+<p class=sub>One call, free, no account. Live at request time &mdash; not a
+cached badge, not a score computed from a repository at publication time.</p>
+
+<div class=box><code>GET /preflight?url=&lt;their endpoint&gt;</code>
+<div class=v>Returns what the endpoint <em>claims</em> and, separately, what it
+just <em>proved</em>: <span class=allow>allow</span> &middot;
+<span class=caution>caution</span> &middot; <span class=block>block</span>.
+Checks we could not perform come back as <em>unknowns</em> and are excluded
+from the verdict &mdash; never averaged into it.</div></div>
+
+<h2>Why this exists</h2>
+<table>
+<tr><td>Registry agents reporting healthy</td><td class=n>92.9%</td></tr>
+<tr><td>Agents that actually complete a task</td><td class=n>33.9%</td></tr>
+<tr><td>Agent Cards that are signed</td><td class=n>0.8%</td></tr>
+<tr><td>&ldquo;Paid&rdquo; agents that really return 402</td><td class=n>5.7%</td></tr>
+</table>
+<p class=k>Measured 2026-07-31. x402 <code>exact</code> transfers are
+irreversible, so the check belongs <em>before</em> the payment.</p>
+
+<h2>Free</h2>
+<p class=k><a href="/index">/index</a> &mdash; every endpoint we know, and what
+happened when we called it &middot; <a href="/index/search?q=">/index/search</a>
+&middot; <code>/preflight</code> &middot; <code>POST /evidence/verify</code></p>
+
+<h2>Paid, self-serve, no sales call</h2>
+<p class=k><code>/preflight/deep</code> adds drift history, cross-source
+corroboration and a policy verdict &middot; <code>POST /evidence/bundle</code>
+issues a signed snapshot you verify offline without us &middot;
+<code>POST /watch</code> monitors an endpoint continuously, charged per check
+actually performed. <a href="/pricing">Prices and their basis</a>.</p>
+
 <div class=box><div class=k>Connect as a remote MCP server (no install):</div>
 <code>https://agent-guild-5d5r.onrender.com/mcp</code>
-<div class=tools>tools: guild_best_agent &middot; guild_risk_score &middot; guild_search
-&middot; guild_register &middot; guild_attest</div></div>
+<div class=v>guild_preflight &middot; guild_index &middot; guild_preflight_deep
+&middot; guild_watch &middot; guild_check</div>
+<div class=v>A2A: send <code>preflight: &lt;url&gt;</code> or
+<code>index</code> to <code>/a2a</code>.</div></div>
+
 <p class=k>Machine entry points:
 <a href="/.well-known/agent-guild.json">manifest</a> &middot;
-<a href="/openapi.json">openapi</a> &middot; <a href="/llms.txt">llms.txt</a></p>
-<footer>Built for agents. Reputation is the product.</footer>
+<a href="/openapi.json">openapi</a> &middot; <a href="/llms.txt">llms.txt</a>
+&middot; <a href="/.well-known/agent-card.json">agent card</a></p>
+<footer>Evidence about other people&rsquo;s endpoints, published only where we
+actually called them.</footer>
 </main></body></html>"""
 
 
@@ -2801,21 +2851,15 @@ def llms_txt():
                        endpoint="llms")
     return (
         "# Agent Guild\n"
-        "Attack-resistant reputation + settlement for autonomous agents.\n\n"
-        "## Claim a portable, verifiable Agent Passport (start here)\n"
-        "Three free calls make your standing portable and verifiable anywhere:\n"
-        "  1. POST /agents/register {\"name\": \"<you>\", \"capabilities\": [...],\n"
-        "     \"src\": \"passport_offer:llms\"}  → returns your id + api_key\n"
-        "  2. POST /agents/{id}/prove → sign/confirm → POST /agents/{id}/prove/verify\n"
-        "  3. GET /agents/{id}/passport → a Guild-signed Verifiable Credential;\n"
-        "     any party verifies it offline (POST /credentials/verify, Guild did at\n"
-        "     /.well-known/agent-guild-did.json). Live badge: GET /agents/{id}/badge.svg.\n\n"
+        "Can I safely use or pay this endpoint right now? One free call.\n\n"
         "## START HERE: allow, caution or block an endpoint (free)\n"
-        "GET /preflight?url=<their endpoint>  (or the guild_preflight MCP tool)\n"
-        "One unauthenticated call, live at request time. You get back what the\n"
+        "GET /preflight?url=<their endpoint>   (MCP: guild_preflight;\n"
+        "                                       A2A: 'preflight: <url>')\n"
+        "One unauthenticated call, live at request time. Returns what the\n"
         "endpoint CLAIMS and, separately, what it just PROVED.\n"
-        "GET /index               the public index: every endpoint we know, and\n"
+        "GET /index               the public index: every endpoint we know and\n"
         "                         what happened when we actually called it\n"
+        "                         (MCP: guild_index; A2A: 'index')\n"
         "GET /index/search?q=     search it\n"
         "GET /preflight/deep?url= PAID: adds drift history, cross-source\n"
         "                         corroboration and an explicit allow/caution/\n"
@@ -2823,9 +2867,17 @@ def llms_txt():
         "POST /evidence/bundle    PAID: a signed snapshot you keep and verify\n"
         "                         offline, without calling us\n"
         "POST /watch              PAID per cycle: continuous monitoring you\n"
-        "                         provision yourself — no onboarding, no human\n"
+        "                         provision yourself - no onboarding, no human\n"
         "GET /pricing             what the paid layer costs, and why\n\n"
-        "## Why this exists\n"
+        "## Free Agent Passport (acquisition, not the paid product)\n"
+        "Three free calls make your standing portable and verifiable anywhere:\n"
+        "  1. POST /agents/register {\"name\": \"<you>\", \"capabilities\": [...],\n"
+        "     \"src\": \"passport_offer:llms\"}  → returns your id + api_key\n"
+        "  2. POST /agents/{id}/prove → sign/confirm → POST /agents/{id}/prove/verify\n"
+        "  3. GET /agents/{id}/passport → a Guild-signed Verifiable Credential;\n"
+        "     any party verifies it offline (POST /credentials/verify, Guild did at\n"
+        "     /.well-known/agent-guild-did.json). Live badge: GET /agents/{id}/badge.svg.\n\n"
+        "## Why the endpoint check exists\n"
         "Separating what an endpoint CLAIMS from what it just PROVED: does it\n"
         "complete a real\n"
         "protocol handshake (not merely answer 200), does its Agent Card resolve,\n"
@@ -2974,11 +3026,11 @@ def deep_preflight_route(request: Request, response: Response,
 
     The free tier (`GET /preflight`) is not degraded to make this attractive:
     it returns the full live check set and verdict, and always will."""
-    meter(payments.deep_preflight_request(url), x_api_key, response)
+    mode = meter(payments.deep_preflight_request(url), x_api_key, response)
     out = deepcheck.deep_preflight(store, url)
     store.record_event(creds.sanitize_actor_key(x_api_key) if x_api_key else None,
                        "deep_preflight_run", ua=_ua.get(), endpoint="preflight_deep",
-                       target=url, paid=True,
+                       target=url, paid=(mode == "x402"), settlement_mode=mode,
                        verdict=(out.get("policy") or {}).get("decision"))
     return out
 
@@ -3007,10 +3059,11 @@ def evidence_bundle_route(body: dict[str, Any], response: Response,
             "error": "evidence_issuance_refused", "code": e.code,
             "detail": str(e),
             "billing": "NOT CHARGED — issuance failed, so no meter ran"})
-    meter(preq, x_api_key, response)
+    mode = meter(preq, x_api_key, response)
     store.record_event(creds.sanitize_actor_key(x_api_key) if x_api_key else None,
                        "evidence_bundle_issued", ua=_ua.get(),
-                       endpoint="evidence_bundle", target=url, paid=True)
+                       endpoint="evidence_bundle", target=url,
+                       paid=(mode == "x402"), settlement_mode=mode)
     return bundle
 
 
@@ -3042,9 +3095,15 @@ def watch_provision_route(body: dict[str, Any], response: Response,
     if not url:
         raise HTTPException(422, "url is required")
     try:
+        # The RAW presented credential is passed so a hashed sk_ secret can be
+        # resolved to its account; only the resolved account key is persisted.
         rec = indexops.provision_watch(
-            store, creds.sanitize_actor_key(x_api_key), url,
+            store, x_api_key, url,
             interval_s=int(body.get("interval_s") or 3600))
+    except indexops.UnbillableWatch as e:
+        raise HTTPException(401, {
+            "error": "unbillable_credential", "detail": str(e),
+            "self_serve": "POST /billing/trial — credits with no human"})
     except ValueError as e:
         raise HTTPException(422, str(e))
     store.record_event(creds.sanitize_actor_key(x_api_key), "watch_provisioned",
@@ -3064,7 +3123,7 @@ def watch_feed_route(watch_id: str, x_api_key: Optional[str] = Header(None)):
     if not feed:
         raise HTTPException(404, "watch not found")
     rec = store.watches.get(watch_id) or {}
-    if rec.get("owner_key") and creds.sanitize_actor_key(x_api_key or "") != rec["owner_key"]:
+    if rec.get("owner_key") and store._account_key(x_api_key) != rec["owner_key"]:
         raise HTTPException(403, "this watch belongs to another caller")
     return feed
 
@@ -3153,9 +3212,10 @@ def index_detail(endpoint_id: str):
     if not entry:
         raise HTTPException(404, "endpoint not in the index")
     view = trustindex.public_view(entry, detail=True)
+    _q = quote(str(entry.get("endpoint") or ""), safe="")
     view["actions"] = {
-        "free_recheck_now": f"GET /preflight?url={entry.get('endpoint')}",
-        "paid_deep_check": f"GET /preflight/deep?url={entry.get('endpoint')}",
+        "free_recheck_now": f"GET /preflight?url={_q}",
+        "paid_deep_check": f"GET /preflight/deep?url={_q}",
         "signed_evidence": "POST /evidence/bundle {\"url\": \"…\"}",
         "continuous_watch": "POST /watch {\"url\": \"…\"}",
     }
@@ -3180,26 +3240,56 @@ def index_evidence_page(endpoint_id: str):
         raise HTTPException(404, "no observation yet — nothing worth publishing")
     view = trustindex.public_view(entry, detail=True)
     obs = view.get("observed") or {}
+    # STORED XSS (correction 2026-07-31). Every field below is attacker-
+    # controlled: endpoint URLs, card names, capabilities and check details all
+    # originate from a third-party registry or from the probed server's own
+    # response. Interpolating them raw made this page a stored-XSS delivery
+    # mechanism that ANY endpoint could load itself into simply by being
+    # indexed — and the whole product is publishing what other people's servers
+    # said. Nothing untrusted reaches the document unescaped.
+    e = html.escape
+
+    def _attr(url: str) -> str:
+        """A URL safe to place inside an href/query. Quoted, then escaped."""
+        return e(quote(str(url or ""), safe=""))
+
+    endpoint = e(str(view.get("endpoint") or ""))
+    endpoint_q = _attr(view.get("endpoint"))
     rows = "".join(
-        f"<tr><td>{c.get('check')}</td><td class='s-{c.get('status')}'>"
-        f"{c.get('status')}</td><td>{(c.get('detail') or '')[:300]}</td></tr>"
+        "<tr><td>{}</td><td class='s-{}'>{}</td><td>{}</td></tr>".format(
+            e(str(c.get("check") or "")),
+            e(str(c.get("status") or "unknown")),
+            e(str(c.get("status") or "")),
+            e(str(c.get("detail") or "")[:300]))
         for c in (obs.get("checks") or []))
-    drift = "".join(f"<li>{d.get('at')}: {d.get('from')} &rarr; {d.get('to')}</li>"
-                    for d in (view.get("drift") or [])) or "<li>no changes recorded</li>"
+    drift = "".join(
+        "<li>{}: {} &rarr; {}</li>".format(
+            e(str(d.get("at") or "")), e(str(d.get("from") or "")),
+            e(str(d.get("to") or "")))
+        for d in (view.get("drift") or [])) or "<li>no changes recorded</li>"
+    claimed = view.get("claimed") or {}
+    claimed_name = e(str(claimed.get("name") or "\u2014"))
+    claimed_sources = e(", ".join(str(x) for x in (claimed.get("sources") or []))
+                        or "\u2014")
+    age = e(str(view.get("observation_age_seconds")))
+    status = e(str(view.get("status") or ""))
+    count = e(str(view.get("observation_count") or 0))
+    stale = (" &middot; <strong>STALE</strong>" if view.get("stale") else "")
     return HTMLResponse(f"""<!doctype html><html><head><meta charset="utf-8">
-<title>Evidence: {view.get('endpoint')} — Agent Guild</title>
+<title>Evidence: {endpoint} — Agent Guild</title>
 <meta name="description" content="What happened when Agent Guild actually
-called {view.get('endpoint')}: protocol handshake, card, payment claim.">
+called this endpoint: protocol handshake, agent card, payment claim.">
+<meta name="referrer" content="no-referrer">
 <style>body{{font:15px/1.55 system-ui,sans-serif;max-width:52rem;margin:2rem auto;
 padding:0 1rem;color:#111}}table{{border-collapse:collapse;width:100%}}
 td,th{{border-bottom:1px solid #ddd;padding:.45rem;text-align:left;vertical-align:top}}
 .s-proven{{color:#0a7}}.s-failed{{color:#c22}}.s-unknown{{color:#888}}
 .k{{color:#666}}code{{background:#f4f4f4;padding:.1rem .3rem}}</style></head><body>
-<h1>{view.get('endpoint')}</h1>
-<p class="k">Status <strong>{view.get('status')}</strong> &middot; observed
-{view.get('observation_age_seconds')}s ago &middot;
-{view.get('observation_count')} observation(s)
-{' &middot; <strong>STALE</strong>' if view.get('stale') else ''}</p>
+<h1>{endpoint}</h1>
+<p class="k">Status <strong>{status}</strong> &middot; observed {age}s ago
+&middot; {count} observation(s){stale}</p>
+<h2>Verdict</h2>
+<p>{e(str(obs.get("verdict") or "not yet observed"))}</p>
 <h2>What we observed</h2>
 <table><tr><th>Check</th><th>Result</th><th>Detail</th></tr>{rows}</table>
 <p class="k">Checks reported <em>unknown</em> could not be performed. They are
@@ -3207,11 +3297,10 @@ excluded from the verdict, never averaged into it.</p>
 <h2>Change history</h2><ul>{drift}</ul>
 <h2>What is claimed</h2>
 <p class="k">Self-declared by the endpoint or its registry, <strong>not
-verified</strong>: {view.get('claimed', {}).get('name') or '—'} &middot;
-sources: {', '.join(view.get('claimed', {}).get('sources') or []) or '—'}</p>
+verified</strong>: {claimed_name} &middot; sources: {claimed_sources}</p>
 <h2>Check it yourself</h2>
-<p><code>GET /preflight?url={view.get('endpoint')}</code> — free, no account,
-runs live at request time.</p>
+<p><code>GET /preflight?url={endpoint_q}</code> — free, no account, runs live
+at request time.</p>
 <p class="k">Agent Guild publishes this page only for endpoints it has actually
 called. <a href="/index">Index</a> &middot; <a href="/pricing">Pricing</a></p>
 </body></html>""")

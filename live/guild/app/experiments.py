@@ -2,10 +2,14 @@
 
 WHY THIS IS NARROW ON PURPOSE
   An autonomous loop that can change anything will eventually change the thing
-  that makes its own numbers look good. So this engine can move exactly two
-  kinds of variable — a PRICE within its published ceiling, and a COPY variant
-  — and nothing else. It cannot alter what counts as success, cannot create an
-  operation, and cannot touch attribution.
+  that makes its own numbers look good. So this engine can move exactly ONE
+  kind of variable: a PRICE, within its published ceiling, downward only. It
+  cannot raise a price, cannot invent an operation, cannot alter what counts as
+  success, and cannot touch attribution.
+
+  Copy variants are deliberately NOT claimed here. There is no bounded
+  mechanism for them yet, and an engine that advertises a lever it does not
+  have is worse than one that admits its range.
 
 THE RULE THAT MAKES IT TRUSTWORTHY
   **An experiment can never count our own traffic.** Qualified exposure is
@@ -153,19 +157,62 @@ def qualified_exposure(store: Any) -> dict[str, Any]:
     }
 
 
+#: The ONLY settlement mode that is money. `credits_sandbox` is an internal
+#: unit we mint and hand out as trial credits; `free` is the soft launch.
+SETTLED_MODE = "x402"
+
+
 def commercial_metrics(store: Any) -> dict[str, Any]:
-    """The primary metrics. Revenue is REAL money only."""
+    """The primary metrics. Revenue is REAL money only.
+
+    SETTLEMENT MODE, NOT `paid=True` (correction 2026-07-31). The HTTP routes
+    previously stamped `paid=True` after the meter passed — but the meter
+    passes for three completely different reasons: an independently confirmed
+    x402 mainnet settlement, a draw against sandbox trial credits we minted
+    ourselves, and the soft-launch free path when enforcement is off. Counting
+    all three as paying customers meant our own trial grant could promote an
+    experiment. Only `settlement_mode == "x402"` from a genuinely external
+    caller counts here; sandbox decisions are reported separately, as
+    supporting, and can never promote.
+
+    Events recorded before this correction carry no `settlement_mode`. They are
+    counted as SANDBOX, never as settled — the conservative direction, and the
+    one that cannot flatter us."""
+    from . import attribution
+
     payers: set[str] = set()
     paid_decisions = 0
     repeat: dict[str, int] = {}
+    sandbox_decisions = 0
+    sandbox_actors: set[str] = set()
+    unattributed_settled = 0
+
     for e in getattr(store, "events", []):
-        if e.get("type") in ("deep_preflight_run", "evidence_bundle_issued") \
-                and e.get("paid"):
-            paid_decisions += 1
-            key = e.get("key") or ""
-            if key and key != "anon" and not e.get("fp"):
-                payers.add(key)
-                repeat[key] = repeat.get(key, 0) + 1
+        if e.get("type") not in ("deep_preflight_run", "evidence_bundle_issued"):
+            continue
+        mode = e.get("settlement_mode") or ("legacy_unlabelled"
+                                            if e.get("paid") else "free")
+        key = e.get("key") or ""
+        if mode != SETTLED_MODE:
+            if mode in ("credits_sandbox", "legacy_unlabelled"):
+                sandbox_decisions += 1
+                if key and key != "anon":
+                    sandbox_actors.add(key)
+            continue
+        # A settled call still has to be EXTERNAL to be a customer.
+        cls = attribution.caller_class(e)
+        external = (not e.get("fp")
+                    and cls not in ("AG_INTERNAL", "AG_TEST", "OPERATOR",
+                                    "REGISTRY_CRAWLER")
+                    and attribution.may_count_as_external_growth(cls)
+                    and attribution.is_genuine_external(e))
+        if not external:
+            unattributed_settled += 1
+            continue
+        paid_decisions += 1
+        if key and key != "anon":
+            payers.add(key)
+            repeat[key] = repeat.get(key, 0) + 1
 
     revenue_usd = 0.0
     try:
@@ -190,6 +237,16 @@ def commercial_metrics(store: Any) -> dict[str, Any]:
         "paid_decisions": paid_decisions,
         "externally_monitored_endpoints": monitored,
         "repeat_paid_callers": sum(1 for n in repeat.values() if n > 1),
+        "supporting_sandbox_decisions_NOT_REVENUE": sandbox_decisions,
+        "supporting_sandbox_distinct_actors_NOT_PAYERS": len(sandbox_actors),
+        "settled_but_not_attributable_external": unattributed_settled,
+        "settlement_rule": (
+            "a paid decision requires settlement_mode == 'x402' (independently "
+            "confirmed mainnet money) AND a genuinely external caller. Sandbox "
+            "trial credits, soft-launch free calls and settled-but-unattributed "
+            "calls are reported separately and can never promote an experiment. "
+            "Events predating this correction carry no settlement_mode and are "
+            "counted as sandbox, never as settled."),
         "revenue_definition": (
             "independently confirmed EXTERNAL mainnet settlement only. "
             "Sandbox credits, first-party canaries, testnet funds and internal "
@@ -303,6 +360,94 @@ def next_action(store: Any, key: str) -> dict[str, Any]:
                          "itself needs to change"}
 
 
+def apply_next_action(store: Any) -> list[dict[str, Any]]:
+    """Decide AND ACT on every running experiment. The autonomous half.
+
+    Previously the scheduled loop only called `evaluate`, so a `kill` verdict
+    produced a recommendation nobody read — the engine could observe that an
+    offer had failed and was structurally unable to do anything about it. That
+    is a strategy memo with a cron job.
+
+    Now, on a DECISIVE kill, exactly ONE reversible change is applied per
+    experiment per cycle:
+
+      * the price is halved, clamped to the published ceiling and floored at
+        zero (downward only — the engine can never raise a price);
+      * the change is written to the DURABLE override layer, so it survives a
+        restart and is visible at GET /pricing;
+      * before/after/reason are recorded on the experiment;
+      * the measurement window RESTARTS and the baseline is re-taken, because
+        continuing to measure a changed offer against an old baseline would
+        make the next verdict meaningless;
+      * a price already at zero is not "changed" again — the engine reports
+        `offer_exhausted` rather than pretending a no-op was an action.
+
+    Returns one record per experiment acted on. Never raises: a failure to act
+    must not take the scheduled cycle down."""
+    applied: list[dict[str, Any]] = []
+    for key in list(getattr(store, "experiments", {}) or {}):
+        try:
+            action = next_action(store, key)
+        except Exception as exc:  # noqa: BLE001
+            applied.append({"key": key, "error": type(exc).__name__})
+            continue
+        if action.get("action") != "reprice" or not action.get("change"):
+            applied.append({"key": key, "decision": action.get("decision"),
+                            "acted": False, "action": action.get("action")})
+            continue
+        change = action["change"]
+        op, before, after = (change["operation"], change["from_credits"],
+                             change["to_credits"])
+        if before <= 0 or after == before:
+            applied.append({"key": key, "acted": False,
+                            "reason": "offer_exhausted",
+                            "detail": ("the price is already at zero — halving "
+                                       "it again is not an action, and the "
+                                       "OFFER, not the price, is what has "
+                                       "failed")})
+            continue
+        # ENV pins outrank the engine: if an operator has set the price by
+        # hand, the loop must not fight them.
+        if os.environ.get(pricing._env_key(op)) is not None:
+            applied.append({"key": key, "acted": False,
+                            "reason": "price_pinned_by_operator",
+                            "detail": f"{pricing._env_key(op)} is set; the "
+                                      "autonomous engine never overrides a "
+                                      "human-pinned price"})
+            continue
+        with store.lock, store._txn():
+            store.price_overrides[op] = after
+            pricing.load_runtime(store.price_overrides)
+            live = store.experiments.get(key) or {}
+            live.setdefault("changes_applied", []).append({
+                "at": _now().isoformat(), "operation": op,
+                "before_credits": before, "after_credits": after,
+                "reason": action.get("reason"),
+                "decision": action.get("decision"),
+                "reversible_via": pricing._env_key(op),
+            })
+            live["changes_applied"] = live["changes_applied"][-20:]
+            # restart the measurement window against a FRESH baseline
+            live["baseline"] = commercial_metrics(store)
+            live["started_at"] = _now().isoformat()
+            live["status"] = "running"
+            live["decision"] = None
+            live["decided_at"] = None
+            store.experiments[key] = live
+            if store.backend is not None:
+                store._persist_kv("experiments", store.experiments)
+                store._persist_kv("price_overrides", store.price_overrides)
+            store._save()
+        applied.append({
+            "key": key, "acted": True, "operation": op,
+            "before_credits": before, "after_credits": after,
+            "reason": action.get("reason"),
+            "window_restarted": True,
+            "reversible_via": pricing._env_key(op),
+        })
+    return applied
+
+
 def snapshot(store: Any) -> dict[str, Any]:
     """Everything an autonomous report needs, revenue first."""
     return {
@@ -313,6 +458,10 @@ def snapshot(store: Any) -> dict[str, Any]:
                             "variable": v.get("variable"),
                             "hypothesis": v.get("hypothesis")}
                         for k, v in (store.experiments or {}).items()},
+        "applied_changes": {k: v.get("changes_applied", [])
+                            for k, v in (store.experiments or {}).items()
+                            if v.get("changes_applied")},
+        "runtime_price_overrides": pricing.runtime_overrides(),
         "primary_metrics": list(PRIMARY_METRICS),
         "supporting_metrics_never_sufficient": list(SUPPORTING_METRICS),
     }

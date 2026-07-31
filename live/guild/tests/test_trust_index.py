@@ -230,23 +230,38 @@ def test_policy_threshold_is_published_so_it_can_be_rejected():
 
 # --------------------------------------------------------------------------
 # 6. Watch: idempotent provisioning, charge only for work done
+#
+# Every watch below is provisioned with a REAL registered account. Provisioning
+# now authenticates before scheduling any outbound work (correction
+# 2026-07-31), so a made-up key is refused — see
+# tests/test_index_corrections.py for the tests that prove the refusal.
 # --------------------------------------------------------------------------
+def _acct(store: Store, name: str = "watcher") -> str:
+    """A registered, funded account key that can actually be billed."""
+    rec = store.register_agent(name, ["x"], {})
+    key = store._account_key(rec.get("api_key"))
+    store.credit(key, 1000, reason="test")
+    return key
+
 def test_provisioning_the_same_watch_twice_does_not_bill_twice(store):
-    a = indexops.provision_watch(store, "key-1", "https://a.example/a2a")
-    b = indexops.provision_watch(store, "key-1", "https://a.example/a2a/")
+    k = _acct(store)
+    a = indexops.provision_watch(store, k, "https://a.example/a2a")
+    b = indexops.provision_watch(store, k, "https://a.example/a2a/")
     assert a["id"] == b["id"]
     assert b["created"] is False
     assert len(store.watches) == 1
 
 
 def test_different_callers_get_different_watches(store):
-    a = indexops.provision_watch(store, "key-1", "https://a.example/a2a")
-    b = indexops.provision_watch(store, "key-2", "https://a.example/a2a")
+    a = indexops.provision_watch(store, _acct(store, "one"),
+                                 "https://a.example/a2a")
+    b = indexops.provision_watch(store, _acct(store, "two"),
+                                 "https://a.example/a2a")
     assert a["id"] != b["id"]
 
 
 def test_a_cycle_that_cannot_observe_is_not_billed(store):
-    rec = indexops.provision_watch(store, "key-1", "https://a.example/a2a")
+    rec = indexops.provision_watch(store, _acct(store), "https://a.example/a2a")
     charged = []
     store.watches[rec["id"]]["endpoint_id"] = "ep_does_not_exist"
     out = indexops.run_watch_cycle(
@@ -257,7 +272,7 @@ def test_a_cycle_that_cannot_observe_is_not_billed(store):
 
 
 def test_failed_charge_suspends_the_watch_rather_than_serving_it_free(store):
-    rec = indexops.provision_watch(store, "key-1", "https://a.example/a2a")
+    rec = indexops.provision_watch(store, _acct(store), "https://a.example/a2a")
 
     def _broke(_key):
         raise RuntimeError("insufficient credits")
@@ -270,7 +285,7 @@ def test_failed_charge_suspends_the_watch_rather_than_serving_it_free(store):
 
 
 def test_watch_records_a_change_only_when_status_actually_changes(store):
-    rec = indexops.provision_watch(store, "key-1", "https://a.example/a2a")
+    rec = indexops.provision_watch(store, _acct(store), "https://a.example/a2a")
     live = store.watches[rec["id"]]
     indexops.run_watch_cycle(store, live, runner=lambda url: _observed())
     first = len(store.watches[rec["id"]]["changes"])
