@@ -33,6 +33,9 @@ from . import __version__
 from . import callerproof
 from . import proving
 from . import a2a_x402
+from . import deepcheck
+from . import preflight
+from . import trustindex
 from . import demand
 from . import firstparty as _fp_auth
 from . import payments
@@ -470,6 +473,55 @@ def _agent_card(base: str) -> dict[str, Any]:
         "defaultOutputModes": ["application/json", "text/plain"],
         "skills": [
             {
+                "id": "guild.preflight",
+                "name": "Allow, caution or block an endpoint (free)",
+                "description": (
+                    "Run this in the moment BEFORE you delegate to, or pay, "
+                    "an endpoint you did not write. Free, no account. Returns "
+                    "what the endpoint CLAIMS and, separately, what it just "
+                    "PROVED: a real protocol handshake (not merely HTTP 200), "
+                    "a resolvable agent card, whether that card is signed, and "
+                    "whether an advertised payment surface actually challenges "
+                    "with 402. Checks that could not be performed come back as "
+                    "unknowns and are excluded from the verdict, never "
+                    "averaged into it."
+                ),
+                "tags": ["trust", "preflight", "delegation", "safety", "x402"],
+                "examples": ["preflight: https://some-agent.example/a2a",
+                             "check-endpoint: https://some-agent.example/a2a"],
+                "inputModes": ["text/plain"],
+                "outputModes": ["application/json"],
+            },
+            {
+                "id": "guild.preflight.deep",
+                "name": "Deep endpoint check with policy verdict (paid)",
+                "description": (
+                    "Everything the free preflight returns, plus drift "
+                    "history for this exact endpoint, cross-source "
+                    "corroboration, and an explicit allow/caution/block policy "
+                    "verdict whose threshold is published so you can reject it "
+                    "and apply your own. Priced through the same x402 gateway "
+                    "as every other paid read."
+                ),
+                "tags": ["trust", "preflight", "policy", "x402", "paid"],
+                "examples": ["deep-preflight: https://some-agent.example/a2a"],
+                "inputModes": ["text/plain"],
+                "outputModes": ["application/json"],
+            },
+            {
+                "id": "guild.index",
+                "name": "Search the public trust index (free)",
+                "description": (
+                    "Every endpoint the Guild knows, with what its registry "
+                    "CLAIMS and separately what the Guild OBSERVED when it "
+                    "actually called it. Send 'index' or 'index: <query>'."
+                ),
+                "tags": ["discovery", "trust", "index"],
+                "examples": ["index", "index: translation"],
+                "inputModes": ["text/plain"],
+                "outputModes": ["application/json"],
+            },
+            {
                 "id": "guild.check",
                 "name": "Vet a capability before delegating",
                 "description": (
@@ -674,6 +726,17 @@ async def a2a_endpoint(request: Request):
     # ag.<capability>) and an SDK-driven caller invokes them literally as
     # JSON — live telemetry caught {"skill":"guild.check","args":{}} falling
     # through to probe_ack. Card-advertised syntax must always resolve.
+    # DECISION-BOUNDARY commands (Phase C, A2A parity 2026-07-31). An agent
+    # about to delegate asks in the transport it is already speaking; making it
+    # switch to HTTP to ask "is this endpoint safe" is exactly the friction
+    # that stops the check happening at all. Matched BEFORE the advert branch,
+    # because "preflight: https://x/a2a" carries a URL and would otherwise be
+    # read as someone advertising themselves.
+    _pf = re.match(r"^\s*(preflight|check-endpoint)\s*:\s*(\S+)\s*$", text, re.I)
+    _pfd = re.match(r"^\s*(deep-preflight|preflight-deep)\s*:\s*(\S+)\s*$",
+                    text, re.I)
+    _idx = re.match(r"^\s*index\s*:?\s*(.*)$", text, re.I) if lowered.startswith("index") else None
+
     _skill = _skill_call(text)
     _skill_payload: Optional[dict[str, Any]] = None
     if _skill is not None:
@@ -883,6 +946,59 @@ async def a2a_endpoint(request: Request):
         store.record_event(actor, "prove_howto_served", ua=ua_tag,
                            endpoint="a2a_message",
                            agent_id=(_named.group(0) if _named else None))
+    elif _pfd is not None:
+        # PAID deep preflight over A2A — the SAME operation, price and policy
+        # as GET /preflight/deep and the MCP tool. One semantic operation, one
+        # canonical resource URL, every transport.
+        _target = _pfd.group(2)
+        if _x402_a2a_active():
+            preq = payments.deep_preflight_request(_target)
+            task = a2a_x402.build_payment_required_task(preq, preq.cost)
+            store.record_event(actor, "x402_payment_required", ua=ua_tag,
+                               endpoint="preflight_deep", transport="a2a",
+                               target=_target[:300])
+            resp = {"jsonrpc": "2.0", "id": id_, "result": task}
+            return _with_extension_header(resp, request)
+        payload = deepcheck.deep_preflight(store, _target)
+        store.record_event(actor, "deep_preflight_run", ua=ua_tag,
+                           endpoint="preflight_deep", transport="a2a",
+                           target=_target[:300], paid=False,
+                           settlement_mode="free",
+                           verdict=(payload.get("policy") or {}).get("decision"))
+    elif _pf is not None:
+        # FREE preflight. Stays free on every transport: a paywall in front of
+        # "does this endpoint work" would make the ecosystem worse.
+        _target = _pf.group(2)
+        payload = preflight.run(_target, store=store)
+        store.record_event(actor, "preflight_run", ua=ua_tag,
+                           endpoint="preflight", transport="a2a",
+                           target=_target[:300],
+                           verdict=payload.get("verdict"),
+                           failed_count=len(payload.get("failed", [])),
+                           unknown_count=len(payload.get("unknowns", [])))
+    elif _idx is not None:
+        # FREE index search.
+        _q = (_idx.group(1) or "").strip().lower()
+        _hits = []
+        for _e in (store.trust_index or {}).values():
+            _d = _e.get("declared") or {}
+            _hay = " ".join([str(_e.get("endpoint") or ""),
+                             str(_d.get("name") or ""),
+                             " ".join(str(c) for c in _d.get("capabilities", []))
+                             ]).lower()
+            if _q and _q not in _hay:
+                continue
+            _hits.append(_e)
+        _hits.sort(key=lambda r: (bool(r.get("observation")),
+                                  r.get("observed_at") or ""), reverse=True)
+        payload = {
+            "kind": "trust_index",
+            "count": len(_hits),
+            "results": [trustindex.public_view(_e) for _e in _hits[:20]],
+            "summary": trustindex.summarise((store.trust_index or {}).values()),
+        }
+        store.record_event(actor, "index_view", ua=ua_tag, endpoint="index",
+                           transport="a2a")
     elif _adv_url:
         # Adverts are endpoint declarations in disguise (IDEAS.md 2026-07-07,
         # the MetaVision lesson): a message carrying a third-party URL gets a

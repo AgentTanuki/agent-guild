@@ -216,9 +216,12 @@ def _run_index_cycle(store: Any) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         out["watch_error"] = type(exc).__name__
     try:
-        out["experiments"] = {
-            k: _experiments.evaluate(store, k)["decision"]
-            for k in list(getattr(store, "experiments", {}) or {})}
+        # DECIDE AND ACT. Calling evaluate() alone produced a recommendation
+        # nobody read — the loop could see that an offer had failed and was
+        # structurally unable to change it. apply_next_action decides every
+        # running experiment and applies at most ONE reversible price change
+        # per experiment per cycle, durably.
+        out["experiments"] = _experiments.apply_next_action(store)
     except Exception as exc:  # noqa: BLE001
         out["experiment_error"] = type(exc).__name__
     return out
@@ -242,7 +245,9 @@ def _run_watch_cycles(store: Any, cap: int = 10) -> dict[str, Any]:
         price = _pricing.price("watch_cycle")
         if price <= 0:
             return 0
-        store.charge(owner_key, price, "watch_cycle")
+        # server-initiated: the account key was resolved and persisted at
+        # provisioning time, so no credential is (or could be) presented here.
+        store.charge_account(owner_key, price, "watch_cycle")
         return price
 
     results = [indexops.run_watch_cycle(store, rec, charge=_charge)

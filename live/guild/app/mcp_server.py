@@ -153,6 +153,16 @@ def _first_party_payer() -> "bool | None":
 _mcp_caller_proof: contextvars.ContextVar[tuple[bool, str]] = \
     contextvars.ContextVar("mcp_caller_proof", default=(False, ""))
 
+#: How the CURRENT paid tool call was settled: "x402" (independently confirmed
+#: mainnet money), "credits_sandbox" (an internal unit we mint), or "free".
+#: Only "x402" is revenue — see app/experiments.commercial_metrics.
+_settlement_mode: contextvars.ContextVar[str] = \
+    contextvars.ContextVar("settlement_mode", default="free")
+
+
+def settlement_mode() -> str:
+    return _settlement_mode.get()
+
 
 def _meta_value(meta: Any, key: str) -> Any:
     if meta is None:
@@ -408,6 +418,11 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
             structured_content=(result if isinstance(result, dict)
                                 else {"result": result}),
             meta=meta)
+    # SETTLEMENT MODE is published to the producer through a request-scoped
+    # contextvar, so an MCP tool can record HOW it was paid without every
+    # producer signature growing an argument. Same correction as the HTTP
+    # meter: passing the gate is not the same as being paid.
+    _settlement_mode.set(auth.mode)
     result = produce()
     # in-band inbox delivery: the paid read is many agents' ONLY interaction
     # with the Guild, so an authenticated subject's pending messages ride on
@@ -502,10 +517,19 @@ def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> di
 
     Example: guild_preflight_deep(url="https://some-agent.example/a2a")
     """
-    return _serve_paid(
-        payments.deep_preflight_request(url),
-        lambda: deepcheck.deep_preflight(store, url),
-        ctx, api_key)
+    def _produce():
+        out = deepcheck.deep_preflight(store, url)
+        mode = settlement_mode()
+        store.record_event(
+            _creds.sanitize_actor_key(api_key) if api_key else "mcp",
+            "deep_preflight_run", ua=_client_ua(ctx),
+            endpoint="preflight_deep", target=url, transport="mcp",
+            paid=(mode == "x402"), settlement_mode=mode,
+            verdict=(out.get("policy") or {}).get("decision"))
+        return out
+
+    return _serve_paid(payments.deep_preflight_request(url), _produce,
+                       ctx, api_key)
 
 
 @mcp.tool
@@ -525,9 +549,11 @@ def guild_watch(url: str, api_key: str, interval_seconds: int = 3600,
         return {"error": "api_key required — a watch bills per cycle. "
                          "POST /billing/trial issues credits with no human."}
     try:
-        rec = indexops.provision_watch(
-            store, _creds.sanitize_actor_key(api_key), url,
-            interval_s=interval_seconds)
+        rec = indexops.provision_watch(store, api_key, url,
+                                       interval_s=interval_seconds)
+    except indexops.UnbillableWatch as e:
+        return {"error": "unbillable_credential", "detail": str(e),
+                "self_serve": "POST /billing/trial — credits with no human"}
     except ValueError as e:
         return {"error": str(e)}
     store.record_event(_creds.sanitize_actor_key(api_key), "watch_provisioned",
@@ -544,7 +570,7 @@ def guild_watch_feed(watch_id: str, api_key: str = "", ctx: Context = None) -> d
     if not feed:
         return {"error": "watch not found"}
     rec = (store.watches or {}).get(watch_id) or {}
-    if rec.get("owner_key") and _creds.sanitize_actor_key(api_key or "") != rec["owner_key"]:
+    if rec.get("owner_key") and store._account_key(api_key) != rec["owner_key"]:
         return {"error": "this watch belongs to another caller"}
     return feed
 

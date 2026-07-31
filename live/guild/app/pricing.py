@@ -76,21 +76,60 @@ def _env_key(operation: str) -> str:
     return "GUILD_PRICE_" + operation.upper()
 
 
+#: RUNTIME overrides applied by the autonomous experiment engine, mirrored here
+#: from durable storage at boot. Held at module level (not passed through every
+#: call site) because the payment gateway prices operations in code paths that
+#: have no Store handle — and a price the engine cannot actually reach is a
+#: suggestion, not a mechanism.
+_RUNTIME: dict[str, int] = {}
+
+
+def load_runtime(overrides: Optional[dict] = None) -> dict[str, int]:
+    """Install persisted overrides (called by Store at boot and on change).
+
+    Values are re-clamped on load, so a row written by an older build, or hand
+    edited, can never exceed today's published ceiling."""
+    _RUNTIME.clear()
+    for op, value in (overrides or {}).items():
+        if op not in DEFAULTS:
+            continue                      # never invent an operation
+        try:
+            _RUNTIME[op] = max(0, min(int(value), CEILINGS[op]))
+        except (TypeError, ValueError):
+            continue
+    return dict(_RUNTIME)
+
+
+def runtime_overrides() -> dict[str, int]:
+    return dict(_RUNTIME)
+
+
 def price(operation: str) -> int:
     """The live price for `operation`, in credits.
 
-    Resolution: environment override → default, clamped to
-    [0, CEILINGS[operation]]. A malformed override degrades to the default
-    rather than taking the endpoint offline or making it free by accident."""
+    Precedence — ENVIRONMENT wins, deliberately:
+
+        env override  →  runtime (experiment) override  →  default
+
+    The human-set environment variable outranks the autonomous engine, so an
+    operator can always pin a price and know the loop cannot move it back.
+    That is the whole reason the engine writes to a separate layer instead of
+    mutating the defaults.
+
+    Everything is clamped to [0, CEILINGS[operation]]; a malformed value
+    degrades to the next layer down rather than taking the endpoint offline or
+    making it free by accident."""
     default = DEFAULTS.get(operation, 0)
     raw = os.environ.get(_env_key(operation))
-    if raw is None:
-        return default
-    try:
-        value = int(str(raw).strip())
-    except (TypeError, ValueError):
-        return default
-    return max(0, min(value, CEILINGS.get(operation, default)))
+    if raw is not None:
+        try:
+            return max(0, min(int(str(raw).strip()),
+                              CEILINGS.get(operation, default)))
+        except (TypeError, ValueError):
+            pass                          # fall through to the runtime layer
+    if operation in _RUNTIME:
+        return _RUNTIME[operation]
+    return default
 
 
 def table() -> dict[str, Any]:
@@ -109,7 +148,9 @@ def table() -> dict[str, Any]:
                 "ceiling_credits": CEILINGS[op],
                 "env_override": _env_key(op),
                 "basis": RATIONALE[op],
-                "overridden": os.environ.get(_env_key(op)) is not None,
+                "overridden_by_env": os.environ.get(_env_key(op)) is not None,
+                "runtime_override_credits": _RUNTIME.get(op),
+                "precedence": "env > autonomous experiment override > default",
             }
             for op in DEFAULTS
         },

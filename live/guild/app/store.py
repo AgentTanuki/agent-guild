@@ -162,6 +162,11 @@ class Store:
         self.watches: dict[str, dict[str, Any]] = {}
         # experiment key -> bounded reversible experiment state
         self.experiments: dict[str, dict[str, Any]] = {}
+        # operation -> credits: RUNTIME price overrides written by the
+        # autonomous experiment engine. Durable, so a decision the loop made
+        # survives a restart; mirrored into app/pricing at load because the
+        # payment gateway prices operations where no Store handle exists.
+        self.price_overrides: dict[str, int] = {}
         # machine-market state (app/market.py): signed offers, bonded machine
         # adjudicators, dispute cases — all persisted like swarm_state (kv)
         self.offers: dict[str, dict[str, Any]] = {}
@@ -228,6 +233,14 @@ class Store:
             from .store_sqlite import SqliteBackend
             self.backend = SqliteBackend(self._sqlite_path())
         self._load()
+        # Mirror durable price overrides into the pricing module. Done once,
+        # here, so every transport prices identically from boot — an override
+        # that only some code paths can see would be worse than none.
+        try:
+            from . import pricing as _pricing
+            _pricing.load_runtime(self.price_overrides)
+        except Exception:  # noqa: BLE001 — pricing must never block boot
+            pass
 
     # --- pluggable sqlite backend (GUILD_STORE=sqlite) ----------------------
     @staticmethod
@@ -482,6 +495,7 @@ class Store:
             b.put_kv("trust_index", self.trust_index)
             b.put_kv("watches", self.watches)
             b.put_kv("experiments", self.experiments)
+            b.put_kv("price_overrides", self.price_overrides)
             b.put_kv("offers", self.offers)
             b.put_kv("adjudicators", self.adjudicators)
             b.put_kv("dispute_cases", self.dispute_cases)
@@ -536,6 +550,7 @@ class Store:
             b.put_kv("trust_index", self.trust_index)
             b.put_kv("watches", self.watches)
             b.put_kv("experiments", self.experiments)
+            b.put_kv("price_overrides", self.price_overrides)
             b.put_kv("offers", self.offers)
             b.put_kv("adjudicators", self.adjudicators)
             b.put_kv("dispute_cases", self.dispute_cases)
@@ -589,6 +604,7 @@ class Store:
         self.trust_index = self.backend.fetch_kv("trust_index", {}) or {}
         self.watches = self.backend.fetch_kv("watches", {}) or {}
         self.experiments = self.backend.fetch_kv("experiments", {}) or {}
+        self.price_overrides = self.backend.fetch_kv("price_overrides", {}) or {}
         self.offers = self.backend.fetch_kv("offers", {}) or {}
         self.adjudicators = self.backend.fetch_kv("adjudicators", {}) or {}
         self.dispute_cases = self.backend.fetch_kv("dispute_cases", {}) or {}
@@ -646,6 +662,7 @@ class Store:
             self.trust_index = data.get("trust_index", {})
             self.watches = data.get("watches", {})
             self.experiments = data.get("experiments", {})
+            self.price_overrides = data.get("price_overrides", {})
             self.offers = data.get("offers", {})
             self.adjudicators = data.get("adjudicators", {})
             self.dispute_cases = data.get("dispute_cases", {})
@@ -791,7 +808,8 @@ class Store:
                        "swarm_state": self.swarm_state,
                        "trust_index": self.trust_index,
                        "watches": self.watches,
-                       "experiments": self.experiments}, f, indent=2)
+                       "experiments": self.experiments,
+                       "price_overrides": self.price_overrides}, f, indent=2)
         os.replace(tmp, self.path)
         # events are now durable in the main file — compact the journal
         if self.events_path:
@@ -2038,6 +2056,43 @@ class Store:
             _entry = {
                 "key": key, "type": "charge", "endpoint": endpoint,
                 "amount": -cost, "balance_after": acct["balance"], "at": _now(),
+            }
+            self.billing_log.append(_entry)
+            if self.backend is not None:
+                self._persist_account(acct)
+                self._persist_billing(_entry)
+            self._save()
+            return acct
+
+    def charge_account(self, account_key: str, cost: int,
+                       endpoint: str) -> dict[str, Any]:
+        """Debit an account by its INTERNAL account key. Server-initiated only.
+
+        `charge()` resolves a PRESENTED credential, and deliberately refuses a
+        bare hashed account key — a public key_id must never spend. That rule
+        is right for request paths and wrong for scheduled work: a continuous
+        watch runs hours after the customer's request, with no credential in
+        hand, and we persist the account key precisely so we never have to
+        store their secret.
+
+        So this is the server-initiated sibling. It takes an account key that
+        is ALREADY resolved, and must never be reachable from a request path or
+        called with anything a caller supplied — otherwise a public key_id
+        becomes a spending credential and the whole hashed-credential design
+        collapses. Its only caller is the scheduled watch cycle."""
+        with self.lock, self._txn():
+            self._sync_account_from_db(account_key)
+            acct = self.accounts.get(account_key)
+            if acct is None:
+                raise UnknownAccount(account_key)
+            if acct["balance"] < cost:
+                raise InsufficientCredits(acct["balance"], cost)
+            acct["balance"] -= cost
+            acct["spent"] += cost
+            _entry = {
+                "key": account_key, "type": "charge", "endpoint": endpoint,
+                "amount": -cost, "balance_after": acct["balance"], "at": _now(),
+                "server_initiated": True,
             }
             self.billing_log.append(_entry)
             if self.backend is not None:

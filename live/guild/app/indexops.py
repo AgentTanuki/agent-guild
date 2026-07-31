@@ -164,15 +164,37 @@ def watch_id(owner_key: str, endpoint: str) -> str:
     return "wch_" + hashlib.sha256(raw).hexdigest()[:16]
 
 
-def provision_watch(store: Any, owner_key: str, endpoint: str, *,
-                    interval_s: int = 3600) -> dict[str, Any]:
-    """Create (or return) a continuous watch. Idempotent by (owner, endpoint).
+class UnbillableWatch(ValueError):
+    """The presented credential does not resolve to an account we can charge."""
 
-    No human is involved and none is required. Provisioning is free — charging
-    before any observation exists would be charging for a promise."""
+
+def provision_watch(store: Any, presented_key: str, endpoint: str, *,
+                    interval_s: int = 3600) -> dict[str, Any]:
+    """Create (or return) a continuous watch. Idempotent by (account, endpoint).
+
+    AUTHENTICATE BEFORE DOING WORK (correction 2026-07-31). This previously
+    accepted any string as an owner key and provisioned outbound work before
+    checking whether it could ever be billed: an unauthenticated caller could
+    schedule recurring probes against third-party infrastructure at our
+    expense, and a legitimate caller presenting a hashed `sk_` secret got a
+    watch keyed on the raw secret, which then failed to charge and suspended
+    itself on the first cycle.
+
+    Both are fixed by resolving the presented credential to its ACCOUNT KEY —
+    the same resolution `Store.charge` performs — and refusing if it does not
+    resolve. What we persist is that resolved account key, never the raw
+    secret, so a durable record can never leak a credential.
+
+    Provisioning is free; charging before any observation exists would be
+    charging for a promise."""
     norm = trustindex.normalise_url(endpoint)
     if not norm:
         raise ValueError("unusable endpoint url")
+    owner_key = store._account_key(presented_key)
+    if not owner_key or owner_key not in getattr(store, "accounts", {}):
+        raise UnbillableWatch(
+            "the presented credential does not resolve to a billable account; "
+            "no outbound work is scheduled for a caller we cannot charge")
     wid = watch_id(owner_key, norm)
     interval = max(300, min(int(interval_s or 3600), 7 * 24 * 3600))
     with store.lock, store._txn():
