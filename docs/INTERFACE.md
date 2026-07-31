@@ -64,6 +64,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /credentials/verify`
 - `GET /demand/feed`
 - `POST /demand/watch`
+- `GET /diagnostics/state`
 - `GET /disputes/{case_id}`
 - `POST /disputes/{case_id}/appeal`
 - `POST /disputes/{case_id}/vote`

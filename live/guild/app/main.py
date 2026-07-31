@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import uuid
 import contextvars
 from typing import Any, Optional
 
@@ -40,7 +41,9 @@ from .models import (
 from . import __version__
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
+from . import instanceid
 from .state import store
+from .store import CanonicalWriteRefused
 from .reachability import url_policy_check
 from . import abuse
 from . import crypto
@@ -252,15 +255,67 @@ async def _capture_ua(request: Request, call_next):
             hdrs.pop("content-length", None)
             hdrs.pop(x402.PAYMENT_RESPONSE_HEADER.lower(), None)
             hdrs[x402.PAYMENT_RESPONSE_HEADER] = fin["header"]
-            return Response(content=body, status_code=response.status_code,
-                            headers=hdrs, media_type=response.media_type)
+            out = Response(content=body, status_code=response.status_code,
+                           headers=hdrs, media_type=response.media_type)
+            _stamp_view_identity(out)
+            return out
         except Exception:
             _log.exception("x402 receipt finalize failed — serving the paid "
                            "result with the provisional PAYMENT-RESPONSE")
-            return Response(content=body, status_code=response.status_code,
-                            headers=dict(response.headers),
-                            media_type=response.media_type)
+            out = Response(content=body, status_code=response.status_code,
+                           headers=dict(response.headers),
+                           media_type=response.media_type)
+            _stamp_view_identity(out)
+            return out
+    _stamp_view_identity(response)
     return response
+
+
+def _stamp_view_identity(response) -> None:
+    """Stamp WHICH process and WHICH state served this response.
+
+    Divergence incident 2026-07-31: production returned two mutually
+    inconsistent views of the same counters and nothing in either response
+    could tell them apart, so the split-origin, intermediary-cache and
+    stale-in-process-read theories were all equally consistent with the
+    evidence. These three non-secret headers make the next occurrence
+    DECIDABLE from outside, with no shell on the box:
+
+      X-Guild-Instance   random per-process id  — two values for one release
+                         SHA prove two serving processes
+      X-Guild-Boot       process start time     — restart vs second instance
+      X-Guild-Store-Rev  monotonic mutation ctr — a LOWER value than one
+                         already seen from the same instance is a stale view
+
+    Never raises: observability must not be able to fail a request."""
+    try:
+        response.headers["X-Guild-Instance"] = instanceid.INSTANCE_ID
+        response.headers["X-Guild-Boot"] = instanceid.BOOT_AT
+        response.headers["X-Guild-Store-Rev"] = str(store.revision)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+@app.exception_handler(CanonicalWriteRefused)
+async def _canonical_write_refused_handler(request: Request,
+                                           exc: CanonicalWriteRefused):
+    """A canonical commitment this process REFUSED to make (409).
+
+    Checkpoints are pinned by third parties and cited by passports, so a
+    publish built on durable state that cannot be trusted must fail loudly
+    rather than commit and be reconciled later. The body carries a stable
+    machine-readable `code` plus the view identity, so an operator (or the
+    scheduled ops pass) can correlate the refusal with the exact process and
+    revision that refused."""
+    return JSONResponse(status_code=409, content={
+        "error": "canonical_write_refused",
+        "code": getattr(exc, "code", "canonical_write_refused"),
+        "detail": str(exc),
+        "view": {"instance": instanceid.INSTANCE_ID,
+                 "store_rev": store.revision},
+        "note": ("the write did NOT happen. Re-read the authoritative feed "
+                 "(/ledger/checkpoints, /diagnostics/state) before retrying."),
+    })
 
 
 @app.exception_handler(PaymentIdConflict)
@@ -1484,12 +1539,28 @@ def get_passport(agent_id: str, request: Request, response: Response):
     at the embedded `/credentials/verify`. Free: an agent showing its passport is
     the Guild's distribution loop."""
     base = str(request.base_url).rstrip("/")
+    # Correlate the attempt with its outcome, and stamp WHO fetched it (the
+    # caller's own api key when presented) so a subject claiming its own
+    # passport is distinguishable from a third party fetching it. A MISS is
+    # recorded as a failure, never as an issuance (corrective pass 2026-07-31).
+    request_id = uuid.uuid4().hex[:16]
+    ua = _ua.get()
+    caller_key = request.headers.get("x-api-key") or None
+    actor = creds.sanitize_actor_key(caller_key) if caller_key else None
+    store.record_event(actor, "passport_requested", ua=ua,
+                       endpoint="passport", subject_id=agent_id,
+                       transport="http", request_id=request_id)
     cred = store.issue_passport(
         agent_id,
         verify_url=f"{base}/credentials/verify",
         explore_url=f"{base}/agents/{agent_id}/reputation",
+        actor_key=actor, surface="http", ua=ua, request_id=request_id,
     )
     if cred is None:
+        store.record_event(actor, "passport_issue_failed", ua=ua,
+                           endpoint="passport", subject_id=agent_id,
+                           transport="http", request_id=request_id,
+                           reason="unknown_agent_or_no_reputation")
         raise HTTPException(404, "agent not found or no reputation computed")
     # The response body IS the signed credential — adding keys to it would
     # break offline signature verification. Journey guidance rides the headers.
@@ -2826,6 +2897,20 @@ def llms_txt():
         "- OpenAPI: /openapi.json\n"
         "- Instrumentation: /instrumentation\n"
     )
+
+
+@app.get("/diagnostics/state")
+def diagnostics_state():
+    """WHICH process and WHICH state produced this response — the decidability
+    endpoint for the 2026-07-31 divergence incident.
+
+    Free, non-secret and side-effect-free. Compare `instance` across a pair of
+    responses that disagree: two values PROVE more than one serving process;
+    one value disproves the split-origin theory. `in_memory` vs `durable` shows
+    whether the view this process serves reads from agrees with the database it
+    writes to, and `divergence` names the exact disagreement. No paths, tokens,
+    hostnames or environment are exposed."""
+    return store.state_diagnostics()
 
 
 @app.get("/instrumentation")

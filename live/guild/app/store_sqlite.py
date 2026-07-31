@@ -288,10 +288,24 @@ class SqliteBackend:
         self._local.depth = depth + 1
 
     def _commit(self) -> None:
+        """Close one nesting level; COMMIT at the outermost.
+
+        DEPTH CANNOT GO NEGATIVE (divergence hardening 2026-07-31). Previously,
+        a NESTED transaction that raised called ``_rollback`` (which zeroes the
+        depth and rolls back the OUTER transaction too); the outer ``__exit__``
+        then ran ``_commit``, taking the depth to -1. From then on this THREAD's
+        connection was permanently mis-tracked: ``_begin`` saw a non-zero depth
+        and skipped ``BEGIN IMMEDIATE``, so subsequent 'transactions' silently
+        ran in autocommit — losing atomicity on multi-entity invariants — and
+        ``in_transaction()`` lied to ``Store._save``. Connections are
+        THREAD-LOCAL, so one poisoned request thread would keep serving a
+        subtly different write path from every other thread for the life of the
+        process. Clamping at zero makes the state self-healing: after a nested
+        rollback the next ``_begin`` opens a real transaction again."""
         con = self.conn()
-        depth = getattr(self._local, "depth", 1) - 1
+        depth = max(0, getattr(self._local, "depth", 1) - 1)
         self._local.depth = depth
-        if depth == 0:
+        if depth == 0 and con.in_transaction:
             self._retry(con.commit)
 
     def _rollback(self) -> None:
@@ -570,8 +584,68 @@ class SqliteBackend:
                    (rec.get("referred_id"), _j(rec)))
 
     def put_checkpoint(self, rec: dict[str, Any]) -> None:
+        """Upsert a checkpoint row.
+
+        RETAINED FOR REPLAY/MIGRATION ONLY (``_sqlite_initial_load`` and the
+        JSON→SQLite cutover re-materialise existing history and must be
+        idempotent). NEW canonical publications MUST go through
+        ``insert_checkpoint_strict`` — an INSERT OR REPLACE on the canonical
+        feed can silently overwrite a checkpoint a third party has already
+        pinned, which is precisely the fork this backend must make
+        impossible."""
         self._exec("INSERT OR REPLACE INTO checkpoints (idx,json) VALUES (?,?)",
                    (rec.get("index"), _j(rec)))
+
+    def insert_checkpoint_strict(self, rec: dict[str, Any]) -> None:
+        """Append a NEW checkpoint. Fails closed if the index already exists.
+
+        ``idx`` is the table's INTEGER PRIMARY KEY, so a plain INSERT lets
+        SQLite itself enforce append-only-ness: a duplicate raises
+        IntegrityError, which is translated into ``CheckpointForkError`` rather
+        than being swallowed. Runs inside the caller's BEGIN IMMEDIATE, so the
+        uniqueness check and the append are one serialized step (no TOCTOU
+        window for a second publisher)."""
+        from .store import CheckpointForkError
+        idx = rec.get("index")
+        try:
+            self._exec("INSERT INTO checkpoints (idx,json) VALUES (?,?)",
+                       (idx, _j(rec)))
+        except sqlite3.IntegrityError as exc:
+            raise CheckpointForkError(
+                f"checkpoint index {idx} is already published — refusing to "
+                "replace a canonical commitment third parties may hold"
+            ) from exc
+
+    def checkpoint_at(self, idx: int) -> Optional[dict[str, Any]]:
+        """Read one checkpoint back by index (read-after-write verification)."""
+        row = self.conn().execute(
+            "SELECT json FROM checkpoints WHERE idx=?", (idx,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def durable_counts(self) -> dict[str, Any]:
+        """Authoritative row counts + feed head, for divergence detection.
+
+        Deliberately cheap and read-only: counts plus the head checkpoint's
+        index/head_hash. Nothing here is secret — the head hash is already
+        published in the pinnable checkpoint feed."""
+        con = self.conn()
+
+        def _n(table: str) -> int:
+            return int(con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+
+        head = con.execute(
+            "SELECT json FROM checkpoints ORDER BY idx DESC LIMIT 1").fetchone()
+        head_rec = json.loads(head[0]) if head else None
+        return {
+            "events": _n("events"),
+            "agents": _n("agents"),
+            "ledger_records": _n("ledger"),
+            "checkpoints": _n("checkpoints"),
+            "checkpoint_head_index": (head_rec.get("index") if head_rec else None),
+            "checkpoint_head_hash": (
+                (head_rec.get("checkpoint") or {}).get("head_hash")
+                if head_rec else None),
+        }
 
     def append_billing(self, rec: dict[str, Any]) -> None:
         self._exec("INSERT INTO billing_log (json) VALUES (?)", (_j(rec),))
