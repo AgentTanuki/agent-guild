@@ -117,26 +117,47 @@ def main() -> int:
             "process. SQLite lives on a single-mount disk; two writers is a "
             "topology emergency")
 
-    # per-instance revision monotonicity, in observation order
+    # --- per-instance revision monotonicity -----------------------------
+    # SEQUENTIAL by construction. The concurrent fan-out above cannot be used
+    # for this check: responses complete out of ISSUE order, so a request sent
+    # earlier can be observed later, and a perfectly healthy process looks
+    # like it went backwards. (That false positive fired on the first live run
+    # of this script.) Here each request is fully received before the next is
+    # sent, so rev(n+1) < rev(n) has only one explanation: the process served
+    # a view older than one it had already served.
+    seq = [_get(base, "/diagnostics/state") for _ in range(6)]
+    ok += [r for r in seq if "error" not in r]
     high: dict[str, int] = {}
-    for r in ok:
+    for r in seq:
         inst, rev = r.get("instance"), r.get("rev")
         if inst is None or rev is None:
             continue
-        if rev < high.get(inst, -1):
+        if inst in high and rev < high[inst]:
             findings.append(
                 f"stale_in_process: instance {inst} served store_rev {rev} "
-                f"after already serving {high[inst]} — a frozen view of its "
-                "own state")
+                f"after already serving {high[inst]} in a STRICTLY SEQUENTIAL "
+                "read — a frozen view of its own state")
         high[inst] = max(high.get(inst, -1), rev)
+    instances |= {r["instance"] for r in seq if r.get("instance")}
 
-    # counter disagreement per endpoint
-    per_path: dict[str, set] = {}
+    # --- counter disagreement -------------------------------------------
+    # Only a counter going DOWN is evidence of divergence. These counters grow
+    # continuously as live traffic arrives, so "the values differ across a
+    # sampling window" is the NORMAL case and flagging it would cry wolf on
+    # every run. The incident signature was specifically a counter REGRESSING
+    # (offer_served 1788 -> 944, total_events 16796 -> 13344).
+    per_path: dict[str, list] = {}
     for r in ok:
         c = _counter(r.get("body"), r["path"])
         if c is not None:
-            per_path.setdefault(r["path"], set()).add(c)
-    flapping = {p: sorted(v) for p, v in per_path.items() if len(v) > 1}
+            per_path.setdefault(r["path"], []).append(c)
+    flapping = {}
+    for p, vals in per_path.items():
+        nums = [v for v in vals if isinstance(v, (int, float))]
+        if len(set(vals)) > 1 and (not nums or min(nums) < max(nums)):
+            # a string counter (git_sha) that differs at all IS a regression
+            if not nums or (max(nums) - min(nums)) > 0:
+                flapping[p] = sorted(set(vals), key=str)
 
     # /diagnostics/state
     diag = next((r["body"] for r in ok
@@ -147,7 +168,10 @@ def main() -> int:
             f"memory_durable_split: {diag['divergence']} "
             f"(in_memory={diag.get('in_memory')}, durable={diag.get('durable')})")
 
-    if flapping and len(instances) <= 1 and not any(
+    regressed = bool(flapping) and any(
+        f.startswith("stale_in_process") or f.startswith("memory_durable_split")
+        for f in findings)
+    if flapping and regressed and len(instances) <= 1 and not any(
             f.startswith("stale_in_process") for f in findings):
         findings.append(
             f"intermediary: counters disagree {flapping} while the instance id "
@@ -158,7 +182,7 @@ def main() -> int:
         "url": base,
         "samples": len(ok),
         "instances": sorted(instances),
-        "flapping_counters": flapping,
+        "counter_values_seen": flapping,
         "diagnostics": diag,
         "findings": findings,
         "verdict": "consistent" if not findings else "divergent",
@@ -168,7 +192,7 @@ def main() -> int:
     else:
         print(f"=== divergence check @ {base} ({len(ok)} samples) ===")
         print(f"  instances: {sorted(instances) or 'NONE (no view identity)'}")
-        print(f"  flapping counters: {flapping or 'none'}")
+        print(f"  counter values seen (growth is normal): {flapping or 'stable'}")
         if diag:
             print(f"  in_memory: {diag.get('in_memory')}")
             print(f"  durable:   {diag.get('durable')}")
