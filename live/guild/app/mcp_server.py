@@ -36,7 +36,11 @@ from . import payments
 from . import proving
 from . import x402
 from .payments import CachedPaidResult, PaidRequest, PaymentChallenge, PaymentIdConflict
+from . import deepcheck
+from . import indexops
 from . import preflight
+from . import pricing
+from . import trustindex
 from .state import store
 from . import credentials as _creds
 
@@ -451,6 +455,98 @@ def guild_preflight(url: str, ctx: Context = None) -> dict:
                        failed_count=len(out["failed"]),
                        unknown_count=len(out["unknowns"]))
     return out
+
+
+@mcp.tool
+def guild_index(query: str = "", limit: int = 20, ctx: Context = None) -> dict:
+    """Search the public trust index of agent endpoints — FREE, no key.
+
+    Returns, per endpoint, what its registry CLAIMS and separately what Agent
+    Guild OBSERVED when it actually called it. Those are different things and
+    are never merged: measured 2026-07-31, 92.9% of registry-listed agents
+    report healthy and 33.9% complete a task.
+
+    Example: guild_index(query="translation")
+    """
+    hits = []
+    needle = (query or "").strip().lower()
+    for e in (store.trust_index or {}).values():
+        declared = e.get("declared") or {}
+        hay = " ".join([str(e.get("endpoint") or ""),
+                        str(declared.get("name") or ""),
+                        " ".join(str(c) for c in declared.get("capabilities", []))
+                        ]).lower()
+        if needle and needle not in hay:
+            continue
+        hits.append(e)
+    hits.sort(key=lambda r: (bool(r.get("observation")),
+                            r.get("observed_at") or ""), reverse=True)
+    store.record_event("mcp", "index_view", ua=_client_ua(ctx),
+                       endpoint="index", transport="mcp")
+    return {"count": len(hits),
+            "results": [trustindex.public_view(e) for e in hits[:max(1, min(limit, 100))]],
+            "summary": trustindex.summarise((store.trust_index or {}).values())}
+
+
+@mcp.tool
+def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> dict:
+    """PAID deep check before you delegate or pay: live checks PLUS drift
+    history, cross-source corroboration and an explicit allow / caution / block
+    policy verdict you can act on directly.
+
+    The free `guild_preflight` is not degraded to sell this — it still returns
+    the full live check set. This adds what one request cannot establish:
+    whether the endpoint has CHANGED, and whether anyone else corroborates it.
+
+    Priced through the same gateway as every other paid read (see GET /pricing).
+
+    Example: guild_preflight_deep(url="https://some-agent.example/a2a")
+    """
+    return _serve_paid(
+        payments.deep_preflight_request(url),
+        lambda: deepcheck.deep_preflight(store, url),
+        ctx, api_key)
+
+
+@mcp.tool
+def guild_watch(url: str, api_key: str, interval_seconds: int = 3600,
+                ctx: Context = None) -> dict:
+    """Self-provision CONTINUOUS monitoring of an endpoint. No onboarding, no
+    human, no sales call.
+
+    Provisioning is free and idempotent by (caller, endpoint) — calling twice
+    returns the same watch rather than billing twice. Each recheck cycle is
+    charged only when it actually runs, so a dormant endpoint costs nothing.
+    Read the change feed with guild_watch_feed.
+
+    Example: guild_watch(url="https://some-agent.example/a2a", api_key="…")
+    """
+    if not api_key:
+        return {"error": "api_key required — a watch bills per cycle. "
+                         "POST /billing/trial issues credits with no human."}
+    try:
+        rec = indexops.provision_watch(
+            store, _creds.sanitize_actor_key(api_key), url,
+            interval_s=interval_seconds)
+    except ValueError as e:
+        return {"error": str(e)}
+    store.record_event(_creds.sanitize_actor_key(api_key), "watch_provisioned",
+                       ua=_client_ua(ctx), endpoint="watch", target=url,
+                       transport="mcp")
+    return {**rec, "price_per_cycle_credits": pricing.price("watch_cycle")}
+
+
+@mcp.tool
+def guild_watch_feed(watch_id: str, api_key: str = "", ctx: Context = None) -> dict:
+    """Read the machine-readable change feed for a watch you provisioned.
+    Free — you already paid for the cycles that produced it."""
+    feed = indexops.watch_feed(store, watch_id)
+    if not feed:
+        return {"error": "watch not found"}
+    rec = (store.watches or {}).get(watch_id) or {}
+    if rec.get("owner_key") and _creds.sanitize_actor_key(api_key or "") != rec["owner_key"]:
+        return {"error": "this watch belongs to another caller"}
+    return feed
 
 
 @mcp.tool
