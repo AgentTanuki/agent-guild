@@ -75,13 +75,39 @@ def decide(*, protected: bool, pr_head: str, certified: str,
                       "post-merge tree"}
 
 
-def recover(*, failed_branch: str) -> dict:
-    """The recovery decision after a red release gate for a merged ship."""
+#: Gate outcome meaning "the merged SHA never reached production". The release
+#: is NOT certified either way — this changes only what recovery is correct.
+OUTCOME_NOT_ARRIVED = "deployment_not_arrived"
+
+
+def recover(*, failed_branch: str, gate_outcome: str = "") -> dict:
+    """The recovery decision after a red release gate for a merged ship.
+
+    A revert is only the right answer when the merged code IS live and
+    defective. If the deployment never arrived, production is still serving
+    the PREVIOUS release: reverting main changes nothing in production, and
+    the revert then has to be built, merged and deployed through the same slow
+    pipeline that just timed out — so it churns the repo, files noise, and can
+    itself go red. That is exactly what happened to 061dcea on 2026-07-31,
+    where the deploy landed healthy shortly after the gate stopped waiting.
+
+    This does NOT weaken the gate. The release is still uncertified, the
+    workflow still fails, and the telemetry issue is still filed. Only the
+    ACTION changes: halt and let the next cycle re-certify, rather than
+    reverting code that was never live."""
     if failed_branch.startswith(REVERT_PREFIX):
         return {"action": "halt_revert_loop",
                 "reason": "the failed ship was itself an automatic revert; "
                           "a revert-of-a-revert would oscillate — halting "
                           "with the issue as the only remaining signal"}
+    if gate_outcome == OUTCOME_NOT_ARRIVED:
+        return {"action": "halt_deploy_not_arrived",
+                "reason": "the merged SHA never reached production, so "
+                          "production is still serving the PREVIOUS release. "
+                          "Reverting would change nothing live and would push "
+                          "a second build through the same pipeline that just "
+                          "timed out. The release stays UNCERTIFIED; the next "
+                          "cycle re-certifies once the deploy lands."}
     return {"action": "revert",
             "reason": "open ship/revert-<sha> through the same certified "
                       "loop so the ROLLBACK is tested, merged, deployed and "
@@ -106,13 +132,17 @@ def main() -> int:
     m.add_argument("--main-is-ancestor", type=_bool, required=True)
     r = sub.add_parser("recover", help="red-gate recovery decision")
     r.add_argument("--failed-branch", required=True)
+    r.add_argument("--gate-outcome", default="",
+                   help="outcome recorded by release_gate.py (e.g. "
+                        "deployment_not_arrived); decides revert vs halt")
     args = ap.parse_args()
     if args.cmd == "merge":
         out = decide(protected=args.protected, pr_head=args.pr_head,
                      certified=args.certified,
                      main_is_ancestor_of_head=args.main_is_ancestor)
     else:
-        out = recover(failed_branch=args.failed_branch)
+        out = recover(failed_branch=args.failed_branch,
+                      gate_outcome=args.gate_outcome)
     print(json.dumps(out))
     return 0
 
