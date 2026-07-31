@@ -259,3 +259,37 @@ def test_nested_transaction_rollback_does_not_poison_the_thread(tmp_path):
     # writes still land
     s.record_event(None, "query", ua="after/1")
     assert s.backend.durable_counts()["events"] >= 1
+
+
+def test_durable_slightly_ahead_mid_snapshot_is_not_divergence(tmp_path, monkeypatch):
+    """The diagnostic samples the in-memory count, then queries SQLite. Live
+    traffic lands in between, so 'durable is a few ahead' is the NORMAL
+    interleaving. Reporting it as divergence would fire on every run."""
+    s = _sqlite_store(tmp_path)
+    s.record_event(None, "query", ua="a")
+    real = s.backend.durable_counts
+
+    def _racy():
+        out = real()
+        # a concurrent request lands between the two observations
+        s.record_event(None, "query", ua="concurrent")
+        return out
+
+    monkeypatch.setattr(s.backend, "durable_counts", _racy)
+    d = s.state_diagnostics()
+    assert d["divergence"] == [], d
+    assert "events_after_durable_read" in d["in_memory"]
+
+
+def test_in_memory_ahead_of_durable_is_still_divergence(tmp_path, monkeypatch):
+    """The dangerous direction must NOT be softened by the race tolerance:
+    events held only in memory are lost on restart."""
+    s = _sqlite_store(tmp_path)
+    for i in range(4):
+        s.record_event(None, "query", ua=f"a{i}")
+    monkeypatch.setattr(s.backend, "durable_counts",
+                        lambda: {"events": 0, "agents": 0, "ledger_records": 0,
+                                 "checkpoints": 0, "checkpoint_head_index": None,
+                                 "checkpoint_head_hash": None})
+    d = s.state_diagnostics()
+    assert "in_memory_events_ahead_of_durable" in d["divergence"]
