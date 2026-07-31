@@ -396,6 +396,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/diagnostics/state"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/disputes/{case_id}"
   },
   {

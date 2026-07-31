@@ -38,13 +38,28 @@ CREDIT_USD = 0.001
 # Fields we surface in the printed summary, in order: (key, label, formatter).
 DISPLAY = [
     ("verdict", None, None),
-    ("measured_lift", "utility · measured_lift", lambda v: f"{v:+.3f}" if isinstance(v, (int, float)) else "n/a"),
-    ("agents_external", "growth · external agents", str),
+    # UTILITY — production only. The mixed/seeded bootstrap lift is NOT printed
+    # as a result; a lift with n_recommended == 0 prints "not measurable"
+    # rather than a number we would otherwise be quoting from seeded data.
+    ("production_measured_lift", "utility · production lift",
+     lambda v: f"{v:+.3f}" if isinstance(v, (int, float)) else "not measurable"),
+    ("production_n_recommended", "utility · production n_recommended", str),
+    # GROWTH — adoption-grade external activity, not "records lacking
+    # first_party" (which counts our own untagged tooling and crawlers).
+    ("adoption_grade_external_self_claims",
+     "growth · external agents holding their OWN credential", str),
     ("external_querying_agents", "growth · external actors querying", str),
     ("external_repeat_query_agents", "retention · repeat-query", str),
     ("external_repeat_paid_agents", "retention · repeat-paid", str),
-    ("external_paid_queries", "revenue · paid reads", str),
-    ("revenue_usd_external", "revenue · USD", lambda v: f"${v}"),
+    # ECONOMIC VALUE — independently confirmed external mainnet settlement is
+    # the ONLY revenue line. Sandbox credits print as credits, never as money.
+    ("verified_external_revenue_usd", "revenue · VERIFIED external (USD)",
+     lambda v: f"${float(v):.2f}"),
+    ("cryptographically_bound_machine_revenue_usd",
+     "revenue · bound-machine, ownership unproven (USD)",
+     lambda v: f"${float(v):.2f}"),
+    ("sandbox_credits_spent_external_NOT_MONEY",
+     "sandbox · credits spent (NOT money)", lambda v: f"{v} credits"),
     ("total_referrals", "referrals · total", str),
     ("activated_referrals", "referrals · activated", str),
 ]
@@ -60,13 +75,18 @@ def _get(url: str, timeout: float = 25.0):
 
 
 def _fallback_verdict(v: dict) -> str:
+    """Same gate as the server verdict: a positive read requires BOTH an
+    adoption-grade external credential holder AND verified external mainnet
+    revenue. Sandbox credits never qualify (corrective pass 2026-07-31)."""
+    revenue = float(v.get("verified_external_revenue_usd") or 0.0)
     if v["external_querying_agents"] == 0:
         return "NO EXTERNAL DISCOVERY YET — no agent we don't operate has queried the trust layer."
     if v["external_repeat_query_agents"] == 0:
         return "REACH BUT NO RETENTION — queried once, none came back."
-    if v["external_paid_queries"] == 0:
-        return "RETENTION BUT NO WILLINGNESS-TO-PAY — agents return for free reads but none pay."
-    return "WILLINGNESS-TO-PAY PRESENT — external agents return and pay; watch the trend."
+    if revenue <= 0:
+        return ("NO VERIFIED EXTERNAL REVENUE — sandbox credits and first-party "
+                "canaries are not money; willingness-to-pay is unproven.")
+    return f"VERIFIED EXTERNAL REVENUE ${revenue:.2f} — watch the trend."
 
 
 def fallback_snapshot(base: str) -> dict:
@@ -77,11 +97,16 @@ def fallback_snapshot(base: str) -> dict:
     ev = _get(f"{base}/evaluation") or {}
     agents = _get(f"{base}/agents") or []
     refs = _get(f"{base}/referrals") or {}
+    rev = _get(f"{base}/billing/revenue") or {}
     paid = ext.get("paid_query", 0)
     v = {
         "at": datetime.now(timezone.utc).isoformat(),
         "source": "fallback",
-        "measured_lift": ev.get("lift"),
+        # production block only — never the mixed/bootstrap top-level lift
+        "production_measured_lift": (ev.get("production") or {}).get("lift"),
+        "production_n_recommended": int(
+            ((ev.get("production") or {}).get("n_recommended")) or 0),
+        "mixed_bootstrap_lift_NOT_PRODUCTION": ev.get("lift"),
         "recommended_success_rate": ev.get("recommended_success_rate"),
         "agents_total": len(agents) if isinstance(agents, list) else 0,
         "agents_external": ext.get("unique_agents", 0),
@@ -89,8 +114,16 @@ def fallback_snapshot(base: str) -> dict:
         "external_repeat_query_agents": ext.get("repeat_query", 0),
         "external_repeat_paid_agents": ext.get("repeat_paid_query_agents", 0),
         "external_paid_queries": paid,
-        "credits_spent_external": None,
-        "revenue_usd_external": round(paid * 10 * CREDIT_USD, 4),
+        "sandbox_credits_spent_external_NOT_MONEY": None,
+        # Revenue can ONLY come from independently confirmed external mainnet
+        # settlement. The old line multiplied sandbox paid-read counts by a
+        # notional rate and printed it as USD — that was inventing money.
+        "verified_external_revenue_usd": float(
+            ((rev.get("real_settlement") or {}).get(
+                "independently_attested_external_revenue_usd")) or 0.0),
+        "cryptographically_bound_machine_revenue_usd": float(
+            ((rev.get("real_settlement") or {}).get(
+                "cryptographically_bound_machine_revenue_usd")) or 0.0),
         "total_referrals": refs.get("total_referrals", 0),
         "activated_referrals": refs.get("activated_referrals", 0),
     }

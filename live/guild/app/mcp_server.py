@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextvars
 import json as _json
 import os
+import uuid
 from typing import Any, Callable, Optional
 from typing_extensions import TypedDict
 
@@ -762,10 +763,27 @@ def guild_passport(agent_id: str, ctx: Context = None) -> dict:
 
     Example: guild_passport(agent_id="agt_9x"). Returns a W3C VC, or {error}.
     """
-    store.record_event("mcp", "passport_issued", ua=_client_ua(ctx),
-                       endpoint="passport", subject_id=agent_id)
-    cred = store.issue_passport(agent_id)
-    return cred if cred is not None else {"error": "agent not found or no reputation"}
+    # TELEMETRY (corrective pass 2026-07-31). This used to record
+    # `passport_issued` HERE, on entry, and `Store.issue_passport` recorded a
+    # SECOND one on success — so one MCP call counted as two issuances, and a
+    # miss (unknown agent) counted as one. A schema probe exploiting exactly
+    # that on 2026-07-30 tripled the headline number with no agent behind it.
+    # Attempt and failure are now their own event types; issuance is emitted
+    # once, inside issue_passport, only when a credential actually exists.
+    request_id = uuid.uuid4().hex[:16]
+    ua = _client_ua(ctx)
+    store.record_event("mcp", "passport_requested", ua=ua,
+                       endpoint="passport", subject_id=agent_id,
+                       transport="mcp", request_id=request_id)
+    cred = store.issue_passport(agent_id, actor_key="mcp", surface="mcp",
+                                ua=ua, request_id=request_id)
+    if cred is None:
+        store.record_event("mcp", "passport_issue_failed", ua=ua,
+                           endpoint="passport", subject_id=agent_id,
+                           transport="mcp", request_id=request_id,
+                           reason="unknown_agent_or_no_reputation")
+        return {"error": "agent not found or no reputation"}
+    return cred
 
 
 @mcp.tool

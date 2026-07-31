@@ -93,6 +93,39 @@ W_DISPUTED = 0.5    # multiplier if the receipt's outcome was disputed
 TRUSTED_TASK_META_KEYS = ("receipt_auth", "settlement", "guild_observed_invocation")
 
 
+class CanonicalWriteRefused(RuntimeError):
+    """Base class for a canonical commitment this process REFUSED to make.
+
+    Raised instead of writing when the durable state a canonical write would be
+    built on cannot be trusted. These are deliberately loud: a checkpoint is
+    pinned by third parties and cited by passports, so 'publish something and
+    sort it out later' is not an available failure mode. Mapped to HTTP 409 by
+    the API — a conflict the caller should retry after the state settles, never
+    a silent success."""
+
+    code = "canonical_write_refused"
+
+
+class StaleDurableStateError(CanonicalWriteRefused):
+    """The authoritative store is BEHIND state this process already observed."""
+
+    code = "stale_durable_state"
+
+
+class CheckpointForkError(CanonicalWriteRefused):
+    """The next checkpoint index is already published — writing would fork the
+    canonical feed by replacing a commitment a third party may already hold."""
+
+    code = "checkpoint_fork_refused"
+
+
+class CheckpointWriteVerificationError(CanonicalWriteRefused):
+    """Read-after-write failed: the entry is not durably readable, or read back
+    with different bytes than were written."""
+
+    code = "checkpoint_write_unverified"
+
+
 class Store:
     def __init__(self, path: Optional[str] = None):
         self.path = path or os.environ.get("GUILD_DATA", "")
@@ -103,6 +136,14 @@ class Store:
         self.accounts: dict[str, dict[str, Any]] = {}     # billing key -> account
         self.billing_log: list[dict[str, Any]] = []       # usage + top-up ledger
         self.events: list[dict[str, Any]] = []            # agent-native instrumentation
+        # MONOTONIC IN-MEMORY MUTATION COUNTER (divergence incident 2026-07-31).
+        # Bumped on every recorded event and every published checkpoint. It is
+        # stamped on responses (X-Guild-Store-Rev) so an outside observer can
+        # PROVE staleness instead of inferring it: a response carrying a LOWER
+        # revision than one already seen from the SAME instance id is a stale
+        # in-process view; a lower revision across different instance ids is a
+        # split-brain read. Never persisted — it identifies a view, not a fact.
+        self.revision: int = 0
         self.referrals: list[dict[str, Any]] = []         # agent-to-agent referral edges
         self.health_log: list[dict[str, Any]] = []        # self-evaluation snapshots
         self.identity: dict[str, Any] = {}                 # the Guild's own signing DID
@@ -2050,6 +2091,7 @@ class Store:
                  "fp": fp, "surface": self._surface_of(key, ua or ""),
                  "at": _now(), **meta}
         self.events.append(event)
+        self.revision += 1               # stamped on responses; see __init__
         if self.backend is not None:
             self._persist_event(event)   # durable per-row (events table)
         else:
@@ -3264,6 +3306,16 @@ class Store:
                 if actor and actor != "anon":
                     row["actors"].add(actor)
         return {
+            "reading_guide": (
+                "`stages` is RAW AGGREGATE STAGE ACTIVITY (kept for "
+                "observability and continuity) — it is NOT a conversion "
+                "funnel: the stages are not actor-linked, so a ratio between "
+                "two of them is not a conversion rate. For conversion use "
+                "`qualified`, which excludes first-party/tooling/crawler "
+                "traffic, deduplicates exposure per actor and follows the SAME "
+                "actor through its own journey."),
+            "qualified": self.qualified_passport_funnel(),
+            "passport_activity": self.passport_activity(),
             "stages": [
                 {"stage": s,
                  "count": stages[s]["breakdown"]["external"],
@@ -3284,6 +3336,270 @@ class Store:
                            "attribution.is_genuine_external), and shown under "
                            "first_party/unknown breakdowns instead of being "
                            "merged"),
+        }
+
+    # --- honest passport ACTIVITY (never called "passports" or "adoption") ---
+    def passport_activity(self) -> dict[str, Any]:
+        """Distinct, successful passport activity — split into the four things
+        that are NOT the same thing and must never be summed into a headline.
+
+        The old ``passport_issued`` count answered the question "how many times
+        did any caller hit a passport surface", and was then read as "how many
+        agents adopted a passport". Those differ by more than an order of
+        magnitude, and the gap is entirely probes. This method reports the four
+        distinguishable behaviours separately, each by DISTINCT SUBJECT (not by
+        event), with attribution kept apart:
+
+          subject_self_claim        a proved subject fetched ITS OWN passport
+                                    — the only one of the four that means an
+                                    agent took the credential for itself
+          third_party_fetch         someone fetched ANOTHER agent's passport
+                                    — propagation/curiosity, not adoption
+          third_party_verification  someone VERIFIED a passport they hold
+                                    — the credential travelled and was checked
+          subject_evidence_attached a passport holder attached real evidence
+                                    — the only one that deepens the credential
+
+        `attempts` and `failures` are reported alongside so a probe storm is
+        visible as demand instead of being laundered into issuance."""
+        from . import attribution
+
+        def _cls(e: dict[str, Any]) -> str:
+            if e.get("demand_first_party"):
+                return "first_party"
+            c = attribution.caller_class(e)
+            if c in ("AG_INTERNAL", "AG_TEST", "OPERATOR"):
+                return "first_party"
+            if (attribution.may_count_as_external_growth(c)
+                    and attribution.is_genuine_external(e)):
+                return "external"
+            return "unknown"
+
+        proved = {a_id for a_id, rec in self.agents.items()
+                  if (rec.get("proof_of_conduct") or {}).get("verified_at")}
+        buckets = {k: {"external": set(), "first_party": set(), "unknown": set()}
+                   for k in ("subject_self_claim", "third_party_fetch",
+                             "third_party_verification",
+                             "subject_evidence_attached")}
+        counters = {"passport_requested": 0, "passport_issue_failed": 0,
+                    "passport_issued_events": 0}
+        for e in self.events:
+            t = e.get("type")
+            if t in counters:
+                counters[t] += 1
+            if t == "passport_issued":
+                subj = e.get("subject_id") or ""
+                cls = _cls(e)
+                # `self_claim` is stamped at write time (2026-07-31 onward).
+                # Events predating the field cannot be classified as a self
+                # claim — they are counted as third-party fetches, which is the
+                # conservative direction (never inflates adoption).
+                if e.get("self_claim") and subj in proved:
+                    buckets["subject_self_claim"][cls].add(subj)
+                elif subj:
+                    buckets["third_party_fetch"][cls].add(subj)
+            elif t == "passport_verified":
+                cls = _cls(e)
+                who = e.get("subject_id") or e.get("key") or "anon"
+                if who != "anon":
+                    buckets["third_party_verification"][cls].add(who)
+            elif t == "first_attestation_received":
+                cls = _cls(e)
+                subj = e.get("agent_id") or e.get("subject_id") or ""
+                if subj:
+                    buckets["subject_evidence_attached"][cls].add(subj)
+        return {
+            "measure": "DISTINCT SUBJECTS per behaviour — event counts are "
+                       "reported separately and are NOT passports",
+            "behaviours": {
+                k: {c: len(v) for c, v in by_cls.items()}
+                for k, by_cls in buckets.items()},
+            "event_counts": counters,
+            "note": ("A passport_issued EVENT is a successful credential "
+                     "production, not an adopting agent: one agent can appear "
+                     "many times and a third party fetching someone else's "
+                     "credential appears too. Only `subject_self_claim` is an "
+                     "agent taking a credential for itself, and only "
+                     "`subject_evidence_attached` deepens it. Never sum these "
+                     "into a single 'passports' number."),
+        }
+
+    # --- qualified cohort funnel (actor-linked, deduplicated) ---------------
+    QUALIFIED_EXPOSURE_WINDOW_HOURS = 24
+
+    def qualified_passport_funnel(self) -> dict[str, Any]:
+        """An ACTOR-LINKED conversion funnel, as opposed to the aggregate stage
+        activity in :meth:`passport_funnel`.
+
+        WHY THIS EXISTS. The raw funnel reported 1,790 ``offer_served`` and 0
+        ``offer_followed`` and that was being read as "0/1,790 conversion". It
+        is not: 1,787 of those serves are unattributable crawler traffic, and
+        exactly ONE was classified genuine external. A denominator of 1 does
+        not measure a conversion rate — reporting 0% implies we tested the
+        offer 1,790 times and it failed, when in truth we have never put it in
+        front of a qualified agent enough times to learn anything.
+
+        So this view:
+          * EXCLUDES first-party, tooling and registry-crawler traffic;
+          * DEDUPLICATES exposure by (actor, source surface, time window), so a
+            bot hitting the agent card 800 times is one exposure, not 800;
+          * LINKS an exposed actor to that SAME actor's later registration,
+            proof, own-passport claim, evidence and return;
+          * keeps third-party propagation (someone else fetching or verifying a
+            passport) in a SEPARATE loop, because it is not this actor
+            converting;
+          * reports UNLINKABLE exposure honestly instead of counting it as a
+            failed conversion.
+
+        The load-bearing output is ``next_boundary``: the first stage where the
+        cohort actually stops, together with the SAMPLE SIZE behind it, so a
+        boundary measured on n=1 is never presented as a finding."""
+        from . import attribution
+
+        def _qualified(e: dict[str, Any]) -> bool:
+            if e.get("fp") or e.get("demand_first_party"):
+                return False
+            cls = attribution.caller_class(e)
+            if cls in ("AG_INTERNAL", "AG_TEST", "OPERATOR", "REGISTRY_CRAWLER"):
+                return False
+            return (attribution.may_count_as_external_growth(cls)
+                    and attribution.is_genuine_external(e))
+
+        def _bucket(ts: str) -> str:
+            # coarse dedup window: exposure is per actor+source+window, not per hit
+            return (ts or "")[:13]  # YYYY-MM-DDTHH
+
+        # ---- 1. qualified, deduplicated exposure ---------------------------
+        exposures: set[tuple[str, str, str]] = set()
+        exposed_actors: set[str] = set()
+        anonymous_exposures = 0
+        raw_qualified_serves = 0
+        by_source: dict[str, int] = {}
+        for e in self.events:
+            if e.get("type") != "offer_served" or e.get("offer") != "passport":
+                continue
+            if not _qualified(e):
+                continue
+            raw_qualified_serves += 1
+            actor = e.get("key") or "anon"
+            source = str(e.get("endpoint") or e.get("surface") or "unknown")
+            by_source[source] = by_source.get(source, 0) + 1
+            if actor == "anon":
+                # An anonymous serve CANNOT be linked to a later registration.
+                # It is reach we cannot measure, not a conversion that failed.
+                anonymous_exposures += 1
+                continue
+            exposures.add((actor, source, _bucket(e.get("at", ""))))
+            exposed_actors.add(actor)
+
+        # ---- 2. the same actors' later journey -----------------------------
+        # actor key -> agent_id, for actors that went on to register
+        actor_to_agent: dict[str, str] = {}
+        for a_id in self.agents:
+            k = self.account_for_agent(a_id)
+            if k:
+                actor_to_agent.setdefault(k, a_id)
+
+        stage_actors: dict[str, set[str]] = {
+            k: set() for k in ("registered", "control_proved",
+                               "own_passport_claimed", "evidence_attached",
+                               "returned")}
+        for e in self.events:
+            actor = e.get("key") or ""
+            if actor not in exposed_actors:
+                continue
+            t = e.get("type")
+            if t == "register":
+                stage_actors["registered"].add(actor)
+            elif t == "prove_completed":
+                stage_actors["control_proved"].add(actor)
+            elif t == "passport_issued" and e.get("self_claim"):
+                stage_actors["own_passport_claimed"].add(actor)
+            elif t == "first_attestation_received":
+                stage_actors["evidence_attached"].add(actor)
+            elif t == "liveness_refreshed":
+                stage_actors["returned"].add(actor)
+
+        cohort = len(exposed_actors)
+        ordered = ["qualified_exposure", "registered", "control_proved",
+                   "own_passport_claimed", "evidence_attached", "returned"]
+        counts = {"qualified_exposure": cohort,
+                  **{k: len(v) for k, v in stage_actors.items()}}
+
+        # ---- 3. first boundary the cohort actually stops at -----------------
+        next_boundary: dict[str, Any] = {
+            "boundary": None, "n": 0,
+            "measurable": False,
+            "reason": "no qualified exposure yet — nothing to convert",
+        }
+        for prev, cur in zip(ordered, ordered[1:]):
+            if counts[prev] == 0:
+                next_boundary = {
+                    "boundary": f"{prev} → {cur}",
+                    "n": 0,
+                    "measurable": False,
+                    "reason": (f"denominator is zero: no qualified actor has "
+                               f"reached '{prev}', so the {prev}→{cur} rate is "
+                               "NOT MEASURABLE (reporting 0% would claim a "
+                               "test we never ran)"),
+                }
+                break
+            if counts[cur] == 0:
+                next_boundary = {
+                    "boundary": f"{prev} → {cur}",
+                    "n": counts[prev],
+                    "measurable": True,
+                    "rate": 0.0,
+                    "reason": (f"{counts[prev]} qualified actor(s) reached "
+                               f"'{prev}' and none reached '{cur}'"),
+                    "sample_adequacy": ("ANECDOTE — a single-digit denominator "
+                                        "cannot distinguish a broken offer "
+                                        "from bad luck"
+                                        if counts[prev] < 10 else "usable"),
+                }
+                break
+        else:
+            next_boundary = {"boundary": None, "n": cohort, "measurable": True,
+                             "reason": "the cohort reaches every stage"}
+
+        # ---- 4. propagation loop (NOT this actor converting) ---------------
+        propagation = {"third_party_passport_fetch": 0,
+                       "third_party_verification": 0}
+        for e in self.events:
+            if not _qualified(e):
+                continue
+            if e.get("type") == "passport_issued" and not e.get("self_claim"):
+                propagation["third_party_passport_fetch"] += 1
+            elif e.get("type") == "passport_verified":
+                propagation["third_party_verification"] += 1
+
+        return {
+            "cohort": {
+                "qualified_distinct_actors": cohort,
+                "qualified_deduplicated_exposures": len(exposures),
+                "raw_qualified_serves": raw_qualified_serves,
+                "anonymous_unlinkable_serves": anonymous_exposures,
+                "dedup_rule": ("one exposure per (actor, source, "
+                               f"{self.QUALIFIED_EXPOSURE_WINDOW_HOURS}h "
+                               "window); repeated hits by the same actor are "
+                               "reach, not additional trials"),
+                "by_source": dict(sorted(by_source.items())),
+            },
+            "stages": [{"stage": s, "qualified_actors": counts[s]}
+                       for s in ordered],
+            "next_boundary": next_boundary,
+            "propagation_loop": propagation,
+            "excluded": ("first-party, AG test harnesses, release gates, "
+                         "canaries and registry crawlers are excluded "
+                         "STRUCTURALLY (attribution.caller_class + "
+                         "is_genuine_external) — they are not in any "
+                         "denominator here"),
+            "honesty": ("Anonymous serves are reported as UNLINKABLE reach, "
+                        "never as failed conversions: an anonymous a2a probe "
+                        "that never identifies itself cannot be followed to a "
+                        "registration, so it can neither convert nor fail to "
+                        "convert. The aggregate stage activity remains "
+                        "available under `stages` in /funnel/passports."),
         }
 
     def evidence_staleness(self, agent_id: str) -> Optional[dict[str, Any]]:
@@ -4131,18 +4447,117 @@ class Store:
                     "examined": len(led.collabs()), "appended": appended}
 
     # --- published checkpoints (stage-2: pinnable canonical commitments) -----
+    def state_diagnostics(self) -> dict[str, Any]:
+        """Non-secret, side-effect-free view identity: WHICH process and WHICH
+        state produced this response (divergence incident 2026-07-31).
+
+        Exposes the in-memory view alongside the AUTHORITATIVE durable view so
+        the two can be compared from outside without a shell on the box. It
+        leaks no paths, no secrets and no environment — only counts, a random
+        per-process id and the durable head hash (already public in the
+        checkpoint feed).
+
+        ``divergence`` is the load-bearing field: a non-empty list means the
+        in-memory view this process is serving reads from does NOT agree with
+        the committed database it writes to. That is the condition the ops pass
+        must detect; "discard the first few reads" is a reporting workaround,
+        not a write-path control."""
+        from . import instanceid
+        mem = {
+            "events": len(self.events),
+            "agents": len(self.agents),
+            "ledger_records": len(self.ledger_records),
+            "checkpoints": len(self.checkpoints),
+            "checkpoint_head_index": (self.checkpoints[-1].get("index")
+                                      if self.checkpoints else None),
+            "store_rev": self.revision,
+        }
+        out: dict[str, Any] = {
+            **instanceid.identity(),
+            "store_mode": self.store_mode,
+            "in_memory": mem,
+            "durable": None,
+            "divergence": [],
+        }
+        if self.backend is None:
+            out["durable"] = {"note": "json store — the in-memory view IS the "
+                                      "authoritative view (single writer)"}
+            return out
+        # AUTHORITATIVE read. Deliberately OUTSIDE any write txn: this is a
+        # diagnostic, and it must never take the write lock just to be read.
+        try:
+            durable = self.backend.durable_counts()
+        except Exception as exc:  # noqa: BLE001 — diagnostics never 500
+            out["durable"] = {"error": type(exc).__name__}
+            out["divergence"].append("durable_read_failed")
+            return out
+        out["durable"] = durable
+        if durable["events"] < mem["events"]:
+            out["divergence"].append("in_memory_events_ahead_of_durable")
+        if durable["events"] > mem["events"]:
+            out["divergence"].append("durable_events_ahead_of_in_memory")
+        if durable["checkpoints"] < mem["checkpoints"]:
+            out["divergence"].append("in_memory_checkpoints_ahead_of_durable")
+        if durable["checkpoints"] > mem["checkpoints"]:
+            out["divergence"].append("durable_checkpoints_ahead_of_in_memory")
+        if durable["ledger_records"] != mem["ledger_records"]:
+            out["divergence"].append("ledger_length_mismatch")
+        out["consistent"] = not out["divergence"]
+        return out
+
     def publish_checkpoint(self) -> dict[str, Any]:
         """Seal the current ledger head into a Guild-signed checkpoint and add it
         to the published, append-only checkpoint feed third parties pin
         (LEDGER_ARCHITECTURE §7 stage-2). Idempotent: if no evidence has landed
         since the last published checkpoint, the existing one is returned rather
-        than publishing a duplicate. Meant to be called on a schedule."""
+        than publishing a duplicate. Meant to be called on a schedule.
+
+        FAIL-CLOSED (divergence incident 2026-07-31). A publish is a CANONICAL
+        COMMITMENT: third parties pin it, passports cite it, and an inclusion
+        proof is only worth anything if the feed is a real chain. On 2026-07-31
+        a publish returned index 14 / ledger_length 834 while the feed head was
+        already 16 / 836 — i.e. the write path was willing to act on a view two
+        entries behind the committed feed. It no longer is:
+
+          1. The authoritative read now happens INSIDE the BEGIN IMMEDIATE
+             write transaction, so no other writer can land between the read
+             and the append (the previous code read, then wrote — a TOCTOU
+             window in which two publishers both computed the same next index).
+          2. A durable view that is BEHIND what this process already published
+             is refused, not published from (``StaleDurableStateError``).
+          3. The next index must be UNUSED in the durable feed. Combined with a
+             strict INSERT (no INSERT OR REPLACE) this makes silently
+             overwriting a published checkpoint impossible — a fork of the
+             canonical feed now raises instead of replacing history.
+          4. READ-AFTER-WRITE: the entry is re-read from the database and its
+             canonical bytes compared before it is returned. A publish that did
+             not durably land can no longer be reported as published.
+        """
         with self.lock, self._txn():
             if self.backend is not None:
-                # build on the AUTHORITATIVE committed ledger + checkpoint feed,
-                # not a possibly-stale in-memory view (concurrent appenders).
-                self.ledger_records = self.backend.all_ledger()
-                self.checkpoints = self.backend.all_checkpoints()
+                # AUTHORITATIVE read, INSIDE the write transaction (see 1).
+                durable_ledger_records = self.backend.all_ledger()
+                durable_checkpoints = self.backend.all_checkpoints()
+                # (2) refuse to build a canonical commitment on a view that is
+                # behind state this process has already observed as published.
+                mem_head = (self.checkpoints[-1].get("index")
+                            if self.checkpoints else -1)
+                dur_head = (durable_checkpoints[-1].get("index")
+                            if durable_checkpoints else -1)
+                if dur_head < mem_head:
+                    raise StaleDurableStateError(
+                        "refusing to publish: the durable checkpoint feed head "
+                        f"({dur_head}) is BEHIND the head this process already "
+                        f"observed ({mem_head}). Publishing from a stale view "
+                        "would fork the canonical feed.")
+                if len(durable_ledger_records) < len(self.ledger_records):
+                    raise StaleDurableStateError(
+                        "refusing to publish: the durable ledger "
+                        f"({len(durable_ledger_records)} records) is SHORTER "
+                        f"than the in-memory ledger ({len(self.ledger_records)})"
+                        " — a short head would commit to a truncated history.")
+                self.ledger_records = durable_ledger_records
+                self.checkpoints = durable_checkpoints
             gid = self.guild_identity()
             led = self.durable_ledger()
             cp = led.signed_checkpoint(gid["did"], gid["private_key"])
@@ -4152,8 +4567,14 @@ class Store:
                 if (last["checkpoint"].get("head_hash") == head
                         and len(self.ledger_records) == last.get("ledger_length")):
                     return last  # nothing new to commit
+            # NEXT INDEX from the maximum index actually present, not from the
+            # list LENGTH: a feed with any gap (or an out-of-order legacy entry)
+            # would otherwise re-issue an index that already exists, which is
+            # exactly the silent-overwrite path (3) closes.
+            next_index = 1 + max(
+                [int(e.get("index", -1)) for e in self.checkpoints] or [-1])
             entry = {
-                "index": len(self.checkpoints),
+                "index": next_index,
                 "published_at": _now(),
                 "ledger_length": len(self.ledger_records),
                 "checkpoint": cp,
@@ -4191,9 +4612,25 @@ class Store:
                              "are NOT rewritten"),
                 }
             entry["entry_proof"] = sign_jcs(entry, gid["private_key"])
-            self.checkpoints.append(entry)
             if self.backend is not None:
-                self._persist_checkpoint(entry)
+                # (3) FORK PREVENTION — strict insert. The index must be unused
+                # in the durable feed; a collision raises instead of silently
+                # replacing a published, third-party-pinned commitment.
+                self.backend.insert_checkpoint_strict(entry)
+                # (4) READ-AFTER-WRITE — a publish that did not durably land is
+                # never reported as published.
+                stored = self.backend.checkpoint_at(next_index)
+                if stored is None:
+                    raise CheckpointWriteVerificationError(
+                        f"checkpoint {next_index} was not readable after "
+                        "write; refusing to report it as published")
+                if canonicalize(stored) != canonicalize(entry):
+                    raise CheckpointWriteVerificationError(
+                        f"checkpoint {next_index} read back with different "
+                        "bytes than were written; refusing to report it as "
+                        "published")
+            self.checkpoints.append(entry)
+            self.revision += 1
             self._save()
             return entry
 
@@ -4988,13 +5425,33 @@ class Store:
 
     def issue_passport(self, agent_id: str, *, ttl_days: int = 7,
                        verify_url: Optional[str] = None,
-                       explore_url: Optional[str] = None) -> Optional[dict[str, Any]]:
+                       explore_url: Optional[str] = None,
+                       actor_key: Optional[str] = None,
+                       surface: Optional[str] = None,
+                       ua: str = "",
+                       request_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Issue a portable, Guild-signed **Agent Passport** for `agent_id`: a
         Verifiable Credential snapshotting its current reputation that the agent
         can carry to any counterparty or platform. Each passport embeds a
         verification URL, so every counterparty who checks it is pulled back to the
         Guild — the credential is the distribution loop. None if the agent or its
-        reputation is unknown."""
+        reputation is unknown.
+
+        TELEMETRY CONTRACT (corrective pass 2026-07-31). Exactly ONE
+        ``passport_issued`` event is emitted, HERE, and ONLY after a credential
+        was actually produced. Before this change the MCP tool recorded
+        ``passport_issued`` on ENTRY and this method recorded a second one on
+        success, so a single MCP call counted twice and a LOOKUP MISS (unknown
+        agent) counted as an issuance. That is how a schema probe on 2026-07-30
+        moved the headline "genuine external passports issued" from 1 to 3
+        without a single agent registering, proving control or returning.
+
+        Attempts and failures are now recorded by the CALLER as
+        ``passport_requested`` / ``passport_issue_failed`` — separate event
+        types that are counted as demand, never as issuance. ``actor_key``,
+        ``surface``, ``ua`` and ``request_id`` are stamped so a passport event
+        can be attributed to a transport and correlated with its request
+        instead of being inferred later."""
         rec = self.get_agent(agent_id)
         if not rec:
             return None
@@ -5046,8 +5503,19 @@ class Store:
             subject_did=rec["did"], subject_claims=claims,
             valid_from=created.isoformat(), valid_until=until.isoformat(),
         )
-        self.record_event(self.account_for_agent(agent_id), "passport_issued",
-                          endpoint="passport", subject_id=agent_id)
+        # ONE event, on SUCCESS only. `actor_key` is WHO fetched it (may be the
+        # subject itself or a third party); `subject_id` is WHOSE credential it
+        # is. Keeping both is what makes a self-claim distinguishable from a
+        # third-party fetch downstream — see passport_activity().
+        subject_account = self.account_for_agent(agent_id)
+        actor = actor_key or subject_account
+        self.record_event(actor, "passport_issued", ua=ua,
+                          endpoint="passport", subject_id=agent_id,
+                          subject_account=subject_account,
+                          transport=(surface or self._surface_of(actor, ua)),
+                          request_id=request_id,
+                          self_claim=bool(subject_account
+                                          and actor == subject_account))
         if self.record_milestone(agent_id, "first_passport"):
             self._save()  # milestone stamps mutate the agent record; persist it
         return cred
@@ -5115,10 +5583,48 @@ class Store:
         agents_external = sum(1 for a in self.agents.values() if not a.get("first_party"))
         credits_spent_ext = sum(a.get("spent", 0) for a in self.accounts.values()
                                 if not a.get("first_party"))
+        # --- HONESTY FIXES (corrective pass 2026-07-31) ---------------------
+        # 1. UTILITY comes from the PRODUCTION-only block of /evaluation. The
+        #    top-level `lift` mixes a seeded first-party bootstrap cohort with
+        #    live traffic; quoting it as "measured lift" reported a number we
+        #    manufactured as if agents had produced it. n_recommended travels
+        #    with it so a lift computed on zero production recommendations is
+        #    visibly unmeasurable rather than silently absent.
+        prod = ev.get("production") or {}
+        prod_lift = prod.get("lift")
+        prod_n = int(prod.get("n_recommended") or 0)
+        # 2. REVENUE comes ONLY from independently confirmed external mainnet
+        #    settlement. Sandbox credits are an internal accounting unit with
+        #    no external claim on anything; multiplying them by CREDIT_USD and
+        #    printing a dollar sign was inventing money.
+        rev = self.escrow_summary()
+        real = (rev or {}).get("real_settlement") or {}
+        verified_external_usd = float(
+            real.get("independently_attested_external_revenue_usd") or 0.0)
+        bound_machine_usd = float(
+            real.get("cryptographically_bound_machine_revenue_usd") or 0.0)
+        # 3. GROWTH uses adoption-grade external actors (the central
+        #    attribution rule), not "every record lacking first_party=true",
+        #    which still counts our own untagged tooling and every crawler that
+        #    ever registered.
+        activity = self.passport_activity()["behaviours"]
+        adoption_grade_self_claims = activity["subject_self_claim"]["external"]
         return {
-            "measured_lift": ev.get("lift"),
+            # honest utility
+            "production_measured_lift": prod_lift,
+            "production_n_recommended": prod_n,
+            "production_lift_measurable": bool(prod_n),
+            # kept, but explicitly labelled as the mixed/seeded number so it
+            # can never be quoted as the production result again
+            "mixed_bootstrap_lift_NOT_PRODUCTION": ev.get("lift"),
             "measured_lift_dataset": ev.get("dataset"),
             "recommended_success_rate": ev.get("recommended_success_rate"),
+            # honest revenue
+            "verified_external_revenue_usd": verified_external_usd,
+            "cryptographically_bound_machine_revenue_usd": bound_machine_usd,
+            "sandbox_credits_spent_external_NOT_MONEY": credits_spent_ext,
+            # honest growth
+            "adoption_grade_external_self_claims": adoption_grade_self_claims,
             "agents_total": len(self.agents),
             "agents_external": agents_external,
             "genuine_external_detected": instr.get("genuine_external_detected", False),
@@ -5126,8 +5632,15 @@ class Store:
             "external_repeat_query_agents": ext.get("repeat_query", 0),
             "external_repeat_paid_agents": ext.get("repeat_paid_query_agents", 0),
             "external_paid_queries": ext.get("paid_query", 0),
+            "sandbox_credits_spent_external_NOT_MONEY": credits_spent_ext,
             "credits_spent_external": credits_spent_ext,
-            "revenue_usd_external": round(credits_spent_ext * CREDIT_USD, 4),
+            # RETIRED as a revenue line (2026-07-31): this was
+            # sandbox-credit spend multiplied by a notional rate and labelled
+            # USD. Kept under an unmistakable key ONLY so the historical
+            # health series stays comparable; it is not money and must never
+            # be summed with verified_external_revenue_usd.
+            "legacy_sandbox_credit_notional_usd_NOT_REVENUE":
+                round(credits_spent_ext * CREDIT_USD, 4),
             "total_referrals": ref["total_referrals"],
             "activated_referrals": ref["activated_referrals"],
         }
@@ -5135,20 +5648,59 @@ class Store:
     @staticmethod
     def _verdict(v: dict[str, Any], deltas: dict[str, float]) -> str:
         """A blunt, honest read of whether the autonomous flywheel is turning.
-        The load-bearing signal is *external* agents climbing the value ladder —
-        not totals we can inflate ourselves."""
+
+        GATE (corrective pass 2026-07-31). "FLYWHEEL TURNING — external agents
+        pay" was printed on 2026-07-31 while verified external revenue was
+        $0.00, zero external agents had claimed a passport, and the only "paid
+        read" on the books was our own release gate. It reached that verdict
+        because `external_paid_queries` counts SANDBOX CREDITS — an internal
+        unit we mint — and `agents_external` counts every record lacking
+        first_party=true, including our own untagged tooling and crawlers.
+
+        The verdict now requires BOTH halves of the claim to be independently
+        true:
+          * genuine external MOVEMENT — an adoption-grade external agent took a
+            credential for itself (not a probe fetching someone else's), and
+          * real verified ECONOMIC VALUE — independently confirmed external
+            mainnet settlement, never sandbox credits and never a first-party
+            canary.
+        Anything less names exactly which half is missing."""
+        verified_revenue = float(v.get("verified_external_revenue_usd") or 0.0)
+        self_claims = int(v.get("adoption_grade_external_self_claims") or 0)
+
         if v["agents_external"] == 0:
-            return "NO EXTERNAL AGENTS YET — deploy and seed discovery; every metric is self-traffic until one outside agent calls."
+            return ("NO EXTERNAL AGENTS YET — deploy and seed discovery; every "
+                    "metric is self-traffic until one outside agent calls.")
         if v.get("external_querying_agents", 0) == 0:
-            return "REGISTRATIONS BUT NO DISCOVERY — external agents exist but none have queried the trust layer yet; the core product is untested in the wild."
+            return ("REGISTRATIONS BUT NO DISCOVERY — external agents exist but "
+                    "none have queried the trust layer yet; the core product is "
+                    "untested in the wild.")
         if v["external_repeat_query_agents"] == 0:
-            return "REACH BUT NO RETENTION — outside agents have queried but none came back; usefulness unproven."
-        if v["external_paid_queries"] == 0:
-            return "RETENTION BUT NO WILLINGNESS-TO-PAY — agents return for free reads but none spend their own budget yet."
-        growing = deltas.get("agents_external", 0) > 0 or deltas.get("activated_referrals", 0) > 0
-        return ("FLYWHEEL TURNING — external agents pay and the network is growing."
+            return ("REACH BUT NO RETENTION — outside agents have queried but "
+                    "none came back; usefulness unproven.")
+        if self_claims == 0 and verified_revenue <= 0:
+            return ("REACH WITHOUT ADOPTION OR REVENUE — no external agent has "
+                    "claimed a credential for itself and verified external "
+                    "revenue is $0.00. Sandbox credits and first-party canaries "
+                    "are NOT evidence of either.")
+        if self_claims > 0 and verified_revenue <= 0:
+            return (f"ADOPTION WITHOUT REVENUE — {self_claims} adoption-grade "
+                    "external agent(s) hold their own credential, but verified "
+                    "external revenue is $0.00; willingness-to-pay is unproven.")
+        if self_claims == 0 and verified_revenue > 0:
+            return (f"REVENUE WITHOUT ADOPTION — ${verified_revenue:.2f} of "
+                    "verified external settlement, but no external agent has "
+                    "taken a credential for itself; check the payer is not a "
+                    "one-off before calling this a flywheel.")
+        growing = (deltas.get("adoption_grade_external_self_claims", 0) > 0
+                   or deltas.get("verified_external_revenue_usd", 0) > 0)
+        return (f"FLYWHEEL TURNING — {self_claims} external agent(s) hold their "
+                f"own credential AND ${verified_revenue:.2f} of verified "
+                "external settlement is on the books."
                 if growing else
-                "PAID BUT FLAT — agents pay, but growth/referrals stalled this period; investigate acquisition.")
+                f"PAID BUT FLAT — {self_claims} credential holder(s), "
+                f"${verified_revenue:.2f} verified external revenue, no "
+                "movement this period; investigate acquisition.")
 
     def compute_health(self, persist: bool = False) -> dict[str, Any]:
         """Compute the health snapshot (vector + trend deltas vs the last

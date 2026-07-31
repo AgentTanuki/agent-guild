@@ -413,24 +413,43 @@ class ReferralsResponse(BaseModel):
 
 # --- self-evaluation (Outcome 4: continuous self-assessment) ----------------
 class HealthSnapshot(BaseModel):
+    """The Guild's self-assessment.
+
+    HONESTY INVARIANTS (corrective pass 2026-07-31) — the field names carry the
+    caveat so a number cannot be quoted without it:
+      * utility is the PRODUCTION-only lift, with its sample size attached; the
+        seeded bootstrap figure travels under an explicitly non-production key;
+      * revenue is ONLY independently confirmed external mainnet settlement;
+        sandbox credits are an internal unit and are labelled NOT_MONEY;
+      * growth is adoption-grade external activity, not "records lacking
+        first_party".
+    """
+
     at: str
-    # utility — is the Guild actually helping agents?
-    measured_lift: Optional[float] = None
-    # provenance of measured_lift so the number never travels unlabelled:
-    # "bootstrap" (seeded demonstration) | "production" | "mixed" | "empty".
+    # --- utility (production only; bootstrap is separate and labelled) ------
+    production_measured_lift: Optional[float] = None
+    production_n_recommended: int = 0
+    production_lift_measurable: bool = False
+    mixed_bootstrap_lift_NOT_PRODUCTION: Optional[float] = None
     measured_lift_dataset: Optional[str] = None
     recommended_success_rate: Optional[float] = None
-    # growth — are new (external) agents arriving?
+    # --- growth (adoption-grade) -------------------------------------------
+    adoption_grade_external_self_claims: int = 0
     agents_total: int
     agents_external: int
     external_querying_agents: int = 0
     # retention — do external agents come back?
     external_repeat_query_agents: int
     external_repeat_paid_agents: int
-    # revenue capture — is value being paid for?
+    # --- economic value ----------------------------------------------------
+    # Real money: independently confirmed external mainnet settlement only.
+    verified_external_revenue_usd: float = 0.0
+    cryptographically_bound_machine_revenue_usd: float = 0.0
+    # Internal accounting units. NOT money, never summed with the above.
     external_paid_queries: int
+    sandbox_credits_spent_external_NOT_MONEY: int = 0
     credits_spent_external: int
-    revenue_usd_external: float
+    legacy_sandbox_credit_notional_usd_NOT_REVENUE: float = 0.0
     # referrals — are agents recruiting agents?
     total_referrals: int
     activated_referrals: int
