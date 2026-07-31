@@ -118,53 +118,6 @@ def define(store: Any, key: str, *, hypothesis: str, variable: str,
     return rec
 
 
-def qualified_exposure(store: Any, operation: Optional[str] = None
-                       ) -> dict[str, Any]:
-    """Genuinely-external actors who reached a decision surface.
-
-    Uses the SAME central attribution rule as every other honest number in the
-    service. Crawlers, registry probes, our own tooling and unknown-attributed
-    traffic are excluded structurally — never by name-matching a User-Agent,
-    which is exactly how self-traffic gets laundered into a growth metric."""
-    from . import attribution
-
-    # Scoped to the experiment's own surface where one is given: exposure to a
-    # DIFFERENT offer is not exposure to this one.
-    decision_surfaces = ({"preflight_run", "deep_preflight_run"}
-                         if operation == "deep_preflight" else
-                         {"evidence_bundle_issued"}
-                         if operation == "evidence_bundle" else
-                         {"watch_provisioned"} if operation == "watch_cycle"
-                         else {"preflight_run", "deep_preflight_run",
-                               "evidence_bundle_issued", "watch_provisioned",
-                               "index_view"})
-    actors: set[str] = set()
-    events = 0
-    for e in getattr(store, "events", []):
-        if e.get("type") not in decision_surfaces:
-            continue
-        if e.get("fp") or e.get("first_party"):
-            continue
-        cls = attribution.caller_class(e)
-        if cls in ("AG_INTERNAL", "AG_TEST", "OPERATOR", "REGISTRY_CRAWLER"):
-            continue
-        if not (attribution.may_count_as_external_growth(cls)
-                and attribution.is_genuine_external(e)):
-            continue
-        events += 1
-        key = e.get("key") or "anon"
-        if key != "anon":
-            actors.add(key)
-    return {
-        "qualified_actors": len(actors),
-        "qualified_events": events,
-        "rule": ("genuine-external only, via attribution.caller_class + "
-                 "is_genuine_external. Crawlers, first-party tooling and "
-                 "unknown-attributed traffic are excluded structurally, not by "
-                 "matching a User-Agent string."),
-    }
-
-
 #: The three INDEPENDENT conditions that must all hold before a settlement may
 #: be called revenue. `mode == "x402"` alone is not money: the same rail runs
 #: on Base Sepolia by default, where a successful settlement is a successful
@@ -203,6 +156,106 @@ def _is_external(event: dict) -> bool:
                             "REGISTRY_CRAWLER")
             and attribution.may_count_as_external_growth(cls)
             and attribution.is_genuine_external(event))
+
+
+def qualified_exposure(store: Any, operation: Optional[str] = None
+                       ) -> dict[str, Any]:
+    """Genuinely-external actors who were ACTUALLY OFFERED this paid operation.
+
+    THE IMPRESSION BOUNDARY (correction 2026-07-31). This previously counted
+    adjacent free-product events — a caller who ran a FREE preflight was
+    treated as exposure for the PAID deep-preflight price experiment. They had
+    never been quoted that price, so the engine could reach its denominator and
+    halve or kill an offer nobody was shown. "They used the free thing" is not
+    evidence about a price.
+
+    Exposure to a paid operation is now exactly two things, both explicit:
+
+      * ``paid_offer_shown`` carrying this operation — the caller was shown
+        the price. Two impressions qualify and are distinguished by the
+        `impression` field: a 402 / payment-required quote, and a price
+        DISPLAYED in a successful response where there is no 402 at all (a
+        watch is provisioned free and priced per cycle, so its response is the
+        only moment its price is ever shown). Recorded identically on HTTP,
+        MCP and A2A. Or
+      * a completed call of that operation — they saw the price and paid it.
+
+    Nothing else counts. With no operation given (the commercial report), the
+    broader decision-surface view is returned, clearly labelled as such.
+
+    Attribution is the same central rule used everywhere: crawlers,
+    first-party tooling and unknown-attributed traffic are excluded
+    structurally, never by matching a User-Agent."""
+    from . import attribution
+
+    def _external(e: dict) -> bool:
+        if e.get("fp") or e.get("first_party"):
+            return False
+        cls = attribution.caller_class(e)
+        if cls in ("AG_INTERNAL", "AG_TEST", "OPERATOR", "REGISTRY_CRAWLER"):
+            return False
+        return (attribution.may_count_as_external_growth(cls)
+                and attribution.is_genuine_external(e))
+
+    actors: set[str] = set()
+    events = 0
+    challenged = 0
+    completed = 0
+
+    if operation:
+        completion_types = set(OPERATION_EVENTS.get(operation, ()))
+        for e in getattr(store, "events", []):
+            etype = e.get("type")
+            is_challenge = (etype in ("paid_offer_shown",
+                                      "paid_offer_challenged")
+                            and e.get("challenged_operation") == operation
+                            # distinctness must be KNOWN to count an actor; an
+                            # unidentifiable MCP caller is real traffic but
+                            # cannot be counted toward an actor threshold
+                            and e.get("actor_distinct") is not False)
+            # A completion only counts as exposure when it was actually PAID
+            # for — a free-tier call of the same shape is not an impression of
+            # the price.
+            is_completion = (etype in completion_types
+                             and e.get("settlement_mode") in
+                             ("x402", "credits_sandbox"))
+            if not (is_challenge or is_completion):
+                continue
+            if not _external(e):
+                continue
+            events += 1
+            challenged += 1 if is_challenge else 0
+            completed += 1 if is_completion else 0
+            key = e.get("key") or "anon"
+            if key != "anon":
+                actors.add(key)
+        rule = (f"actors genuinely external AND shown the {operation} price "
+                "(paid_offer_challenged) or who completed a paid "
+                f"{operation} call. Free-tier use of an adjacent product is "
+                "NOT exposure to this price.")
+    else:
+        surfaces = {"preflight_run", "deep_preflight_run",
+                    "evidence_bundle_issued", "watch_provisioned",
+                    "index_view", "paid_offer_shown", "paid_offer_challenged"}
+        for e in getattr(store, "events", []):
+            if e.get("type") not in surfaces or not _external(e):
+                continue
+            events += 1
+            key = e.get("key") or "anon"
+            if key != "anon":
+                actors.add(key)
+        rule = ("ALL decision surfaces, free and paid — a portfolio view for "
+                "the commercial report. NOT valid for pricing an individual "
+                "operation; pass `operation` for that.")
+
+    return {
+        "operation_scope": operation or "all_surfaces",
+        "qualified_actors": len(actors),
+        "qualified_events": events,
+        "paid_offers_shown": challenged,
+        "paid_completions": completed,
+        "rule": rule,
+    }
 
 
 def commercial_metrics(store: Any, operation: Optional[str] = None
@@ -403,6 +456,64 @@ def next_action(store: Any, key: str) -> dict[str, Any]:
     return {**verdict, "action": "change_offer", "change": None,
             "rationale": "qualified callers saw it and did not buy; the offer "
                          "itself needs to change"}
+
+
+#: The default experiment the service starts with. ONE, deliberately: the
+#: engine applies at most one change per cycle, so seeding several would just
+#: queue changes that cannot run concurrently anyway, and would make the first
+#: result harder to attribute.
+DEFAULT_EXPERIMENTS = (
+    {
+        "key": "deep_preflight_price_v1",
+        "variable": "price:deep_preflight",
+        "hypothesis": (
+            "Externally-owned agents shown the deep-preflight price do not buy "
+            "at 20 credits ($0.02). If qualified callers see the price and "
+            "still do not pay, the price is the blocker and halving it should "
+            "move paid decisions; if it does not, the OFFER is wrong, not the "
+            "price."),
+    },
+)
+
+
+def seed_defaults(store: Any) -> dict[str, Any]:
+    """Ensure the engine has something to learn from. Idempotent.
+
+    An autonomous experiment engine with no experiment is inert — it evaluates
+    an empty dict forever and reports nothing, which does not satisfy "find the
+    formula without a human". Seeding happens on the real cycle path so a fresh
+    deployment starts measuring by itself.
+
+    Three safety properties, because a seeder that runs every cycle is one bug
+    away from continuously resetting the thing it is meant to measure:
+
+      * NEVER overwrites an existing experiment — `define` returns the existing
+        record untouched, so the window and baseline survive every restart;
+      * NEVER seeds an experiment whose price is pinned by an operator, because
+        the engine could not act on it anyway and a permanently undecidable
+        experiment is noise;
+      * seeds ONE experiment, matching the one-change-per-cycle rule.
+
+    It does NOT fabricate exposure. A seeded experiment with no qualified
+    callers correctly reports `insufficient_evidence` — that is the honest
+    state of a product nobody has been offered yet."""
+    seeded, skipped = [], []
+    for spec in DEFAULT_EXPERIMENTS:
+        key = spec["key"]
+        if key in (getattr(store, "experiments", {}) or {}):
+            skipped.append({"key": key, "reason": "already_exists"})
+            continue
+        operation = spec["variable"].split(":", 1)[1]
+        if os.environ.get(pricing._env_key(operation)) is not None:
+            skipped.append({"key": key, "reason": "price_pinned_by_operator"})
+            continue
+        define(store, key, hypothesis=spec["hypothesis"],
+               variable=spec["variable"],
+               baseline=commercial_metrics(store, operation))
+        seeded.append(key)
+    return {"seeded": seeded, "already_present": skipped,
+            "note": ("idempotent: an existing experiment is never overwritten, "
+                     "so a restart cannot reset its window or baseline")}
 
 
 def apply_next_action(store: Any) -> list[dict[str, Any]]:

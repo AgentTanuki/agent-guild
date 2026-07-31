@@ -168,6 +168,10 @@ app.add_middleware(
 
 # Capture the caller's User-Agent per request so the activity feed can show who
 # is calling (a framework UA like "python-httpx" / "langchain" vs a browser).
+#: Stable, privacy-safe actor for THIS request (see the middleware). Used for
+#: paid-offer impressions so a challenge is attributable to a distinct caller.
+_req_actor: contextvars.ContextVar = contextvars.ContextVar(
+    "req_actor", default=None)
 _ua: contextvars.ContextVar[str] = contextvars.ContextVar("ua", default="")
 # x402: the payment headers travel via contextvars so meter() can settle paid
 # reads on the real rail without threading a parameter through every endpoint.
@@ -219,6 +223,18 @@ async def _capture_ua(request: Request, call_next):
         request.scope["path"] = "/mcp/"
         request.scope["raw_path"] = b"/mcp/"
     _ua.set(request.headers.get("user-agent", ""))
+    # Request-scoped ACTOR for paid-offer impressions. _challenge_http has no
+    # request handle, so it previously recorded actor=None — every genuine
+    # external HTTP challenge incremented the event count and never the ACTOR
+    # count, which is the number the experiment engine actually gates on. The
+    # same stable, privacy-safe identity used for demand dedupe is bound here
+    # (a purpose-scoped hash of the key, or of client+UA — never a raw IP,
+    # never a raw key).
+    try:
+        _req_actor.set(_http_demand_actor(request,
+                                          request.headers.get("x-api-key")))
+    except Exception:  # noqa: BLE001 — attribution must never break a request
+        _req_actor.set(None)
     _xpay_sig.set(request.headers.get("payment-signature", ""))
     _xpay_v1.set(request.headers.get("x-payment", ""))
     _fp_flag.set(_is_first_party(request.headers.get("x-guild-source"),
@@ -449,6 +465,47 @@ def _rate_limit_key_op(agent_id: str) -> None:
 # BaseHTTPMiddleware's downstream task; mutations of the shared holder do).
 
 
+def _record_paid_offer(preq, ua: str, transport: str,
+                       actor: Optional[str] = None) -> None:
+    """Record that a specific caller was quoted a specific paid operation.
+
+    The canonical impression for the experiment engine. Kept in one function so
+    HTTP, MCP and A2A cannot drift into recording different things — an
+    exposure metric assembled differently per transport is not a metric."""
+    try:
+        operation = getattr(preq, "operation", None)
+        if not operation:
+            return
+        store.record_event(actor, "paid_offer_shown", ua=ua,
+                           endpoint="x402_challenge", transport=transport,
+                           challenged_operation=operation,
+                           impression="challenge_402",
+                           price_credits=getattr(preq, "cost", None))
+    except Exception:  # noqa: BLE001 — telemetry must never break a 402
+        pass
+
+
+def _record_price_impression(actor: Optional[str], operation: str,
+                             price_credits: int, ua: str,
+                             transport: str) -> None:
+    """The caller was SHOWN a price without a 402 — e.g. the per-cycle price in
+    a successful watch-provisioning response.
+
+    Same canonical event and same boundary as a 402 quote, distinguished by
+    `impression` so the two are never conflated in analysis. Provisioning
+    remains free, and this is emphatically not a payment: it records that a
+    price was displayed to a specific caller, which is the thing an experiment
+    on that price needs to know."""
+    try:
+        store.record_event(actor, "paid_offer_shown", ua=ua,
+                           endpoint="price_shown", transport=transport,
+                           challenged_operation=operation,
+                           impression="price_displayed",
+                           price_credits=price_credits)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _challenge_http(exc: PaymentChallenge,
                     status: int = 402) -> HTTPException:
     """One PaymentChallenge → one HTTP 402 with the PAYMENT-REQUIRED header."""
@@ -456,6 +513,13 @@ def _challenge_http(exc: PaymentChallenge,
     # body `claim_passport`); count the offer where it is actually served.
     store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
                        endpoint="x402_challenge")
+    # PAID-OFFER IMPRESSION. This is the only moment a caller is actually shown
+    # a price for a specific operation. An experiment on that operation's price
+    # may count THIS and nothing else — a free preflight caller has never been
+    # quoted the deep-preflight price, so counting them let the engine halve a
+    # price nobody was ever offered.
+    _record_paid_offer(getattr(exc, "preq", None), _ua.get(), "http",
+                       actor=_req_actor.get())
     try:
         hdrs = {x402.PAYMENT_REQUIRED_HEADER: exc.header_value()}
     except Exception:                                    # never mask the 402
@@ -3113,6 +3177,13 @@ def watch_provision_route(body: dict[str, Any], response: Response,
         raise HTTPException(422, str(e))
     store.record_event(creds.sanitize_actor_key(x_api_key), "watch_provisioned",
                        ua=_ua.get(), endpoint="watch", target=url)
+    # PRICE IMPRESSION. A watch has no 402 — provisioning is free — so the
+    # only moment the caller is shown the per-cycle price is this response.
+    # Recorded as an impression, explicitly NOT as a payment, so a watch
+    # pricing experiment can become decidable at all. Without it the boundary
+    # could never observe a watch price being offered to anyone.
+    _record_price_impression(creds.sanitize_actor_key(x_api_key), "watch_cycle",
+                             pricing.price("watch_cycle"), _ua.get(), "http")
     return {**rec, "price_per_cycle_credits": pricing.price("watch_cycle"),
             "feed": f"GET /watch/{rec['id']}",
             "billing": ("charged per recheck ACTUALLY performed; provisioning "
