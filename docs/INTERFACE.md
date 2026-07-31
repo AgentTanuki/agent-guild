@@ -98,6 +98,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /offers/{offer_id}`
 - `POST /offers/{offer_id}/accept`
 - `POST /outcomes`
+- `GET /preflight`
 - `POST /providers/external/discover`
 - `GET /referrals`
 - `GET /release`
@@ -143,6 +144,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `guild_escrow_open`
 - `guild_escrow_release`
 - `guild_passport`
+- `guild_preflight`
 - `guild_prove`
 - `guild_prove_verify`
 - `guild_record`

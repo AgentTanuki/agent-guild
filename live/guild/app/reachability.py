@@ -200,6 +200,35 @@ def _connect_pinned(scheme: str, host: str, family: int, addr: str, port: int,
     return raw
 
 
+def _dechunk(raw: bytes) -> bytes:
+    """Decode an HTTP/1.1 chunked body, tolerating truncation.
+
+    The probe caps its read at PROBE_MAX_BYTES, so the last chunk is routinely
+    incomplete and the terminating 0-chunk is usually never seen. That is
+    fine: we return everything decoded so far, because the callers only need
+    enough of the body to recognise a card or a handshake. Returns the input
+    unchanged if it does not look chunked, so a mislabelled response degrades
+    to the previous behaviour rather than to an empty body."""
+    out = bytearray()
+    pos = 0
+    n = len(raw)
+    while pos < n:
+        eol = raw.find(b"\r\n", pos)
+        if eol == -1:
+            break
+        size_line = raw[pos:eol].split(b";", 1)[0].strip()
+        try:
+            size = int(size_line, 16)
+        except ValueError:
+            return raw if not out else bytes(out)
+        if size == 0:
+            break
+        start = eol + 2
+        out += raw[start:start + size]
+        pos = start + size + 2      # skip the chunk's trailing CRLF
+    return bytes(out) if out else raw
+
+
 def _http_request_pinned(scheme: str, host: str, family: int, addr: str,
                          port: int, path: str, method: str = "HEAD",
                          body: Optional[bytes] = None,
@@ -234,7 +263,22 @@ def _http_request_pinned(scheme: str, host: str, family: int, addr: str,
                 code = int(bits[1])
             except ValueError:
                 code = None
-        body_prefix = buf.split(b"\r\n\r\n", 1)[1] if b"\r\n\r\n" in buf else b""
+        head, _, body_prefix = buf.partition(b"\r\n\r\n")
+        if b"\r\n\r\n" not in buf:
+            body_prefix = b""
+        # CHUNKED TRANSFER-ENCODING (defect found 2026-07-31). The raw body of
+        # a chunked response begins with a hex chunk LENGTH line, so every
+        # JSON check downstream failed to parse it. Because the A2A card check
+        # (_looks_like_a2a_card) is what promotes an endpoint from
+        # "http_responsive" to "recently_reachable / protocol_handshake", ANY
+        # agent served over chunked encoding — which is the default for most
+        # streaming frameworks, including our own — was being classified as
+        # unproven. That is why `verified_reachable` read 0 for every entry in
+        # the demand feed: not because nobody was reachable, but because the
+        # prober could not read them. Undercounting reachability is the exact
+        # error class this service exists to eliminate, so it is fixed here.
+        if b"transfer-encoding: chunked" in head.lower():
+            body_prefix = _dechunk(body_prefix)
         return code, body_prefix
     finally:
         try:
@@ -331,11 +375,25 @@ def _classify(parts, req) -> tuple[str, Optional[int], str]:
 
 
 def _looks_like_a2a_card(body: bytes) -> bool:
+    """Does this response body look like an A2A Agent Card?
+
+    TRUNCATION TOLERANCE (defect found 2026-07-31). The probe read is bounded,
+    so a LARGE but perfectly valid card arrives incomplete and json.loads
+    fails on it. The strict-parse version of this function therefore reported
+    well-formed agents as unproven purely for being verbose — our own card is
+    one of them. Undercounting reachability is the same error class as
+    overcounting adoption, so: parse when we can, and otherwise fall back to
+    the marker keys, which cannot appear in a non-JSON error page."""
+    text = body.decode("utf-8", "ignore")
     try:
-        d = json.loads(body.decode("utf-8", "ignore"))
+        d = json.loads(text)
+        return isinstance(d, dict) and ("skills" in d or "protocolVersion" in d)
     except Exception:
+        pass
+    head = text.lstrip()[:1]
+    if head != "{":
         return False
-    return isinstance(d, dict) and ("skills" in d or "protocolVersion" in d)
+    return ('"protocolVersion"' in text) or ('"skills"' in text)
 
 
 # --- 4. INVOCATION VERIFICATION (trusted, AG-originated only) -----------------

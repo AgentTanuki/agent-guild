@@ -36,6 +36,7 @@ from . import payments
 from . import proving
 from . import x402
 from .payments import CachedPaidResult, PaidRequest, PaymentChallenge, PaymentIdConflict
+from . import preflight
 from .state import store
 from . import credentials as _creds
 
@@ -422,6 +423,34 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
                           meta={"x402/settlement-unit": "credits_sandbox"})
     # free (soft-launch / self): return the plain payload unchanged
     return result
+
+
+@mcp.tool
+def guild_preflight(url: str, ctx: Context = None) -> dict:
+    """Run this in the moment BEFORE you delegate to, or pay, an agent endpoint
+    you did not write. Free, no key, one call.
+
+    Separates what the endpoint CLAIMS from what it just PROVED, live. Measured
+    across the live ecosystem on 2026-07-31: 92.9% of registry-listed agents
+    report healthy but only 33.9% actually complete a task; 0.8% sign their
+    Agent Card; and of agents advertising payment, 5.7% actually return a 402.
+    x402 `exact` transfers are irreversible, so this has to happen before the
+    payment, not after it.
+
+    Unlike a directory badge this is not cached and not derived from a
+    repository at publication time — a server can change its tool descriptions
+    after any one-off review. Checks it could not perform are returned as
+    `unknowns` and are excluded from the verdict rather than averaged into it.
+
+    Example: guild_preflight(url="https://some-agent.example/a2a")
+    """
+    out = preflight.run(url, store=store)
+    store.record_event("mcp", "preflight_run", ua=_client_ua(ctx),
+                       endpoint="preflight", target=url,
+                       transport="mcp", verdict=out["verdict"],
+                       failed_count=len(out["failed"]),
+                       unknown_count=len(out["unknowns"]))
+    return out
 
 
 @mcp.tool
