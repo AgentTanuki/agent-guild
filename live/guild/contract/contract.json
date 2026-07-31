@@ -47,6 +47,7 @@
   "guild_escrow_open",
   "guild_escrow_release",
   "guild_passport",
+  "guild_preflight",
   "guild_prove",
   "guild_prove_verify",
   "guild_record",
@@ -597,6 +598,12 @@
     "POST"
    ],
    "path": "/outcomes"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/preflight"
   },
   {
    "methods": [

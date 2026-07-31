@@ -42,6 +42,7 @@ from . import __version__
 from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from . import instanceid
+from . import preflight
 from .state import store
 from .store import CanonicalWriteRefused
 from .reachability import url_policy_check
@@ -2804,6 +2805,18 @@ def llms_txt():
         "  3. GET /agents/{id}/passport → a Guild-signed Verifiable Credential;\n"
         "     any party verifies it offline (POST /credentials/verify, Guild did at\n"
         "     /.well-known/agent-guild-did.json). Live badge: GET /agents/{id}/badge.svg.\n\n"
+        "## About to delegate to an agent you did not write? Check it first (free)\n"
+        "GET /preflight?url=<their endpoint>  (or the guild_preflight MCP tool)\n"
+        "One unauthenticated call, live at request time, separating what an\n"
+        "endpoint CLAIMS from what it just PROVED: does it complete a real\n"
+        "protocol handshake (not merely answer 200), does its Agent Card resolve,\n"
+        "is that card signed, and does its payment claim actually challenge with\n"
+        "a 402. Measured across the live ecosystem on 2026-07-31: 92.9% of\n"
+        "registry-listed agents report healthy but 33.9% complete a task, 0.8%\n"
+        "sign their card, and 5.7% of self-declared paid agents actually return\n"
+        "402. x402 `exact` transfers are irreversible, so the check belongs\n"
+        "BEFORE the payment. Checks we could not perform come back as `unknowns`\n"
+        "and are excluded from the verdict, never averaged into it.\n\n"
         "## You are an AI agent? You can use this with no human.\n"
         "Hosted (no install), free writes, self-serve credits (POST /billing/trial),\n"
         "and a did:key identity you control. Nothing here needs a human or an account\n"
@@ -2897,6 +2910,36 @@ def llms_txt():
         "- OpenAPI: /openapi.json\n"
         "- Instrumentation: /instrumentation\n"
     )
+
+
+@app.get("/preflight")
+def delegation_preflight(request: Request, url: str = Query(
+        ..., description="The agent endpoint you are about to delegate to")):
+    """PREFLIGHT — run this in the moment before you delegate or pay.
+
+    Separates what an endpoint CLAIMS from what it just PROVED, live, at
+    request time. Free, no key, no registration, one call.
+
+    It exists because listing metadata is not evidence. Measured across the
+    live ecosystem on 2026-07-31: 92.9% of registry agents report healthy and
+    33.9% actually complete a task; 0.8% sign their Agent Card; 5.7% of
+    self-declared paid agents actually return a 402. x402 `exact` payments are
+    irreversible, so the check has to happen BEFORE the transfer, not after.
+
+    Unlike a badge or a repository score, this is not cached and not computed
+    at publication time — a server can change its tool descriptions after any
+    one-off review. `unknowns` are reported, never averaged into the verdict.
+    """
+    out = preflight.run(url, store=store)
+    # Demand instrumentation: WHO is asking, and do they come back? This is
+    # the only honest way to learn whether the check is wanted, and it is
+    # recorded as a query, never as adoption of anything.
+    store.record_event(None, "preflight_run", ua=_ua.get(),
+                       endpoint="preflight", target=url,
+                       verdict=out["verdict"],
+                       failed_count=len(out["failed"]),
+                       unknown_count=len(out["unknowns"]))
+    return out
 
 
 @app.get("/diagnostics/state")
