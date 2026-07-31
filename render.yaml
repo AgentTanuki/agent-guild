@@ -73,8 +73,13 @@ services:
       # infrastructure should never start because a container restarted.
       # Adapters read documented public read-only APIs with a truthful,
       # contactable User-Agent; no scraping, no auth bypass, no ToS evasion.
+      # Cleared for the documented, capped MCP Registry adapter only after a
+      # bounded local-only cycle ran clean in production. Set to "0" to stop
+      # all remote ingest in one config change, with no deploy. Excluded
+      # sources and their exact gates: GET /admin/index/cycle -> bounds, and
+      # app/indexsources.UNAVAILABLE_SOURCES.
       - key: GUILD_INDEX_INGEST
-        value: "0"
+        value: "1"
       # How long an observation stays "fresh" before the index reports it as
       # stale and the loop re-probes it.
       - key: GUILD_INDEX_FRESH_TTL_S
