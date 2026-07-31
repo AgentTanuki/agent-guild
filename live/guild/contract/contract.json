@@ -46,19 +46,15 @@
   "guild_check",
   "guild_escrow_open",
   "guild_escrow_release",
-  "guild_index",
   "guild_passport",
   "guild_preflight",
-  "guild_preflight_deep",
   "guild_prove",
   "guild_prove_verify",
   "guild_record",
   "guild_register",
   "guild_risk_score",
   "guild_search",
-  "guild_verify",
-  "guild_watch",
-  "guild_watch_feed"
+  "guild_verify"
  ],
  "payments": {
   "mechanism": "x402",
@@ -381,12 +377,6 @@
   },
   {
    "methods": [
-    "GET"
-   ],
-   "path": "/commercial"
-  },
-  {
-   "methods": [
     "POST"
    ],
    "path": "/credentials/verify"
@@ -467,18 +457,6 @@
    "methods": [
     "POST"
    ],
-   "path": "/evidence/bundle"
-  },
-  {
-   "methods": [
-    "POST"
-   ],
-   "path": "/evidence/verify"
-  },
-  {
-   "methods": [
-    "POST"
-   ],
    "path": "/feedback/abandonment"
   },
   {
@@ -510,30 +488,6 @@
     "GET"
    ],
    "path": "/health"
-  },
-  {
-   "methods": [
-    "GET"
-   ],
-   "path": "/index"
-  },
-  {
-   "methods": [
-    "GET"
-   ],
-   "path": "/index/search"
-  },
-  {
-   "methods": [
-    "GET"
-   ],
-   "path": "/index/{endpoint_id}"
-  },
-  {
-   "methods": [
-    "GET"
-   ],
-   "path": "/index/{endpoint_id}/evidence"
   },
   {
    "methods": [
@@ -653,18 +607,6 @@
   },
   {
    "methods": [
-    "GET"
-   ],
-   "path": "/preflight/deep"
-  },
-  {
-   "methods": [
-    "GET"
-   ],
-   "path": "/pricing"
-  },
-  {
-   "methods": [
     "POST"
    ],
    "path": "/providers/external/discover"
@@ -770,18 +712,6 @@
     "POST"
    ],
    "path": "/wallet-binding/verify"
-  },
-  {
-   "methods": [
-    "POST"
-   ],
-   "path": "/watch"
-  },
-  {
-   "methods": [
-    "GET"
-   ],
-   "path": "/watch/{watch_id}"
   },
   {
    "methods": [
