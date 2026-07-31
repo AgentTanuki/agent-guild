@@ -92,7 +92,8 @@ def _now() -> datetime:
 
 
 def define(store: Any, key: str, *, hypothesis: str, variable: str,
-           baseline: dict[str, Any]) -> dict[str, Any]:
+           baseline: dict[str, Any],
+           tested_price_credits: Optional[int] = None) -> dict[str, Any]:
     """Register a bounded, reversible experiment. Idempotent by key."""
     with store.lock, store._txn():
         existing = store.experiments.get(key)
@@ -103,6 +104,9 @@ def define(store: Any, key: str, *, hypothesis: str, variable: str,
             "hypothesis": hypothesis,
             "variable": variable,
             "baseline": baseline,
+            # THE EXACT TREATMENT under test. Evidence gathered at a different
+            # price is evidence about that other price, not this one.
+            "tested_price_credits": tested_price_credits,
             "started_at": _now().isoformat(),
             "window_days": window_days(),
             "min_qualified": min_qualified(),
@@ -158,9 +162,38 @@ def _is_external(event: dict) -> bool:
             and attribution.is_genuine_external(event))
 
 
-def qualified_exposure(store: Any, operation: Optional[str] = None
+def _at_or_after(event: dict, since: Optional[str]) -> bool:
+    """Is this event inside the treatment window? FAILS CLOSED.
+
+    An event whose timestamp cannot be parsed is EXCLUDED, not admitted: an
+    unreadable date must never be able to decide a price. Cheap string
+    comparison first (ISO-8601 sorts lexically for a fixed offset), with a
+    real parse as the fallback."""
+    if not since:
+        return True
+    at = event.get("at")
+    if not isinstance(at, str) or not at:
+        return False
+    try:
+        return (datetime.fromisoformat(at)
+                >= datetime.fromisoformat(str(since)))
+    except (TypeError, ValueError):
+        return False
+
+
+def qualified_exposure(store: Any, operation: Optional[str] = None,
+                       since: Optional[str] = None,
+                       tested_price_credits: Optional[int] = None
                        ) -> dict[str, Any]:
     """Genuinely-external actors who were ACTUALLY OFFERED this paid operation.
+
+    TREATMENT WINDOW AND EXACT TREATMENT (correction 2026-07-31). `since` and
+    `tested_price_credits` scope exposure to the CURRENT experiment arm.
+    Without them the loop optimises on stale treatment data: ten callers see 20
+    credits and do not buy, the engine cuts to 10, and on the next cycle those
+    same ten old-price impressions are counted again to justify cutting 10 to
+    5 — even though nobody has been shown 10. An impression is evidence about
+    the price that was actually displayed, and about nothing else.
 
     THE IMPRESSION BOUNDARY (correction 2026-07-31). This previously counted
     adjacent free-product events — a caller who ran a FREE preflight was
@@ -223,6 +256,12 @@ def qualified_exposure(store: Any, operation: Optional[str] = None
                 continue
             if not _external(e):
                 continue
+            # Same arm only: inside the window AND at the price under test.
+            if not _at_or_after(e, since):
+                continue
+            if (tested_price_credits is not None
+                    and e.get("price_credits") != tested_price_credits):
+                continue
             events += 1
             challenged += 1 if is_challenge else 0
             completed += 1 if is_completion else 0
@@ -258,7 +297,9 @@ def qualified_exposure(store: Any, operation: Optional[str] = None
     }
 
 
-def commercial_metrics(store: Any, operation: Optional[str] = None
+def commercial_metrics(store: Any, operation: Optional[str] = None,
+                       since: Optional[str] = None,
+                       tested_price_credits: Optional[int] = None
                        ) -> dict[str, Any]:
     """The primary metrics. Revenue is REAL money only.
 
@@ -281,6 +322,15 @@ def commercial_metrics(store: Any, operation: Optional[str] = None
 
     for e in getattr(store, "events", []):
         if e.get("type") not in want:
+            continue
+        # Same arm only. A payment QUOTED at the old price and settled late
+        # must not promote the new one — the money is real, but it is evidence
+        # about the price the payer was actually shown.
+        if not _at_or_after(e, since):
+            continue
+        if (tested_price_credits is not None
+                and e.get("price_credits") is not None
+                and e.get("price_credits") != tested_price_credits):
             continue
         key = e.get("key") or ""
         if e.get("settlement_mode") != SETTLED_MODE:
@@ -357,8 +407,12 @@ def evaluate(store: Any, key: str) -> dict[str, Any]:
         return {"key": key, "decision": None, "reason": "unknown experiment"}
 
     operation = experiment_operation(rec)
-    exposure = qualified_exposure(store, operation)
-    metrics = commercial_metrics(store, operation)
+    since = rec.get("started_at")
+    tested = rec.get("tested_price_credits")
+    exposure = qualified_exposure(store, operation, since=since,
+                                  tested_price_credits=tested)
+    metrics = commercial_metrics(store, operation, since=since,
+                                 tested_price_credits=tested)
     baseline = rec.get("baseline") or {}
     started = rec.get("started_at")
     try:
@@ -393,6 +447,11 @@ def evaluate(store: Any, key: str) -> dict[str, Any]:
             "(reach, inventory, free checks) cannot rescue this verdict.")
 
     evidence = {"operation": operation,
+                "arm": {"since": since, "tested_price_credits": tested,
+                        "note": ("evidence is scoped to THIS arm: impressions "
+                                 "of a different price, and impressions from "
+                                 "before this window opened, cannot decide "
+                                 "it")},
                 "exposure": exposure, "metrics": metrics, "baseline": baseline,
                 "elapsed_days": round(elapsed.total_seconds() / 86400, 2),
                 "window_expired": expired}
@@ -509,7 +568,8 @@ def seed_defaults(store: Any) -> dict[str, Any]:
             continue
         define(store, key, hypothesis=spec["hypothesis"],
                variable=spec["variable"],
-               baseline=commercial_metrics(store, operation))
+               baseline=commercial_metrics(store, operation),
+               tested_price_credits=pricing.price(operation))
         seeded.append(key)
     return {"seeded": seeded, "already_present": skipped,
             "note": ("idempotent: an existing experiment is never overwritten, "
@@ -599,10 +659,15 @@ def apply_next_action(store: Any) -> list[dict[str, Any]]:
                 "reversible_via": pricing._env_key(op),
             })
             live["changes_applied"] = live["changes_applied"][-20:]
-            # restart the measurement window against a FRESH baseline
-            live["baseline"] = commercial_metrics(
-                store, experiment_operation(live))
+            # Restart the window, re-take the baseline, and record the NEW
+            # treatment. All three move together: an arm is (window, price),
+            # and updating one without the others is how a loop ends up
+            # optimising on stale treatment data.
             live["started_at"] = _now().isoformat()
+            live["tested_price_credits"] = after
+            live["baseline"] = commercial_metrics(
+                store, experiment_operation(live),
+                since=live["started_at"], tested_price_credits=after)
             live["status"] = "running"
             live["decision"] = None
             live["decided_at"] = None

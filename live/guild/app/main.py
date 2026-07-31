@@ -3093,11 +3093,13 @@ def deep_preflight_route(request: Request, response: Response,
 
     The free tier (`GET /preflight`) is not degraded to make this attractive:
     it returns the full live check set and verdict, and always will."""
-    facts = meter(payments.deep_preflight_request(url), x_api_key, response)
+    _preq = payments.deep_preflight_request(url)
+    _quoted = _preq.cost
+    facts = meter(_preq, x_api_key, response)
     out = deepcheck.deep_preflight(store, url)
     store.record_event(creds.sanitize_actor_key(x_api_key) if x_api_key else None,
                        "deep_preflight_run", ua=_ua.get(), endpoint="preflight_deep",
-                       target=url,
+                       target=url, price_credits=_quoted,
                        paid=(facts["settlement_mode"] == "x402"),
                        verdict=(out.get("policy") or {}).get("decision"),
                        **facts)
@@ -3128,10 +3130,12 @@ def evidence_bundle_route(body: dict[str, Any], response: Response,
             "error": "evidence_issuance_refused", "code": e.code,
             "detail": str(e),
             "billing": "NOT CHARGED — issuance failed, so no meter ran"})
+    _quoted = preq.cost
     facts = meter(preq, x_api_key, response)
     store.record_event(creds.sanitize_actor_key(x_api_key) if x_api_key else None,
                        "evidence_bundle_issued", ua=_ua.get(),
                        endpoint="evidence_bundle", target=url,
+                       price_credits=_quoted,
                        paid=(facts["settlement_mode"] == "x402"), **facts)
     return bundle
 

@@ -562,6 +562,8 @@ def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> di
 
     Example: guild_preflight_deep(url="https://some-agent.example/a2a")
     """
+    _quoted = payments.deep_preflight_request(url).cost
+
     def _produce():
         out = deepcheck.deep_preflight(store, url)
         facts = settlement_mode()
@@ -569,6 +571,7 @@ def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> di
             _creds.sanitize_actor_key(api_key) if api_key else "mcp",
             "deep_preflight_run", ua=_client_ua(ctx),
             endpoint="preflight_deep", target=url, transport="mcp",
+            price_credits=_quoted,
             paid=(facts.get("settlement_mode") == "x402"),
             verdict=(out.get("policy") or {}).get("decision"), **facts)
         return out

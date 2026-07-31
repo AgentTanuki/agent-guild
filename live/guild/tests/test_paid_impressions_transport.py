@@ -342,3 +342,142 @@ def test_a_seeded_experiment_without_exposure_is_not_decisive(store):
     before = pricing.price("deep_preflight")
     experiments.apply_next_action(store)
     assert pricing.price("deep_preflight") == before
+
+
+# --------------------------------------------------------------------------
+# Treatment window + exact treatment — the stale-evidence defect
+# --------------------------------------------------------------------------
+def _impression(store: Store, actor: str, operation: str, price: int,
+                at: str = None):
+    store.record_event(actor, "paid_offer_shown", ua="langchain/0.2.1",
+                       endpoint="x402_challenge",
+                       challenged_operation=operation,
+                       impression="challenge_402", price_credits=price)
+    if at:
+        store.events[-1]["at"] = at
+
+
+def test_old_price_impressions_cannot_decide_the_new_price_window(store):
+    """THE defect: ten callers see 20 credits and do not buy, the engine cuts
+    to 10, and the next cycle reuses those same ten impressions to justify
+    cutting 10 to 5 — even though nobody has been shown 10."""
+    e = experiments.define(store, "deep", hypothesis="h",
+                           variable="price:deep_preflight",
+                           baseline={m: 0 for m in experiments.PRIMARY_METRICS},
+                           tested_price_credits=20)
+    e["min_qualified"] = 2
+    store.experiments["deep"] = e
+    for i in range(4):
+        _impression(store, f"a2a:net:old{i}", "deep_preflight", 20)
+
+    first = experiments.apply_next_action(store)
+    assert first[0]["acted"] is True
+    new_price = pricing.price("deep_preflight")
+    assert new_price == 10
+
+    # The SAME old-price impressions must not decide the new arm.
+    exposure = experiments.qualified_exposure(
+        store, "deep_preflight",
+        since=store.experiments["deep"]["started_at"],
+        tested_price_credits=new_price)
+    assert exposure["qualified_actors"] == 0, exposure
+    second = experiments.apply_next_action(store)
+    assert second[0].get("acted") is not True
+    assert pricing.price("deep_preflight") == new_price, \
+        "a second cut on stale evidence is exactly the defect"
+
+
+def test_impressions_of_the_new_price_do_decide_the_new_window(store):
+    e = experiments.define(store, "deep", hypothesis="h",
+                           variable="price:deep_preflight",
+                           baseline={m: 0 for m in experiments.PRIMARY_METRICS},
+                           tested_price_credits=20)
+    e["min_qualified"] = 2
+    store.experiments["deep"] = e
+    for i in range(2):
+        _impression(store, f"a2a:net:old{i}", "deep_preflight", 20)
+    experiments.apply_next_action(store)
+    assert pricing.price("deep_preflight") == 10
+    # now two callers actually see 10
+    for i in range(2):
+        _impression(store, f"a2a:net:new{i}", "deep_preflight", 10)
+    out = experiments.apply_next_action(store)
+    assert out[0]["acted"] is True
+    assert pricing.price("deep_preflight") == 5
+
+
+def test_an_impression_from_before_the_window_is_excluded(store):
+    experiments.define(store, "deep", hypothesis="h",
+                       variable="price:deep_preflight",
+                       baseline={m: 0 for m in experiments.PRIMARY_METRICS},
+                       tested_price_credits=20)
+    _impression(store, "a2a:net:ancient", "deep_preflight", 20,
+                at="2020-01-01T00:00:00+00:00")
+    exposure = experiments.qualified_exposure(
+        store, "deep_preflight",
+        since=store.experiments["deep"]["started_at"],
+        tested_price_credits=20)
+    assert exposure["qualified_actors"] == 0
+
+
+def test_unparseable_event_times_fail_closed(store):
+    experiments.define(store, "deep", hypothesis="h",
+                       variable="price:deep_preflight",
+                       baseline={m: 0 for m in experiments.PRIMARY_METRICS},
+                       tested_price_credits=20)
+    _impression(store, "a2a:net:bad", "deep_preflight", 20, at="not-a-date")
+    exposure = experiments.qualified_exposure(
+        store, "deep_preflight",
+        since=store.experiments["deep"]["started_at"],
+        tested_price_credits=20)
+    assert exposure["qualified_actors"] == 0, \
+        "an unreadable timestamp must never be able to decide a price"
+
+
+def test_a_payment_quoted_at_the_old_price_cannot_promote_the_new_one(store):
+    """The money is real; it is simply evidence about the price the payer was
+    actually shown."""
+    experiments.define(store, "deep", hypothesis="h",
+                       variable="price:deep_preflight",
+                       baseline={m: 0 for m in experiments.PRIMARY_METRICS},
+                       tested_price_credits=10)
+    store.record_event("a2a:net:payer", "deep_preflight_run",
+                       ua="langchain/0.2.1", endpoint="preflight_deep",
+                       price_credits=20,          # quoted under the OLD arm
+                       settlement_mode="x402", settlement_confirmed=True,
+                       settlement_mainnet=True, settlement_amount_atomic=20000)
+    m = experiments.commercial_metrics(
+        store, "deep_preflight",
+        since=store.experiments["deep"]["started_at"],
+        tested_price_credits=10)
+    assert m["paid_decisions"] == 0
+    assert m["external_settled_revenue_usd"] == 0.0
+
+
+def test_the_portfolio_report_is_not_scoped_away(store):
+    """Scoping applies to EXPERIMENT EVALUATION only — the commercial report
+    must still show everything that happened."""
+    store.record_event("a2a:net:payer", "deep_preflight_run",
+                       ua="langchain/0.2.1", endpoint="preflight_deep",
+                       price_credits=20, settlement_mode="x402",
+                       settlement_confirmed=True, settlement_mainnet=True,
+                       settlement_amount_atomic=20000)
+    assert experiments.commercial_metrics(store)["paid_decisions"] == 1
+    assert experiments.commercial_metrics(
+        store, "deep_preflight")["paid_decisions"] == 1
+
+
+def test_reprice_updates_window_and_treatment_together(store):
+    e = experiments.define(store, "deep", hypothesis="h",
+                           variable="price:deep_preflight",
+                           baseline={m: 0 for m in experiments.PRIMARY_METRICS},
+                           tested_price_credits=20)
+    e["min_qualified"] = 1
+    store.experiments["deep"] = e
+    started = e["started_at"]
+    _impression(store, "a2a:net:one", "deep_preflight", 20)
+    experiments.apply_next_action(store)
+    live = store.experiments["deep"]
+    assert live["tested_price_credits"] == 10
+    assert live["started_at"] >= started
+    assert live["baseline"]["operation_scope"] == "deep_preflight"
