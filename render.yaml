@@ -60,6 +60,46 @@ services:
       # stays OFF: GUILD_SCOUT_CONTACT is deliberately not set (default 0).
       - key: GUILD_SCOUT_AUTORUN
         value: "1"
+      # --- autonomous trust index (product-led pivot 2026-07-31) ------------
+      # GUILD_INDEX_AUTORUN=1 lets the SAME lease-guarded, jittered scout loop
+      # also maintain the public index: ingest, recheck the stalest entries,
+      # run due customer watches and evaluate experiments. One loop, one lease,
+      # one deadline, one kill switch — set this to "0" to stop all index
+      # upkeep without touching the scout or taking the service down.
+      - key: GUILD_INDEX_AUTORUN
+        value: "1"
+      # Remote public-registry ingest is a SEPARATE switch and stays OFF until
+      # the local loop is proven in production. Outbound traffic to third-party
+      # infrastructure should never start because a container restarted.
+      # Adapters read documented public read-only APIs with a truthful,
+      # contactable User-Agent; no scraping, no auth bypass, no ToS evasion.
+      - key: GUILD_INDEX_INGEST
+        value: "0"
+      # How long an observation stays "fresh" before the index reports it as
+      # stale and the loop re-probes it.
+      - key: GUILD_INDEX_FRESH_TTL_S
+        value: "86400"
+      # Hard cap on endpoints probed per cycle. This is the bound that keeps an
+      # autonomous loop from becoming a crawler of other people's servers.
+      - key: GUILD_INDEX_RECHECK_BATCH
+        value: "8"
+      # --- experiment engine bounds ----------------------------------------
+      # Minimum GENUINE-EXTERNAL actors before any verdict other than
+      # insufficient_evidence may be reached. Crawlers and first-party traffic
+      # are excluded structurally and can never reach this threshold.
+      - key: GUILD_EXP_MIN_QUALIFIED
+        value: "10"
+      - key: GUILD_EXP_WINDOW_DAYS
+        value: "14"
+      # --- paid index layer: prices are CONFIG, not doctrine ----------------
+      # Every price is env-overridable within a hard ceiling enforced in
+      # app/pricing.py, so a price change is a config change and a rollback
+      # rather than a deploy and a revert. Unset = the documented default
+      # (deep_preflight 20cr/$0.02, evidence_bundle 100cr/$0.10,
+      # watch_cycle 5cr/$0.005, watch_provision free). GET /pricing publishes
+      # the live value, the ceiling and the stated basis for each.
+      # - key: GUILD_PRICE_DEEP_PREFLIGHT
+      #   value: "20"
       # --- set these only when you go live with real card payments -----------
       # - key: STRIPE_SECRET_KEY
       #   sync: false

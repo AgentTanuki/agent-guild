@@ -181,6 +181,82 @@ def _run_scout(store: Any, *, fetch: Callable, deadline: float,
     return scout.run_scout(store, fetch=fetch, deadline=deadline)
 
 
+def index_autorun() -> bool:
+    """Index upkeep is DEFAULT-OFF, like every other outbound loop here.
+
+    Outbound traffic to third-party infrastructure must never begin merely
+    because a container restarted, and a test that exercises the scout must not
+    silently start probing real hosts. Enabled explicitly in render.yaml."""
+    return (os.environ.get("GUILD_INDEX_AUTORUN") or "0").strip() == "1"
+
+
+def _run_index_cycle(store: Any) -> dict[str, Any]:
+    """Ingest, recheck the stalest entries, run due watches, evaluate
+    experiments. Every step is independently bounded.
+
+    Ordering matters: ingest before recheck so a newly-listed endpoint gets an
+    observation in the same cycle it arrives, and watches after recheck so a
+    paying customer is never served a staler view than the free index."""
+    from .. import indexops
+    from .. import experiments as _experiments
+
+    if not index_autorun():
+        return {"skipped": "GUILD_INDEX_AUTORUN is not enabled"}
+    out: dict[str, Any] = {}
+    try:
+        out["ingest"] = indexops.ingest(store)
+    except Exception as exc:  # noqa: BLE001
+        out["ingest_error"] = type(exc).__name__
+    try:
+        out["recheck"] = indexops.recheck_due(store)
+    except Exception as exc:  # noqa: BLE001
+        out["recheck_error"] = type(exc).__name__
+    try:
+        out["watch_cycles"] = _run_watch_cycles(store)
+    except Exception as exc:  # noqa: BLE001
+        out["watch_error"] = type(exc).__name__
+    try:
+        out["experiments"] = {
+            k: _experiments.evaluate(store, k)["decision"]
+            for k in list(getattr(store, "experiments", {}) or {})}
+    except Exception as exc:  # noqa: BLE001
+        out["experiment_error"] = type(exc).__name__
+    return out
+
+
+def _run_watch_cycles(store: Any, cap: int = 10) -> dict[str, Any]:
+    """Run due watches, charging each customer per cycle ACTUALLY performed.
+
+    The charge goes through the same billing primitive as every other paid
+    operation. A customer who cannot pay has their watch SUSPENDED, not
+    silently serviced for free — otherwise our outbound budget quietly
+    subsidises a lapsed account."""
+    from .. import indexops
+    from .. import pricing as _pricing
+
+    due = indexops.watch_due(store)[:cap]
+    if not due:
+        return {"due": 0, "cycled": 0}
+
+    def _charge(owner_key: str) -> int:
+        price = _pricing.price("watch_cycle")
+        if price <= 0:
+            return 0
+        store.charge(owner_key, price, "watch_cycle")
+        return price
+
+    results = [indexops.run_watch_cycle(store, rec, charge=_charge)
+               for rec in due]
+    return {
+        "due": len(due),
+        "cycled": sum(1 for r in results if r.get("cycled")),
+        "changed": sum(1 for r in results if r.get("changed")),
+        "suspended": sum(1 for r in results if r.get("suspended")),
+        "credits_charged": sum(int(r.get("charged_credits") or 0)
+                               for r in results),
+    }
+
+
 def notify_demand(store: Any, capability: str) -> bool:
     """Record newly counted verified/genuine unmet demand for `capability`
     into the DURABLE pending-demand queue and wake the loop so it can
@@ -298,6 +374,19 @@ def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
     try:
         deadline = time.time() + run_timeout_s()
         summary = _run_scout(store, fetch=fetch, deadline=deadline)
+        # --- autonomous index maintenance (product-led pivot 2026-07-31) ----
+        # The index is the product surface, so it must refresh itself on the
+        # SAME lease-guarded, bounded, jittered schedule as the scout — one
+        # loop, one lease, one deadline. It never runs on its own timer, so
+        # there is exactly one place to look when outbound traffic misbehaves,
+        # and exactly one kill switch. Failures here are recorded and never
+        # allowed to fail the cycle: index upkeep must not take the service
+        # down, and a silent skip would be worse than a logged one.
+        index_summary = {}
+        try:
+            index_summary = _run_index_cycle(store)
+        except Exception as exc:  # noqa: BLE001
+            index_summary = {"error": type(exc).__name__}
         zero_demand = not summary.get("capabilities")
         # ACK only the capabilities this cycle actually processed — demand
         # that arrived mid-run stays queued for the next cycle.
@@ -326,6 +415,7 @@ def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
                 "adapters": summary.get("adapters", {}),
                 "adapters_failed": summary.get("adapters_failed", []),
                 "deadline_hit": bool(summary.get("deadline_hit")),
+                "index": index_summary,
             }
         _persist(store)
         store.record_event(None, "scout_cycle_completed",

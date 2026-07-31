@@ -61,6 +61,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /citizenship`
 - `GET /citizenship.md`
 - `POST /collaborations`
+- `GET /commercial`
 - `POST /credentials/verify`
 - `GET /demand/feed`
 - `POST /demand/watch`
@@ -74,12 +75,18 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /escrow/{escrow_id}/refund`
 - `POST /escrow/{escrow_id}/release`
 - `GET /evaluation`
+- `POST /evidence/bundle`
+- `POST /evidence/verify`
 - `POST /feedback/abandonment`
 - `GET /flags`
 - `GET /for-agents`
 - `GET /funnel`
 - `GET /funnel/passports`
 - `GET /health`
+- `GET /index`
+- `GET /index/search`
+- `GET /index/{endpoint_id}`
+- `GET /index/{endpoint_id}/evidence`
 - `GET /instrumentation`
 - `GET /instrumentation/recent`
 - `GET /ledger/checkpoint`
@@ -99,6 +106,8 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /offers/{offer_id}/accept`
 - `POST /outcomes`
 - `GET /preflight`
+- `GET /preflight/deep`
+- `GET /pricing`
 - `POST /providers/external/discover`
 - `GET /referrals`
 - `GET /release`
@@ -117,6 +126,8 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /wallet-binding/revoke`
 - `GET /wallet-binding/status/{credential_id}`
 - `POST /wallet-binding/verify`
+- `POST /watch`
+- `GET /watch/{watch_id}`
 - `GET /x402/readiness`
 
 ## MCP tools
@@ -143,8 +154,10 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `guild_check`
 - `guild_escrow_open`
 - `guild_escrow_release`
+- `guild_index`
 - `guild_passport`
 - `guild_preflight`
+- `guild_preflight_deep`
 - `guild_prove`
 - `guild_prove_verify`
 - `guild_record`
@@ -152,6 +165,8 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `guild_risk_score`
 - `guild_search`
 - `guild_verify`
+- `guild_watch`
+- `guild_watch_feed`
 
 ## A2A skills
 

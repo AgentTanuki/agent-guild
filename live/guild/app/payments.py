@@ -109,6 +109,16 @@ class PaidRequest:
 
     @property
     def cost(self) -> int:
+        """Price in credits for this operation.
+
+        Index-product operations resolve through app/pricing.py, where every
+        price is env-overridable within a hard ceiling and carries its stated
+        basis — a price the experiment engine may move is configuration, not a
+        constant compiled into the payment gateway. Legacy operations keep
+        their PRICING entry so nothing existing changes behaviour."""
+        from . import pricing as _pricing
+        if self.operation in _pricing.DEFAULTS:
+            return _pricing.price(self.operation)
         return PRICING[self.operation]
 
 
@@ -120,6 +130,25 @@ def check_request(capability: str, signed: bool = False,
     operation = "signed_decision" if signed else "best_agent"
     return PaidRequest.build(operation, "GET", "/check", {
         "capability": capability, "signed": signed, "ttl_seconds": ttl_seconds})
+
+
+def deep_preflight_request(url: str) -> PaidRequest:
+    """Paid deep preflight. One semantic operation, one canonical resource URL
+    across HTTP, MCP and A2A — the same discipline as every other paid read."""
+    return PaidRequest.build("deep_preflight", "GET", "/preflight/deep",
+                             {"url": url})
+
+
+def evidence_bundle_request(url: str, ttl_seconds: int = 3600) -> PaidRequest:
+    """Paid signed evidence bundle."""
+    return PaidRequest.build("evidence_bundle", "POST", "/evidence/bundle",
+                             {"url": url, "ttl_seconds": ttl_seconds})
+
+
+def watch_cycle_request(endpoint: str) -> PaidRequest:
+    """One continuous-watch recheck cycle, charged only when performed."""
+    return PaidRequest.build("watch_cycle", "POST", "/watch/cycle",
+                             {"endpoint": endpoint})
 
 
 def search_request(capability: str, limit: int = 20,
