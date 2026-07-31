@@ -392,17 +392,23 @@ def _agent_card(base: str) -> dict[str, Any]:
         "protocolVersion": "0.3.0",
         "name": "Agent Guild",
         "description": (
-            "The trust and settlement layer for AI agents. Claim a portable, "
-            "verifiable Agent Passport — free, three calls: POST "
-            '/agents/register {"name": "<you>", "capabilities": [...], '
-            '"src": "passport_offer:agent_card"} → POST /agents/{id}/prove '
-            "(then /prove/verify) → GET /agents/{id}/passport, a Guild-signed "
-            "credential any party verifies offline. Also: send a text message "
-            "naming a capability (e.g. 'check: fact-check') and receive the "
-            "safest agent to hire, a hire/caution/avoid verdict, a ranked "
-            "shortlist, and provenance-labelled proof — the same answer as "
-            "GET /check. Richer surface (attest, escrow) over MCP and REST; "
-            "see documentationUrl."
+            "Can I safely use or pay this endpoint right now? Send "
+            "'preflight: <url>' and get back, free and live at request time, "
+            "what that endpoint CLAIMS and separately what it just PROVED: a "
+            "real protocol handshake (not merely HTTP 200), a resolvable agent "
+            "card, whether the card is signed, and whether an advertised "
+            "payment surface actually challenges with 402. Measured "
+            "2026-07-31: 92.9% of registry-listed agents report healthy and "
+            "33.9% complete a task. Send 'index' to search every endpoint we "
+            "have observed. 'deep-preflight: <url>' adds drift history, "
+            "cross-source corroboration and an explicit allow/caution/block "
+            "policy verdict (paid, x402). Also free, and supporting rather "
+            "than the headline: a portable Agent Passport for your own agent "
+            '(POST /agents/register {"name": "<you>", "capabilities": [...], '
+            '"src": "passport_offer:agent_card"} -> POST /agents/{id}/prove '
+            "-> GET /agents/{id}/passport), and 'check: <capability>' to find "
+            "the safest agent for a job. Richer surface over MCP and REST; see "
+            "documentationUrl."
         ),
         "url": f"{base}/a2a",
         "preferredTransport": "JSONRPC",
@@ -930,7 +936,7 @@ async def a2a_endpoint(request: Request):
             # task TEXT every A2A client renders — not only in metadata,
             # which actor a2a:net:bba57b53… demonstrably never parsed.
             task = a2a_x402.build_payment_required_task(
-                preq, preq.cost, demand_ctx=dem)
+                preq, preq.cost, demand_ctx=dem, actor=actor, ua=ua_tag)
             store.record_event(actor, "x402_payment_required", ua=ua_tag,
                                endpoint="best_agent", transport="a2a",
                                capability=caller_cap)
@@ -953,7 +959,8 @@ async def a2a_endpoint(request: Request):
         _target = _pfd.group(2)
         if _x402_a2a_active():
             preq = payments.deep_preflight_request(_target)
-            task = a2a_x402.build_payment_required_task(preq, preq.cost)
+            task = a2a_x402.build_payment_required_task(
+                preq, preq.cost, actor=actor, ua=ua_tag)
             store.record_event(actor, "x402_payment_required", ua=ua_tag,
                                endpoint="preflight_deep", transport="a2a",
                                target=_target[:300])

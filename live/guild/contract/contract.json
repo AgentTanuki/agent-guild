@@ -183,6 +183,12 @@
    "methods": [
     "POST"
    ],
+   "path": "/admin/index/cycle"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
    "path": "/admin/issuer/rotate"
   },
   {

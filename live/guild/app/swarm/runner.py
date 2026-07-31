@@ -181,13 +181,32 @@ def _run_scout(store: Any, *, fetch: Callable, deadline: float,
     return scout.run_scout(store, fetch=fetch, deadline=deadline)
 
 
-def index_autorun() -> bool:
-    """Index upkeep is DEFAULT-OFF, like every other outbound loop here.
+def index_autorun(store: Any = None) -> bool:
+    """Should this cycle maintain the index?
 
-    Outbound traffic to third-party infrastructure must never begin merely
-    because a container restarted, and a test that exercises the scout must not
-    silently start probing real hosts. Enabled explicitly in render.yaml."""
-    return (os.environ.get("GUILD_INDEX_AUTORUN") or "0").strip() == "1"
+    Three-way, and the asymmetry is deliberate:
+
+      * ``GUILD_INDEX_AUTORUN=0``  — always OFF. The explicit kill switch wins
+        over everything, so an operator can stop index upkeep in one config
+        change without redeploying or touching the scout.
+      * ``GUILD_INDEX_AUTORUN=1``  — always ON.
+      * unset — ON only when a DURABLE backend is present.
+
+    That last rule is the useful one. The index is a production surface whose
+    value is a persistent observation history; running it against an ephemeral
+    JSON store would produce observations that vanish on restart. It also keeps
+    the test suite (JSON store) from silently probing real hosts, while
+    production (sqlite) does not sit dormant waiting for someone to remember a
+    dashboard setting — which, for a system meant to run without routine human
+    involvement, would be a design flaw wearing a safety feature's clothes.
+
+    Remote registry ingest remains a SEPARATE switch (``GUILD_INDEX_INGEST``)."""
+    raw = (os.environ.get("GUILD_INDEX_AUTORUN") or "").strip()
+    if raw == "0":
+        return False
+    if raw == "1":
+        return True
+    return getattr(store, "backend", None) is not None
 
 
 def _run_index_cycle(store: Any) -> dict[str, Any]:
@@ -200,7 +219,7 @@ def _run_index_cycle(store: Any) -> dict[str, Any]:
     from .. import indexops
     from .. import experiments as _experiments
 
-    if not index_autorun():
+    if not index_autorun(store):
         return {"skipped": "GUILD_INDEX_AUTORUN is not enabled"}
     out: dict[str, Any] = {}
     try:

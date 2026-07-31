@@ -187,7 +187,9 @@ def test_legacy_unlabelled_events_count_as_sandbox_never_settled(store):
 def test_mainnet_settlement_from_an_external_caller_counts(store):
     store.record_event("a2a:net:payer1", "deep_preflight_run",
                        ua="a2a:langchain/0.2.1", endpoint="preflight_deep",
-                       paid=True, settlement_mode="x402")
+                       paid=True, settlement_mode="x402",
+                       settlement_confirmed=True, settlement_mainnet=True,
+                       settlement_amount_atomic=20000)
     m = experiments.commercial_metrics(store)
     assert m["paid_decisions"] == 1
     assert m["distinct_external_payers"] == 1
@@ -196,7 +198,9 @@ def test_mainnet_settlement_from_an_external_caller_counts(store):
 def test_settled_but_first_party_is_not_a_customer(store):
     store.record_event("ag-internal", "deep_preflight_run",
                        ua="guild-release-gate", endpoint="preflight_deep",
-                       paid=True, settlement_mode="x402", first_party=True)
+                       paid=True, settlement_mode="x402",
+                       settlement_confirmed=True, settlement_mainnet=True,
+                       first_party=True)
     m = experiments.commercial_metrics(store)
     assert m["paid_decisions"] == 0
     assert m["settled_but_not_attributable_external"] >= 1
