@@ -348,9 +348,18 @@ def requirements(credits_cost: int) -> PaymentRequirements:
 
 
 def resource_info(preq: "PaidRequest") -> ResourceInfo:
+    """The v2 resource block. The description says what the payer RECEIVES.
+
+    An operation name alone ("deep_preflight") is a label, not an offer. The
+    challenge is the only place a machine can decide whether the price is
+    worth paying, and this is the same operation-aware copy the A2A and
+    Bazaar surfaces use — one source, so the three cannot describe different
+    products for the same quote."""
+    from .a2a_x402 import operation_label
     return ResourceInfo(
         url=preq.resource_url,
-        description=f"Agent Guild paid read: {preq.operation}",
+        description=(f"Agent Guild paid read ({preq.operation}): "
+                     + operation_label(preq.operation)),
         mime_type="application/json",
     )
 

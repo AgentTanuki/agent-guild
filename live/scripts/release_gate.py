@@ -106,6 +106,17 @@ def wait_for_sha(host: str, expected_sha: str, timeout_s: float,
             print(f"attempt {attempt}: production serves "
                   f"{got or 'unknown'!s}, waiting for {expected_sha[:12]}…")
         time.sleep(interval_s)
+    # One last look before giving up: a deploy that lands in the final polling
+    # interval is a real success, and calling it a failure is how a good
+    # release gets reverted.
+    try:
+        last = _get(host, "/release")
+        if last.get("git_sha") == expected_sha:
+            print(f"deployment ARRIVED on the final check: {host} serves "
+                  f"{expected_sha}")
+            return last
+    except Exception as e:  # noqa: BLE001
+        last = {"error": str(e)}
     raise TimeoutError(json.dumps(last))
 
 
@@ -238,7 +249,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--sha", required=True, help="the pushed commit SHA that must be live")
     ap.add_argument("--host", default=DEFAULT_HOST)
-    ap.add_argument("--timeout", type=float, default=900.0,
+    # 30 minutes. Defensible bound, not a guess: Render rebuilds this image
+    # from scratch whenever a dependency layer misses cache, and observed cold
+    # deploys have run past the previous 900s ceiling — which is how a healthy
+    # release (061dcea, 2026-07-31) was declared red and auto-reverted while
+    # the deploy was still in flight. Still fails CLOSED: after the bound the
+    # release is uncertified and the workflow fails.
+    ap.add_argument("--timeout", type=float, default=1800.0,
                     help="max seconds to wait for the deployment to arrive")
     ap.add_argument("--interval", type=float, default=20.0)
     ap.add_argument("--attestation", default="release_attestation.json")
@@ -260,6 +277,11 @@ def main() -> int:
 
     def _finish(verdict: str, code: int) -> int:
         attestation["verdict"] = verdict
+        # `outcome` is the MACHINE-READABLE reason, consumed by ship.yml to
+        # choose recovery. A revert is only correct when the merged code is
+        # live and defective; "deployment_not_arrived" means production is
+        # still on the previous release and a revert would change nothing.
+        attestation["outcome"] = verdict
         attestation["finished_at"] = datetime.now(timezone.utc).isoformat()
         pathlib.Path(args.attestation).write_text(
             json.dumps(attestation, indent=1) + "\n")

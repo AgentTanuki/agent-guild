@@ -173,7 +173,7 @@ jobs:
         run: |
           python live/scripts/release_gate.py \
             --sha "${{ steps.merge.outputs.merged_sha }}" \
-            --timeout 900 --interval 20 \
+            --timeout 1800 --interval 20 \
             --attestation release_attestation.json
       - name: upload release attestation (machine-readable)
         if: always() && steps.merge.outputs.merged == 'true'
@@ -196,7 +196,15 @@ jobs:
           MERGED_SHA: ${{ steps.merge.outputs.merged_sha }}
         run: |
           set -euo pipefail
-          decision=$(python3 live/scripts/ship_decision.py recover --failed-branch "$BRANCH")
+          # The gate records WHY it failed. A revert is only correct when the
+          # merged code is LIVE and defective; if the deployment never
+          # arrived, production still serves the previous release and a revert
+          # would change nothing live while pushing a second build through the
+          # pipeline that just timed out.
+          gate_outcome=$(jq -r '.outcome // ""' release_attestation.json 2>/dev/null || echo "")
+          echo "gate outcome: ${gate_outcome:-unknown}"
+          decision=$(python3 live/scripts/ship_decision.py recover \
+                       --failed-branch "$BRANCH" --gate-outcome "$gate_outcome")
           action=$(echo "$decision" | jq -r .action)
           short=${MERGED_SHA:0:9}
           gh issue create \
@@ -230,7 +238,7 @@ jobs:
           recovery_sha=$(gh pr view "$rnumber" --json mergeCommit --jq .mergeCommit.oid)
           echo "recovery merged → main @ $recovery_sha — certifying the RECOVERY"
           python live/scripts/release_gate.py \
-            --sha "$recovery_sha" --timeout 900 --interval 20 \
+            --sha "$recovery_sha" --timeout 1800 --interval 20 \
             --attestation recovery_attestation.json || {
             gh issue create --title "RECOVERY GATE ALSO RED: $recovery_sha" \
               --body "The certified revert of $MERGED_SHA merged as $recovery_sha but the recovery gate did not certify production either. Halting (no revert-of-revert). Manual-free next step: the next autonomous session pushes a fresh ship/ branch with a fix."; exit 1; }

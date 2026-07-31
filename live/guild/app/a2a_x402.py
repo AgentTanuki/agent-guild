@@ -72,7 +72,8 @@ def payment_required_response(preq: PaidRequest, credits_cost: int
             "scheme": "exact",
             "network": _v1_network(),
             "resource": preq.resource_url,
-            "description": f"Agent Guild paid trust read: {preq.operation}",
+            "description": (f"Agent Guild paid read ({preq.operation}): "
+                            + operation_label(preq.operation)),
             "mimeType": "application/json",
             "asset": offered.asset,
             "payTo": offered.pay_to,
@@ -117,8 +118,100 @@ def _free_supply_block(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+#: What each paid operation actually DELIVERS, in the caller's terms. The
+#: challenge text is the one thing every A2A client renders, so it is the only
+#: place a rational agent can decide whether the price is worth paying. Copy
+#: that describes a DIFFERENT product than the one being sold is worse than no
+#: copy: the agent evaluates an offer nobody is making, and declines it.
+#:
+#: Found in production 2026-07-31: a deep-preflight quote was rendered with the
+#: capability-read copy ("the safest known agent for the capability"), so a
+#: caller asking whether ONE endpoint is safe to pay was quoted for an agent
+#: shortlist. That lands squarely on the first blocked boundary — qualified
+#: paid-offer exposure — where every impression counts.
+OPERATION_COPY: dict[str, str] = {
+    "deep_preflight": (
+        "Paying returns the DEEP endpoint trust check for the exact URL you "
+        "named: every live check re-run at request time (does it complete a "
+        "real protocol handshake, does its agent card resolve, is that card "
+        "signed, does an advertised payment surface actually challenge with "
+        "402), PLUS what one request cannot tell you — this endpoint's drift "
+        "history with us, cross-source corroboration, and an explicit "
+        "allow / caution / block policy verdict whose threshold is published "
+        "so you can reject it and apply your own."),
+    "evidence_bundle": (
+        "Paying returns a SIGNED evidence bundle for the endpoint you named: "
+        "the full observation, the policy verdict and a ledger anchor, sealed "
+        "with the Guild's did:key so you can keep it and re-verify it offline "
+        "later without calling us at all."),
+    "watch_cycle": (
+        "Paying covers one recheck CYCLE of continuous monitoring for the "
+        "endpoint you named. You are charged per recheck actually performed, "
+        "so a dormant endpoint costs nothing."),
+    "best_agent": (
+        "Paying returns the full AGD-1 decision: the safest known agent for "
+        "the capability, hire/caution/avoid verdict, the ranked candidates, "
+        "and a signed offer-receipt."),
+    "signed_decision": (
+        "Paying returns a Guild-SIGNED AGD-1 decision for the capability: a "
+        "portable, offline-verifiable verdict with a bounded validity window "
+        "and a checkpoint pin."),
+}
+
+#: Zero-cost alternatives, per operation. A challenge that hides the free path
+#: is a dark pattern, and the free path is also how the index gets better.
+OPERATION_FREE_ALTERNATIVES: dict[str, str] = {
+    "deep_preflight": (
+        "Free alternatives: 'preflight: <url>' returns the live checks and "
+        "verdict for the same endpoint at no cost; 'index' searches every "
+        "endpoint the Guild has already observed."),
+    "evidence_bundle": (
+        "Free alternatives: 'preflight: <url>' for the live checks, and "
+        "POST /evidence/verify to verify any bundle you already hold."),
+    "watch_cycle": (
+        "Free alternative: re-run 'preflight: <url>' yourself whenever you "
+        "need it — the watch exists so you do not have to."),
+}
+
+DEFAULT_FREE_ALTERNATIVES = (
+    "Free alternatives: 'capabilities' (supply/demand map), /demand/feed "
+    "(signed unmet demand), or register + prove your own capability (POST "
+    "/agents/register).")
+
+
+#: SHORT product label for the machine-readable `description` fields. Kept
+#: separate from the prose above on purpose: the description travels inside the
+#: 402 challenge, and the challenge must never carry the vocabulary of the paid
+#: RESULT (shortlist, AGD-1 decision, ranked candidates). A caller must be able
+#: to tell what they are buying without any of it leaking before they pay —
+#: guarded by tests/test_a2a_x402.py.
+OPERATION_LABEL: dict[str, str] = {
+    "deep_preflight": ("deep endpoint trust check for one URL: live checks "
+                       "plus drift history, corroboration and an "
+                       "allow/caution/block policy verdict"),
+    "evidence_bundle": ("signed, offline-verifiable evidence bundle for one "
+                        "endpoint, anchored to the published ledger"),
+    "watch_cycle": "one recheck cycle of continuous endpoint monitoring",
+    "best_agent": "trust read: which agent to hire for a capability",
+    "signed_decision": ("signed, offline-verifiable trust decision for a "
+                        "capability, with a bounded validity window"),
+}
+
+
+def operation_label(operation: str) -> str:
+    """One line naming the product, safe to embed in a 402 challenge."""
+    return OPERATION_LABEL.get(operation, OPERATION_LABEL["best_agent"])
+
+
+def operation_copy(operation: str) -> str:
+    """What the payer will actually receive. Falls back to the capability-read
+    copy only for operations that ARE capability reads."""
+    return OPERATION_COPY.get(operation, OPERATION_COPY["best_agent"])
+
+
 def _challenge_text(required: dict[str, Any], ctx: Optional[dict[str, Any]],
-                    no_supply: Optional[dict[str, Any]]) -> str:
+                    no_supply: Optional[dict[str, Any]],
+                    operation: str = "best_agent") -> str:
     """Honest plain-text body of the payment challenge.
 
     Live-telemetry fix (2026-07-15): a genuine external agent
@@ -155,15 +248,11 @@ def _challenge_text(required: dict[str, Any], ctx: Optional[dict[str, Any]],
             f"candidate(s) for '{ctx['capability']}' are known; your demand "
             f"is recorded free (demand_id {ctx['demand_id']}).")
     return (
-        f"This trust read costs {price} USDC on Base via x402."
-        f"{supply_note} Paying returns the full AGD-1 decision: the safest "
-        "known agent for the capability, hire/caution/avoid verdict, the "
-        "ranked candidates, and a signed offer-receipt. Submit a "
+        f"This paid read costs {price} USDC on Base via x402."
+        f"{supply_note} {operation_copy(operation)} Submit a "
         "signed x402 payment payload with this taskId "
-        "(x402.payment.status=payment-submitted). Free alternatives: "
-        "'capabilities' (supply/demand map), /demand/feed (signed unmet "
-        "demand), or register + prove your own capability (POST "
-        "/agents/register).")
+        "(x402.payment.status=payment-submitted). "
+        + OPERATION_FREE_ALTERNATIVES.get(operation, DEFAULT_FREE_ALTERNATIVES))
 
 
 def build_payment_required_task(preq: PaidRequest, credits_cost: int,
@@ -211,7 +300,7 @@ def build_payment_required_task(preq: PaidRequest, credits_cost: int,
             "state": "input-required",
             "message": _task_message(
                 "payment-required", meta,
-                _challenge_text(required, demand_ctx, ns)),
+                _challenge_text(required, demand_ctx, ns, preq.operation)),
         },
     }
 
