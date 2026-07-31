@@ -56,19 +56,14 @@ def test_manifest_leads_with_passport_and_records_offer():
     assert len(offers) == 1 and offers[0]["offer"] == "passport"
 
 
-def test_agent_card_leads_with_the_endpoint_decision_and_still_offers_a_passport():
-    """Copy contract UPDATED by the product-led pivot (2026-07-31): the card
-    now leads with allow/caution/block for an endpoint, and the passport is
-    supporting. The offer telemetry must keep working regardless — a change of
-    emphasis must not silently drop a funnel stage."""
+def test_agent_card_leads_with_passport_and_records_offer():
     n0 = len(store.events)
     r = client.get("/.well-known/agent-card.json",
                    headers={"User-Agent": "card-bot/1.0"})
     assert r.status_code == 200
     desc = r.json()["description"]
     assert "passport_offer:agent_card" in desc
-    assert desc.lower().startswith("can i safely use or pay this endpoint")
-    assert desc.index("preflight") < desc.index("Passport")
+    assert desc.index("Passport") < desc.index("check:")
     offers = _offers_since(n0, "agent_card")
     assert len(offers) == 1 and offers[0]["offer"] == "passport"
     # a2a attribution conventions: derived a2a: actor key + tagged real UA

@@ -49,7 +49,6 @@ from . import pricing
 from . import trustindex
 from . import indexops
 from . import deepcheck
-from . import indexsources
 from . import experiments
 from .state import store
 from .store import CanonicalWriteRefused
@@ -534,7 +533,7 @@ def _meter_with_demand(preq: PaidRequest, x_api_key: Optional[str],
 
 
 def meter(preq: PaidRequest, x_api_key: Optional[str],
-          response: Response) -> dict:
+          response: Response) -> str:
     """Charge one priced request through the shared paid-operation gateway
     (app/payments.py — the SAME gateway MCP and A2A use). Behaviour:
 
@@ -602,15 +601,13 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
             holder[0] = auth.settled
     elif auth.mode == "credits_sandbox" and auth.account is not None:
         response.headers["X-Guild-Balance"] = str(auth.account["balance"])
-    # RETURN THE SETTLEMENT FACTS. Callers must record HOW a request was paid,
-    # not merely that it passed the gate. Three independent conditions have to
-    # hold before anything may be called revenue: mode == "x402" (not sandbox
-    # credits we mint, not the soft-launch free path), `confirmed` (the chain
-    # receipt was verified, not just the facilitator's word), and `mainnet`
-    # (the same rail defaults to Base Sepolia, where a successful settlement
-    # is a successful payment of nothing). Any one of these alone has been
-    # enough to overstate revenue.
-    return payments.settlement_facts(auth)
+    # RETURN THE SETTLEMENT MODE. Callers must record HOW a request was paid,
+    # not merely that it passed the gate. "x402" is independently confirmed
+    # mainnet money; "credits_sandbox" is an internal unit we mint ourselves;
+    # "free" is the soft launch. Stamping paid=True for all three let sandbox
+    # trial credits and free calls count as paying customers — which is
+    # precisely the class of error the truth layer exists to prevent.
+    return auth.mode
 
 
 _LANDING_HTML = """<!doctype html><html lang=en><head><meta charset=utf-8>
@@ -3029,14 +3026,12 @@ def deep_preflight_route(request: Request, response: Response,
 
     The free tier (`GET /preflight`) is not degraded to make this attractive:
     it returns the full live check set and verdict, and always will."""
-    facts = meter(payments.deep_preflight_request(url), x_api_key, response)
+    mode = meter(payments.deep_preflight_request(url), x_api_key, response)
     out = deepcheck.deep_preflight(store, url)
     store.record_event(creds.sanitize_actor_key(x_api_key) if x_api_key else None,
                        "deep_preflight_run", ua=_ua.get(), endpoint="preflight_deep",
-                       target=url,
-                       paid=(facts["settlement_mode"] == "x402"),
-                       verdict=(out.get("policy") or {}).get("decision"),
-                       **facts)
+                       target=url, paid=(mode == "x402"), settlement_mode=mode,
+                       verdict=(out.get("policy") or {}).get("decision"))
     return out
 
 
@@ -3064,11 +3059,11 @@ def evidence_bundle_route(body: dict[str, Any], response: Response,
             "error": "evidence_issuance_refused", "code": e.code,
             "detail": str(e),
             "billing": "NOT CHARGED — issuance failed, so no meter ran"})
-    facts = meter(preq, x_api_key, response)
+    mode = meter(preq, x_api_key, response)
     store.record_event(creds.sanitize_actor_key(x_api_key) if x_api_key else None,
                        "evidence_bundle_issued", ua=_ua.get(),
                        endpoint="evidence_bundle", target=url,
-                       paid=(facts["settlement_mode"] == "x402"), **facts)
+                       paid=(mode == "x402"), settlement_mode=mode)
     return bundle
 
 
@@ -3309,27 +3304,6 @@ at request time.</p>
 <p class="k">Agent Guild publishes this page only for endpoints it has actually
 called. <a href="/index">Index</a> &middot; <a href="/pricing">Pricing</a></p>
 </body></html>""")
-
-
-@app.post("/admin/index/cycle")
-def admin_index_cycle(x_admin_token: Optional[str] = Header(None)):
-    """Force ONE bounded index cycle now. Admin-gated.
-
-    The autonomous loop runs on a jittered multi-hour schedule, which is right
-    for steady state and useless when you need to verify a deploy or refresh
-    after an incident. This runs exactly the same code path with exactly the
-    same bounds — a trigger, not a second implementation, so the manual and
-    scheduled paths cannot drift apart."""
-    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
-        raise HTTPException(403, "an index cycle requires a valid X-Admin-Token")
-    from .swarm import runner as _runner
-    return {"cycle": _runner._run_index_cycle(store),
-            "autorun_enabled": _runner.index_autorun(store),
-            "bounds": {
-                "recheck_batch": trustindex.recheck_batch(),
-                "remote_ingest_enabled": indexsources.enabled(),
-                "remote_sources": indexsources.active_sources(),
-                "fresh_ttl_s": trustindex.fresh_ttl_s()}}
 
 
 @app.get("/commercial")

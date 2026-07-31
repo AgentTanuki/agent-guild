@@ -125,54 +125,6 @@ class PaidRequest:
 # Builders for every priced semantic operation. MCP and A2A use these too, so
 # one semantic operation canonicalizes to one resource URL on every transport.
 
-#: Rebuild a PaidRequest from a PERSISTED operation + params. Whitelist only:
-#: an A2A payment task is reconstructed from our own stored fields, never from
-#: anything the caller sends back, so a submission cannot redirect settlement
-#: onto a different (cheaper, or simply other) operation.
-def request_from_stored(operation: str, params: dict) -> "PaidRequest":
-    """Reconstruct the exact quoted operation from trusted stored fields.
-
-    A2A quotes a price in one message and settles in another, so the operation
-    has to survive the round trip. Previously the rebuild ALWAYS produced
-    `check_request(capability)`, which meant a deep-preflight challenge settled
-    the wrong canonical operation and returned the wrong product entirely.
-    Reconstruction is now table-driven and refuses an unknown operation rather
-    than silently falling back to a default."""
-    params = params or {}
-    if operation in ("best_agent", "signed_decision"):
-        return check_request(str(params.get("capability") or ""),
-                             signed=(operation == "signed_decision"),
-                             ttl_seconds=int(params.get("ttl_seconds") or 3600))
-    if operation == "deep_preflight":
-        return deep_preflight_request(str(params.get("url") or ""))
-    if operation == "evidence_bundle":
-        return evidence_bundle_request(
-            str(params.get("url") or ""),
-            int(params.get("ttl_seconds") or 3600))
-    if operation == "watch_cycle":
-        return watch_cycle_request(str(params.get("endpoint") or ""))
-    raise ValueError(f"unknown paid operation {operation!r}")
-
-
-def settlement_facts(auth) -> dict:
-    """What actually happened, in the only terms that may be called revenue.
-
-    `mode == "x402"` is NOT proof of money: the same rail runs on Base Sepolia
-    (testnet, value-less) by default, and a testnet settlement is a successful
-    payment of nothing. Callers record every field here and the revenue rule
-    requires x402 AND confirmed AND mainnet — three independent conditions,
-    because any one of them alone has been enough to overstate revenue before."""
-    rec = getattr(getattr(auth, "settled", None), "record", None) or {}
-    return {
-        "settlement_mode": getattr(auth, "mode", "free"),
-        "settlement_confirmed": bool(rec.get("confirmed")),
-        "settlement_mainnet": bool(rec.get("mainnet")),
-        "settlement_network": rec.get("network"),
-        "settlement_amount_atomic": rec.get("amount_atomic"),
-        "settlement_tx": rec.get("transaction"),
-    }
-
-
 def check_request(capability: str, signed: bool = False,
                   ttl_seconds: int = 3600) -> PaidRequest:
     operation = "signed_decision" if signed else "best_agent"

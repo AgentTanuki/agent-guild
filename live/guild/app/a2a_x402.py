@@ -168,8 +168,6 @@ def _challenge_text(required: dict[str, Any], ctx: Optional[dict[str, Any]],
 
 def build_payment_required_task(preq: PaidRequest, credits_cost: int,
                                 demand_ctx: Optional[dict[str, Any]] = None,
-                                actor: str = "",
-                                ua: str = "",
                                 ) -> dict[str, Any]:
     """Create + persist a payment task and return the input-required Task."""
     task_id = "x402task_" + uuid.uuid4().hex
@@ -182,17 +180,6 @@ def build_payment_required_task(preq: PaidRequest, credits_cost: int,
         "request_hash": preq.request_hash,
         "credits_cost": credits_cost,
         "capability": dict(preq.query).get("capability"),
-        # The EXACT operation and its canonical parameters. A2A quotes in one
-        # message and settles in another, so the operation must survive the
-        # round trip; rebuilding it from a default made a deep-preflight
-        # challenge settle the wrong operation and return the wrong product.
-        # Stored here, on OUR record, and never read back from the submission.
-        "operation_params": dict(preq.query),
-        # Who was quoted. Recorded at quote time so the settled event is
-        # attributable to the same caller under the central attribution rule —
-        # an unattributable settlement can never be a customer.
-        "actor": actor or "",
-        "ua": ua or "",
         "required": required,
         "receipts": [],
         "created_at_epoch": time.time(),
@@ -302,7 +289,8 @@ def handle_payment_submission(message: dict[str, Any],
     # Produce the paid result, bind receipt+evidence to its exact bytes.
     # demand for this request was recorded pre-authorization (B1) when the
     # payment-required task was created — never count it again on payment.
-    result = _produce_for(preq, settled, task)
+    result = store.check(dict(preq.query).get("capability") or "",
+                         demand_recorded=True)
     body = json.dumps(result, default=str).encode("utf-8")
     fin = settled.finalize(body)
     settle_response = _settle_response({
@@ -356,58 +344,9 @@ def _settle_response(settle: dict[str, Any],
     return out
 
 
-def _produce_for(preq: PaidRequest, settled: Any,
-                 task: dict[str, Any]) -> dict[str, Any]:
-    """Produce the product that was actually paid for.
-
-    Every branch records its own settlement metadata, because "the gateway
-    settled" and "money moved on mainnet" are different claims and only the
-    second one is revenue."""
-    from . import deepcheck
-    facts = {
-        "settlement_mode": "x402",
-        "settlement_confirmed": bool((settled.record or {}).get("confirmed")),
-        "settlement_mainnet": bool((settled.record or {}).get("mainnet")),
-        "settlement_network": (settled.record or {}).get("network"),
-        "settlement_amount_atomic": (settled.record or {}).get("amount_atomic"),
-        "settlement_tx": (settled.record or {}).get("transaction"),
-    }
-    params = dict(preq.query)
-    actor = task.get("actor") or "a2a"
-    ua = task.get("ua") or "a2a/x402"
-    if preq.operation == "deep_preflight":
-        url = params.get("url") or ""
-        out = deepcheck.deep_preflight(store, url)
-        store.record_event(actor, "deep_preflight_run", ua=ua,
-                           endpoint="preflight_deep", transport="a2a",
-                           target=url, paid=True,
-                           verdict=(out.get("policy") or {}).get("decision"),
-                           **facts)
-        return out
-    if preq.operation == "evidence_bundle":
-        url = params.get("url") or ""
-        out = deepcheck.evidence_bundle(
-            store, url, ttl_s=int(params.get("ttl_seconds") or 3600))
-        store.record_event(actor, "evidence_bundle_issued", ua=ua,
-                           endpoint="evidence_bundle", transport="a2a",
-                           target=url, paid=True, **facts)
-        return out
-    return store.check(params.get("capability") or "", demand_recorded=True)
-
-
 def _preq_from_task(task: dict[str, Any]) -> PaidRequest:
-    """Reconstruct the quoted request from OUR OWN stored task record.
-
-    Only `operation` and `operation_params` are consulted, both written by us
-    at quote time. Nothing from the payment submission reaches this function —
-    a caller must not be able to steer settlement onto a different operation
-    than the one they were quoted."""
-    operation = task.get("operation") or "best_agent"
-    params = task.get("operation_params")
-    if not isinstance(params, dict):
-        # legacy tasks quoted before operation_params existed
-        params = {"capability": task.get("capability") or ""}
-    return payments.request_from_stored(operation, params)
+    cap = task.get("capability") or ""
+    return payments.check_request(cap)
 
 
 _ERR_CODES = {

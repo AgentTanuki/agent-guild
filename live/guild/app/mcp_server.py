@@ -153,16 +153,15 @@ def _first_party_payer() -> "bool | None":
 _mcp_caller_proof: contextvars.ContextVar[tuple[bool, str]] = \
     contextvars.ContextVar("mcp_caller_proof", default=(False, ""))
 
-#: The settlement FACTS for the current paid tool call — mode plus whether the
-#: chain receipt was confirmed and whether it was mainnet. All three are needed
-#: before anything may be called revenue (the rail defaults to Base Sepolia).
-_settlement_mode: contextvars.ContextVar[dict] = \
-    contextvars.ContextVar("settlement_facts",
-                           default={"settlement_mode": "free"})
+#: How the CURRENT paid tool call was settled: "x402" (independently confirmed
+#: mainnet money), "credits_sandbox" (an internal unit we mint), or "free".
+#: Only "x402" is revenue — see app/experiments.commercial_metrics.
+_settlement_mode: contextvars.ContextVar[str] = \
+    contextvars.ContextVar("settlement_mode", default="free")
 
 
-def settlement_mode() -> dict:
-    return dict(_settlement_mode.get() or {"settlement_mode": "free"})
+def settlement_mode() -> str:
+    return _settlement_mode.get()
 
 
 def _meta_value(meta: Any, key: str) -> Any:
@@ -423,7 +422,7 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
     # contextvar, so an MCP tool can record HOW it was paid without every
     # producer signature growing an argument. Same correction as the HTTP
     # meter: passing the gate is not the same as being paid.
-    _settlement_mode.set(payments.settlement_facts(auth))
+    _settlement_mode.set(auth.mode)
     result = produce()
     # in-band inbox delivery: the paid read is many agents' ONLY interaction
     # with the Guild, so an authenticated subject's pending messages ride on
@@ -520,13 +519,13 @@ def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> di
     """
     def _produce():
         out = deepcheck.deep_preflight(store, url)
-        facts = settlement_mode()
+        mode = settlement_mode()
         store.record_event(
             _creds.sanitize_actor_key(api_key) if api_key else "mcp",
             "deep_preflight_run", ua=_client_ua(ctx),
             endpoint="preflight_deep", target=url, transport="mcp",
-            paid=(facts.get("settlement_mode") == "x402"),
-            verdict=(out.get("policy") or {}).get("decision"), **facts)
+            paid=(mode == "x402"), settlement_mode=mode,
+            verdict=(out.get("policy") or {}).get("decision"))
         return out
 
     return _serve_paid(payments.deep_preflight_request(url), _produce,
