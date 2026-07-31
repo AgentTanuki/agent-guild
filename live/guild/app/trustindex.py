@@ -26,11 +26,22 @@ THE DISTINCTION THAT MAKES IT HONEST
   module exists, and it is why ``indexed`` is never promoted to ``live``
   without an observation of our own.
 
-DEDUPLICATION
-  By endpoint fingerprint (normalised scheme+host+port+path) FIRST, then by
-  declared identity (DID) where one exists. One operator publishing the same
-  service to three registries is one entry with three provenance records — not
-  three entries, and never three counts in a headline.
+DEDUPLICATION — and its exact limits
+  Two levels, both DETERMINISTIC:
+
+    1. ENDPOINT — normalised scheme+host+port+path. One service listed by three
+       registries is one entry with three provenance records.
+    2. DECLARED IDENTITY (DID) — when two endpoints declare the SAME did:key,
+       they are one subject with several addresses. The first becomes the
+       canonical entry; the others become `alias_endpoints` on it, keeping
+       their own provenance and their own last observation.
+
+  OPERATOR identity is deliberately NOT inferred. Two endpoints with similar
+  names, a shared domain or the same contact string are NOT evidence of one
+  operator, and guessing would quietly merge unrelated parties — the opposite
+  of the error this index exists to prevent, and a worse one, because a merged
+  entry launders one party's evidence into another's. Operator remains
+  `unknown` unless a deterministic declared identifier says otherwise.
 
 PROVENANCE AND FRESHNESS
   Every entry records where it came from, when each source last confirmed it,
@@ -143,6 +154,10 @@ def new_entry(url: str, source: str, *, declared: Optional[dict] = None,
         "observed_at": None,
         "observation_count": 0,
         "drift": [],                          # declared-vs-observed changes
+        # Other endpoints that declare the SAME did. Each keeps its own
+        # provenance and observation; they are addresses of one subject, not
+        # separate subjects, and are never counted separately in inventory.
+        "alias_endpoints": [],
     }
 
 
@@ -155,6 +170,36 @@ def merge_source(entry: dict[str, Any], source: str) -> dict[str, Any]:
     entry.setdefault("sources", []).append(
         {"source": source, "first_seen": _iso(), "last_seen": _iso()})
     return entry
+
+
+def merge_alias(canonical: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
+    """Fold `other` into `canonical` as an ALIAS ENDPOINT of the same subject.
+
+    Nothing is discarded: the alias keeps its endpoint, its sources and its own
+    last observation, and every source of the alias is also recorded on the
+    canonical entry so provenance survives the merge. Idempotent — folding the
+    same alias twice updates it rather than adding a duplicate."""
+    aliases = canonical.setdefault("alias_endpoints", [])
+    payload = {
+        "endpoint": other.get("endpoint"),
+        "id": other.get("id"),
+        "sources": other.get("sources", []),
+        "status": other.get("status"),
+        "observed_at": other.get("observed_at"),
+        "merged_at": _iso(),
+        "merged_on": "declared_did",
+    }
+    for i, existing in enumerate(aliases):
+        if existing.get("endpoint") == payload["endpoint"]:
+            aliases[i] = payload
+            break
+    else:
+        aliases.append(payload)
+    for src in other.get("sources", []):
+        merge_source(canonical, src.get("source", "unknown"))
+    if not canonical.get("declared") and other.get("declared"):
+        canonical["declared"] = other["declared"]
+    return canonical
 
 
 def is_stale(entry: dict[str, Any], ttl_s: Optional[int] = None) -> bool:
@@ -264,6 +309,15 @@ def public_view(entry: dict[str, Any], *, detail: bool = False) -> dict[str, Any
         "stale": is_stale(entry),
         "observation_count": entry.get("observation_count", 0),
         "first_indexed_at": entry.get("first_indexed_at"),
+        "alias_endpoints": [a.get("endpoint")
+                            for a in entry.get("alias_endpoints", [])],
+        "identity": {
+            "did": entry.get("did") or None,
+            "dedupe": ("endpoint + declared DID" if entry.get("did")
+                       else "endpoint only (no declared identity)"),
+            "operator": "unknown — operator identity is never inferred from "
+                        "names, domains or contact strings",
+        },
     }
     if entry.get("observation"):
         obs = entry["observation"]
@@ -303,8 +357,11 @@ def summarise(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
             observed += 1
     total = len(rows)
     listed_only = by_status.get(STATUS_INDEXED, 0)
+    aliased = sum(len(e.get("alias_endpoints") or []) for e in rows)
     return {
         "total_entries": total,
+        "alias_endpoints_folded": aliased,
+        "distinct_endpoints_known": total + aliased,
         "observed_by_guild": observed,
         "never_called_by_guild": listed_only,
         "by_status": by_status,
@@ -314,4 +371,10 @@ def summarise(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
             f"{listed_only} are listings we have never called. A listing is a "
             "claim. Inventory size is a supporting metric and is never "
             "reported as adoption."),
+        "dedupe": (
+            f"{total} subjects across {total + aliased} known endpoints "
+            f"({aliased} folded as aliases of the same declared DID). "
+            "Deduplication is endpoint-level and declared-DID-level only; "
+            "operator identity is NEVER inferred from names or domains, so two "
+            "entries may belong to one operator and we will not claim they do."),
     }

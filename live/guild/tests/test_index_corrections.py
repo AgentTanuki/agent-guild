@@ -50,9 +50,12 @@ def _decisive_kill(store: Store, key="exp-kill"):
         baseline={m: 0 for m in experiments.PRIMARY_METRICS})
     exp["min_qualified"] = 1
     store.experiments[key] = exp
-    # one genuinely external actor reached a decision surface and did not buy
-    store.record_event("a2a:net:realcaller", "deep_preflight_run",
-                       ua="a2a:langchain/0.2.1", endpoint="preflight_deep")
+    # one genuinely external actor was SHOWN this operation's price and did
+    # not buy. Being shown the price is the only thing that counts as exposure
+    # to it — see tests/test_index_fixes3.py for why.
+    store.record_event("a2a:net:realcaller", "paid_offer_challenged",
+                       ua="a2a:langchain/0.2.1", endpoint="x402_challenge",
+                       challenged_operation="deep_preflight")
     return key
 
 
@@ -109,8 +112,9 @@ def test_the_engine_can_only_move_a_price_downward(store):
     key = _decisive_kill(store)
     for _ in range(6):
         experiments.apply_next_action(store)
-        store.record_event("a2a:net:realcaller", "deep_preflight_run",
-                           ua="a2a:langchain/0.2.1", endpoint="preflight_deep")
+        store.record_event("a2a:net:realcaller", "paid_offer_challenged",
+                           ua="a2a:langchain/0.2.1", endpoint="x402_challenge",
+                           challenged_operation="deep_preflight")
     assert pricing.price("deep_preflight") <= pricing.DEFAULTS["deep_preflight"]
 
 

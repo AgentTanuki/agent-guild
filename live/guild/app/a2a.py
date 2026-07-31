@@ -940,6 +940,10 @@ async def a2a_endpoint(request: Request):
             store.record_event(actor, "x402_payment_required", ua=ua_tag,
                                endpoint="best_agent", transport="a2a",
                                capability=caller_cap)
+            store.record_event(actor, "paid_offer_challenged", ua=ua_tag,
+                               endpoint="x402_challenge", transport="a2a",
+                               challenged_operation=preq.operation,
+                               price_credits=preq.cost)
             resp = {"jsonrpc": "2.0", "id": id_, "result": task}
             return _with_extension_header(resp, request)
         payload = store.check(caller_cap, demand_recorded=True)
@@ -964,6 +968,10 @@ async def a2a_endpoint(request: Request):
             store.record_event(actor, "x402_payment_required", ua=ua_tag,
                                endpoint="preflight_deep", transport="a2a",
                                target=_target[:300])
+            store.record_event(actor, "paid_offer_challenged", ua=ua_tag,
+                               endpoint="x402_challenge", transport="a2a",
+                               challenged_operation=preq.operation,
+                               price_credits=preq.cost)
             resp = {"jsonrpc": "2.0", "id": id_, "result": task}
             return _with_extension_header(resp, request)
         payload = deepcheck.deep_preflight(store, _target)

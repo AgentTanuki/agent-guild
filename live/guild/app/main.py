@@ -449,6 +449,25 @@ def _rate_limit_key_op(agent_id: str) -> None:
 # BaseHTTPMiddleware's downstream task; mutations of the shared holder do).
 
 
+def _record_paid_offer(preq, ua: str, transport: str,
+                       actor: Optional[str] = None) -> None:
+    """Record that a specific caller was quoted a specific paid operation.
+
+    The canonical impression for the experiment engine. Kept in one function so
+    HTTP, MCP and A2A cannot drift into recording different things — an
+    exposure metric assembled differently per transport is not a metric."""
+    try:
+        operation = getattr(preq, "operation", None)
+        if not operation:
+            return
+        store.record_event(actor, "paid_offer_challenged", ua=ua,
+                           endpoint="x402_challenge", transport=transport,
+                           challenged_operation=operation,
+                           price_credits=getattr(preq, "cost", None))
+    except Exception:  # noqa: BLE001 — telemetry must never break a 402
+        pass
+
+
 def _challenge_http(exc: PaymentChallenge,
                     status: int = 402) -> HTTPException:
     """One PaymentChallenge → one HTTP 402 with the PAYMENT-REQUIRED header."""
@@ -456,6 +475,12 @@ def _challenge_http(exc: PaymentChallenge,
     # body `claim_passport`); count the offer where it is actually served.
     store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
                        endpoint="x402_challenge")
+    # PAID-OFFER IMPRESSION. This is the only moment a caller is actually shown
+    # a price for a specific operation. An experiment on that operation's price
+    # may count THIS and nothing else — a free preflight caller has never been
+    # quoted the deep-preflight price, so counting them let the engine halve a
+    # price nobody was ever offered.
+    _record_paid_offer(getattr(exc, "preq", None), _ua.get(), "http")
     try:
         hdrs = {x402.PAYMENT_REQUIRED_HEADER: exc.header_value()}
     except Exception:                                    # never mask the 402

@@ -306,6 +306,22 @@ def _mcp_payment(ctx: "Context | None") -> Optional[PaymentPayload]:
     return None
 
 
+def _record_paid_offer(preq, ctx, api_key: str = "") -> None:
+    """MCP twin of the HTTP paid-offer impression — same event, same field."""
+    try:
+        operation = getattr(preq, "operation", None)
+        if not operation:
+            return
+        store.record_event(
+            _creds.sanitize_actor_key(api_key) if api_key else "mcp",
+            "paid_offer_challenged", ua=_client_ua(ctx),
+            endpoint="x402_challenge", transport="mcp",
+            challenged_operation=operation,
+            price_credits=getattr(preq, "cost", None))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _challenge_result(body: dict[str, Any]) -> ToolResult:
     """A complete, machine-readable payment-required challenge as an MCP tool
     error — the unpaid caller never receives the paid payload."""
@@ -397,6 +413,7 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
         ns = demand.no_supply_block(dem) if dem else None
         if ns:
             body["no_supply"] = ns
+        _record_paid_offer(preq, ctx, api_key)
         return _challenge_result(body)
     except PaymentIdConflict as e:
         return _challenge_result({"error": "payment_identifier_conflict",
@@ -406,6 +423,7 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
         ch = PaymentChallenge(preq, extra={"error": "x402_payment_invalid",
                                            "reason": e.reason,
                                            "detail": e.detail[:300]})
+        _record_paid_offer(preq, ctx, api_key)
         return _challenge_result(ch.body)
     except CachedPaidResult as e:
         # official idempotency: same id + same request → cached result, no

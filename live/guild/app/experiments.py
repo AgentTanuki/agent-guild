@@ -118,53 +118,6 @@ def define(store: Any, key: str, *, hypothesis: str, variable: str,
     return rec
 
 
-def qualified_exposure(store: Any, operation: Optional[str] = None
-                       ) -> dict[str, Any]:
-    """Genuinely-external actors who reached a decision surface.
-
-    Uses the SAME central attribution rule as every other honest number in the
-    service. Crawlers, registry probes, our own tooling and unknown-attributed
-    traffic are excluded structurally — never by name-matching a User-Agent,
-    which is exactly how self-traffic gets laundered into a growth metric."""
-    from . import attribution
-
-    # Scoped to the experiment's own surface where one is given: exposure to a
-    # DIFFERENT offer is not exposure to this one.
-    decision_surfaces = ({"preflight_run", "deep_preflight_run"}
-                         if operation == "deep_preflight" else
-                         {"evidence_bundle_issued"}
-                         if operation == "evidence_bundle" else
-                         {"watch_provisioned"} if operation == "watch_cycle"
-                         else {"preflight_run", "deep_preflight_run",
-                               "evidence_bundle_issued", "watch_provisioned",
-                               "index_view"})
-    actors: set[str] = set()
-    events = 0
-    for e in getattr(store, "events", []):
-        if e.get("type") not in decision_surfaces:
-            continue
-        if e.get("fp") or e.get("first_party"):
-            continue
-        cls = attribution.caller_class(e)
-        if cls in ("AG_INTERNAL", "AG_TEST", "OPERATOR", "REGISTRY_CRAWLER"):
-            continue
-        if not (attribution.may_count_as_external_growth(cls)
-                and attribution.is_genuine_external(e)):
-            continue
-        events += 1
-        key = e.get("key") or "anon"
-        if key != "anon":
-            actors.add(key)
-    return {
-        "qualified_actors": len(actors),
-        "qualified_events": events,
-        "rule": ("genuine-external only, via attribution.caller_class + "
-                 "is_genuine_external. Crawlers, first-party tooling and "
-                 "unknown-attributed traffic are excluded structurally, not by "
-                 "matching a User-Agent string."),
-    }
-
-
 #: The three INDEPENDENT conditions that must all hold before a settlement may
 #: be called revenue. `mode == "x402"` alone is not money: the same rail runs
 #: on Base Sepolia by default, where a successful settlement is a successful
@@ -203,6 +156,97 @@ def _is_external(event: dict) -> bool:
                             "REGISTRY_CRAWLER")
             and attribution.may_count_as_external_growth(cls)
             and attribution.is_genuine_external(event))
+
+
+def qualified_exposure(store: Any, operation: Optional[str] = None
+                       ) -> dict[str, Any]:
+    """Genuinely-external actors who were ACTUALLY OFFERED this paid operation.
+
+    THE IMPRESSION BOUNDARY (correction 2026-07-31). This previously counted
+    adjacent free-product events — a caller who ran a FREE preflight was
+    treated as exposure for the PAID deep-preflight price experiment. They had
+    never been quoted that price, so the engine could reach its denominator and
+    halve or kill an offer nobody was shown. "They used the free thing" is not
+    evidence about a price.
+
+    Exposure to a paid operation is now exactly two things, both explicit:
+
+      * ``paid_offer_challenged`` carrying this operation — the caller was
+        shown the price (the 402 / payment-required moment, recorded
+        identically on HTTP, MCP and A2A), or
+      * a completed call of that operation — they saw the price and paid it.
+
+    Nothing else counts. With no operation given (the commercial report), the
+    broader decision-surface view is returned, clearly labelled as such.
+
+    Attribution is the same central rule used everywhere: crawlers,
+    first-party tooling and unknown-attributed traffic are excluded
+    structurally, never by matching a User-Agent."""
+    from . import attribution
+
+    def _external(e: dict) -> bool:
+        if e.get("fp") or e.get("first_party"):
+            return False
+        cls = attribution.caller_class(e)
+        if cls in ("AG_INTERNAL", "AG_TEST", "OPERATOR", "REGISTRY_CRAWLER"):
+            return False
+        return (attribution.may_count_as_external_growth(cls)
+                and attribution.is_genuine_external(e))
+
+    actors: set[str] = set()
+    events = 0
+    challenged = 0
+    completed = 0
+
+    if operation:
+        completion_types = set(OPERATION_EVENTS.get(operation, ()))
+        for e in getattr(store, "events", []):
+            etype = e.get("type")
+            is_challenge = (etype == "paid_offer_challenged"
+                            and e.get("challenged_operation") == operation)
+            # A completion only counts as exposure when it was actually PAID
+            # for — a free-tier call of the same shape is not an impression of
+            # the price.
+            is_completion = (etype in completion_types
+                             and e.get("settlement_mode") in
+                             ("x402", "credits_sandbox"))
+            if not (is_challenge or is_completion):
+                continue
+            if not _external(e):
+                continue
+            events += 1
+            challenged += 1 if is_challenge else 0
+            completed += 1 if is_completion else 0
+            key = e.get("key") or "anon"
+            if key != "anon":
+                actors.add(key)
+        rule = (f"actors genuinely external AND shown the {operation} price "
+                "(paid_offer_challenged) or who completed a paid "
+                f"{operation} call. Free-tier use of an adjacent product is "
+                "NOT exposure to this price.")
+    else:
+        surfaces = {"preflight_run", "deep_preflight_run",
+                    "evidence_bundle_issued", "watch_provisioned",
+                    "index_view", "paid_offer_challenged"}
+        for e in getattr(store, "events", []):
+            if e.get("type") not in surfaces or not _external(e):
+                continue
+            events += 1
+            key = e.get("key") or "anon"
+            if key != "anon":
+                actors.add(key)
+        rule = ("ALL decision surfaces, free and paid — a portfolio view for "
+                "the commercial report. NOT valid for pricing an individual "
+                "operation; pass `operation` for that.")
+
+    return {
+        "operation_scope": operation or "all_surfaces",
+        "qualified_actors": len(actors),
+        "qualified_events": events,
+        "paid_offers_shown": challenged,
+        "paid_completions": completed,
+        "rule": rule,
+    }
 
 
 def commercial_metrics(store: Any, operation: Optional[str] = None

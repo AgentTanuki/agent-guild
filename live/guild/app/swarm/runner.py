@@ -223,6 +223,11 @@ def _run_index_cycle(store: Any) -> dict[str, Any]:
         return {"skipped": "GUILD_INDEX_AUTORUN is not enabled"}
     out: dict[str, Any] = {}
     try:
+        # fold any pre-existing same-DID duplicates before ingesting more
+        out["reconcile"] = indexops.reconcile_identities(store)
+    except Exception as exc:  # noqa: BLE001
+        out["reconcile_error"] = type(exc).__name__
+    try:
         out["ingest"] = indexops.ingest(store)
     except Exception as exc:  # noqa: BLE001
         out["ingest_error"] = type(exc).__name__

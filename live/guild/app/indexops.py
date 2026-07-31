@@ -4,7 +4,13 @@ Kept out of ``store.py`` deliberately. These are the only functions in the
 service that reach out to third-party infrastructure on a schedule, so they are
 in one file where their bounds can be read in a single sitting:
 
-  * ingest is default-OFF for remote sources and capped per run;
+  * remote ingest is bounded default-ON, and ONLY for the cleared sources in
+    ``indexsources.CLEARED_SOURCES`` (currently the documented, public,
+    read-only MCP Registry API). ``GUILD_INDEX_INGEST=0`` remains the
+    one-config-change kill switch, with no deploy — the property that matters
+    when the traffic lands on someone else's servers. Sources we will not
+    ingest are named with their exact gate in
+    ``indexsources.UNAVAILABLE_SOURCES``, not silently omitted;
   * recheck probes at most ``recheck_batch()`` endpoints per cycle, oldest
     observation first, so the loop degrades to slow rather than to abusive;
   * a watch is charged per cycle ACTUALLY performed, so a dormant endpoint bills
@@ -44,7 +50,7 @@ def ingest(store: Any, records: Optional[list[dict[str, Any]]] = None
     so an ingest run that adds zero new endpoints is a perfectly good run."""
     if records is None:
         records = indexsources.collect(store)
-    added = updated = skipped = 0
+    added = updated = skipped = aliased = 0
     with store.lock, store._txn():
         for rec in records:
             url = (rec.get("endpoint") or "").strip()
@@ -54,6 +60,21 @@ def ingest(store: Any, records: Optional[list[dict[str, Any]]] = None
                 continue
             fp = trustindex.fingerprint(norm)
             entry = store.trust_index.get(fp)
+            did = (rec.get("did") or "").strip()
+            # DECLARED-DID COALESCING. Two endpoints declaring the same did:key
+            # are one subject with two addresses. Fold the newcomer in as an
+            # alias rather than creating a second entry, which would inflate
+            # inventory — the one number this index is judged on.
+            if entry is None and did:
+                canonical = _by_did(store, did)
+                if canonical is not None and canonical.get("endpoint") != norm:
+                    provisional = trustindex.new_entry(
+                        norm, rec.get("source", "unknown"),
+                        declared=rec.get("declared"), did=did)
+                    trustindex.merge_alias(canonical, provisional)
+                    store.trust_index[canonical["id"]] = canonical
+                    aliased += 1
+                    continue
             if entry is None:
                 entry = trustindex.new_entry(
                     norm, rec.get("source", "unknown"),
@@ -76,12 +97,64 @@ def ingest(store: Any, records: Optional[list[dict[str, Any]]] = None
             store._persist_kv("trust_index", store.trust_index)
         store._save()
     return {"added": added, "provenance_updated": updated,
+            "aliased_to_existing_did": aliased,
             "skipped_unusable": skipped,
             "total_entries": len(store.trust_index),
-            "note": ("added = endpoints not previously known. "
+            "note": ("added = SUBJECTS not previously known. "
                      "provenance_updated = already known, another source saw "
-                     "it — NOT a new endpoint. Inventory is a supporting "
-                     "metric and is never reported as adoption.")}
+                     "it — NOT a new endpoint. aliased_to_existing_did = a new "
+                     "endpoint folded into an existing subject because it "
+                     "declares the same DID; it is an address, not a subject. "
+                     "Inventory is a supporting metric and is never reported "
+                     "as adoption.")}
+
+
+def _by_did(store: Any, did: str) -> Optional[dict[str, Any]]:
+    """The canonical entry declaring `did`, if any. Deterministic lookup only —
+    no fuzzy matching, ever."""
+    if not did:
+        return None
+    for entry in store.trust_index.values():
+        if (entry.get("did") or "") == did:
+            return entry
+    return None
+
+
+def reconcile_identities(store: Any) -> dict[str, Any]:
+    """MIGRATION: fold pre-existing duplicates that share a declared DID.
+
+    The index shipped keyed on endpoint alone, so two endpoints of one subject
+    are already stored as two entries. This coalesces them once, deterministic-
+    ally and idempotently: the OLDEST entry (by first_indexed_at, then by id
+    for stability) wins as canonical, the rest become aliases with their
+    provenance and last observation intact. Safe to run on every cycle — with
+    nothing to merge it is a no-op."""
+    by_did: dict[str, list] = {}
+    for entry in store.trust_index.values():
+        did = (entry.get("did") or "").strip()
+        if did:
+            by_did.setdefault(did, []).append(entry)
+    merged = 0
+    with store.lock, store._txn():
+        for did, entries in by_did.items():
+            if len(entries) < 2:
+                continue
+            entries.sort(key=lambda e: (e.get("first_indexed_at") or "",
+                                        e.get("id") or ""))
+            canonical, rest = entries[0], entries[1:]
+            for other in rest:
+                trustindex.merge_alias(canonical, other)
+                store.trust_index.pop(other["id"], None)
+                merged += 1
+            store.trust_index[canonical["id"]] = canonical
+        if merged and store.backend is not None:
+            store._persist_kv("trust_index", store.trust_index)
+        if merged:
+            store._save()
+    return {"merged_into_canonical": merged,
+            "subjects": len(store.trust_index),
+            "rule": ("same DECLARED did:key only. Operator equivalence is "
+                     "never inferred from names, domains or contact strings.")}
 
 
 def _owner_class_for(store: Any, entry: dict[str, Any]) -> str:
