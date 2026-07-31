@@ -4492,9 +4492,22 @@ class Store:
             out["divergence"].append("durable_read_failed")
             return out
         out["durable"] = durable
-        if durable["events"] < mem["events"]:
+        # RACE-AWARE EVENT COMPARISON. The in-memory count is sampled, then
+        # SQLite is queried; concurrent requests append events in between, so a
+        # durable count a few ahead of the in-memory sample is the NORMAL
+        # interleaving, not divergence. Re-sample the in-memory count AFTER the
+        # durable read: if the durable value falls inside [before, after], the
+        # two agree and the only difference is WHEN each was observed. A
+        # detector that fires on that cries wolf on every run — which is how a
+        # real incident goes two days without a diagnosis.
+        mem_after = len(self.events)
+        out["in_memory"]["events_after_durable_read"] = mem_after
+        lo, hi = min(mem["events"], mem_after), max(mem["events"], mem_after)
+        if durable["events"] < lo:
+            # in-memory holds events the database does not: the DANGEROUS
+            # direction — unpersisted state a restart would lose.
             out["divergence"].append("in_memory_events_ahead_of_durable")
-        if durable["events"] > mem["events"]:
+        elif durable["events"] > hi:
             out["divergence"].append("durable_events_ahead_of_in_memory")
         if durable["checkpoints"] < mem["checkpoints"]:
             out["divergence"].append("in_memory_checkpoints_ahead_of_durable")
