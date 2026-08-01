@@ -532,11 +532,63 @@ def _challenge_http(exc: PaymentChallenge,
     return HTTPException(status, exc.body, headers=hdrs)
 
 
+#: Prefixes that mean "this string is a live credential". A value carrying one
+#: must never be bound as an event actor: actors are written to the events
+#: journal and served on public funnel surfaces.
+#:
+#: `sk_` = raw agent secret. `ak_` = billing/legacy account key, which
+#: `resolve_billing_key` returns VERBATIM for a non-hashed account — that one
+#: was missed on the first pass and would have leaked a working credential.
+#: Kept as a set so adding a future credential form is one line, and matched
+#: case-insensitively because a caller controls the presented string.
+_CREDENTIAL_PREFIXES = ("sk_", "ak_")
+
+
+def _looks_like_credential(value: Any) -> bool:
+    v = str(value or "").strip().lower()
+    return any(v.startswith(p) for p in _CREDENTIAL_PREFIXES)
+
+
 def _http_demand_actor(request: Request, x_api_key: Optional[str]) -> str:
     """Stable, non-reversible actor id for demand dedupe. NEVER a raw IP and
-    never a raw API key — a purpose-scoped hash of (key) or (client, ua)."""
+    never a raw API key.
+
+    A VALID credential resolves to the caller's own ACCOUNT KEY (for hashed
+    accounts, the public key_id) so downstream classification can see that this
+    caller is a registered member. Previously every presented key — valid or
+    not — was flattened into an opaque `http:<digest>`, which no account lookup
+    could ever match, so `EXTERNAL_MEMBER`/`EXTERNAL_VERIFIED` was unreachable
+    on the real HTTP surfaces and the member allowance in the paid-offer
+    funnel could never fire. A test that seeded the stored key directly hid
+    that, which is exactly the kind of false confidence transport-level tests
+    exist to prevent.
+
+    Safety rules, in order:
+      * `resolve_billing_key` accepts a raw `sk_` secret only against its own
+        hashed account and returns the PUBLIC key_id; a bare public key_id is
+        never accepted as a credential, and an invalid one resolves to None.
+      * whatever comes back is passed through `sanitize_actor_key`, and if it
+        still looks like a CREDENTIAL it is discarded. `sanitize_actor_key`
+        only rewrites `sk_`, and `resolve_billing_key` returns a legacy or
+        billing `ak_` account key VERBATIM — so a guard that checked `sk_`
+        alone would have written a live `ak_` credential straight into the
+        events journal. The check is a prefix SET, and it is deliberately
+        conservative: anything credential-shaped falls back to the opaque
+        hash. A modern hashed member still resolves to its non-secret public
+        key_id, which matches no prefix, so it keeps qualifying.
+      * anything unresolved falls back to the purpose-scoped hash exactly as
+        before, so an invalid or absent credential is no more identifying than
+        an anonymous caller."""
     import hashlib
     if x_api_key:
+        try:
+            resolved = store.resolve_billing_key(x_api_key)
+        except Exception:  # noqa: BLE001 — attribution must never break a call
+            resolved = None
+        if resolved:
+            safe = creds.sanitize_actor_key(resolved)
+            if safe and not _looks_like_credential(safe):
+                return safe
         basis = "key:" + x_api_key
     else:
         client = getattr(getattr(request, "client", None), "host", "") or ""

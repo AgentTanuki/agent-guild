@@ -97,8 +97,14 @@ def _store_with(events):
 
 
 def _ev(**kw):
+    # UA NOTE (2026-08-01): a bare/empty user agent no longer QUALIFIES — it is
+    # indistinguishable from our own traffic. These tests are about splitting
+    # and exclusion, so the default fixture uses a recognised external
+    # agent-framework UA; qualification itself is asserted in
+    # tests/test_paid_offer_actor_binding.py.
     base = {"type": "paid_offer_served", "operation": "deep_preflight",
-            "source": "paid_offer:agent_card", "key": "anon", "ua": "",
+            "source": "paid_offer:agent_card", "key": "anon",
+            "ua": "langchain/0.2.1",
             "at": "2026-08-01T00:00:00+00:00"}
     base.update(kw)
     return base
@@ -136,7 +142,7 @@ def test_our_own_traffic_is_excluded_structurally_not_by_ua_string():
     assert f["qualified_distinct_actors"] == 1
     src = f["by_source"]["paid_offer:agent_card"]
     assert src["impressions"] == 4
-    assert src["first_party_or_tooling"] == 3
+    assert src["not_qualified"] == 3
     assert src["qualified_impressions"] == 1
 
 
