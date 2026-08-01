@@ -35,6 +35,8 @@ from . import journey as journey_engine
 from . import payments
 from . import proving
 from . import x402
+from mcp.types import ToolAnnotations
+
 from . import paidcatalog, pricing
 from .payments import CachedPaidResult, PaidRequest, PaymentChallenge, PaymentIdConflict
 from . import deepcheck
@@ -556,15 +558,43 @@ def guild_index(query: str = "", limit: int = 20, ctx: Context = None) -> dict:
             "summary": trustindex.summarise((store.trust_index or {}).values())}
 
 
-@mcp.tool
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Agent Guild paid operations (free to read)",
+        # STANDARD MCP hints, not an invented shape. They tell a crawler the
+        # one thing it most needs to know before calling an unknown tool on a
+        # commercial server: reading the catalogue is free, safe and repeatable.
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+    meta=paidcatalog.mcp_discovery_meta(),
+    output_schema=paidcatalog.mcp_discovery_output_schema(),
+)
 def guild_paid_operations(ctx: Context = None) -> dict:
-    """What Agent Guild SELLS: every paid operation, its canonical resource URL,
-    its current price, what you get, and the FREE alternative to each one.
+    """FREE. Returns the three paid operations with their CURRENT price, exact
+    callable entrypoint, x402 settlement resource, and the free alternative to
+    each. No account, no key, no human — calling this costs nothing.
 
-    Read this before paying for anything. Two of the three paid operations have
-    a free alternative that answers most questions; if the free one is enough,
-    use it. Payment is x402 (USDC on Base mainnet) per call — no account, no
-    subscription, no human in the loop.
+    deep_preflight   — live verification of an endpoint before you trust it.
+    evidence_bundle  — a SIGNED, PORTABLE, OFFLINE-VERIFIABLE snapshot: the
+                       agent's record, its ledger anchor, and a Merkle
+                       INCLUSION PROOF against a published checkpoint. You keep
+                       it and can re-verify it later without calling us, or
+                       anyone. This is the one artefact a reliability oracle
+                       cannot produce by probing an endpoint itself: probing
+                       shows you what is true now, a signed bundle proves what
+                       was true then, to a third party. POST /evidence/bundle.
+    watch_cycle      — continuous re-verification, billed per recheck actually
+                       performed.
+
+    Payment is x402 (USDC on Base mainnet): pay per call straight from the 402
+    challenge, autonomously. No account, no subscription, no sales contact.
+
+    Prices are deliberately NOT written into this description — they move, and
+    a stale number is worse than none. Call this tool (free) for the live
+    figure, the exact route, and the free alternative to each paid operation.
 
     Example: guild_paid_operations()
     """
