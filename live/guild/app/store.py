@@ -4979,6 +4979,34 @@ class Store:
     CANONICAL_QUARANTINE_KEY = "canonical_quarantine"
     CANONICAL_ADOPTION_KEY = "canonical_recovery_adoption"
 
+    @staticmethod
+    def _image_pin_candidates(here: str) -> list:
+        """Where the committed checkpoint pin lives, in EVERY layout we ship in.
+
+        Two layouts, one file. In a repo checkout `store.py` sits at
+        ``<repo>/live/guild/app/store.py``, so the pin is three levels up. In
+        the container it sits at ``/app/app/store.py`` with the pin copied to
+        ``/app/docs/checkpoints/latest.json`` — one level up, not three.
+
+        The original code only knew the repo layout. Three levels up from
+        ``/app/app`` is ``/``, and the build context was ``./live/guild``, which
+        cannot see ``docs/`` at all — so the pin was absent from the image and
+        the disk-independent half of the canonical floor silently did not exist.
+        Production 2.0.3 reported ``floor_checkpoint_index=-1,
+        floor_sources=[]``: the guard meant to survive a wiped disk was itself
+        wiped by packaging.
+
+        Ordered nearest-first so the packaged copy wins in the container, and
+        deliberately NOT a filesystem walk: a fixed candidate list cannot pick
+        up a stray file from somewhere unintended."""
+        rel = ("docs", "checkpoints", "latest.json")
+        return [
+            # container: /app/app -> /app/docs/checkpoints/latest.json
+            os.path.abspath(os.path.join(here, "..", *rel)),
+            # repo checkout: <repo>/live/guild/app -> <repo>/docs/...
+            os.path.abspath(os.path.join(here, "..", "..", "..", *rel)),
+        ]
+
     def _image_pinned_floor(self) -> dict[str, Any]:
         """Floor carried by the container image (git-committed checkpoint pin).
 
@@ -4993,10 +5021,12 @@ class Store:
         contributes nothing, it does not fail boot."""
         try:
             here = os.path.dirname(os.path.abspath(__file__))
-            # live/guild/app/store.py -> repo root
-            root = os.path.abspath(os.path.join(here, "..", "..", ".."))
-            pin = os.path.join(root, "docs", "checkpoints", "latest.json")
-            if not os.path.exists(pin):
+            pin = None
+            for cand in self._image_pin_candidates(here):
+                if os.path.exists(cand):
+                    pin = cand
+                    break
+            if pin is None:
                 return {}
             with open(pin) as f:
                 d = json.load(f)
