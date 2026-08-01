@@ -358,13 +358,98 @@ def llms_txt_section(base: Optional[str] = None) -> str:
     return "\n".join(lines)
 
 
-def mcp_tool_hint(operation: str, base: Optional[str] = None) -> str:
-    """One-line paid hint appended to an MCP tool description."""
-    for op in operations(base):
-        if op["operation"] == operation:
-            how = (op["entrypoint"]["call"] if op["directly_callable"]
-                   else f"provision via {op['entrypoint']['call']}")
-            return (f" PAID OPTION: {op['operation']} costs {op['price_usd']} "
-                    f"per call via x402 ({how}). "
-                    f"FREE ALTERNATIVE: {op['free_alternative']}")
-    return ""
+def mcp_discovery_meta(base: Optional[str] = None) -> dict[str, Any]:
+    """Namespaced `_meta` for the paid-catalog MCP tool's `tools/list` entry.
+
+    WHY THIS EXISTS. An external MCP crawler reads `tools/list` and nothing
+    else before deciding what a server offers. On 2026-08-01 an independent
+    reliability probe read ours and reported
+    `payment.access=unknown, payment.x402=false, "no pricing or payment
+    metadata advertised"` — correctly, because the entry carried a prose
+    description, an empty `inputSchema`, an opaque `outputSchema` and
+    `_meta: {"fastmcp": {"tags": []}}`. Everything a buyer needs was one call
+    away and nothing said so in a form a parser could read.
+
+    DELIBERATELY CARRIES NO PRICE. `_meta` is fixed when the tool is
+    registered, so a number here would freeze at boot and drift the moment the
+    experiment engine moved a price within its ceiling. A stale price is worse
+    than an absent one. Operation NAMES are derived from `_OPERATIONS` (never
+    retyped, so a new operation appears automatically) and the current price
+    lives behind the pointers below — one free, unauthenticated call.
+
+    NOT A CLAIMED STANDARD. There is no MCP payment annotation to conform to,
+    so this uses the spec's own extension point (`_meta`) under our own
+    namespace rather than inventing a shape and implying it is standard. The
+    behavioural hints that ARE standard are set separately via
+    `ToolAnnotations`."""
+    root = _base_url(base)
+    return {
+        "ai.agent-guild/paid": {
+            "payment_protocol": "x402",
+            "network": "eip155:8453",
+            "asset": "USDC",
+            "autonomous": True,
+            "human_in_the_loop": False,
+            "account_required": False,
+            "operations": [op["operation"] for op in _OPERATIONS],
+            "free_alternative_exists_for_every_operation": True,
+            "price_source": {
+                "note": ("Prices are LIVE and are not published here — this "
+                         "block is static per build and would go stale. Call "
+                         "the tool (free, no account) or GET the catalog URL."),
+                "mcp_tool": "guild_paid_operations",
+                "http_catalog": (f"{root}/.well-known/agent-guild.json"
+                                 "?src=paid_offer:registry"),
+            },
+            "returns": ("per operation: current price, exact callable "
+                        "entrypoint, canonical x402 settlement resource, and "
+                        "the free alternative"),
+        }
+    }
+
+
+def mcp_discovery_output_schema() -> dict[str, Any]:
+    """`outputSchema` for the paid-catalog tool.
+
+    It was `{"type": "object", "additionalProperties": true}` — technically
+    true and completely opaque, so a crawler could not learn the response shape
+    without calling. Declaring the shape is the cheapest machine legibility
+    available. Kept PERMISSIVE (`additionalProperties: true`, minimal
+    `required`) so it documents without constraining: an over-tight schema on a
+    real tool breaks calls, which would be a far worse outcome than vagueness."""
+    return {
+        "type": "object",
+        "additionalProperties": True,
+        "properties": {
+            "source": {"type": "string"},
+            "authentication": {"type": "object"},
+            "operations": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": True,
+                    "properties": {
+                        "operation": {"type": "string"},
+                        "price_usd": {"type": "string",
+                                      "description": "current, live"},
+                        "price_credits": {"type": "integer"},
+                        "payment": {"type": "string"},
+                        "entrypoint": {
+                            "type": "object", "additionalProperties": True,
+                            "description": ("how to CALL it: method, path, "
+                                            "where parameters go, auth"),
+                        },
+                        "settlement": {
+                            "type": "object", "additionalProperties": True,
+                            "description": ("canonical resource the x402 "
+                                            "challenge binds; an identifier, "
+                                            "not a call"),
+                        },
+                        "what_you_get": {"type": "string"},
+                        "free_alternative": {"type": "string"},
+                        "directly_callable": {"type": "boolean"},
+                    },
+                },
+            },
+        },
+    }
