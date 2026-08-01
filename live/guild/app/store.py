@@ -2383,7 +2383,7 @@ class Store:
             op = ev.get("operation") or "unknown"
             src = ev.get("source") or "unknown"
             cls = self._caller_class_for(ev)
-            external = _attr.may_count_as_external_growth(cls)
+            external = self._qualifies_as_paid_demand(ev, cls)
             actor = ev.get("key") or "anon"
             # UNLINKABLE = we cannot follow this caller. Two distinct causes,
             # both disqualifying for a conversion denominator:
@@ -2396,14 +2396,20 @@ class Store:
             # the surface knows its actors are distinct (HTTP key/client hash).
             unlinkable = (actor in ("", "anon", None)
                           or ev.get("actor_distinct") is False)
+            # WHY an impression did not qualify, so the exclusion is auditable
+            # rather than a single opaque bucket.
+            why = _attr.attribution_class(ev) if not external else None
             for bucket, k in ((by_op, op), (by_source, src)):
                 d = bucket.setdefault(k, {
                     "impressions": 0, "qualified_impressions": 0,
-                    "qualified_actors": set(), "first_party_or_tooling": 0,
+                    "qualified_actors": set(), "not_qualified": 0,
+                    "not_qualified_by_reason": {},
                     "anonymous_unlinkable": 0})
                 d["impressions"] += 1
                 if not external:
-                    d["first_party_or_tooling"] += 1
+                    d["not_qualified"] += 1
+                    d["not_qualified_by_reason"][why] = \
+                        d["not_qualified_by_reason"].get(why, 0) + 1
                 elif unlinkable:
                     d["anonymous_unlinkable"] += 1
                 else:
@@ -2421,6 +2427,9 @@ class Store:
             for k, d in bucket.items():
                 out[k] = {**{kk: vv for kk, vv in d.items()
                              if kk != "qualified_actors"},
+                          # kept for continuity with the previous shape; it now
+                          # means the same thing as `not_qualified`.
+                          "first_party_or_tooling": d["not_qualified"],
                           "qualified_distinct_actors": len(d["qualified_actors"])}
             return out
 
@@ -2429,6 +2438,16 @@ class Store:
             "measure": ("DISTINCT QUALIFIED EXTERNAL ACTORS shown a paid "
                         "offer. Raw impressions are reported beside it and are "
                         "reach, not attention."),
+            "qualification_rule": (
+                "An impression qualifies only if the caller AUTHENTICATED as a "
+                "registered member (EXTERNAL_MEMBER/EXTERNAL_VERIFIED), or is "
+                "an EXTERNAL_UNKNOWN that attribution.is_genuine_external "
+                "accepts — a named MCP client we do not operate, or a "
+                "recognised agent-framework user agent. Bare curl/urllib/wget, "
+                "empty user agents, crawlers and unrecognised tooling are "
+                "INDISTINGUISHABLE FROM OUR OWN TRAFFIC and never qualify. A "
+                "stable IP+UA actor proves distinctness, not external agent "
+                "intent."),
             "qualified_distinct_actors": total_q,
             "raw_impressions": raw,
             "anonymous_unlinkable_impressions": anon,
@@ -2444,6 +2463,40 @@ class Store:
                            "subsystems (attribution.GUILD_INTERNAL_ORIGINS) "
                            "are excluded by CALLER CLASS, structurally"),
         }
+
+    def _qualifies_as_paid_demand(self, ev: dict[str, Any], cls: str) -> bool:
+        """May this impression enter the QUALIFIED denominator?
+
+        `may_count_as_external_growth` was the wrong gate here. It answers
+        "could this class ever be external growth?" and passes EXTERNAL_UNKNOWN
+        — which is every bare `curl`, `urllib`, empty-UA or unrecognised caller.
+        `attribution.is_genuine_external` already says exactly why that is not
+        good enough: such traffic is INDISTINGUISHABLE FROM OUR OWN. A stable
+        IP+UA hash proves an actor is DISTINCT; it proves nothing about the
+        actor being an external agent with intent to buy.
+
+        Measured on the deployed 2.0.3 readback: every "qualified" actor was
+        ours or a probe — this session's verification curls, `curl/8.7.1`,
+        `guild-live-conformance` (our own release gate), `agent-guild-scout`
+        (our own scout, arriving over the network so the in-process origin
+        stamp does not apply) and an A2A registry health check. Zero external
+        demand, reported as `measurable: true`.
+
+        The gate is now:
+          * EXTERNAL_MEMBER / EXTERNAL_VERIFIED — the caller authenticated with
+            a registered key, which is identity, so a bare UA is fine; or
+          * EXTERNAL_UNKNOWN that `is_genuine_external` accepts — a named MCP
+            client we do not operate, or a recognised agent-framework UA.
+
+        Raw impressions are UNAFFECTED and still counted per operation and
+        source: reach is real and stays visible. Only the qualified denominator
+        tightens."""
+        from . import attribution as _attr
+        if cls in ("EXTERNAL_MEMBER", "EXTERNAL_VERIFIED"):
+            return True
+        if cls != "EXTERNAL_UNKNOWN":
+            return False
+        return _attr.is_genuine_external(ev)
 
     def _caller_class_for(self, ev: dict[str, Any]) -> str:
         """caller_class for a stored event, resolving member/verified from the

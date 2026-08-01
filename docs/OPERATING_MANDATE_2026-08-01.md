@@ -27,6 +27,32 @@ is not an operating metric. It is a comfort.
    source** (`GET /funnel/paid`). Distinct qualified external actors shown a
    paid offer. Raw impressions are reported beside it and are reach, not
    attention.
+
+   **QUALIFIED, precisely** (integrity correction, 2026-08-01). An impression
+   qualifies only if the caller is:
+
+   * an authenticated registered member (`EXTERNAL_MEMBER` /
+     `EXTERNAL_VERIFIED`) — authentication is identity, so a bare user agent is
+     fine; or
+   * an `EXTERNAL_UNKNOWN` that `attribution.is_genuine_external` accepts: a
+     named MCP client we do not operate, or a recognised agent-framework user
+     agent.
+
+   Bare `curl`/`wget`/`urllib`/`requests`, empty user agents, `mcp/remote`,
+   crawlers and unrecognised tooling **never qualify**. They are
+   indistinguishable from our own traffic — that is not a guess, it is what
+   `is_genuine_external` has said since 2026-07-10. **A stable IP+UA actor
+   proves DISTINCTNESS, not external agent intent.**
+
+   This was got wrong on first release: `/funnel/paid` gated on
+   `may_count_as_external_growth`, which passes `EXTERNAL_UNKNOWN`. The
+   deployed 2.0.3 readback then reported qualified actors that were, without
+   exception, ours or a probe — verification `curl`s, `guild-live-conformance`
+   (our own release gate), `agent-guild-scout` (our own scout, arriving over
+   the network so the in-process origin stamp does not apply) and an A2A
+   registry health check. Zero external demand, reported as `measurable: true`.
+   Raw impressions were and remain correct; only the qualified denominator was
+   wrong.
 3. **SUPPORTING ONLY — passport counts, registrations, index coverage, raw
    traffic.** These may inform, never decide, and never lead a report.
 
