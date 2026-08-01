@@ -49,6 +49,17 @@ TOOLING_UA_RE = re.compile(r"^\s*$|curl|wget|python-urllib|python-requests|libww
 OURS_MCP_CLIENTS = {
     "verify", "healthcheck", "fastmcp", "fastmcp-client", "mcp", "client",
     "agent-guild", "agentguild", "python", "node",
+    # live/scripts/live_contract_probe.py sends
+    # clientInfo.name = "guild-live-conformance", so `_mcp_client` sees
+    # `mcp:guild-live-conformance` — a NAMED client, which
+    # `is_genuine_external` accepts as third-party unless we declare it as
+    # ours. It was not declared, so our own release-gate probe registered as a
+    # qualified external agent: on the 2.0.3 deployment it was the ONLY
+    # remaining qualified actor in /funnel/paid, under paid_offer:mcp_tool.
+    # tests/test_owned_probe_clients.py pins this to the probe's actual
+    # clientInfo name so renaming the probe fails loudly instead of silently
+    # re-opening the hole.
+    "guild-live-conformance",
 }
 
 # Known first-party incidents: OUR OWN traffic that slipped past first-party
@@ -198,7 +209,12 @@ AG_TEST_UA_RE = re.compile(
     # it is first-party by construction, so match its UA server-side too — it must
     # never read as genuine_external even if its runtime lacks the first-party
     # token (found leaking 2026-07-11).
-    r"guild-canary|guild-reachability-probe)",
+    # `guild-live-conformance` is the LIVE CONTRACT PROBE
+    # (live/scripts/live_contract_probe.py). It ships with the repo, runs in
+    # the release gate, and identifies itself both as a User-Agent and as an
+    # MCP clientInfo.name. Listed here as an exact literal — never a wildcard —
+    # so it is AG_TEST on every transport rather than reading as a stranger.
+    r"guild-canary|guild-reachability-probe|guild-live-conformance)",
     re.I)
 
 
