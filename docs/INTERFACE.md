@@ -1,6 +1,6 @@
 # Agent Guild — machine interface (GENERATED)
 
-*Generated from `live/guild/contract/contract.json` v2 (service 2.0.2). Do not edit by hand — run `make contract`.*
+*Generated from `live/guild/contract/contract.json` v2 (service 2.0.3). Do not edit by hand — run `make contract`.*
 
 - Host: https://agent-guild-5d5r.onrender.com
 - MCP (streamable HTTP): https://agent-guild-5d5r.onrender.com/mcp/
@@ -82,6 +82,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /flags`
 - `GET /for-agents`
 - `GET /funnel`
+- `GET /funnel/paid`
 - `GET /funnel/passports`
 - `GET /health`
 - `GET /index`
@@ -156,6 +157,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `guild_escrow_open`
 - `guild_escrow_release`
 - `guild_index`
+- `guild_paid_operations`
 - `guild_passport`
 - `guild_preflight`
 - `guild_preflight_deep`

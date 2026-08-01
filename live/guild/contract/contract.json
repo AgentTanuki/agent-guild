@@ -47,6 +47,7 @@
   "guild_escrow_open",
   "guild_escrow_release",
   "guild_index",
+  "guild_paid_operations",
   "guild_passport",
   "guild_preflight",
   "guild_preflight_deep",
@@ -509,6 +510,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/funnel/paid"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/funnel/passports"
   },
   {
@@ -805,6 +812,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.0.2"
+  "version": "2.0.3"
  }
 }

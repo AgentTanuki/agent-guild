@@ -3,7 +3,22 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.0.2"   # PATCH (machine-visible semver, 2026-07-23):
+__version__ = "2.0.3"   # PATCH (machine-visible semver, 2026-08-01):
+                        # registry discovery release — the publisher-provided
+                        # metadata gains ai.agent-guild/paid-operations, which
+                        # NAMES the three paid operations and points at one
+                        # live, registry-attributed catalog URL
+                        # (/.well-known/agent-guild.json?src=paid_offer:registry).
+                        # Deliberately carries NO prices: they move when the
+                        # autonomous experiment engine runs, and a listing is
+                        # republished rarely, so a copied price would be stale
+                        # and a stale price is a lie. The passport block and
+                        # the description are UNCHANGED and still lead.
+                        # Bumped because ALREADY-PUBLISHED registry metadata
+                        # changes, which must never silently reuse a version:
+                        # the automated publish + exact-version readback keys
+                        # off server.json changing. No API behaviour changes.
+                        # History of 2.0.2 (2026-07-23):
                         # acquisition-only metadata release — the MCP Registry
                         # listing becomes passport-first (free self-serve
                         # Agent Passports: register → prove control → signed

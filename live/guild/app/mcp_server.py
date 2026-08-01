@@ -35,6 +35,7 @@ from . import journey as journey_engine
 from . import payments
 from . import proving
 from . import x402
+from . import paidcatalog, pricing
 from .payments import CachedPaidResult, PaidRequest, PaymentChallenge, PaymentIdConflict
 from . import deepcheck
 from . import indexops
@@ -509,6 +510,13 @@ def guild_preflight(url: str, ctx: Context = None) -> dict:
     Example: guild_preflight(url="https://some-agent.example/a2a")
     """
     out = preflight.run(url, store=store)
+    _pf_actor, _pf_distinct = _mcp_actor(ctx)
+    store.record_event(_pf_actor, "paid_offer_served", ua=_client_ua(ctx),
+                       offer="paid", operation="deep_preflight",
+                       source="paid_offer:mcp_tool",
+                       price_credits=pricing.price("deep_preflight"),
+                       actor_distinct=_pf_distinct,
+                       endpoint="preflight", transport="mcp")
     store.record_event("mcp", "preflight_run", ua=_client_ua(ctx),
                        endpoint="preflight", target=url,
                        transport="mcp", verdict=out["verdict"],
@@ -546,6 +554,40 @@ def guild_index(query: str = "", limit: int = 20, ctx: Context = None) -> dict:
     return {"count": len(hits),
             "results": [trustindex.public_view(e) for e in hits[:max(1, min(limit, 100))]],
             "summary": trustindex.summarise((store.trust_index or {}).values())}
+
+
+@mcp.tool
+def guild_paid_operations(ctx: Context = None) -> dict:
+    """What Agent Guild SELLS: every paid operation, its canonical resource URL,
+    its current price, what you get, and the FREE alternative to each one.
+
+    Read this before paying for anything. Two of the three paid operations have
+    a free alternative that answers most questions; if the free one is enough,
+    use it. Payment is x402 (USDC on Base mainnet) per call — no account, no
+    subscription, no human in the loop.
+
+    Example: guild_paid_operations()
+    """
+    block = paidcatalog.offer_block("paid_offer:mcp_tool")
+    # Actor-linked, per-operation, source-tagged impression.
+    #
+    # Uses _mcp_actor, NOT the literal "mcp". Hardcoding "mcp" collapses every
+    # client in the world into one actor, so a thousand distinct callers would
+    # register as a single qualified actor and the denominator could never
+    # grow. _mcp_actor derives a stable, purpose-scoped, non-reversible id from
+    # the clientInfo advertised at initialize, and returns distinct=False when
+    # the client advertised nothing distinguishing — that caller is UNLINKABLE
+    # and must stay out of the denominator rather than become one fabricated
+    # qualified actor.
+    _actor, _distinct = _mcp_actor(ctx)
+    for _op in block["operations"]:
+        store.record_event(_actor, "paid_offer_served", ua=_client_ua(ctx),
+                           offer="paid", operation=_op["operation"],
+                           source="paid_offer:mcp_tool",
+                           price_credits=_op["price_credits"],
+                           actor_distinct=_distinct,
+                           endpoint="mcp_tool", transport="mcp")
+    return block
 
 
 @mcp.tool
