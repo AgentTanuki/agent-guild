@@ -1,0 +1,29 @@
+# Build context is the REPO ROOT (render.yaml: dockerContext: .), widened from
+# ./live/guild so the committed checkpoint pin can be COPYied into the image.
+# Measured cost of that widening: 3.1M -> 5.8M of files, ~7.8M including .git.
+# Modest, but the context should not grow unboundedly as history and side
+# directories accumulate, so the provably-unneeded parts are excluded here.
+#
+# CONSERVATIVE BY DESIGN. Every entry below is something no COPY instruction
+# references. Nothing that the runtime or the release needs is excluded — in
+# particular docs/ is NOT ignored, because docs/checkpoints/latest.json is the
+# canonical floor pin the image must carry.
+# tests/test_canonical_floor_packaging.py asserts that every Dockerfile COPY
+# source survives these rules, so tightening this file cannot silently break
+# the build or quietly drop the pin.
+
+# version control and CI definitions — never read at runtime
+.git
+.github
+
+# language/tool caches and virtualenvs — rebuilt in the image, never copied
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# local scratch
+**/.DS_Store

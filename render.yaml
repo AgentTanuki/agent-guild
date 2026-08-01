@@ -7,7 +7,10 @@ services:
     name: agent-guild
     runtime: docker
     dockerfilePath: ./live/guild/Dockerfile
-    dockerContext: ./live/guild
+    # REPO ROOT context (2026-08-01). With ./live/guild the build could not see
+    # docs/, so the committed checkpoint pin was absent from the image and the
+    # disk-independent half of the canonical floor did not exist in production.
+    dockerContext: .
     plan: starter            # smallest paid plan supports a persistent disk
     healthCheckPath: /health
     envVars:
