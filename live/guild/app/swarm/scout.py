@@ -873,29 +873,29 @@ def run_scout(store: Any, fetch: Callable = safe_fetch_json,
                 st["candidates"][key] = rec
                 if first_sight:
                     summary["discovered"] += 1
-                    store.record_event(None, "candidate_discovered",
+                    store.record_internal_event("candidate_discovered",
                                        capability=cap,
                                        source=cand.get("source"),
                                        status=CANDIDATE_STATUS,
                                        endpoint_reachable=rec[
                                            "endpoint_reachable"],
-                                       scout=True)
+                                       scout=True, origin="swarm_scout")
                 else:
                     summary["refreshed"] += 1
-                    store.record_event(None, "candidate_refreshed",
+                    store.record_internal_event("candidate_refreshed",
                                        capability=cap,
                                        source=cand.get("source"),
                                        status=CANDIDATE_STATUS,
                                        endpoint_reachable=rec[
                                            "endpoint_reachable"],
-                                       scout=True)
+                                       scout=True, origin="swarm_scout")
                 ev = rec.get("evidence") or {}
                 # DISCOVERY-document verification: its own event.
                 if ev.get("discovery_protocol_verified"):
-                    store.record_event(None, "candidate_discovery_verified",
+                    store.record_internal_event("candidate_discovery_verified",
                                        capability=cap,
                                        source=cand.get("source"),
-                                       scout=True)
+                                       scout=True, origin="swarm_scout")
                 # AG-INDEPENDENT EXECUTION verification: a SEPARATE event, and
                 # the ONLY thing that fires the legacy endpoint_verified —
                 # never from card-only discovery evidence.
@@ -903,14 +903,14 @@ def run_scout(store: Any, fetch: Callable = safe_fetch_json,
                     summary["endpoint_verified"] += 1
                     summary["execution_verified"] = summary.get(
                         "execution_verified", 0) + 1
-                    store.record_event(None, "candidate_execution_verified",
+                    store.record_internal_event("candidate_execution_verified",
                                        capability=cap,
                                        source=cand.get("source"),
-                                       scout=True)
-                    store.record_event(None, "candidate_endpoint_verified",
+                                       scout=True, origin="swarm_scout")
+                    store.record_internal_event("candidate_endpoint_verified",
                                        capability=cap,
                                        source=cand.get("source"),
-                                       scout=True)
+                                       scout=True, origin="swarm_scout")
     _persist(store)
     return summary
 

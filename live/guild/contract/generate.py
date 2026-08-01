@@ -155,6 +155,7 @@ def derived_server_json(contract: dict) -> dict:
             "io.modelcontextprotocol.registry/publisher-provided": {
                 "ai.agent-guild/passport": _passport_meta(s),
                 "ai.agent-guild/trust": _trust_meta(s),
+                "ai.agent-guild/paid-operations": _paid_ops_meta(s),
                 # NO ai.agent-guild/payments block (acquisition release
                 # 2026-07-23): the registry listing leads with the free
                 # passport; payment behaviour on the service is UNCHANGED and
@@ -164,6 +165,48 @@ def derived_server_json(contract: dict) -> dict:
                 # it.
             },
         },
+    }
+
+
+def _paid_ops_meta(s: dict) -> dict:
+    """Paid-operation DISCOVERY for the registry listing (2026-08-01).
+
+    The MCP Registry is our one already-live external listing, and it said
+    nothing about the paid layer at all — so the revenue pivot was invisible on
+    the only surface a machine was already reading. `paidcatalog.SOURCE_IDS`
+    even declared `paid_offer:registry` while no route could produce it.
+
+    Three deliberate constraints:
+
+    * PASSPORT STAYS FIRST. The description and the first publisher block are
+      unchanged; this is an ADDITIONAL block, not a reordering. The free path
+      is still what a machine meets first.
+    * NO STATIC PRICES. Prices move — the autonomous experiment engine can
+      change them within their published ceilings — and a registry listing is
+      republished rarely. A copied price would be stale the moment an
+      experiment ran, and a listing that lies about price is worse than one
+      that omits it. Only operation NAMES are listed here; the numbers live at
+      the catalog URL.
+    * ONE CALLABLE CATALOG URL, registry-attributed. It carries `?src=
+      paid_offer:registry`, so a machine that follows it from the listing
+      produces an attributable impression. A machine that merely READS the
+      listing is unobservable to us, and we say so rather than inventing a
+      number for it.
+    """
+    h = s["host"]
+    return {
+        "note": ("The free passport path above is the main offer and needs no "
+                 "payment. These are the OPTIONAL paid operations, listed by "
+                 "name only."),
+        "operations": ["deep_preflight", "evidence_bundle", "watch_cycle"],
+        "catalog": (f"GET {h}/.well-known/agent-guild.json"
+                    "?src=paid_offer:registry"),
+        "catalog_returns": ("current price, auth requirement, the callable "
+                            "entrypoint and the FREE alternative for each "
+                            "operation — always live, never copied here, "
+                            "because prices change and this listing does not"),
+        "payment": "x402 (USDC on Base mainnet, eip155:8453), per call",
+        "free_alternative_exists_for_every_paid_operation": True,
     }
 
 

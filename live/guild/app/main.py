@@ -52,6 +52,7 @@ from . import deepcheck
 from . import indexsources
 from . import experiments
 from .state import store
+from . import paidcatalog
 from .store import CanonicalWriteRefused
 from .reachability import url_policy_check
 from . import abuse
@@ -170,6 +171,10 @@ app.add_middleware(
 # is calling (a framework UA like "python-httpx" / "langchain" vs a browser).
 #: Stable, privacy-safe actor for THIS request (see the middleware). Used for
 #: paid-offer impressions so a challenge is attributable to a distinct caller.
+#: Distinguishes "caller did not pass an actor" from "caller explicitly passed
+#: None", so the default-to-_req_actor behaviour cannot be defeated by accident.
+_SENTINEL: Any = object()
+
 _req_actor: contextvars.ContextVar = contextvars.ContextVar(
     "req_actor", default=None)
 _ua: contextvars.ContextVar[str] = contextvars.ContextVar("ua", default="")
@@ -780,7 +785,12 @@ def health():
             "store": store.store_mode,
             "hashed_keys": creds.hashing_enabled(),
             "abuse_controls": abuse.enabled(),
-            "strict_first_party": bool(os.environ.get("GUILD_FIRST_PARTY_TOKEN"))}
+            "strict_first_party": bool(os.environ.get("GUILD_FIRST_PARTY_TOKEN")),
+            # Canonical-view integrity. An instance that boots from a stale or
+            # rebuilt database can serve a checkpoint feed BEHIND the real one;
+            # ops must be able to see that from the outside rather than
+            # discovering it when a publish hands back a superseded index.
+            "canonical_state": store.canonical_state()}
 
 
 # Captured once at import: when this process (i.e. this deployment) started.
@@ -2868,12 +2878,68 @@ def get_standard():
     }
 
 
+def _serve_paid_offer(source: str, actor: Optional[str] = _SENTINEL):
+    """Render the paid-offer block for `source` AND record one impression per
+    operation, actor-linked and source-tagged.
+
+    This is the LEADING metric of the 2026-08-01 operating mandate: qualified
+    paid-offer impressions, split by operation and by source. It is recorded at
+    the point of SERVING so the denominator exists before anyone converts —
+    at zero impressions, price is not the variable under test, exposure is.
+
+    First-party/internal traffic is excluded downstream STRUCTURALLY by
+    attribution.caller_class, not by filtering here: a surface that hid our own
+    calls at write time would make the exclusion unauditable."""
+    # ACTOR BINDING. The middleware already bound a stable, privacy-safe
+    # identity for this request (`_req_actor`), so DEFAULT to it. An earlier
+    # revision passed no actor at all from the manifest and llms.txt routes,
+    # which meant every impression on those two surfaces recorded actor=None
+    # and the leading metric could never leave zero no matter how much
+    # qualified traffic arrived — the exact failure `_req_actor` was introduced
+    # to fix for 402 challenges.
+    if actor is _SENTINEL:
+        actor = _req_actor.get()
+    block = paidcatalog.offer_block(source)
+    for op in block["operations"]:
+        store.record_event(actor, "paid_offer_served", ua=_ua.get(),
+                           offer="paid", operation=op["operation"],
+                           source=source, price_credits=op["price_credits"],
+                           # distinctness is KNOWN for an HTTP caller: the
+                           # actor is derived from key or client+UA. Absent an
+                           # actor the impression stays unlinkable.
+                           actor_distinct=bool(actor),
+                           endpoint=source.split(":", 1)[-1])
+    return block
+
+
+#: The ONLY attribution value the manifest route accepts on `?src=`. An
+#: open-ended parameter would let any caller mint any source id and forge the
+#: leading metric; a closed allowlist means an unrecognised value is simply
+#: ignored, not recorded.
+_MANIFEST_ALLOWED_SRC = {"paid_offer:registry"}
+
+
 @app.get("/.well-known/agent-guild.json")
-def wellknown_manifest():
+def wellknown_manifest(src: Optional[str] = Query(
+        None, description="attribution source; only 'paid_offer:registry' "
+                          "is recognised (the MCP Registry listing links "
+                          "here). Any other value is ignored.")):
     # the manifest leads with the passport claim — count the offer per serve.
     store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
                        endpoint="manifest")
-    return _manifest()
+    man = _manifest()
+    # The paid layer was invisible on every machine-readable surface until
+    # 2026-08-01: an agent could not learn a deep preflight existed without
+    # first tripping a 402 on a route it had no reason to call.
+    # REGISTRY CLICK-THROUGH. The MCP Registry listing points at this route
+    # with ?src=paid_offer:registry, so a machine that follows the listing
+    # produces an attributable impression on that source. Only the allowlisted
+    # value is honoured; anything else falls back to the manifest's own source
+    # rather than minting a caller-supplied one.
+    source = ("paid_offer:registry"
+              if src in _MANIFEST_ALLOWED_SRC else "paid_offer:manifest")
+    man["paid_operations"] = _serve_paid_offer(source)
+    return man
 
 
 @app.get("/.well-known/glama.json")
@@ -2916,6 +2982,7 @@ def llms_txt():
     # llms.txt leads with the passport claim — count the offer per serve.
     store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
                        endpoint="llms")
+    _serve_paid_offer("paid_offer:llms_txt")
     return (
         "# Agent Guild\n"
         "Can I safely use or pay this endpoint right now? One free call.\n\n"
@@ -3046,7 +3113,13 @@ def llms_txt():
         "## Discovery\n"
         "- Manifest: /.well-known/agent-guild.json\n"
         "- OpenAPI: /openapi.json\n"
-        "- Instrumentation: /instrumentation\n"
+        "- Instrumentation: /instrumentation\n\n"
+        # The paid catalog goes LAST, deliberately. llms.txt must lead with the
+        # free decision (`/preflight`) — that ordering is an honesty invariant
+        # with a test behind it, and prepending the paid section broke it. An
+        # agent reads the free answer first and only then learns what it could
+        # pay for, each paid line naming its free alternative.
+        + paidcatalog.llms_txt_section()
     )
 
 
@@ -3407,6 +3480,18 @@ def admin_index_cycle(x_admin_token: Optional[str] = Header(None)):
                 "fresh_ttl_s": trustindex.fresh_ttl_s()}}
 
 
+@app.get("/funnel/paid")
+def paid_offer_funnel():
+    """Qualified paid-offer impressions by OPERATION and by SOURCE.
+
+    The leading acquisition boundary under the 2026-08-01 mandate: confirmed
+    external mainnet revenue is the number that decides, and this is the only
+    thing upstream of it we can move deliberately. Split by source so
+    "which discovery surface produces qualified paid attention" is measured
+    rather than argued."""
+    return store.paid_offer_funnel()
+
+
 @app.get("/commercial")
 def commercial_report():
     """The commercial scorecard, revenue first — the number that decides.
@@ -3521,14 +3606,30 @@ def ledger_checkpoints(limit: int = Query(20, ge=1, le=200)):
     entries here; a passport's `ledger_anchor.checkpoint_index` points into this
     feed, so anyone can confirm the passport cites a commitment that was public
     at issue time and has not been silently rewritten since."""
-    feed = store.checkpoints[-limit:]
-    return {
+    # Order by INDEX, never by insertion order: a feed loaded out of order (or
+    # partially) must not present a superseded entry as the head. This is the
+    # read-side half of the 2026-08-01 stale-head fix.
+    # Sort by the STRICT canonical index; malformed entries sort last rather
+    # than being coerced into a position they do not hold. The feed's health is
+    # reported in `canonical_state`, which flags them explicitly.
+    ordered = sorted(store.checkpoints,
+                     key=lambda e: (store.canonical_index_of(e) is None,
+                                    store.canonical_index_of(e) or -1))
+    feed = ordered[-limit:]
+    canonical = store.canonical_state()
+    out = {
         "status": "preview",
         "count": len(store.checkpoints),
         "note": "Published checkpoints over the durable ledger. Pin the latest; "
                 "passports cite these by index.",
+        "canonical_state": canonical,
         "checkpoints": list(reversed(feed)),
     }
+    if not canonical["ok"]:
+        # Never serve a stale canonical view as if it were authoritative.
+        out["status"] = "stale_canonical_view"
+        out["do_not_pin"] = canonical["warning"]
+    return out
 
 
 @app.get("/ledger/rotations")

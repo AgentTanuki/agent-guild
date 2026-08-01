@@ -454,7 +454,7 @@ def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
                 "index": index_summary,
             }
         _persist(store)
-        store.record_event(None, "scout_cycle_completed",
+        store.record_internal_event("scout_cycle_completed", "swarm_runner",
                            zero_demand=zero_demand,
                            trigger=trigger,
                            release_sha=release_sha(),

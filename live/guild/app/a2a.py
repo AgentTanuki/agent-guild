@@ -388,8 +388,15 @@ def _swarm_skills(base: str) -> list[dict[str, Any]]:
 
 
 def _agent_card(base: str) -> dict[str, Any]:
+    from . import paidcatalog as _pc
     return {
         "protocolVersion": "0.3.0",
+        # Machine-readable paid layer. Kept OUTSIDE the A2A spec's own keys —
+        # this is an additive vendor block, not an invented spec field — so a
+        # strict A2A consumer ignores it and a curious one can read exactly
+        # what we sell, what it costs and what the free alternative is.
+        "x-agent-guild-paid-operations": _pc.offer_block(
+            "paid_offer:agent_card", base=base),
         "name": "Agent Guild",
         "description": (
             "Can I safely use or pay this endpoint right now? Send "
@@ -571,6 +578,19 @@ def _record_card_offer(request: Request) -> None:
     actor = derive_a2a_actor(request.headers, client_host, "")
     store.record_event(actor, "offer_served", ua=ua_tag, offer="passport",
                        endpoint="agent_card")
+    # PAID-OFFER IMPRESSION, actor-linked and source-tagged. The agent card is
+    # the highest-traffic machine-readable surface we serve, and until
+    # 2026-08-01 it said nothing at all about the paid layer.
+    from . import paidcatalog as _pc
+    for _op in _pc.operations(base=None):
+        store.record_event(actor, "paid_offer_served", ua=ua_tag, offer="paid",
+                           operation=_op["operation"],
+                           source="paid_offer:agent_card",
+                           price_credits=_op["price_credits"],
+                           # derive_a2a_actor returns a stable per-caller key
+                           # (client+UA derived), so distinctness is KNOWN.
+                           actor_distinct=bool(actor),
+                           endpoint="agent_card")
 
 
 @router.get("/.well-known/agent-card.json")

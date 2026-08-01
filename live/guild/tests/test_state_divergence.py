@@ -184,7 +184,18 @@ def test_publish_reports_unverified_write_instead_of_success(tmp_path, monkeypat
 
 
 def test_next_index_comes_from_max_index_not_list_length(tmp_path):
-    """A feed with a gap must not re-issue an index that already exists."""
+    """A feed with a gap must not re-issue an index that already exists.
+
+    GAP POLICY (2026-08-01). A gapped feed now REFUSES by default: a hole means
+    a published commitment is missing from this view, and extending it would
+    produce a chain a verifier cannot walk. The original intent of this test —
+    never re-issue an existing index — is preserved and asserted on the far
+    side of an explicit, gap-shaped authorization.
+    """
+    import os
+    import pytest
+    from app.store import CanonicalWriteRefused
+
     s = _sqlite_store(tmp_path)
     s.record_event(None, "query", ua="seed/1")
     s.publish_checkpoint()                      # index 0
@@ -193,16 +204,33 @@ def test_next_index_comes_from_max_index_not_list_length(tmp_path):
            "ledger_length": 1, "checkpoint": {"head_hash": "x"}}
     s.backend.insert_checkpoint_strict(gap)
     s.checkpoints = s.backend.all_checkpoints()
-    assert len(s.checkpoints) == 2 and s.checkpoints[-1]["index"] == 4
-    # land new evidence so the publish is not the idempotent no-op
-    s.record_collaboration_record({"kind": "test_evidence", "n": 1}) \
-        if hasattr(s, "record_collaboration_record") else None
+    assert len(s.checkpoints) == 2
     s.ledger_records = s.backend.all_ledger()
-    entry = s.publish_checkpoint()
-    # len()-based indexing would have produced 2 and REPLACED nothing but
-    # broken continuity; max()-based indexing produces 5.
-    assert entry["index"] == 5, entry["index"]
-    assert [e["index"] for e in s.backend.all_checkpoints()] == [0, 4, 5]
+    s.record_event(None, "query", ua="seed/2")
+
+    # (a) DEFAULT: refuse, naming the exact missing indices.
+    os.environ.pop("GUILD_CANONICAL_ACCEPT_GAPS", None)
+    with pytest.raises(CanonicalWriteRefused) as exc:
+        s.publish_checkpoint()
+    assert "missing indices [1, 2, 3]" in str(exc.value)
+
+    # (b) a WRONGLY-SHAPED authorization does not apply
+    own = (s.identity or {}).get("did")
+    os.environ["GUILD_CANONICAL_ACCEPT_GAPS"] = f"{own}:1,2"
+    with pytest.raises(CanonicalWriteRefused):
+        s.publish_checkpoint()
+
+    # (c) the EXACT gap, authorised: extend at max+1, never re-issue.
+    os.environ["GUILD_CANONICAL_ACCEPT_GAPS"] = f"{own}:1,2,3"
+    try:
+        entry = s.publish_checkpoint()
+        assert entry["index"] == 5, (
+            "next index must come from max(index)+1, not len(feed)")
+        idxs = [e["index"] for e in s.backend.all_checkpoints()]
+        assert sorted(idxs) == [0, 4, 5]
+        assert len(idxs) == len(set(idxs))
+    finally:
+        os.environ.pop("GUILD_CANONICAL_ACCEPT_GAPS", None)
 
 
 def test_concurrent_publishers_never_fork_the_feed(tmp_path):

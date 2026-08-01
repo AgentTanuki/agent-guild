@@ -400,7 +400,9 @@ def _checkpoint_pin(store: Any) -> Optional[dict[str, Any]]:
         cps = getattr(store, "checkpoints", None) or []
         if not cps:
             return None
-        cp = cps[-1]
+        # TRUE head by index, not the last list element — a challenge must
+        # cite the same commitment the feed presents as its head.
+        cp = max(cps, key=lambda e: int(e.get("index", -1)))
         return {k: cp.get(k) for k in ("seq", "hash", "published_at", "url")
                 if cp.get(k) is not None} or None
     except Exception:

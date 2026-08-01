@@ -202,6 +202,38 @@ AG_TEST_UA_RE = re.compile(
     re.I)
 
 
+# STRUCTURAL first-party origins. An event carrying one of these was produced
+# BY THIS PROCESS (the scout loop, the index observer, the swarm runner) rather
+# than by an inbound caller. It is first-party by construction — there is no
+# remote actor to misclassify — so it is decided BEFORE any UA or header logic.
+#
+# Why this exists (2026-08-01): the autonomous scout/index loops emitted
+# `candidate_*`, `index_observation` and `scout_cycle_completed` events with no
+# actor key and no first-party header, so `caller_class` fell all the way
+# through to EXTERNAL_UNKNOWN. In one 24h window that put ~3,800 of our OWN
+# events into the broad-external bucket and made 168 of the 200 most recent
+# "external" events ours. Qualified metrics already excluded them by a
+# secondary `attribution` field, but the raw telemetry was polluted and the
+# exclusion depended on a fragile derived label rather than on the event's
+# origin. UA matching cannot fix this: our own loops have no distinctive UA,
+# and any string we invented could be spoofed by an outside caller to launder
+# itself INTO our first-party bucket.
+GUILD_INTERNAL_ORIGINS = frozenset({
+    "swarm_scout",         # candidate discovery / refresh / verification
+    "index_observer",      # index coverage observations
+    "swarm_runner",        # cycle bookkeeping
+    "ops_selfcheck",       # in-process health/self-evaluation ticks
+    "experiment_engine",   # autonomous experiment bookkeeping
+})
+
+
+def is_guild_internal_origin(event: Mapping[str, Any]) -> bool:
+    """True iff the event was produced inside this process by a named Guild
+    subsystem. Structural: the origin is stamped at the emit site, never
+    inferred from a header or user agent a caller controls."""
+    return (event.get("origin") or "") in GUILD_INTERNAL_ORIGINS
+
+
 def caller_class(event: Mapping[str, Any], *,
                  member: bool = False, verified: bool = False,
                  operator: bool = False) -> str:
@@ -212,6 +244,11 @@ def caller_class(event: Mapping[str, Any], *,
     `operator` — the call carried the admin token.
     The store decides those three; this function owns everything UA-derived.
     """
+    # STRUCTURAL first-party: emitted by one of our own in-process subsystems.
+    # Checked FIRST — before operator, headers or UA — because it is the only
+    # classification that cannot be influenced by a remote caller.
+    if is_guild_internal_origin(event):
+        return "AG_INTERNAL"
     if operator or event.get("op"):
         return "OPERATOR"
     ua = (event.get("ua", event.get("user_agent")) or "").strip()

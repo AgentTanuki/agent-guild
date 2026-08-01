@@ -198,9 +198,14 @@ def recheck_one(store: Any, fingerprint: str, *,
         if store.backend is not None:
             store._persist_kv("trust_index", store.trust_index)
         store._save()
-    store.record_event(None, "index_observation", endpoint="index",
-                       target=entry["endpoint"], status=entry["status"],
-                       first_party=True)
+    # STRUCTURAL first-party: this observation is produced by our own index
+    # observer, not by an inbound caller. `first_party=True` alone was a bare
+    # metadata field that caller_class never read.
+    store.record_internal_event("index_observation", "index_observer",
+                                endpoint="index",
+                                target=entry["endpoint"],
+                                status=entry["status"],
+                                first_party=True)
     return trustindex.public_view(entry, detail=True)
 
 

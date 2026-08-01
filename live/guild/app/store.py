@@ -119,6 +119,43 @@ class CheckpointForkError(CanonicalWriteRefused):
     code = "checkpoint_fork_refused"
 
 
+class MalformedCheckpointEntryError(CanonicalWriteRefused):
+    """A feed entry does not have a well-formed canonical index.
+
+    A checkpoint index is an ordinal a third party cites. It must be an actual
+    non-negative integer — not missing, not negative, not a bool, not a float,
+    not a numeric string. Everything downstream (ordering, gap detection,
+    predecessor linking, inclusion proofs) assumes that, and `int()` coercion
+    quietly manufactured it: `int(-1)`, `int(True)`, `int(2.7)` and
+    `int("3")` all succeed, so a malformed entry could present itself as a
+    usable position. `index: -1` and a MISSING index were the reachable cases —
+    both collapse to the same sentinel the code uses for "empty feed", so a
+    publish appended index 0 and linked it to the malformed entry."""
+
+    code = "malformed_checkpoint_entry"
+
+
+class CanonicalFloorRegressionError(CanonicalWriteRefused):
+    """The durable canonical view is BELOW a floor we can independently prove
+    was already published (persisted high-water mark, the image-pinned
+    checkpoint, or an operator-pinned floor).
+
+    This is the COLD-INSTANCE case the relative staleness guard cannot see.
+    On 2026-07-31 and again on 2026-08-01 the first publish after a cold start
+    returned index 14 / ledger_length 834 while the authoritative feed head was
+    17 / 840. The earlier hardening compared the DURABLE view against this
+    PROCESS'S in-memory view — but on a cold boot both are hydrated from the
+    same stale source, so they agree with each other and the guard never fires.
+    Agreement between two copies of the same stale state is not freshness.
+
+    The floor fixes that by being EXTERNAL to the state being validated: it
+    survives an empty/rebuilt database because it is carried by the image
+    (docs/checkpoints/latest.json), by an operator pin, and by a monotonic
+    high-water mark that a publish can only ever raise."""
+
+    code = "canonical_floor_regression"
+
+
 class CheckpointWriteVerificationError(CanonicalWriteRefused):
     """Read-after-write failed: the entry is not durably readable, or read back
     with different bytes than were written."""
@@ -227,6 +264,23 @@ class Store:
         # come from the in-memory collections (correct under a single writer);
         # only the persistence path changes.
         self.store_mode = (os.environ.get("GUILD_STORE") or "json").strip().lower()
+        # Canonical-view integrity (cold-instance stale-head protection).
+        # `canonical_hwm` is the JSON-mode home of the monotonic high-water
+        # mark; under sqlite it lives in kv. `canonical_seed_degraded` is set
+        # by the boot path when this instance was hydrated from a snapshot
+        # older than a position already proven published.
+        self.canonical_hwm: dict[str, Any] = {}
+        self.canonical_seed_degraded: dict[str, Any] = {}
+        self.canonical_recovery_authorized: dict[str, Any] = {}
+        # Set by ANY failure to read canonical state (quarantine, adoption or
+        # high-water mark) from the durable store. Kept separate from
+        # `canonical_seed_degraded` so the "we could not verify" condition is
+        # ORDER-INDEPENDENT: whichever read fails, and whenever it fails during
+        # boot, recovery authorization is refused, because the issuer and head
+        # an authorization is matched against live in the rows we could not
+        # read.
+        self.canonical_state_unreadable: dict[str, Any] = {}
+        self.canonical_pin_malformed: dict[str, Any] = {}
         self.backend = None
         if self.store_mode == "sqlite":
             self._guard_single_writer()          # sqlite is single-writer ONLY
@@ -516,11 +570,20 @@ class Store:
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
-    def _sqlite_initial_load(self):
+    def _sqlite_initial_load(self, quarantine: Optional[dict] = None):
         """One-time cutover: write the whole in-memory state (hydrated from the
-        JSON snapshot) into sqlite, including the append-only logs."""
+        JSON snapshot) into sqlite, including the append-only logs.
+
+        `quarantine`, when set, is written inside the SAME transaction as the
+        seeded state. That atomicity is the point: the row that says "this
+        database is not trustworthy for canonical writes" lands with the data it
+        describes, so there is no window in which the seed exists without its
+        quarantine, and a crash mid-cutover leaves the database quarantined
+        rather than seeded-and-trusted."""
         b = self.backend
         with b.transaction():
+            if quarantine is not None:
+                b.put_kv(self.CANONICAL_QUARANTINE_KEY, quarantine)
             for r in self.agents.values():
                 b.put_agent(r)
             for r in self.accounts.values():
@@ -570,6 +633,33 @@ class Store:
                 b.put_invocation(_inv)
 
     def _load_sqlite(self):
+        # COLD-INSTANCE SEED HOLE — a REACHABLE PATH to the observed defect
+        # class, NOT an established production root cause.
+        #
+        # What we actually observed on 2026-07-31 and 2026-08-01 is the SYMPTOM:
+        # the first publish after a cold start returned a superseded checkpoint
+        # (index 14 / ledger_length 834 while the authoritative feed head was
+        # 17 / 840), and immediate retries returned the correct head. We do NOT
+        # have direct evidence of what produced that state in production.
+        #
+        # This branch is a path that demonstrably reproduces the symptom, and it
+        # is the one we can close: an EMPTY sqlite database (fresh disk, rebuilt
+        # volume, a container that came up before its persistent disk attached)
+        # hydrates canonical ledger + checkpoint state from the JSON file baked
+        # into the image — a snapshot as old as the last build. The instance
+        # then serves, and would publish from, a canonical view behind the real
+        # feed, and nothing downstream can tell, because the in-memory and
+        # durable views agree: both came from the same stale file.
+        #
+        # The guard below is justified by the defect class — a canonical write
+        # built on a view that cannot be shown to be current — not by a proven
+        # causal chain.
+        #
+        # So the seed is now floor-checked BEFORE it is trusted. Below the
+        # floor, the canonical collections are seeded but the instance is
+        # marked degraded: reads say so, and every canonical write refuses.
+        # Seeding is not silently skipped — an instance with no state at all
+        # would be a worse failure than one that knows it is behind.
         if self.backend.is_empty() and self.path and os.path.exists(self.path):
             # cutover from an existing JSON store on first sqlite boot.
             # AUTOMATIC BACKUP first: the JSON file is the rollback artifact
@@ -583,7 +673,76 @@ class Store:
                 pass  # a failed backup must not block boot; JSON file remains
             self._load_from_json_file()
             self._replay_event_journal()
-            self._sqlite_initial_load()
+            floor = self.canonical_floor()
+            _sh = self.feed_head(self.checkpoints)
+            _shi = self.canonical_index_of(_sh) if _sh else None
+            head_idx = -1 if _shi is None else _shi
+            # UNCONDITIONAL QUARANTINE FOR AN ESTABLISHED ISSUER.
+            #
+            # The floor COMPARISON is one checkpoint behind the threat: pin at
+            # 17, production publishes 18 and records HWM 18, the database is
+            # lost, the HWM dies with it, the stale image seeds 17, the floor
+            # is 17, seed == floor, and a comparison-only guard accepts a view
+            # a full checkpoint behind reality.
+            #
+            # So the trigger is not a comparison. An EMPTY durable backend being
+            # seeded from JSON for an issuer we can PROVE has already published
+            # is unsafe on its face: the only evidence that could show the seed
+            # is current is the database we just failed to find.
+            #
+            # AND THE QUARANTINE MUST BE DURABLE. Held in memory only, it lasted
+            # exactly one process: this cutover makes the backend NON-EMPTY, so
+            # the next boot skips this branch entirely, the in-memory flag comes
+            # back empty, and publishing resumes at the stale head. Restart
+            # repro on the previous commit: cold_ok=False/degraded=True, then
+            # restart_ok=True/degraded=False, restart_publish_index=2. A guard
+            # that a restart clears is not a guard.
+            #
+            # It is therefore written to the DATABASE BEING SEEDED, inside the
+            # same transaction that seeds it, and rehydrated on EVERY boot from
+            # that row — so it survives unlimited restarts, and travels with the
+            # quarantined database rather than with this process. Restoring the
+            # authoritative database clears it by construction: that database
+            # never had the row.
+            established = self._issuer_has_prior_canonical_history()
+            below_floor = (head_idx < floor["checkpoint_index"]
+                           or len(self.ledger_records) < floor["ledger_length"])
+            quarantine = None
+            if established or below_floor:
+                quarantine = {
+                    "at": _now(),
+                    "issuer": (self.identity or {}).get("did"),
+                    "seed_checkpoint_index": head_idx,
+                    "seed_ledger_length": len(self.ledger_records),
+                    "reason": ("empty_backend_cutover_for_established_issuer"
+                               if established and not below_floor
+                               else "seed_below_proven_canonical_floor"),
+                    "floor_checkpoint_index": floor["checkpoint_index"],
+                    "floor_ledger_length": floor["ledger_length"],
+                    "floor_sources": floor["sources"],
+                    "action": ("canonical writes refused, and this refusal is "
+                               "DURABLE — it survives restarts because it is "
+                               "stored in the quarantined database itself. An "
+                               "empty durable backend was seeded from a JSON "
+                               "snapshot for an issuer with prior published "
+                               "history. An absent persistent disk must not "
+                               "become an automatic cutover: point the instance "
+                               "at the real database, or authorise the "
+                               "migration explicitly."),
+                    "authorize_with": (
+                        "GUILD_CANONICAL_RECOVERY=<issuer_did>:<seed head "
+                        "index> — an explicit, auditable operator statement "
+                        "that this backend IS the intended new home of the "
+                        "canonical feed at that exact head. The adoption is "
+                        "recorded durably; the env var is not a per-boot "
+                        "bypass and is not required again afterwards."),
+                }
+                self.canonical_seed_degraded = quarantine
+            # ORDER MATTERS: the quarantine is written BEFORE the cutover is
+            # reported complete, so a crash mid-seed can only ever leave the
+            # database quarantined — never seeded-and-trusted.
+            self._sqlite_initial_load(quarantine=quarantine)
+            self._apply_recovery_authorization(head_idx)
             return
         d = self.backend.load_all()
         self.agents = d["agents"]
@@ -597,6 +756,13 @@ class Store:
         self.identity = d["identity"]
         self.ledger_records = d["ledger"]
         self.checkpoints = d["checkpoints"]
+        # REHYDRATE THE QUARANTINE on every boot, before anything can publish.
+        # This is the branch a restart takes (the backend is no longer empty),
+        # and it is precisely where the previous, memory-only flag vanished.
+        # It runs AFTER identity/checkpoints are hydrated because the quarantine
+        # and any adoption record are ISSUER-SCOPED — matching them against an
+        # unloaded identity would silently never match.
+        self._rehydrate_canonical_quarantine()
         self.escrows = d["escrows"]
         self.guild_revenue = d["guild_revenue"]
         self.demand_watches = d["demand_watches"]
@@ -655,6 +821,7 @@ class Store:
             self.identity = data.get("identity", {})
             self.ledger_records = data.get("ledger_records", [])
             self.checkpoints = data.get("checkpoints", [])
+            self.canonical_hwm = data.get("canonical_hwm", {}) or {}
             self.escrows = data.get("escrows", {})
             self.guild_revenue = data.get("guild_revenue", 0)
             self.demand_watches = data.get("demand_watches", [])
@@ -786,6 +953,7 @@ class Store:
                        "identity": self.identity,
                        "ledger_records": self.ledger_records,
                        "checkpoints": self.checkpoints,
+                       "canonical_hwm": self.canonical_hwm,
                        "escrows": self.escrows,
                        "guild_revenue": self.guild_revenue,
                        "demand_watches": self.demand_watches,
@@ -2165,7 +2333,11 @@ class Store:
         per-surface funnels never guess."""
         key = creds.sanitize_actor_key(key)
         acct = self.accounts.get(key or "")
-        fp = bool(acct and acct.get("first_party"))
+        # An event stamped with a Guild subsystem origin is first-party BY
+        # CONSTRUCTION — it never crossed the network — so `fp` must reflect
+        # that even though there is no account behind it.
+        from . import attribution as _attr
+        fp = bool(acct and acct.get("first_party")) or _attr.is_guild_internal_origin(meta)
         event = {"key": key or "anon", "type": etype, "ua": ua or "",
                  "fp": fp, "surface": self._surface_of(key, ua or ""),
                  "at": _now(), **meta}
@@ -2178,6 +2350,133 @@ class Store:
         # keep the persisted log bounded
         if len(self.events) > 50000:
             self.events = self.events[-25000:]
+
+    def paid_offer_funnel(self) -> dict[str, Any]:
+        """QUALIFIED PAID-OFFER IMPRESSIONS, split by operation and by source.
+
+        This is the LEADING boundary of the 2026-08-01 operating mandate. The
+        primary number is confirmed external mainnet revenue; this is the
+        measurable thing UPSTREAM of it. Reported honestly:
+
+          * `qualified` counts DISTINCT ACTORS whose caller_class may count as
+            external growth (attribution.may_count_as_external_growth). Our own
+            scout loops, canaries, release gates and registry crawlers are
+            excluded STRUCTURALLY by class, never by a filter applied here.
+          * `impressions` (raw serves) is reported SEPARATELY and is reach, not
+            attention: one crawler hitting the agent card 400 times is one
+            surface being scraped, not 400 agents considering a purchase.
+          * `anonymous_unlinkable` serves are reported as their own line. An
+            actor we cannot follow can neither convert nor fail to convert, so
+            putting it in a conversion denominator would manufacture a failure
+            rate out of an unknown.
+
+        A denominator of zero is reported as NOT MEASURABLE, never as 0%."""
+        from . import attribution as _attr
+        by_op: dict[str, dict[str, Any]] = {}
+        by_source: dict[str, dict[str, Any]] = {}
+        qualified_actors: set = set()
+        raw = anon = 0
+        for ev in self.events:
+            if ev.get("type") != "paid_offer_served":
+                continue
+            raw += 1
+            op = ev.get("operation") or "unknown"
+            src = ev.get("source") or "unknown"
+            cls = self._caller_class_for(ev)
+            external = _attr.may_count_as_external_growth(cls)
+            actor = ev.get("key") or "anon"
+            # UNLINKABLE = we cannot follow this caller. Two distinct causes,
+            # both disqualifying for a conversion denominator:
+            #   * no actor at all (anonymous), and
+            #   * an actor whose DISTINCTNESS is unknown — a bare MCP client
+            #     that advertised nothing identifying collapses with every
+            #     other bare client, so counting it would manufacture one
+            #     qualified actor out of an unknown number of callers.
+            # `actor_distinct is False` is the explicit unknown; absent means
+            # the surface knows its actors are distinct (HTTP key/client hash).
+            unlinkable = (actor in ("", "anon", None)
+                          or ev.get("actor_distinct") is False)
+            for bucket, k in ((by_op, op), (by_source, src)):
+                d = bucket.setdefault(k, {
+                    "impressions": 0, "qualified_impressions": 0,
+                    "qualified_actors": set(), "first_party_or_tooling": 0,
+                    "anonymous_unlinkable": 0})
+                d["impressions"] += 1
+                if not external:
+                    d["first_party_or_tooling"] += 1
+                elif unlinkable:
+                    d["anonymous_unlinkable"] += 1
+                else:
+                    d["qualified_impressions"] += 1
+                    d["qualified_actors"].add(actor)
+            if not external:
+                continue
+            if unlinkable:
+                anon += 1
+            else:
+                qualified_actors.add(actor)
+
+        def _fin(bucket):
+            out = {}
+            for k, d in bucket.items():
+                out[k] = {**{kk: vv for kk, vv in d.items()
+                             if kk != "qualified_actors"},
+                          "qualified_distinct_actors": len(d["qualified_actors"])}
+            return out
+
+        total_q = len(qualified_actors)
+        return {
+            "measure": ("DISTINCT QUALIFIED EXTERNAL ACTORS shown a paid "
+                        "offer. Raw impressions are reported beside it and are "
+                        "reach, not attention."),
+            "qualified_distinct_actors": total_q,
+            "raw_impressions": raw,
+            "anonymous_unlinkable_impressions": anon,
+            "by_operation": _fin(by_op),
+            "by_source": _fin(by_source),
+            "measurable": total_q > 0,
+            "note": ("At zero qualified impressions the price is NOT the "
+                     "variable under test — exposure is. No price change is "
+                     "warranted until a predeclared adequate denominator "
+                     "exists."),
+            "exclusions": ("first-party, AG test harnesses, release gates, "
+                           "canaries, registry crawlers and in-process Guild "
+                           "subsystems (attribution.GUILD_INTERNAL_ORIGINS) "
+                           "are excluded by CALLER CLASS, structurally"),
+        }
+
+    def _caller_class_for(self, ev: dict[str, Any]) -> str:
+        """caller_class for a stored event, resolving member/verified from the
+        actor's account so the class is the same one the funnel endpoints use."""
+        from . import attribution as _attr
+        key = ev.get("key") or ""
+        acct = self.accounts.get(key) or {}
+        agent_id = acct.get("owner_agent_id") or acct.get("agent_id")
+        agent = self.agents.get(agent_id or "") or {}
+        member = bool(acct)
+        verified = bool((agent.get("milestones") or {}).get("key_proof")
+                        or agent.get("proof_of_conduct"))
+        return _attr.caller_class(ev, member=member, verified=verified)
+
+    def record_internal_event(self, etype: str, origin: str, **meta) -> None:
+        """Record an event this PROCESS produced (scout loop, index observer,
+        swarm runner) rather than one an inbound caller produced.
+
+        Stamps `origin` so `attribution.caller_class` classifies it AG_INTERNAL
+        structurally. Before this existed those loops called `record_event(None,
+        ...)`, which has no actor key and no first-party header and therefore
+        fell through to EXTERNAL_UNKNOWN — our own acquisition machinery
+        inflating the external bucket it was supposed to be measuring.
+
+        `origin` MUST be one of attribution.GUILD_INTERNAL_ORIGINS; an unknown
+        origin raises rather than silently producing an unclassified event."""
+        from . import attribution as _attr
+        if origin not in _attr.GUILD_INTERNAL_ORIGINS:
+            raise ValueError(
+                f"unknown internal origin {origin!r}; add it to "
+                "attribution.GUILD_INTERNAL_ORIGINS deliberately")
+        self.record_event(None, etype, origin=origin, fp_role="internal",
+                          **meta)
 
     def record_milestone(self, agent_id: str, name: str, **meta) -> bool:
         """Stamp a once-per-agent journey milestone and emit its stage-transition
@@ -4547,8 +4846,9 @@ class Store:
             "agents": len(self.agents),
             "ledger_records": len(self.ledger_records),
             "checkpoints": len(self.checkpoints),
-            "checkpoint_head_index": (self.checkpoints[-1].get("index")
-                                      if self.checkpoints else None),
+            "checkpoint_head_index": (
+                int(self.feed_head(self.checkpoints).get("index", -1))
+                if self.checkpoints else None),
             "store_rev": self.revision,
         }
         out: dict[str, Any] = {
@@ -4597,6 +4897,640 @@ class Store:
         out["consistent"] = not out["divergence"]
         return out
 
+    # --- canonical floor: cold-instance stale-head protection ---------------
+    # A checkpoint is a CANONICAL COMMITMENT. Two independent incidents
+    # (2026-07-31, 2026-08-01) had the first publish after a cold start build on
+    # a durable view several entries behind the authoritative feed, because the
+    # process had been hydrated from a stale source (an empty/rebuilt sqlite DB
+    # seeded from the image's JSON snapshot, or a fresh disk). Comparing that
+    # view against this process's OWN in-memory view cannot detect it: both are
+    # stale, and they agree.
+    #
+    # The floor is the highest canonical position we can prove was published
+    # WITHOUT trusting the state under test. It is the max of three
+    # independent sources, so losing any one of them still fails closed:
+    #   1. HWM   — a monotonic high-water mark this deployment persisted on its
+    #              last successful publish (dies with the database, which is
+    #              exactly the case sources 2 and 3 cover).
+    #   2. IMAGE — docs/checkpoints/latest.json, committed to git and therefore
+    #              baked into every container image. Survives a wiped disk.
+    #   3. PIN   — GUILD_LEDGER_FLOOR_INDEX / GUILD_LEDGER_FLOOR_LENGTH, an
+    #              operator override for incident response.
+    # The floor only ever RISES. It is never derived from the durable view it
+    # is validating — that circularity is the whole bug.
+    CANONICAL_HWM_KEY = "canonical_hwm"
+    #: DURABLE quarantine + adoption records. Both live in the DATABASE they
+    #: describe, so they travel with it: restoring the authoritative database
+    #: clears the quarantine by construction (that database never had the row),
+    #: and a quarantined one stays quarantined across unlimited restarts.
+    CANONICAL_QUARANTINE_KEY = "canonical_quarantine"
+    CANONICAL_ADOPTION_KEY = "canonical_recovery_adoption"
+
+    def _image_pinned_floor(self) -> dict[str, Any]:
+        """Floor carried by the container image (git-committed checkpoint pin).
+
+        ISSUER-SCOPED, and that scoping is load-bearing. The pin proves "THIS
+        issuer already published index N". A different deployment of this code
+        (a fork, a fresh staging stack, a test) mints its OWN guild identity and
+        legitimately starts from an empty feed — applying our production pin to
+        it would refuse every publish it ever makes. So the pin only counts when
+        the checkpoint issuer DID matches this Store's own identity.
+
+        Deliberately best-effort and non-fatal: a missing or unreadable pin
+        contributes nothing, it does not fail boot."""
+        try:
+            here = os.path.dirname(os.path.abspath(__file__))
+            # live/guild/app/store.py -> repo root
+            root = os.path.abspath(os.path.join(here, "..", "..", ".."))
+            pin = os.path.join(root, "docs", "checkpoints", "latest.json")
+            if not os.path.exists(pin):
+                return {}
+            with open(pin) as f:
+                d = json.load(f)
+            pinned_issuer = (d.get("checkpoint") or {}).get("issuer")
+            # Read the DID off the loaded identity WITHOUT calling
+            # guild_identity(), which can mint and persist a new one — a floor
+            # check must never have side effects.
+            own = (self.identity or {}).get("did")
+            if not pinned_issuer or not own or pinned_issuer != own:
+                return {}
+            return {"checkpoint_index": int(d.get("index", -1)),
+                    "ledger_length": int(d.get("ledger_length", 0)),
+                    "source": "image_pin"}
+        except Exception:  # noqa: BLE001 — a bad pin must never block boot
+            return {}
+
+    def _operator_pinned_floor(self) -> dict[str, Any]:
+        """The operator-supplied floor, if any.
+
+        INSTANCE METHOD, not a staticmethod. It records the malformed-pin note
+        on `self`, and when this was still decorated ``@staticmethod`` that
+        handler raised ``NameError: name 'self' is not defined`` — so
+        ``GUILD_LEDGER_FLOOR_INDEX=not-an-int`` crashed canonical_state(),
+        /health and publish outright. A guard that crashes the surface it is
+        meant to protect is worse than the silence it replaced.
+
+        Each variable is parsed SEPARATELY so one bad value does not discard a
+        good one, and so the note can name which is wrong.
+
+        A malformed pin is OPERATOR ERROR, not a storage failure, and cannot
+        create a bypass: the structural quarantine trigger does not consult this
+        value. So it is SURFACED, never degraded — and it never clears an
+        existing quarantine."""
+        raw_idx = os.environ.get("GUILD_LEDGER_FLOOR_INDEX")
+        raw_len = os.environ.get("GUILD_LEDGER_FLOOR_LENGTH")
+        if raw_idx is None and raw_len is None:
+            return {}
+        out: dict[str, Any] = {"checkpoint_index": -1, "ledger_length": 0,
+                               "source": "operator_pin"}
+        malformed = []
+        for raw, key, name in ((raw_idx, "checkpoint_index",
+                                "GUILD_LEDGER_FLOOR_INDEX"),
+                               (raw_len, "ledger_length",
+                                "GUILD_LEDGER_FLOOR_LENGTH")):
+            if raw is None:
+                continue
+            try:
+                out[key] = int(raw)
+            except (TypeError, ValueError):
+                malformed.append(name)
+        if malformed:
+            # NEVER echo the raw value. It is operator-supplied and this record
+            # is served publicly on /health; naming the variable is enough to
+            # fix it.
+            self.canonical_pin_malformed = {
+                "at": _now(),
+                "malformed": malformed,
+                "note": (f"{' and '.join(malformed)} could not be parsed as an "
+                         "integer and is being IGNORED. This does not relax any "
+                         "quarantine; it only means this floor source "
+                         "contributes nothing."),
+            }
+        if malformed and len(malformed) == len([r for r in (raw_idx, raw_len)
+                                                if r is not None]):
+            return {}          # nothing usable at all
+        return out
+
+    def _persisted_hwm(self) -> dict[str, Any]:
+        """The high-water mark this deployment recorded on its last publish.
+
+        Same fail-closed rule as the quarantine read, for the same reason: a
+        swallowed read failure here would silently LOWER the floor (this source
+        just contributes nothing), and a lower floor is a weaker guard. If we
+        cannot read our own canonical state we do not get to assume it is
+        benign — we degrade and refuse."""
+        if self.backend is None:
+            return dict(self.__dict__.get("canonical_hwm") or {})
+        try:
+            return self.backend.fetch_kv(self.CANONICAL_HWM_KEY, {}) or {}
+        except Exception as exc:  # noqa: BLE001
+            self.canonical_state_unreadable = {
+                "at": _now(), "error_class": type(exc).__name__,
+                "unreadable": "high_water_mark"}
+            if not self.canonical_seed_degraded:
+                self.canonical_seed_degraded = {
+                    "at": _now(),
+                    "reason": "canonical_quarantine_state_unreadable",
+                    "error_class": type(exc).__name__,
+                    "unreadable": "high_water_mark",
+                    "action": ("canonical writes refused: the durable "
+                               "high-water mark could not be read, so the "
+                               "canonical floor cannot be established."),
+                }
+            return {}
+
+    @staticmethod
+    def canonical_index_of(entry: Any) -> Optional[int]:
+        """The entry's canonical index, or None if it does not have one.
+
+        STRICT by design. `bool` is excluded explicitly because it is a
+        subclass of `int` in Python, so `True` would otherwise pass as index 1
+        — a malformed entry silently occupying a real canonical position."""
+        if not isinstance(entry, dict):
+            return None
+        idx = entry.get("index")
+        if isinstance(idx, bool) or not isinstance(idx, int):
+            return None
+        return idx if idx >= 0 else None
+
+    @classmethod
+    def malformed_entry_positions(cls, checkpoints: list) -> list:
+        """LIST POSITIONS of entries without a well-formed canonical index.
+
+        Positions, never values: the values are untrusted and these messages
+        reach /health and a 409 body."""
+        return [i for i, e in enumerate(checkpoints or [])
+                if cls.canonical_index_of(e) is None]
+
+    def checkpoint_by_index(self, index: int) -> Optional[dict[str, Any]]:
+        """The published entry whose OWN `index` equals `index`.
+
+        Never a list offset. Callers cite checkpoints by index — passports,
+        inclusion proofs, third-party pins — and a list position only coincides
+        with an index while the feed happens to be ordered and gap-free."""
+        if isinstance(index, bool) or not isinstance(index, int) or index < 0:
+            return None
+        for e in self.checkpoints or []:
+            if self.canonical_index_of(e) == index:
+                return e
+        return None
+
+    @staticmethod
+    def feed_head(checkpoints: list) -> Optional[dict[str, Any]]:
+        """The TRUE head of a checkpoint feed: the entry with the greatest
+        index, never simply the last element of the list.
+
+        The feed is a hash chain over entry BYTES, and the previous commit
+        already selected by index for the idempotent return and the next index
+        — but still built `prev_entry_sha256` from ``checkpoints[-1]``. With a
+        feed loaded or held out of order ([2, 0, 1]) a new index 3 therefore
+        committed to index 1, so the published chain silently skipped a link:
+        anyone verifying continuity from the ordered feed would find index 3's
+        predecessor commitment did not match index 2's bytes.
+
+        One helper, used everywhere the head is needed, so the three call sites
+        cannot drift apart again."""
+        # Only WELL-FORMED entries can be the head. A malformed one must never
+        # be silently promoted into the position everything else links to; the
+        # write path refuses the whole feed separately
+        # (assert_feed_wellformed), and the read path simply does not treat
+        # rubbish as canonical.
+        valid = [e for e in (checkpoints or [])
+                 if Store.canonical_index_of(e) is not None]
+        if not valid:
+            return None
+        return max(valid, key=lambda e: Store.canonical_index_of(e))
+
+    def assert_feed_wellformed(self, checkpoints: list) -> None:
+        """Structural invariants a feed must satisfy before we publish onto it.
+
+        DUPLICATES fail closed: two entries claiming one index means one of them
+        is not the commitment a third party pinned, and we cannot tell which.
+
+        GAPS fail closed too, and that is an explicit decision rather than an
+        oversight. A hole means a published commitment is missing from this
+        view — precisely the "cannot be shown to be current" condition the whole
+        guard exists for. Extending a feed we can see is incomplete would
+        produce a chain that verifies against nothing. (Production's feed is
+        contiguous 0..17, so this refuses nothing that exists today.) One
+        auditable escape exists — GUILD_CANONICAL_ACCEPT_GAPS, which must name
+        the issuer and the exact missing indices — so a lost entry does not
+        brick publishing forever."""
+        if not checkpoints:
+            return
+        # SHAPE BEFORE STRUCTURE. Duplicate/gap analysis is only meaningful
+        # over entries that actually have canonical indices; running it over
+        # coerced values is how `index: -1` and a missing index both collapsed
+        # into the "empty feed" sentinel and let a publish append index 0
+        # linked to the malformed entry.
+        bad = self.malformed_entry_positions(checkpoints)
+        if bad:
+            raise MalformedCheckpointEntryError(
+                f"refusing to publish: {len(bad)} checkpoint feed "
+                f"entr{'y' if len(bad) == 1 else 'ies'} at list position(s) "
+                f"{bad} do not have a well-formed canonical index. An index "
+                "must be a non-negative integer (not missing, negative, a "
+                "bool, a float or a string).")
+        idxs = [self.canonical_index_of(e) for e in checkpoints]
+        dupes = sorted({i for i in idxs if idxs.count(i) > 1})
+        if dupes:
+            raise CheckpointForkError(
+                f"refusing to publish: the checkpoint feed has DUPLICATE "
+                f"indices {dupes}. Two entries claim one canonical position; "
+                "one of them is not what was published.")
+        # PREFIX GAPS COUNT. This used to compute the expected range from
+        # min(idxs), which makes a missing PREFIX invisible by construction: a
+        # feed containing only index 7 has min == max == 7, no gap is detected,
+        # and it happily appends 8 — while indices 0..6, which third parties
+        # may hold, are simply absent. The canonical feed starts at 0, so the
+        # expected range is anchored at 0, not at whatever survived.
+        hi = max(idxs)
+        missing = sorted(set(range(0, hi + 1)) - set(idxs))
+        if not missing:
+            return
+        # GAP POLICY — an explicit decision, not an oversight.
+        #
+        # A hole means a published commitment is missing from this view, which
+        # is the "cannot be shown to be current" condition the whole guard
+        # exists for: extending the feed would produce a chain a verifier
+        # cannot walk. So gaps REFUSE by default.
+        #
+        # But a lost entry must not brick publishing forever with no way back,
+        # so there is one auditable escape, shaped exactly like the recovery
+        # authorization: it must name this issuer AND the exact missing
+        # indices, so it stops applying the moment the shape of the gap
+        # changes and cannot be left switched on as a general "ignore gaps".
+        # With it, the historical behaviour holds — extend at max+1, never
+        # re-issue an existing index.
+        raw = (os.environ.get("GUILD_CANONICAL_ACCEPT_GAPS") or "").strip()
+        own = (self.identity or {}).get("did") if hasattr(self, "identity") \
+            else None
+        if raw and ":" in raw:
+            did, _, spec = raw.rpartition(":")
+            try:
+                declared = sorted(int(x) for x in spec.split(",") if x.strip())
+            except ValueError:
+                declared = None
+            if did.strip() == own and declared == missing:
+                return
+        raise CanonicalFloorRegressionError(
+            f"refusing to publish: the checkpoint feed is missing indices "
+            f"{missing} below head {hi}. A gapped feed is not a canonical "
+            "feed — extending it would commit to a history this instance "
+            "cannot show. If the gap is known and accepted, authorise it "
+            "explicitly with GUILD_CANONICAL_ACCEPT_GAPS=<issuer_did>:"
+            + ",".join(str(m) for m in missing) + " — it names the exact gap, "
+            "so it expires when the gap changes.")
+
+    def _persisted_hwm_strict(self) -> dict[str, Any]:
+        """The high-water mark, for the WRITE path — RAISES on a read failure.
+
+        `_persisted_hwm` is deliberately non-raising because it is reached from
+        `canonical_state()`, a public read surface that must not 500. But the
+        two callers want opposite things from a failed read: a reader wants to
+        be told the state is degraded, a WRITER must not proceed at all.
+
+        Splitting them closes the runtime hole: the boot-time flag check in
+        `_assert_canonical_floor` cannot see an hwm read that starts failing
+        AFTER boot, and the non-raising path would simply contribute nothing to
+        the floor and let the publish continue. Measured on the previous commit:
+        healthy first publish index 0, then injecting an hwm read failure on the
+        SAME live Store and publishing again returned index 1 with
+        state_unreadable already set."""
+        if self.backend is None:
+            return dict(self.__dict__.get("canonical_hwm") or {})
+        try:
+            return self.backend.fetch_kv(self.CANONICAL_HWM_KEY, {}) or {}
+        except Exception as exc:  # noqa: BLE001
+            self.canonical_state_unreadable = {
+                "at": _now(), "error_class": type(exc).__name__,
+                "unreadable": "high_water_mark"}
+            raise CanonicalFloorRegressionError(
+                "refusing to publish: the durable high-water mark could not be "
+                f"read ({type(exc).__name__}), so the canonical floor cannot be "
+                "established. Aborting the canonical write at the point of "
+                "failure.") from exc
+
+    def canonical_floor(self) -> dict[str, Any]:
+        """Highest independently-provable canonical position. Never read from
+        the state it validates."""
+        best = {"checkpoint_index": -1, "ledger_length": 0, "sources": []}
+        for cand in (self._persisted_hwm(), self._image_pinned_floor(),
+                     self._operator_pinned_floor()):
+            if not cand:
+                continue
+            best["sources"].append(cand.get("source", "hwm"))
+            if int(cand.get("checkpoint_index", -1)) > best["checkpoint_index"]:
+                best["checkpoint_index"] = int(cand.get("checkpoint_index", -1))
+            if int(cand.get("ledger_length", 0)) > best["ledger_length"]:
+                best["ledger_length"] = int(cand.get("ledger_length", 0))
+        return best
+
+    def _issuer_has_prior_canonical_history(self) -> bool:
+        """Can we PROVE this issuer already published a canonical checkpoint,
+        without consulting the durable state we are about to distrust?
+
+        Evidence that survives a lost database:
+          * the image-pinned checkpoint, if its issuer is ours;
+          * an operator pin;
+          * the seeded JSON snapshot itself carrying published checkpoints
+            issued by us — a snapshot that contains our own published feed is
+            proof this deployment has published before, whatever its age.
+
+        Deliberately NOT evidence: the empty backend. Absence of a database is
+        the symptom, never the exoneration."""
+        own = (self.identity or {}).get("did")
+        if not own:
+            return False
+        if self._operator_pinned_floor():
+            return True
+        if self._image_pinned_floor():          # already issuer-scoped
+            return True
+        for e in self.checkpoints or []:
+            if (e.get("checkpoint") or {}).get("issuer") == own:
+                return True
+        return False
+
+    def _rehydrate_canonical_quarantine(self) -> None:
+        """Restore the durable quarantine/adoption state at boot.
+
+        Called on the NON-cutover branch — the one every restart takes once the
+        backend is non-empty. Without this the quarantine lasted a single
+        process: the cutover made the backend non-empty, the next boot skipped
+        the empty-backend branch, the in-memory flag came back `{}` and
+        publishing resumed at the stale head.
+
+        An adoption record wins over a quarantine row, but ONLY if it still
+        matches the state it was granted for. An adoption that names a head the
+        feed has since moved past is stale and fails closed."""
+        if self.backend is None:
+            return
+        # Probe the high-water mark FIRST so `canonical_state_unreadable` is
+        # established before any recovery decision is taken. Without this the
+        # refusal would be order-dependent: the hwm is normally read later, via
+        # canonical_floor(), which is AFTER _apply_recovery_authorization has
+        # already run — so an unreadable hwm would not have blocked a recovery
+        # that a readable one should never have been evaluated against.
+        self._persisted_hwm()
+        try:
+            quarantine = self.backend.fetch_kv(
+                self.CANONICAL_QUARANTINE_KEY, None)
+            adoption = self.backend.fetch_kv(self.CANONICAL_ADOPTION_KEY, None)
+        except Exception as exc:  # noqa: BLE001
+            # FAIL CLOSED ON AN UNREADABLE CANONICAL STATE.
+            #
+            # This branch used to `return`, with a comment asserting that
+            # "leaving state untouched is safe here". It was not: on the
+            # restart path the untouched state is `{}`, i.e. NOT degraded, so a
+            # single failed read of the quarantine row silently un-quarantined
+            # the instance. Fault-injecting only fetch_kv(quarantine) on the
+            # previous commit gave ok=True, degraded=False and a successful
+            # publish at index 2 — the same bypass as the memory-only bug,
+            # reached through the error path instead of a restart.
+            #
+            # If we cannot READ whether this database is quarantined, we do not
+            # know that it is not. Unknown is not clear. So the instance
+            # degrades immediately, publishing refuses, and /health says so.
+            #
+            # Only the exception CLASS NAME is recorded. The message can carry
+            # a file path, a connection string or a token and this record is
+            # served publicly on /health and /ledger/checkpoints.
+            self.canonical_state_unreadable = {
+                "at": _now(), "error_class": type(exc).__name__,
+                "unreadable": "quarantine_or_adoption"}
+            self.canonical_seed_degraded = {
+                "at": _now(),
+                "reason": "canonical_quarantine_state_unreadable",
+                "error_class": type(exc).__name__,
+                "action": ("canonical writes refused: this instance could not "
+                           "read its own quarantine/adoption state from the "
+                           "durable store, so it cannot establish that the "
+                           "database is safe to publish from. Restore "
+                           "readability of the canonical state rows, or point "
+                           "the instance at the authoritative database."),
+                "recovery_not_available": (
+                    "GUILD_CANONICAL_RECOVERY cannot clear this: an "
+                    "authorization is matched against the issuer and head "
+                    "recorded in the quarantine row, and that row is exactly "
+                    "what could not be read. Authorising a state we cannot "
+                    "verify would be indistinguishable from disabling the "
+                    "guard."),
+            }
+            # Record the refusal explicitly when an operator HAS set the env
+            # var, so "I authorised it and nothing happened" is answered on the
+            # read surface rather than in a support conversation.
+            self._apply_recovery_authorization(-1)
+            return
+        if not quarantine:
+            if adoption:
+                self.canonical_recovery_authorized = adoption
+            return
+        if adoption and self._adoption_matches(adoption, quarantine):
+            self.canonical_recovery_authorized = adoption
+            self.canonical_seed_degraded = {}
+            return
+        self.canonical_seed_degraded = dict(quarantine)
+        # A restart is also a legitimate moment to GRANT recovery: the operator
+        # sets the env var and restarts. Without this, an authorization could
+        # only ever be applied during the one boot that created the quarantine
+        # — which is exactly the boot the operator has not yet diagnosed.
+        self._apply_recovery_authorization(
+            int(quarantine.get("seed_checkpoint_index", -1)))
+        if not self.canonical_seed_degraded:
+            return
+        if adoption:
+            self.canonical_seed_degraded["stale_adoption_refused"] = (
+                "a recovery adoption record exists but does not match this "
+                f"quarantine (adopted issuer={adoption.get('issuer')!r} "
+                f"head={adoption.get('adopted_head')}, quarantine issuer="
+                f"{quarantine.get('issuer')!r} head="
+                f"{quarantine.get('seed_checkpoint_index')}). Failing closed.")
+
+    def _adoption_matches(self, adoption: dict, quarantine: dict) -> bool:
+        """An adoption authorises ONE issuer at ONE head. Anything else is a
+        different situation and must not inherit the authorisation."""
+        own = (self.identity or {}).get("did")
+        return (adoption.get("issuer") == own
+                and adoption.get("issuer") == quarantine.get("issuer")
+                and int(adoption.get("adopted_head", -2))
+                == int(quarantine.get("seed_checkpoint_index", -3)))
+
+    def _apply_recovery_authorization(self, seeded_head: int) -> None:
+        """Clear the quarantine ONLY on an explicit operator authorization that
+        names this issuer AND the head being adopted, and RECORD THE ADOPTION
+        DURABLY so it is not a per-boot env bypass.
+
+        GUILD_CANONICAL_RECOVERY=<issuer_did>:<head_index>
+
+        Both halves are required on purpose. A bare "ignore the guard" flag
+        would be set once and left on forever, silently authorising every future
+        stale boot. Naming the exact head means the authorisation stops applying
+        the moment the feed moves. Persisting the adoption means the operator
+        does not have to keep the env var set — and, more importantly, that the
+        decision is auditable after the fact rather than living in a process's
+        environment."""
+        if not self.canonical_seed_degraded:
+            return
+        if (self.canonical_state_unreadable
+                or self.canonical_seed_degraded.get("reason")
+                == "canonical_quarantine_state_unreadable"):
+            # Issuer and head are unverifiable by construction here — the row
+            # that carries them is the one we failed to read. An authorization
+            # applied against an unverifiable state is not an authorization,
+            # it is an off switch.
+            self.canonical_seed_degraded["recovery_authorization"] = (
+                "REFUSED: canonical state is unreadable, so the issuer and "
+                "head this authorization would be matched against cannot be "
+                "verified.")
+            return
+        raw = (os.environ.get("GUILD_CANONICAL_RECOVERY") or "").strip()
+        if not raw or ":" not in raw:
+            return
+        did, _, head = raw.rpartition(":")
+        own = (self.identity or {}).get("did")
+        try:
+            head_i = int(head)
+        except ValueError:
+            return
+        if did.strip() != own or head_i != seeded_head:
+            self.canonical_seed_degraded["recovery_authorization"] = (
+                "PRESENT BUT NOT APPLICABLE: it names "
+                f"issuer={did.strip()!r} head={head_i}, this instance is "
+                f"issuer={own!r} head={seeded_head}. Refusing to apply an "
+                "authorization granted for a different state.")
+            return
+        adoption = {
+            "at": _now(), "issuer": own, "adopted_head": seeded_head,
+            "note": ("operator explicitly authorised this backend as the "
+                     "canonical feed's new home at this exact head; recorded "
+                     "durably so it is auditable and is not re-granted per "
+                     "boot"),
+        }
+        self.canonical_seed_degraded = {}
+        self.canonical_recovery_authorized = adoption
+        if self.backend is not None:
+            self._persist_kv(self.CANONICAL_ADOPTION_KEY, adoption)
+            self._persist_kv(self.CANONICAL_QUARANTINE_KEY, None)
+
+    def _record_canonical_hwm(self, entry: dict[str, Any]) -> None:
+        """Raise the high-water mark. MONOTONIC — a publish can only ever move
+        it forward, so a later stale boot cannot lower its own floor."""
+        # RAISES on a read failure, BEFORE anything is updated or returned.
+        # Called inside the publish write transaction, so under sqlite the
+        # surrounding BEGIN IMMEDIATE rolls back the strict checkpoint insert:
+        # a publish whose high-water mark could not be advanced must not leave
+        # a committed checkpoint behind.
+        cur = self._persisted_hwm_strict()
+        mark = {
+            "checkpoint_index": max(int(entry.get("index", -1)),
+                                    int(cur.get("checkpoint_index", -1))),
+            "ledger_length": max(int(entry.get("ledger_length", 0)),
+                                 int(cur.get("ledger_length", 0))),
+            "head_hash": entry.get("checkpoint", {}).get("head_hash"),
+            "at": _now(),
+        }
+        self.canonical_hwm = mark
+        if self.backend is not None:
+            self.backend.put_kv(self.CANONICAL_HWM_KEY, mark)
+
+    def canonical_state(self) -> dict[str, Any]:
+        """Read-side companion to the floor. Surfaces (never hides) the case
+        where what this process can serve is BEHIND what is known published, so
+        no consumer mistakes a stale view for the canonical one."""
+        floor = self.canonical_floor()
+        _h = self.feed_head(self.checkpoints)
+        head_idx = self.canonical_index_of(_h) if _h else -1
+        if head_idx is None:
+            head_idx = -1
+        _malformed = self.malformed_entry_positions(self.checkpoints)
+        degraded = (head_idx < floor["checkpoint_index"]
+                    or len(self.ledger_records) < floor["ledger_length"])
+        out = {
+            "ok": not degraded,
+            "served_checkpoint_index": head_idx,
+            "served_ledger_length": len(self.ledger_records),
+            "floor_checkpoint_index": floor["checkpoint_index"],
+            "floor_ledger_length": floor["ledger_length"],
+            "floor_sources": floor["sources"],
+        }
+        if self.canonical_seed_degraded:
+            degraded = True
+            out["ok"] = False
+            out["seed_degraded"] = self.canonical_seed_degraded
+        if self.canonical_state_unreadable:
+            degraded = True
+            out["ok"] = False
+            out["state_unreadable"] = self.canonical_state_unreadable
+        if _malformed:
+            # A read surface must not 500 on corrupt state, and must not
+            # present it as healthy either.
+            degraded = True
+            out["ok"] = False
+            out["malformed_entry_positions"] = _malformed
+            out["malformed_note"] = (
+                "one or more feed entries lack a well-formed canonical index; "
+                "canonical writes are refused until the feed is repaired")
+        if self.canonical_pin_malformed:
+            out["operator_pin_malformed"] = self.canonical_pin_malformed
+        if self.canonical_recovery_authorized:
+            # Never silent. An operator-authorised adoption is a canonical
+            # event and stays visible on the read surface.
+            out["recovery_authorized"] = self.canonical_recovery_authorized
+        if degraded:
+            out["warning"] = (
+                "STALE CANONICAL VIEW: this instance is serving a checkpoint "
+                "feed BEHIND a position already proven published. Do not pin "
+                "or cite this view; canonical writes are refused until it "
+                "catches up.")
+        return out
+
+    def _assert_canonical_floor(self, ledger_len: int,
+                                checkpoints: list) -> None:
+        """Fail closed when the AUTHORITATIVE view is below the floor.
+
+        Called inside the publish write transaction, on the values actually
+        read from the durable store — not on anything cached."""
+        if self.canonical_state_unreadable:
+            raise CanonicalFloorRegressionError(
+                "refusing to publish: this instance could not read its own "
+                f"canonical state ({self.canonical_state_unreadable}). If we "
+                "cannot read whether this database is quarantined, we do not "
+                "know that it is not.")
+        if self.canonical_seed_degraded:
+            raise CanonicalFloorRegressionError(
+                "refusing to publish: this instance was seeded at boot from a "
+                "snapshot behind the proven canonical floor "
+                f"({self.canonical_seed_degraded}). It must be restarted "
+                "against the authoritative database before it may make a "
+                "canonical commitment.")
+        # STRICT read first: on the write path a failed hwm read aborts here,
+        # rather than quietly contributing nothing to the floor.
+        self._persisted_hwm_strict()
+        floor = self.canonical_floor()
+        # RE-CHECK after acquiring the floor. canonical_floor() consults every
+        # source, so a read that fails DURING floor acquisition sets the flag
+        # only after the entry check above has already passed.
+        if self.canonical_state_unreadable:
+            raise CanonicalFloorRegressionError(
+                "refusing to publish: canonical state became unreadable while "
+                f"acquiring the floor ({self.canonical_state_unreadable}).")
+        _hd = self.feed_head(checkpoints)
+        _hdi = self.canonical_index_of(_hd) if _hd else None
+        head_idx = -1 if _hdi is None else _hdi
+        if head_idx < floor["checkpoint_index"]:
+            raise CanonicalFloorRegressionError(
+                "refusing to publish: the authoritative checkpoint feed head "
+                f"({head_idx}) is BELOW the proven canonical floor "
+                f"({floor['checkpoint_index']}, sources={floor['sources']}). "
+                "This instance is working from a stale or rebuilt database; "
+                "publishing would fork the canonical feed.")
+        if ledger_len < floor["ledger_length"]:
+            raise CanonicalFloorRegressionError(
+                "refusing to publish: the authoritative ledger "
+                f"({ledger_len} records) is BELOW the proven canonical floor "
+                f"({floor['ledger_length']}, sources={floor['sources']}). "
+                "A short head would commit to a truncated history.")
+
     def publish_checkpoint(self) -> dict[str, Any]:
         """Seal the current ledger head into a Guild-signed checkpoint and add it
         to the published, append-only checkpoint feed third parties pin
@@ -4632,10 +5566,12 @@ class Store:
                 durable_checkpoints = self.backend.all_checkpoints()
                 # (2) refuse to build a canonical commitment on a view that is
                 # behind state this process has already observed as published.
-                mem_head = (self.checkpoints[-1].get("index")
-                            if self.checkpoints else -1)
-                dur_head = (durable_checkpoints[-1].get("index")
-                            if durable_checkpoints else -1)
+                _mh = self.feed_head(self.checkpoints)
+                _dh = self.feed_head(durable_checkpoints)
+                mem_head = self.canonical_index_of(_mh) if _mh else None
+                dur_head = self.canonical_index_of(_dh) if _dh else None
+                mem_head = -1 if mem_head is None else mem_head
+                dur_head = -1 if dur_head is None else dur_head
                 if dur_head < mem_head:
                     raise StaleDurableStateError(
                         "refusing to publish: the durable checkpoint feed head "
@@ -4648,23 +5584,53 @@ class Store:
                         f"({len(durable_ledger_records)} records) is SHORTER "
                         f"than the in-memory ledger ({len(self.ledger_records)})"
                         " — a short head would commit to a truncated history.")
+                # (5) ABSOLUTE FLOOR — the guards above are RELATIVE (durable
+                # vs this process's memory) and therefore blind to a cold boot
+                # where both are hydrated from the same stale source and agree.
+                # Check the authoritative numbers against a floor that does not
+                # come from the state under test.
+                self._assert_canonical_floor(len(durable_ledger_records),
+                                             durable_checkpoints)
                 self.ledger_records = durable_ledger_records
                 self.checkpoints = durable_checkpoints
+            else:
+                # JSON store: there is no separate durable read, so the
+                # in-memory view IS the view being committed. It still must
+                # clear the floor — a JSON file restored from an old snapshot
+                # is the same incident with a different backend.
+                self._assert_canonical_floor(len(self.ledger_records),
+                                             self.checkpoints)
             gid = self.guild_identity()
             led = self.durable_ledger()
             cp = led.signed_checkpoint(gid["did"], gid["private_key"])
             head = cp.get("head_hash")
+            # WELL-FORMEDNESS BEFORE ANY CANONICAL RETURN — including the
+            # idempotent one. It used to sit further down, past the early
+            # return, so a malformed feed with NO new evidence sailed straight
+            # through: [0, 4] handed back index 4 instead of refusing the gap,
+            # and [0, 1, 2, 0] handed back index 2 despite the duplicate. The
+            # idempotent path is not a read — it returns an entry the caller
+            # will pin and advances the high-water mark — so it is exactly as
+            # canonical as an append and gets the same gate.
+            self.assert_feed_wellformed(self.checkpoints)
             if self.checkpoints:
-                last = self.checkpoints[-1]
+                # Idempotent return must be the CURRENT head, not merely the
+                # last element: an out-of-order or partially-loaded feed would
+                # otherwise hand a caller a superseded commitment as if it were
+                # canonical. This is precisely what production returned on
+                # 2026-08-01 (index 14 while the feed head was 17).
+                last = self.feed_head(self.checkpoints)
                 if (last["checkpoint"].get("head_hash") == head
                         and len(self.ledger_records) == last.get("ledger_length")):
+                    self._record_canonical_hwm(last)
                     return last  # nothing new to commit
             # NEXT INDEX from the maximum index actually present, not from the
             # list LENGTH: a feed with any gap (or an out-of-order legacy entry)
             # would otherwise re-issue an index that already exists, which is
             # exactly the silent-overwrite path (3) closes.
-            next_index = 1 + max(
-                [int(e.get("index", -1)) for e in self.checkpoints] or [-1])
+            _head = self.feed_head(self.checkpoints)
+            _hi = self.canonical_index_of(_head) if _head else None
+            next_index = 1 + (-1 if _hi is None else _hi)
             entry = {
                 "index": next_index,
                 "published_at": _now(),
@@ -4678,9 +5644,13 @@ class Store:
                 # continuity: each published entry commits to its predecessor, so
                 # the FEED itself is a hash chain — removing or reordering a
                 # published checkpoint is detectable by anyone holding a later one.
+                # PREDECESSOR = the TRUE head by index, not the last list
+                # element. Building this from checkpoints[-1] over an
+                # out-of-order feed linked a new entry to the wrong predecessor
+                # and broke continuity of the published chain.
                 "prev_entry_sha256": (
-                    hashlib.sha256(canonicalize(self.checkpoints[-1]).encode("utf-8"))
-                    .hexdigest() if self.checkpoints else "0" * 64),
+                    hashlib.sha256(canonicalize(_head).encode("utf-8"))
+                    .hexdigest() if _head else "0" * 64),
             }
             # LEGACY BRIDGE: earlier feed entries may predate predecessor
             # commitments (no prev_entry_sha256) or entry signatures. History
@@ -4722,6 +5692,10 @@ class Store:
                         "bytes than were written; refusing to report it as "
                         "published")
             self.checkpoints.append(entry)
+            # MONOTONIC HIGH-WATER MARK. Recorded only after the strict insert
+            # and read-after-write have both passed, so the floor can never be
+            # raised by a publish that did not durably land.
+            self._record_canonical_hwm(entry)
             self.revision += 1
             self._save()
             return entry
@@ -4732,7 +5706,7 @@ class Store:
         anchor."""
         if not self.checkpoints and publish_if_empty:
             return self.publish_checkpoint()
-        return self.checkpoints[-1] if self.checkpoints else None
+        return self.feed_head(self.checkpoints)
 
     def ledger_inclusion_proof(self, record_id: str,
                                checkpoint_index: Optional[int] = None
@@ -4745,9 +5719,17 @@ class Store:
         from .ledger import Ledger
         self.ensure_ledger_backfilled()
         if checkpoint_index is not None:
-            if not (0 <= checkpoint_index < len(self.checkpoints)):
-                raise ValueError("unknown checkpoint index")
-            cp_entry = self.checkpoints[checkpoint_index]
+            # SELECT BY THE ENTRY'S OWN INDEX, never by list position. This
+            # used to be `self.checkpoints[checkpoint_index]`, i.e. a list
+            # OFFSET — so over a feed held [2, 0, 1] a caller asking to be
+            # proved against checkpoint 2 received a proof citing checkpoint 1.
+            # An inclusion proof against the wrong commitment is worse than no
+            # proof: it verifies, and it verifies the wrong claim. Selection is
+            # now independent of ordering and of gaps.
+            cp_entry = self.checkpoint_by_index(checkpoint_index)
+            if cp_entry is None:
+                raise ValueError(
+                    f"unknown checkpoint index {checkpoint_index}")
         else:
             cp_entry = self.latest_checkpoint(publish_if_empty=False)
         if cp_entry is None:

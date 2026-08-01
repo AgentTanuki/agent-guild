@@ -24,6 +24,62 @@ GUILD = pathlib.Path(__file__).resolve().parents[1]
 # them describe the pre-payment-enforcement contract and may never be reused.
 PUBLISHED_PRE_ENFORCEMENT_VERSIONS = {"1.0.0", "1.1.0", "1.2.0"}
 
+#: version -> sha256 of the registry-visible metadata AS PUBLISHED under it.
+#: Changing already-published listing metadata without a version bump means the
+#: registry keeps serving the old blob under the same number, and the automated
+#: publish + exact-version readback (.github/workflows/publish-mcp.yml, which
+#: triggers on server.json) has nothing new to publish. Recording the hash is
+#: what makes that a test failure rather than something noticed months later.
+#: Add an entry when a version is published; never edit one.
+PUBLISHED_REGISTRY_FINGERPRINTS = {
+    "2.0.2": "205fdfd11fdce92d5b96685df96e377bb413d96c6c70e3f696a50621ca150d09",
+}
+
+
+def _registry_fingerprint(server: dict) -> str:
+    """Hash of exactly what the registry serves to a machine: the description
+    plus the publisher-provided blob. Version itself is excluded — it is the
+    thing being checked."""
+    import hashlib
+    payload = json.dumps(
+        {"description": server["description"],
+         "publisher_provided": server["_meta"][
+             "io.modelcontextprotocol.registry/publisher-provided"]},
+        sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def test_changed_registry_metadata_requires_a_version_bump():
+    """The 2026-08-01 failure mode: server.json was byte-identical to what was
+    already published, so the paid-operations block could have been added
+    without anyone noticing the listing would never carry it.
+
+    Now: if the current version is one already published, the registry-visible
+    metadata must be BYTE-IDENTICAL to what went out under it. Changing it
+    requires a new version, which is what makes the publish workflow fire and
+    the exact-version readback meaningful."""
+    server = json.loads((REPO / "server.json").read_text())
+    assert server["version"] == __version__
+    published = PUBLISHED_REGISTRY_FINGERPRINTS.get(__version__)
+    if published is None:
+        return                      # a new, not-yet-published version: fine
+    assert _registry_fingerprint(server) == published, (
+        f"registry metadata changed but the version is still {__version__}, "
+        "which is already published — the registry would keep serving the old "
+        "blob under this number. Bump the patch version and add the new "
+        "fingerprint to PUBLISHED_REGISTRY_FINGERPRINTS once it is live.")
+
+
+def test_the_paid_discovery_release_is_a_new_version():
+    """This release changes already-published registry metadata (it adds
+    ai.agent-guild/paid-operations), so it may not reuse 2.0.2."""
+    server = json.loads((REPO / "server.json").read_text())
+    pp = server["_meta"]["io.modelcontextprotocol.registry/publisher-provided"]
+    if "ai.agent-guild/paid-operations" in pp:
+        assert __version__ not in ("2.0.2",), (
+            "paid-operations discovery is a change to already-published "
+            "registry metadata; it needs its own version")
+
 
 def test_breaking_payment_enforcement_never_reuses_a_published_version():
     assert __version__ not in PUBLISHED_PRE_ENFORCEMENT_VERSIONS, (
@@ -57,24 +113,37 @@ def test_every_machine_surface_reports_the_same_version():
     assert contract["service"]["version"] == __version__
 
 
-def test_registry_metadata_is_passport_first_and_payment_free():
-    """Acquisition release 2026-07-23: the registry listing leads with the
-    free self-serve passport and carries NO payments block. Payment honesty
-    is NOT weakened: the machine payment contract stays fully declared in
-    contract.json (asserted below) and priced operations still challenge
-    honestly (x402) at call time — discovery metadata simply no longer leads
-    with payment."""
+def test_registry_metadata_is_passport_first_and_carries_paid_discovery():
+    """The registry listing leads with the FREE self-serve passport and now
+    also carries paid-operation DISCOVERY.
+
+    This test used to assert the listing was "payment-free". That was right for
+    the 2026-07-23 acquisition release and wrong from 2026-08-01: the MCP
+    Registry is our one already-live external listing, and omitting the paid
+    layer from it made the revenue pivot invisible on the only surface machines
+    were already reading. `paidcatalog.SOURCE_IDS` even declared
+    `paid_offer:registry` while no route could produce it.
+
+    What is asserted now:
+      * passport STILL first — same description, same leading block;
+      * paid discovery EXISTS;
+      * its catalog URL is a real callable route with a producible attribution;
+      * NO copied prices (they drift when experiments run; a listing is
+        republished rarely, so a copied number would be stale and a stale price
+        is a lie);
+      * the blob stays under the registry's 4KB cap.
+    """
     server = json.loads((REPO / "server.json").read_text())
     pp = server["_meta"][
         "io.modelcontextprotocol.registry/publisher-provided"]
-    # no payment-led discovery metadata in the listing
-    assert "ai.agent-guild/payments" not in pp
-    assert "payment" not in server["description"].lower()
-    assert "escrow" not in server["description"].lower()
-    assert "delegation" not in server["description"].lower()
-    # passport-first: the complete self-serve path, real endpoints only
-    passport = pp["ai.agent-guild/passport"]
     host = "https://agent-guild-5d5r.onrender.com"
+
+    # --- passport is still what a machine meets first --------------------
+    assert list(pp)[0] == "ai.agent-guild/passport"
+    for word in ("payment", "escrow", "delegation", "x402", "price"):
+        assert word not in server["description"].lower(), (
+            f"the listing description must stay free-offer-led ({word!r})")
+    passport = pp["ai.agent-guild/passport"]
     assert "No human involved" in passport["offer"]
     assert "passport_offer:mcp_registry" in passport["register"]
     assert passport["register"].startswith("POST " + host + "/agents/register")
@@ -88,18 +157,71 @@ def test_registry_metadata_is_passport_first_and_payment_free():
     assert passport["badge"].startswith(
         "GET " + host + "/agents/{id}/badge.svg")
     assert passport["next_evidence"].startswith("POST " + host + "/attestations")
-    # every advertised path is a REAL live route — proven against the app's
-    # own OpenAPI schema (which includes router-included routes that this
-    # Starlette version does not surface via app.routes introspection).
+
+    # --- paid discovery exists and names the real operations -------------
+    paid = pp["ai.agent-guild/paid-operations"]
+    from app import paidcatalog
+    assert set(paid["operations"]) == {
+        o["operation"] for o in paidcatalog.operations()}
+    assert paid["free_alternative_exists_for_every_paid_operation"] is True
+    assert all(o["free_alternative"].strip()
+               for o in paidcatalog.operations())
+
+    # --- NO STALE COPIED PRICES ------------------------------------------
+    # Checked on the STRUCTURE, not by substring: "20" occurs inside
+    # "eip155:8453" and would give a false positive. A price would have to
+    # arrive either as a numeric leaf or as a currency literal, so both are
+    # banned outright — the listing is republished rarely and a copied number
+    # would be stale the moment an experiment moved it.
+    def _leaves(node):
+        if isinstance(node, dict):
+            for v in node.values():
+                yield from _leaves(v)
+        elif isinstance(node, list):
+            for v in node:
+                yield from _leaves(v)
+        else:
+            yield node
+
+    numeric = [v for v in _leaves(paid)
+               if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    assert not numeric, (
+        f"numeric leaves in the registry paid block {numeric} — a price copied "
+        "into the listing is stale the moment an experiment moves it")
+    blob = json.dumps(paid)
+    assert "$" not in blob, "no currency literals in the listing"
+    for op in paidcatalog.operations():
+        assert op["price_usd"] not in blob
+
+    # --- the catalog URL is a REAL callable route with a REAL producer ----
+    from urllib.parse import urlparse, parse_qs
+    method, _, url = paid["catalog"].partition(" ")
+    assert method == "GET"
+    parsed = urlparse(url)
+    assert f"{parsed.scheme}://{parsed.netloc}" == host
+    assert parsed.path == "/.well-known/agent-guild.json"
+    src = parse_qs(parsed.query)["src"][0]
+    assert src == "paid_offer:registry"
+    assert src in paidcatalog.SOURCE_IDS
+
     from app.main import app as _app
     with TestClient(_app) as c:
-        openapi_paths = c.get("/openapi.json").json()["paths"]
+        assert parsed.path in c.get("/openapi.json").json()["paths"], (
+            "the listing advertises a catalog URL that is not a live route")
+        # THE SOURCE MUST HAVE A PRODUCER. Declaring a source id that nothing
+        # can emit is how paid_offer:registry sat unused: the funnel would have
+        # reported a surface that could never move.
+        body = c.get(f"{parsed.path}?src={src}").json()
+        assert body["paid_operations"]["source"] == src
+
     for advertised in ("/agents/register", "/agents/{agent_id}/prove",
                        "/agents/{agent_id}/prove/verify",
                        "/agents/{agent_id}/passport", "/credentials/verify",
                        "/agents/{agent_id}/badge.svg", "/attestations"):
-        assert advertised in openapi_paths, (
-            f"listing advertises a dead endpoint: {advertised}")
+        with TestClient(_app) as c:
+            assert advertised in c.get("/openapi.json").json()["paths"], (
+                f"listing advertises a dead endpoint: {advertised}")
+
     # the whole publisher-provided blob stays under the registry's 4KB cap
     assert len(json.dumps(pp).encode()) < 4096
 

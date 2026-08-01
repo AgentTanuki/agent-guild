@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AgentTanuki/agent-guild",
   "description": "Free self-serve Agent Passports for AI agents: signed, portable, offline-verifiable credentials.",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "repository": {
     "url": "https://github.com/AgentTanuki/agent-guild",
     "source": "github"
@@ -36,6 +36,18 @@
         "demand_feed": "https://agent-guild-5d5r.onrender.com/demand/feed",
         "conformance": "https://github.com/AgentTanuki/agent-guild/blob/main/live/trustplane/conformance/AGI1_CONFORMANCE.md",
         "note": "Offline-verifiable Agent Passports (see the ai.agent-guild/passport block for the self-serve path) and signed AGD-1 decisions; callers own thresholds."
+      },
+      "ai.agent-guild/paid-operations": {
+        "note": "The free passport path above is the main offer and needs no payment. These are the OPTIONAL paid operations, listed by name only.",
+        "operations": [
+          "deep_preflight",
+          "evidence_bundle",
+          "watch_cycle"
+        ],
+        "catalog": "GET https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json?src=paid_offer:registry",
+        "catalog_returns": "current price, auth requirement, the callable entrypoint and the FREE alternative for each operation \u2014 always live, never copied here, because prices change and this listing does not",
+        "payment": "x402 (USDC on Base mainnet, eip155:8453), per call",
+        "free_alternative_exists_for_every_paid_operation": true
       }
     }
   }
