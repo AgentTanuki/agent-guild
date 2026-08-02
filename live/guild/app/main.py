@@ -3743,11 +3743,30 @@ def publish_checkpoint(x_admin_token: Optional[str] = Header(None)):
     """Seal the current ledger head into the published checkpoint feed. Admin-token
     gated because publication is a canonical commitment, not a read. Idempotent:
     returns the existing head checkpoint if no evidence has landed since. Intended
-    to be called on a schedule (see the checkpoint-publication scheduled task)."""
+    to be called on a schedule (see the checkpoint-publication scheduled task).
+
+    THE SUCCESS RESPONSE CARRIES ITS OWN VIEW IDENTITY (2026-08-02).
+    The refusal path (409) has stamped `view` since the divergence work, but the
+    200 did not — so a body claiming a successful publish was unattributable:
+    nothing in it said which process, which store revision or which canonical
+    floor produced it. That gap is exactly how a THREE-DAY PHANTOM INCIDENT ran.
+    The daily ops pass wrote the response to a shared /tmp path it could not
+    overwrite, curl failed the write, and a four-day-old file was parsed and
+    reported as a live production response showing a stale checkpoint 14/834.
+    Two consecutive daily reports carried that false finding, and a real
+    hardening programme was aimed at a defect production never had.
+
+    A response that identifies its own origin cannot be impersonated by a stale
+    file: `view.instance` and `view.observed_at` change every process and every
+    call, so a replayed body is detectable by inspection. The block is
+    non-secret by construction — a random per-process id, counters, and the
+    already-public floor — and `live/scripts/ops_publish_checkpoint.py` refuses
+    to report success without it."""
     if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
         raise HTTPException(403, "publication requires a valid X-Admin-Token")
     entry = store.publish_checkpoint()
-    return {"status": "published", "checkpoint": entry}
+    return {"status": "published", "checkpoint": entry,
+            "view": store.publish_view(entry)}
 
 
 @app.get("/ledger/reconcile")

@@ -5567,6 +5567,66 @@ class Store:
                 "catches up.")
         return out
 
+    def publish_view(self, entry: dict[str, Any]) -> dict[str, Any]:
+        """WHICH view produced a SUCCESSFUL publish response.
+
+        The 409 refusal path has carried `view` since the divergence work; the
+        200 did not, and that asymmetry is what made a phantom incident
+        survivable for three days (see the route docstring). Everything here is
+        already public or deliberately non-identifying: a random per-process id,
+        counts, and the canonical floor that /health already publishes.
+
+        `observed_at` is the load-bearing anti-replay field. It is stamped per
+        CALL, so two responses from one process still differ — which means a
+        recorded or cached body can be recognised as one, rather than being
+        indistinguishable from a fresh commitment."""
+        from . import instanceid
+        floor = self.canonical_floor()
+        idx = self.canonical_index_of(entry) if entry else None
+        return {
+            **instanceid.identity(),
+            "observed_at": _now(),
+            "store_mode": self.store_mode,
+            "store_rev": self.revision,
+            "returned_checkpoint_index": -1 if idx is None else idx,
+            "returned_ledger_length": int(entry.get("ledger_length", 0)),
+            "served_checkpoint_index": (
+                self.canonical_index_of(self.feed_head(self.checkpoints))
+                if self.checkpoints else -1),
+            "served_ledger_length": len(self.ledger_records),
+            "floor_checkpoint_index": floor["checkpoint_index"],
+            "floor_ledger_length": floor["ledger_length"],
+            "floor_sources": floor["sources"],
+            "note": ("view identity of the process that produced THIS response. "
+                     "A body without this block, or with an `observed_at` that "
+                     "does not move between calls, is not a live response."),
+        }
+
+    def _assert_returned_entry_above_floor(self, entry: dict[str, Any]) -> None:
+        """LAST GATE: the entry actually being RETURNED clears the floor.
+
+        `_assert_canonical_floor` validates the VIEW a publish is computed from.
+        This validates the ARTEFACT a caller will pin, on every path out of
+        `publish_checkpoint` — the append path and the idempotent path alike.
+
+        The distinction is not academic. The idempotent branch returns an entry
+        selected from the feed rather than one it just built, so a feed that
+        passed the view check but whose head is nonetheless below the proven
+        floor would hand back a superseded commitment with a 200. Checking the
+        artefact rather than only the view means any FUTURE path added to this
+        method inherits the guarantee instead of having to remember it."""
+        floor = self.canonical_floor()
+        idx = self.canonical_index_of(entry)
+        idx = -1 if idx is None else idx
+        length = int(entry.get("ledger_length", 0))
+        if idx < floor["checkpoint_index"] or length < floor["ledger_length"]:
+            raise CanonicalFloorRegressionError(
+                f"refusing to return checkpoint {idx} / {length} records: it is "
+                f"BELOW the proven canonical floor ({floor['checkpoint_index']} "
+                f"/ {floor['ledger_length']}, sources={floor['sources']}). A "
+                "superseded checkpoint returned with a success status would be "
+                "pinned by third parties as canonical.")
+
     def _assert_canonical_floor(self, ledger_len: int,
                                 checkpoints: list) -> None:
         """Fail closed when the AUTHORITATIVE view is below the floor.
@@ -5705,6 +5765,9 @@ class Store:
                 last = self.feed_head(self.checkpoints)
                 if (last["checkpoint"].get("head_hash") == head
                         and len(self.ledger_records) == last.get("ledger_length")):
+                    # The idempotent return is a CANONICAL ARTEFACT, not a read:
+                    # the caller pins it. Gate it on the artefact itself.
+                    self._assert_returned_entry_above_floor(last)
                     self._record_canonical_hwm(last)
                     return last  # nothing new to commit
             # NEXT INDEX from the maximum index actually present, not from the
@@ -5775,6 +5838,10 @@ class Store:
                         "bytes than were written; refusing to report it as "
                         "published")
             self.checkpoints.append(entry)
+            # SAME LAST GATE AS THE IDEMPOTENT PATH — asserted BEFORE the
+            # high-water mark moves, so a below-floor entry cannot raise the
+            # very floor that should have rejected it.
+            self._assert_returned_entry_above_floor(entry)
             # MONOTONIC HIGH-WATER MARK. Recorded only after the strict insert
             # and read-after-write have both passed, so the floor can never be
             # raised by a publish that did not durably land.
