@@ -2351,7 +2351,8 @@ class Store:
         if len(self.events) > 50000:
             self.events = self.events[-25000:]
 
-    def paid_offer_funnel(self) -> dict[str, Any]:
+    def paid_offer_funnel(self, operation: Optional[str] = None
+                          ) -> dict[str, Any]:
         """QUALIFIED PAID-OFFER IMPRESSIONS, split by operation and by source.
 
         This is the LEADING boundary of the 2026-08-01 operating mandate. The
@@ -2370,7 +2371,11 @@ class Store:
             putting it in a conversion denominator would manufacture a failure
             rate out of an unknown.
 
-        A denominator of zero is reported as NOT MEASURABLE, never as 0%."""
+        A denominator of zero is reported as NOT MEASURABLE, never as 0%.
+
+        `operation`, when given, restricts every figure — totals, by_operation
+        and by_source — to impressions of THAT operation's offer. Without it
+        the report is the portfolio."""
         from . import attribution as _attr
         by_op: dict[str, dict[str, Any]] = {}
         by_source: dict[str, dict[str, Any]] = {}
@@ -2379,8 +2384,10 @@ class Store:
         for ev in self.events:
             if ev.get("type") != "paid_offer_served":
                 continue
-            raw += 1
             op = ev.get("operation") or "unknown"
+            if operation is not None and op != operation:
+                continue
+            raw += 1
             src = ev.get("source") or "unknown"
             cls = self._caller_class_for(ev)
             external = self._qualifies_as_paid_demand(ev, cls)
@@ -2448,6 +2455,7 @@ class Store:
                 "INDISTINGUISHABLE FROM OUR OWN TRAFFIC and never qualify. A "
                 "stable IP+UA actor proves distinctness, not external agent "
                 "intent."),
+            "operation_scope": operation or "all_operations",
             "qualified_distinct_actors": total_q,
             "raw_impressions": raw,
             "anonymous_unlinkable_impressions": anon,

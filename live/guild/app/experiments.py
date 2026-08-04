@@ -273,19 +273,37 @@ def qualified_exposure(store: Any, operation: Optional[str] = None,
                 f"{operation} call. Free-tier use of an adjacent product is "
                 "NOT exposure to this price.")
     else:
+        # The PORTFOLIO view. It still has to answer the mandate's leading
+        # question — "was any external actor shown a price?" — across every
+        # operation. Before this, `challenged` and `completed` were only ever
+        # incremented inside the `if operation:` branch, so the unscoped
+        # report published paid_offers_shown: 0 STRUCTURALLY, whatever the
+        # traffic was. A counter that cannot leave zero is not a measurement.
         surfaces = {"preflight_run", "deep_preflight_run",
                     "evidence_bundle_issued", "watch_provisioned",
                     "index_view", "paid_offer_shown", "paid_offer_challenged"}
         for e in getattr(store, "events", []):
-            if e.get("type") not in surfaces or not _external(e):
+            etype = e.get("type")
+            if etype not in surfaces or not _external(e):
                 continue
             events += 1
+            # Same two definitions as the scoped branch, unioned over every
+            # operation — deliberately NOT a looser rule, so the portfolio
+            # number and the sum of the scoped numbers cannot disagree.
+            if (etype in ("paid_offer_shown", "paid_offer_challenged")
+                    and e.get("actor_distinct") is not False):
+                challenged += 1
+            elif (etype in ALL_PAID_EVENTS
+                    and e.get("settlement_mode") in
+                    ("x402", "credits_sandbox")):
+                completed += 1
             key = e.get("key") or "anon"
             if key != "anon":
                 actors.add(key)
         rule = ("ALL decision surfaces, free and paid — a portfolio view for "
-                "the commercial report. NOT valid for pricing an individual "
-                "operation; pass `operation` for that.")
+                "the commercial report, with paid_offers_shown and "
+                "paid_completions summed over every operation. NOT valid for "
+                "pricing an INDIVIDUAL operation; pass `operation` for that.")
 
     return {
         "operation_scope": operation or "all_surfaces",
@@ -706,11 +724,17 @@ def apply_next_action(store: Any) -> list[dict[str, Any]]:
     return applied
 
 
-def snapshot(store: Any) -> dict[str, Any]:
-    """Everything an autonomous report needs, revenue first."""
+def snapshot(store: Any, operation: Optional[str] = None) -> dict[str, Any]:
+    """Everything an autonomous report needs, revenue first.
+
+    `operation` scopes BOTH the revenue block and the exposure block to one
+    paid operation. It is threaded through rather than accepted and dropped:
+    a report that tells the caller to pass `operation` and then ignores it is
+    worse than one that never offered the parameter, because the answer looks
+    scoped and is not."""
     return {
-        "commercial": commercial_metrics(store),
-        "qualified_exposure": qualified_exposure(store),
+        "commercial": commercial_metrics(store, operation),
+        "qualified_exposure": qualified_exposure(store, operation),
         "experiments": {k: {"status": v.get("status"),
                             "decision": v.get("decision"),
                             "variable": v.get("variable"),
