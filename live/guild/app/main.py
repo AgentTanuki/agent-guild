@@ -3533,26 +3533,48 @@ def admin_index_cycle(x_admin_token: Optional[str] = Header(None)):
 
 
 @app.get("/funnel/paid")
-def paid_offer_funnel():
+def paid_offer_funnel(operation: Optional[str] = None):
     """Qualified paid-offer impressions by OPERATION and by SOURCE.
 
     The leading acquisition boundary under the 2026-08-01 mandate: confirmed
     external mainnet revenue is the number that decides, and this is the only
     thing upstream of it we can move deliberately. Split by source so
     "which discovery surface produces qualified paid attention" is measured
-    rather than argued."""
-    return store.paid_offer_funnel()
+    rather than argued.
+
+    `operation` scopes the report to one paid operation. An UNKNOWN operation
+    is a 400, never a silently-unscoped answer: the previous behaviour
+    accepted `?operation=` and returned the portfolio totals, so a caller
+    reading one operation's exposure was handed all three and could not tell."""
+    _require_known_operation(operation)
+    return store.paid_offer_funnel(operation)
+
+
+def _require_known_operation(operation: Optional[str]) -> None:
+    """Reject an operation we do not price, instead of ignoring it.
+
+    Silently dropping an unrecognised (or unsupported) `operation` is how a
+    scope parameter becomes decorative: the response still looks like an
+    answer about that operation."""
+    if operation is None:
+        return
+    known = tuple(experiments.OPERATION_EVENTS)
+    if operation not in known:
+        raise HTTPException(
+            400, f"unknown operation {operation!r}; priced operations are "
+                 f"{', '.join(known)}")
 
 
 @app.get("/commercial")
-def commercial_report():
+def commercial_report(operation: Optional[str] = None):
     """The commercial scorecard, revenue first — the number that decides.
 
     Deliberately ordered so the only figures that can carry a decision come
     first, and the flattering ones are labelled as unable to carry one.
     Reach, inventory, free checks and passports appear under
     `supporting_never_sufficient` because that is exactly what they are."""
-    snap = experiments.snapshot(store)
+    _require_known_operation(operation)
+    snap = experiments.snapshot(store, operation)
     idx = trustindex.summarise(store.trust_index.values())
     return {
         "revenue_first": snap["commercial"],
