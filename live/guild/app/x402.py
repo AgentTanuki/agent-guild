@@ -372,6 +372,10 @@ _BAZAAR_OUTPUT = {
     "reputation": {"score": 0.9, "confidence": 0.8},
     "evidence": {"attestations": [], "receipts": []},
     "risk_score": {"risk": 12, "recommendation": "hire"},
+    "payment_decision": {
+        "type": ["VerifiableCredential", "AgentGuildPaymentDecision"],
+        "credentialSubject": {"contract": "AGPD-1/1.0", "decision": "allow"},
+    },
     "fraud_check": {"suspicion": 0.02, "flags": []},
 }
 
