@@ -46,6 +46,13 @@ def _header(private, did, raw, *, nonce=None):
     return base64.b64encode(json.dumps(proof).encode()).decode()
 
 
+def _evm_header(private, raw, *, nonce=None):
+    proof = callerproof.create_evm_proof(
+        private, method="POST", resource="/envelopes/issue", body=raw,
+        nonce=nonce)
+    return base64.b64encode(json.dumps(proof).encode()).decode()
+
+
 def test_issue_verify_and_privacy_boundary():
     private, did = _identity()
     body = _body()
@@ -137,6 +144,23 @@ def test_http_issue_requires_exact_caller_proof_and_is_free_in_soft_launch(
               if e.get("type") == "machine_envelope_issued"]
     assert len(events) == before + 1
     assert events[-1]["settlement_mode"] == "free"
+
+
+def test_http_issue_accepts_one_wallet_evm_proof(monkeypatch):
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "0")
+    body = _body(recipient="did:pkh:eip155:8453:0x" + "77" * 20)
+    raw = _raw(body)
+    served = client.post(
+        "/envelopes/issue", content=raw,
+        headers={"content-type": "application/json",
+                 callerproof.HTTP_HEADER: _evm_header(
+                     "0x" + "42" * 32, raw,
+                     nonce="evm-envelope-proof")})
+    assert served.status_code == 200, served.text
+    sender = served.json()["sender"]
+    assert sender["did"].startswith("did:pkh:eip155:8453:0x")
+    assert sender["authentication"] == callerproof.EVM_PROTOCOL
+    assert envelopes.verify(store, served.json())["valid"] is True
 
 
 def test_http_proof_replay_and_body_mutation_are_rejected(monkeypatch):
