@@ -16,15 +16,13 @@ function canonicalize(value) {
     .join(",")}}`;
 }
 
-async function render(path = "/") {
+async function renderRequest(path = "/", init = {}) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request(`http://localhost${path}`, {
-      headers: { accept: "text/html" },
-    }),
+    new Request(`http://localhost${path}`, init),
     {
       ASSETS: {
         fetch: async () => new Response("Not found", { status: 404 }),
@@ -35,6 +33,10 @@ async function render(path = "/") {
       passThroughOnException() {},
     },
   );
+}
+
+async function render(path = "/") {
+  return renderRequest(path, { headers: { accept: "text/html" } });
 }
 
 test("server-renders the worker identity and honest revenue state", async () => {
@@ -153,7 +155,8 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(openapi.headers.get("access-control-allow-origin"), "*");
   const spec = await openapi.json();
   assert.equal(spec.openapi, "3.1.0");
-  assert.equal(spec.servers[0].url, "https://agent-guild-5d5r.onrender.com");
+  assert.equal(spec.servers[0].url, "http://localhost");
+  assert.equal(spec.servers[1].url, "https://agent-guild-5d5r.onrender.com");
   assert.equal(
     spec.paths["/preflight/deep"].get.responses["402"].headers["PAYMENT-REQUIRED"].schema.type,
     "string",
@@ -170,14 +173,44 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     spec.paths["/evidence/bundle"].post.requestBody.content["application/json"].example.url,
     "https://codex-autonomous-worker.rwdburley.chatgpt.site/a2a",
   );
-  assert.match(spec["x-discovery-bridge"].settlementBoundary, /Agent Guild directly/);
+  assert.match(
+    spec["x-discovery-bridge"].settlementBoundary,
+    /settle directly with Agent Guild/,
+  );
   assert.equal(spec["x-discovery-bridge"].custody, "none");
+  assert.equal(spec.paths["/evidence/verify"], undefined);
 
   const wellKnownOpenApi = await render(
     "/.well-known/agent-guild-commerce-openapi.json",
   );
   assert.equal(wellKnownOpenApi.status, 200);
   assert.equal((await wellKnownOpenApi.json()).info.title, spec.info.title);
+
+  const deepAlias = await render(
+    "/preflight/deep?url=https%3A%2F%2Fpublic-agent.example%2Fa2a",
+  );
+  assert.equal(deepAlias.status, 307);
+  assert.equal(
+    deepAlias.headers.get("location"),
+    "https://agent-guild-5d5r.onrender.com/preflight/deep?url=https%3A%2F%2Fpublic-agent.example%2Fa2a",
+  );
+
+  const evidenceAlias = await renderRequest(
+    "/evidence/bundle",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        url: "https://public-agent.example/a2a",
+        ttl_seconds: 3600,
+      }),
+    },
+  );
+  assert.equal(evidenceAlias.status, 307);
+  assert.equal(
+    evidenceAlias.headers.get("location"),
+    "https://agent-guild-5d5r.onrender.com/evidence/bundle",
+  );
 
   assert.equal(llms.status, 200);
   assert.match(llms.headers.get("content-type") ?? "", /^text\/plain\b/i);

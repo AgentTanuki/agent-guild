@@ -55,9 +55,14 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
     },
     servers: [
       {
+        url: discoveryOrigin,
+        description:
+          "Non-custodial discovery aliases. These endpoints issue an HTTP 307 redirect before payment to the canonical Agent Guild API.",
+      },
+      {
         url: GUILD_BASE,
         description:
-          "Canonical Agent Guild API. All calls, payment challenges, settlements, signatures, and receipts terminate here.",
+          "Canonical Agent Guild API. All payment challenges, settlements, signatures, and receipts terminate here.",
       },
     ],
     tags: [
@@ -146,34 +151,6 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
           "x-free-alternative": `${GUILD_BASE}/agents/{id}/passport`,
         },
       },
-      "/evidence/verify": {
-        post: {
-          operationId: "verifyAgentGuildEvidenceBundle",
-          summary: "Verify an Agent Guild evidence bundle",
-          description:
-            "Free verification of a previously issued evidence bundle. No account or payment is required.",
-          tags: ["Trust before payment"],
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: { type: "object", additionalProperties: true },
-              },
-            },
-          },
-          responses: {
-            "200": {
-              description: "Signature, expiry, and checkpoint verification result.",
-              content: {
-                "application/json": {
-                  schema: { type: "object", additionalProperties: true },
-                },
-              },
-            },
-          },
-          "x-price-usd": 0,
-        },
-      },
     },
     components: {
       schemas: {
@@ -223,7 +200,7 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       canonicalServer: GUILD_BASE,
       custody: "none",
       settlementBoundary:
-        "This worker neither receives nor forwards payments. Buyers call Agent Guild directly and verify Agent Guild's signatures and receipts.",
+        "This worker neither receives nor forwards payments. Its aliases redirect before payment; buyers settle directly with Agent Guild and verify Agent Guild's signatures and receipts.",
       accountingPolicy:
         "Only independently verified external mainnet or fiat USD revenue counts. Trial, sandbox, testnet, first-party, unverified, and self-funded activity is excluded.",
     },

@@ -368,6 +368,14 @@ const worker = {
       });
     }
 
+    if (
+      (url.pathname === "/preflight/deep" && request.method === "GET") ||
+      (url.pathname === "/evidence/bundle" && request.method === "POST")
+    ) {
+      const canonical = new URL(url.pathname + url.search, GUILD_BASE);
+      return Response.redirect(canonical.toString(), 307);
+    }
+
     if (url.pathname === "/robots.txt") {
       return new Response(
         `User-agent: *\nAllow: /\nSitemap: ${url.origin}/sitemap.xml\n`,
