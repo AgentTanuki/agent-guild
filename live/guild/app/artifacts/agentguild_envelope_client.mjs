@@ -1,7 +1,7 @@
 // Agent Guild — one-call buyer for sender-authenticated machine envelopes.
 //
 // Collapses the machine purchase path into one function invocation:
-//   payload bytes -> SHA-256 commitment -> did:key caller proof -> x402 retry
+//   payload bytes -> SHA-256 commitment -> EVM caller proof -> x402 retry
 //   -> Guild envelope -> offline signature verification.
 //
 // This file never reads, stores or transmits a wallet/private key. It accepts
@@ -11,11 +11,10 @@
 //
 //   import { privateKeyToAccount } from "viem/accounts";
 //   import {
-//     didKeySigner, createEvmMachineEnvelopeClient,
+//     createEvmMachineEnvelopeClient,
 //   } from "./agentguild_envelope_client.mjs";
 //
 //   const client = await createEvmMachineEnvelopeClient({
-//     didSigner: didKeySigner(process.env.ED25519_PRIVATE_KEY_HEX),
 //     evmSigner: privateKeyToAccount(process.env.EVM_PRIVATE_KEY),
 //   });
 //   const result = await client.issue({
@@ -39,8 +38,10 @@ import {
 } from "./agentguild_verify.mjs";
 
 export const CALLER_PROOF_PROTOCOL = "agent-guild/caller-proof/v1";
+export const EVM_CALLER_PROOF_PROTOCOL = "agent-guild/caller-proof-evm/v1";
 export const MACHINE_ENVELOPE_PROTOCOL = "agent-guild/machine-envelope/v1";
 export const CALLER_PROOF_HEADER = "X-Guild-Caller-Proof";
+export const BASE_MAINNET_CHAIN_ID = 8453;
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const ED25519_PKCS8_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
@@ -75,16 +76,28 @@ function sha256Hex(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function signatureBytes(value) {
+function signatureHex(value, protocol) {
+  if (protocol === EVM_CALLER_PROOF_PROTOCOL) {
+    if (typeof value === "string") {
+      const hex = value.startsWith("0x") ? value.slice(2) : value;
+      if (!/^[0-9a-fA-F]{130}$/.test(hex)) {
+        throw new TypeError("EVM signer returned a string that is not a 65-byte signature");
+      }
+      return "0x" + hex.toLowerCase();
+    }
+    const out = bytes(value, "signature");
+    if (out.length !== 65) throw new TypeError("EVM signature must be 65 bytes");
+    return "0x" + out.toString("hex");
+  }
   if (typeof value === "string") {
     if (!/^[0-9a-fA-F]{128}$/.test(value)) {
       throw new TypeError("signer returned a string that is not a 64-byte hex signature");
     }
-    return Buffer.from(value, "hex");
+    return value.toLowerCase();
   }
   const out = bytes(value, "signature");
   if (out.length !== 64) throw new TypeError("Ed25519 signature must be 64 bytes");
-  return out;
+  return out.toString("hex");
 }
 
 function normaliseRawPrivateKey(privateKey) {
@@ -127,6 +140,32 @@ export function didKeySigner(privateKey) {
   });
 }
 
+/** Use one caller-owned Base EOA for both exact-body proof and x402 payment. */
+export function evmWalletCallerProofSigner(
+  evmSigner, { chainId = BASE_MAINNET_CHAIN_ID } = {},
+) {
+  if (!evmSigner || typeof evmSigner.address !== "string"
+      || typeof evmSigner.signMessage !== "function") {
+    throw new TypeError("evmSigner must expose address and async signMessage(...)");
+  }
+  if (Number(chainId) !== BASE_MAINNET_CHAIN_ID) {
+    throw new RangeError("the EVM caller-proof v1 identity is Base-mainnet-only");
+  }
+  const address = evmSigner.address.toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(address)) {
+    throw new TypeError("evmSigner.address must be a 20-byte EVM address");
+  }
+  const did = `did:pkh:eip155:${BASE_MAINNET_CHAIN_ID}:${address}`;
+  return Object.freeze({
+    did,
+    verificationMethod: `${did}#blockchainAccountId`,
+    callerProofProtocol: EVM_CALLER_PROOF_PROTOCOL,
+    async sign(message) {
+      return evmSigner.signMessage({ message: { raw: bytes(message, "message") } });
+    },
+  });
+}
+
 function proofNonce() {
   return randomBytes(24).toString("base64url");
 }
@@ -141,10 +180,13 @@ export async function createCallerProof({
   nonce = proofNonce(),
   now = Date.now(),
 }) {
-  if (!signer || typeof signer.did !== "string"
-      || !signer.did.startsWith("did:key:")
-      || typeof signer.sign !== "function") {
-    throw new TypeError("signer must expose did:key `did` and async sign(bytes)");
+  const protocol = signer?.callerProofProtocol || CALLER_PROOF_PROTOCOL;
+  const didKey = protocol === CALLER_PROOF_PROTOCOL
+    && signer?.did?.startsWith("did:key:");
+  const evm = protocol === EVM_CALLER_PROOF_PROTOCOL
+    && signer?.did?.startsWith(`did:pkh:eip155:${BASE_MAINNET_CHAIN_ID}:`);
+  if ((!didKey && !evm) || typeof signer?.sign !== "function") {
+    throw new TypeError("signer must expose a supported DID, proof protocol and async sign(bytes)");
   }
   const ttl = Math.trunc(Number(ttlSeconds));
   if (!Number.isFinite(ttl) || ttl < 1 || ttl > 600) {
@@ -155,7 +197,7 @@ export async function createCallerProof({
   }
   const iat = Math.floor((now instanceof Date ? now.getTime() : Number(now)) / 1000);
   const payload = {
-    v: CALLER_PROOF_PROTOCOL,
+    v: protocol,
     did: signer.did,
     method: String(method),
     resource: String(resource),
@@ -165,14 +207,16 @@ export async function createCallerProof({
     nonce,
     aud: "agent-guild",
   };
-  const signature = signatureBytes(
-    await signer.sign(Buffer.from(canon(payload), "utf8")),
-  ).toString("hex");
+  const signature = signatureHex(
+    await signer.sign(Buffer.from(canon(payload), "utf8")), protocol,
+  );
   return {
     payload,
     signature,
     verificationMethod: signer.verificationMethod
-      || `${signer.did}#${signer.did.slice("did:key:".length)}`,
+      || (didKey
+        ? `${signer.did}#${signer.did.slice("did:key:".length)}`
+        : `${signer.did}#blockchainAccountId`),
   };
 }
 
@@ -352,12 +396,15 @@ export async function issueMachineEnvelope({
 export async function createEvmMachineEnvelopeClient({
   didSigner,
   evmSigner,
+  evmChainId = BASE_MAINNET_CHAIN_ID,
   fetchImpl = globalThis.fetch,
   host = DEFAULT_HOST,
   expectedIssuer,
   pinIssuer = true,
 }) {
   if (!evmSigner) throw new TypeError("evmSigner is required");
+  const callerSigner = didSigner
+    || evmWalletCallerProofSigner(evmSigner, { chainId: evmChainId });
   let x402Fetch;
   let x402Evm;
   try {
@@ -378,7 +425,7 @@ export async function createEvmMachineEnvelopeClient({
     async issue(options) {
       return issueMachineEnvelope({
         ...options,
-        signer: didSigner,
+        signer: callerSigner,
         paidFetch,
         fetchImpl,
         host,
