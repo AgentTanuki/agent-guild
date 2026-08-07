@@ -99,6 +99,18 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             "key_required": False,
             "caller_proof_required": True,
             "directly_callable": True,
+            "client": {
+                "language": "javascript/typescript (node)",
+                "source": "/sdk/agentguild_envelope_client.mjs",
+                "factory": (
+                    "createEvmMachineEnvelopeClient({didSigner, evmSigner})"),
+                "operation": (
+                    "client.issue({payload, kind, recipient, nonce, ...})"),
+                "dependencies": ["@x402/fetch", "@x402/evm"],
+                "custody": (
+                    "Payload bytes and signer private keys remain under "
+                    "caller control and are never uploaded or persisted."),
+            },
             # The exact settlement binding is an opaque server-derived hash of
             # normalized body + authenticated sender DID. It is deliberately
             # not a caller-supplied body field.
@@ -287,6 +299,15 @@ def operations(base: Optional[str] = None) -> list[dict[str, Any]]:
         ep["call"] = call
         if ep.get("body"):
             ep["body_example"] = ep["body"]
+        # Static catalog definitions use root-relative artifact paths so they
+        # remain deployment-neutral. Every served discovery document receives
+        # a directly fetchable absolute URL.
+        if ep.get("client"):
+            client = dict(ep["client"])
+            source = client.get("source")
+            if isinstance(source, str) and source.startswith("/"):
+                client["source"] = root + source
+            ep["client"] = client
         out.append({
             "operation": name,
             "price_usd": price_usd(name),
