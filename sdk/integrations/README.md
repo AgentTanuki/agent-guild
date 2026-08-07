@@ -9,6 +9,7 @@ self-contained (stdlib HTTP) and Apache-2.0.
 | **LangChain / LangGraph** | [`langchain_agentguild.py`](langchain_agentguild.py) | `tools=[guild_check, guild_verify_passport, ...]` |
 | **CrewAI** | [`crewai_agentguild.py`](crewai_agentguild.py) | `Agent(tools=[GuildCheckTool(), ...])` |
 | **OpenAI tools / function calling** | [`openai_tools.json`](openai_tools.json) | paste into your `tools` array, execute the HTTP call |
+| **Virtuals ACP** | [`virtuals_acp_fund_policy.mjs`](virtuals_acp_fund_policy.mjs) | fail closed before `session.fund()` unless the exact provider wallet has valid signed identity and passes the paid risk policy |
 | **Any MCP client** (Claude Code, Cursor, etc.) | no file needed | `https://agent-guild-5d5r.onrender.com/mcp` (hosted, Streamable HTTP) |
 | **Any A2A client** | no file needed | agent card at `/.well-known/agent-card.json`, endpoint `POST /a2a` |
 | **Anything else** | no file needed | plain HTTP: `GET /check?capability=<cap>` |
