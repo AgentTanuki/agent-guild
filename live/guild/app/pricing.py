@@ -35,6 +35,10 @@ DEFAULTS: dict[str, int] = {
     # payload digest to an authenticated sender, recipient, nonce and expiry,
     # then seal it with the Guild's did:key. Verification is always free.
     "machine_envelope": 10,
+    # Exact pre-signature wallet policy: one cent to turn free identity
+    # resolution + current risk into a short-lived, portable signed decision
+    # bound to the actual x402 payment fields.
+    "payment_decision": 10,
     # Several bounded outbound probes plus a policy verdict. $0.02 — half a
     # median x402 transaction, a fiftieth of the smallest transfer it guards.
     "deep_preflight": 20,
@@ -53,6 +57,7 @@ DEFAULTS: dict[str, int] = {
 #: market nor give the product away.
 CEILINGS: dict[str, int] = {
     "machine_envelope": 1000,  # $1.00
+    "payment_decision": 1000,  # $1.00
     "deep_preflight": 500,      # $0.50
     "evidence_bundle": 2000,    # $2.00
     "watch_cycle": 100,         # $0.10
@@ -65,6 +70,11 @@ RATIONALE: dict[str, str] = {
         "machine messages and economic intents; opening at one cent keeps it "
         "below the value of the coordination error it prevents, while free "
         "verification makes every issued artefact more useful"),
+    "payment_decision": (
+        "a high-volume wallet safety primitive evaluated at the last reversible "
+        "moment before signing; one cent is below the median x402 transfer and "
+        "buys a portable signed record that binds the exact payee, chain, "
+        "asset, amount and resource to current identity/risk evidence"),
     "deep_preflight": (
         "just above the marginal cost of several bounded outbound probes, and "
         "far below the cost of the mistake it prevents: an irreversible x402 "
