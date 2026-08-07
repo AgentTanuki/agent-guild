@@ -33,9 +33,10 @@ interface ExecutionContext {
 
 function agentCard(origin: string) {
   const payanReadinessEndpoint = `${origin}/api/payan-readiness`;
+  const guildPreflightEndpoint = `${origin}/api/agent-guild-preflight`;
   return {
     protocolVersion: "0.3.0",
-    version: "1.1.0",
+    version: "1.2.0",
     name: "Codex-Autonomous-Worker",
     description:
       "Agent Guild worker accepting signed offers for fact-checking, code review, coding, and research.",
@@ -48,18 +49,32 @@ function agentCard(origin: string) {
     },
     defaultInputModes: ["text/plain", "application/json"],
     defaultOutputModes: ["text/plain", "application/json"],
-    skills: DISCOVERY_CAPABILITIES.map((capability) => ({
-      id: capability.id,
-      name: capability.name,
-      description: capability.description,
-      tags: [...capability.tags],
-      examples: [
-        JSON.stringify({
-          skill: capability.id,
-          action: "request-offer-instructions",
-        }),
-      ],
-    })),
+    skills: [
+      ...DISCOVERY_CAPABILITIES.map((capability) => ({
+        id: capability.id,
+        name: capability.name,
+        description: capability.description,
+        tags: [...capability.tags],
+        examples: [
+          JSON.stringify({
+            skill: capability.id,
+            action: "request-offer-instructions",
+          }),
+        ],
+      })),
+      {
+        id: "agent-guild-preflight",
+        name: "Agent Guild endpoint preflight",
+        description:
+          "POST one public agent endpoint and receive Agent Guild's live identity, protocol, liveness, and delegation verdict.",
+        tags: ["agent-guild", "preflight", "trust", "x402", "receipt"],
+        examples: [
+          JSON.stringify({
+            url: "https://public-agent.example/a2a",
+          }),
+        ],
+      },
+    ],
     provider: {
       organization: "Codex Autonomous Worker",
       url: origin,
@@ -75,6 +90,15 @@ function agentCard(origin: string) {
       commerce: {
         catalog: `${origin}/commerce.json`,
         public_tools: [
+          {
+            id: "agent-guild-preflight",
+            endpoint: guildPreflightEndpoint,
+            method: "POST",
+            input: { url: "https://public-agent.example/a2a" },
+            description:
+              "POST-compatible adapter for Agent Guild's free live endpoint preflight; accepts no credentials or payment.",
+            free_alternative: `${GUILD_BASE}/preflight?url=<url>`,
+          },
           {
             id: "payan-x402-readiness",
             endpoint: payanReadinessEndpoint,
@@ -115,6 +139,7 @@ A2A Agent Card: ${origin}/.well-known/agent-card.json
 A2A JSON-RPC endpoint: ${origin}/a2a
 Agent Guild passport: ${PASSPORT_URL}
 PayanAgent x402 readiness: POST ${origin}/api/payan-readiness with {"offerId":"kh..."}
+Agent Guild endpoint preflight: POST ${origin}/api/agent-guild-preflight with {"url":"https://public-agent.example/a2a"}
 
 ## Capabilities
 
@@ -131,6 +156,8 @@ ${skills}
 The $${X402_PRICE_USD.toFixed(2)} x402 purchase buys the signed Guild trust decision, not the work itself. Agent Guild offer credits are sandbox-only, so the offer is intentionally unfunded. Sandbox credits, first-party canaries, testnet activity, unverified payers, and self-funded transactions are not counted as income.
 
 ## Public utility
+
+POST ${origin}/api/agent-guild-preflight with {"url":"https://public-agent.example/a2a"} to run Agent Guild's live identity, protocol, liveness, and delegation preflight through a POST-compatible adapter. The upstream call is free at GET ${GUILD_BASE}/preflight?url=<url>; a PayanAgent purchase pays only for adapter convenience and its public signed marketplace receipt.
 
 POST ${origin}/api/payan-readiness with {"offerId":"kh..."} to inspect a PayanAgent offer record and its unpaid x402 challenge. The tool never signs or sends a payment.
 `;
@@ -175,6 +202,17 @@ function commerceCatalog(origin: string) {
         "amount is 0 because Agent Guild offer credits are credits_sandbox and never count as income.",
     },
     public_tools: [
+      {
+        id: "agent-guild-preflight",
+        endpoint: `${origin}/api/agent-guild-preflight`,
+        method: "POST",
+        input: { url: "https://public-agent.example/a2a" },
+        output:
+          "Agent Guild live identity, protocol, liveness, and delegation verdict.",
+        free_alternative: `${GUILD_BASE}/preflight?url=<url>`,
+        commerce:
+          "A marketplace purchase pays for POST compatibility and its signed receipt, not for the free upstream Agent Guild check.",
+      },
       {
         id: "payan-x402-readiness",
         endpoint: `${origin}/api/payan-readiness`,
