@@ -142,11 +142,11 @@ def derived_server_json(contract: dict) -> dict:
         # See docs/CORRECTIONS_2026-07-14.md.
         "name": "io.github.AgentTanuki/agent-guild",
         # registry schema caps description at 100 chars — keep this short.
-        # Passport-first acquisition copy (programme 2026-07-23): the full
-        # proposition set (control proof, evidence, MCP/HTTP/A2A, no human or
-        # API key) lives in the publisher-provided passport block below.
-        "description": ("Free self-serve Agent Passports for AI agents: "
-                        "signed, portable, offline-verifiable credentials."),
+        # Machine buyers search this field. The old passport-only copy made
+        # the paid signed-message product invisible even after it was live.
+        # Keep both propositions under the registry's 100-character cap.
+        "description": ("Signed machine messages via x402; free offline-"
+                        "verifiable trust passports for AI agents."),
         "version": s["version"],
         "repository": {"url": s["repository"], "source": "github"},
         "websiteUrl": s["host"],
@@ -158,6 +158,7 @@ def derived_server_json(contract: dict) -> dict:
         "_meta": {
             "io.modelcontextprotocol.registry/publisher-provided": {
                 "ai.agent-guild/passport": _passport_meta(s),
+                "ai.agent-guild/machine-envelope": _machine_envelope_meta(s),
                 "ai.agent-guild/trust": _trust_meta(s),
                 "ai.agent-guild/paid-operations": _paid_ops_meta(s),
                 # NO ai.agent-guild/payments block (acquisition release
@@ -169,6 +170,30 @@ def derived_server_json(contract: dict) -> dict:
                 # it.
             },
         },
+    }
+
+
+def _machine_envelope_meta(s: dict) -> dict:
+    """Executable buyer path for the paid signed-message product.
+
+    A registry reader should not have to infer that ``machine_envelope`` is a
+    signed communication primitive, nor hand-build caller proof + x402 retry +
+    offline verification. Prices remain live-only; everything else is stable
+    enough to publish directly and fits within the registry's 4KB metadata cap.
+    """
+    h = s["host"]
+    return {
+        "offer": ("Guild-signed machine message envelope binding an authenticated "
+                  "sender DID to a private payload digest, recipient, purpose, "
+                  "nonce and expiry; payload bytes are never uploaded."),
+        "client": h + "/sdk/agentguild_envelope_client.mjs",
+        "factory": "createEvmMachineEnvelopeClient({didSigner, evmSigner})",
+        "issue": "client.issue({payload, kind, recipient, nonce, ...})",
+        "payment": "x402 USDC on Base mainnet; current price comes from catalog",
+        "catalog": (h + "/.well-known/agent-guild.json"
+                    "?src=paid_offer:registry"),
+        "verify": (h + "/envelopes/verify or offline with the published verifier"),
+        "custody": "Payload bytes and signer private keys stay caller-controlled.",
     }
 
 
