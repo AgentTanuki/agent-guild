@@ -222,6 +222,18 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(spec.info.version, "2.4.0");
   assert.match(spec.info["x-guidance"], /Before hiring, delegating to, or paying/);
   assert.match(spec.info["x-guidance"], /POST \/envelopes\/issue/);
+  assert.match(
+    spec.paths["/preflight/deep"].get.summary,
+    /before paying or delegating/,
+  );
+  assert.match(
+    spec.paths["/wallet-binding/decision"].post.summary,
+    /before the wallet signs/,
+  );
+  assert.match(
+    spec.paths["/envelopes/issue"].post.summary,
+    /sender, recipient, nonce, and expiry/,
+  );
   assert.equal(
     spec.paths["/trust-decision"].get["x-payment-info"].priceUsd,
     1,

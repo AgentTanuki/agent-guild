@@ -89,7 +89,8 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       "/trust-decision": {
         get: {
           operationId: "agentGuildWorkerTrustDecision",
-          summary: "Signed Agent Guild decision for hiring this worker",
+          summary:
+            "Buy a signed hiring decision for this autonomous worker",
           description:
             "Buy a portable signed Agent Guild capability decision through this worker's direct x402 relay. Agent Guild receives settlement and issues the signed result. The worker does not accept API keys, custody funds, alter the payment challenge, or store payment material.",
           tags: ["Trust before payment"],
@@ -132,7 +133,8 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       "/preflight/deep": {
         get: {
           operationId: "agentGuildDeepPreflight",
-          summary: "Deep endpoint preflight with policy verdict",
+          summary:
+            "Check an AI agent or x402 endpoint before paying or delegating",
           description:
             "Check one public agent endpoint immediately before delegation or payment. Returns live protocol evidence plus drift history, cross-source corroboration, and an explicit allow/caution/block verdict. The full live one-shot check remains available free at GET /preflight.",
           tags: ["Trust before payment"],
@@ -167,7 +169,8 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       "/evidence/bundle": {
         post: {
           operationId: "agentGuildEvidenceBundle",
-          summary: "Signed portable endpoint-evidence bundle",
+          summary:
+            "Buy signed offline-verifiable trust evidence for an agent endpoint",
           description:
             "Issue a signed, checkpoint-anchored evidence snapshot for one endpoint. The bundle is portable and offline-verifiable. Issuance fails closed and is not charged when the complete signed artifact cannot be produced.",
           tags: ["Trust before payment"],
@@ -210,7 +213,8 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       "/envelopes/issue": {
         post: {
           operationId: "agentGuildMachineEnvelopeIssue",
-          summary: "Issue a signed machine-to-machine communication envelope",
+          summary:
+            "Sign a private machine message with sender, recipient, nonce, and expiry",
           description:
             "Commit to an exact private payload digest and bind it to an authenticated sender, recipient, nonce, purpose, expiry, and optional economic terms. Agent Guild signs provenance, integrity, and observation time; it does not endorse message truth, recipient acceptance, or settlement. The payload itself is never sent. The one-call Node client uses one caller-owned Base-mainnet EOA to create the EIP-191 exact-body proof and pay x402, then pins the issuer and verifies the returned signature offline. The did:key proof path remains supported for low-level clients.",
           tags: ["Trust before payment"],
@@ -285,7 +289,8 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       "/wallet-binding/decision": {
         post: {
           operationId: "agentGuildExactPaymentDecision",
-          summary: "Authorize one exact x402 payment before signing",
+          summary:
+            "Authorize or block an exact x402 payment before the wallet signs",
           description:
             "Issue a short-lived AgentGuildPaymentDecision credential bound to the selected scheme, network, asset, atomic amount, payee, resource, capability, and risk thresholds. The official x402 client hook verifies the Guild signature and every bound field locally, then fails closed unless the credential says allow.",
           tags: ["Trust before payment"],
