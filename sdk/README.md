@@ -16,6 +16,12 @@ Two single-file reference verifiers, same behaviour, pick your language:
 Both implement AGI-1's language-agnostic canonicalization, so they verify the *same*
 Guild-signed passport byte-for-byte.
 
+The Node SDK also includes `agentguild_envelope_client.mjs`: a non-custodial,
+one-call buyer for the paid machine-envelope primitive. It hashes payload bytes
+locally, signs the exact request with the caller's `did:key`, delegates Base-USDC
+payment to the official x402 v2 client, and verifies the returned Guild signature.
+The confidential payload and both private keys stay with the caller.
+
 ## Install (Python)
 
 Copy `agentguild_verify.py` into your project (it's a single file), or:
@@ -77,6 +83,35 @@ if (d.verified && d.recommendation === "hire") { /* delegate */ }
 const res = verifyPassport(passport, { expectedIssuer: await issuerDid() });
 // res.valid, res.issuerMatches, res.checkpointValid, res.claims
 ```
+
+### Buy a signed machine envelope in one call
+
+```bash
+npm install @x402/fetch @x402/evm viem
+```
+
+```js
+import { privateKeyToAccount } from "viem/accounts";
+import {
+  didKeySigner, createEvmMachineEnvelopeClient,
+} from "./agentguild_envelope_client.mjs";
+
+const buyer = await createEvmMachineEnvelopeClient({
+  didSigner: didKeySigner(process.env.ED25519_PRIVATE_KEY_HEX),
+  evmSigner: privateKeyToAccount(process.env.EVM_PRIVATE_KEY),
+});
+
+const { envelope, verification, paymentResponse } = await buyer.issue({
+  payload: JSON.stringify({ action: "delegate", task: "42" }),
+  kind: "delegation",
+  recipient: "did:key:z6Mk...",
+});
+if (!verification.valid) throw new Error("untrusted envelope");
+```
+
+Only the payload SHA-256 commitment is sent. The client resolves the Guild's
+current signing DID before payment, retains the same proof across the standard
+402 retry, and rejects an unsigned, expired, tampered, or wrong-issuer result.
 
 ## CLI smoke test
 
