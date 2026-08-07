@@ -247,7 +247,9 @@ function registrationFetchUrl(agentUri: string) {
 async function fetchRegistration(url: URL) {
   const response = await fetch(url, {
     headers: { accept: "application/json" },
-    redirect: "error",
+    // Cloudflare's edge fetch supports manual redirect handling but not
+    // redirect:"error". Manual preserves the fail-closed no-redirect policy.
+    redirect: "manual",
     signal: AbortSignal.timeout(REGISTRATION_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`registration returned HTTP ${response.status}`);
