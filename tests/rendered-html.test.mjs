@@ -81,32 +81,17 @@ test("publishes an A2A agent card", async () => {
   assert.equal(card.version, "1.4.1");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
+  assert.equal(card.agentGuild.machine_catalog, "http://localhost/commerce.json");
+  assert.equal(card.agentGuild.machine_openapi, "http://localhost/openapi.json");
   assert.equal(
-    card.agentGuild.commerce.paid_services_catalog,
-    "http://localhost/commerce.json",
+    card.agentGuild.signing_key,
+    "http://localhost/.well-known/worker-signing-key.json",
   );
-  assert.equal(card.agentGuild.commerce.paid_action, undefined);
-  assert.equal(card.agentGuild.commerce.openapi, "http://localhost/openapi.json");
-  assert.equal(
-    card.agentGuild.commerce.machine_envelope.client,
-    "https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs",
-  );
-  assert.equal(
-    card.agentGuild.commerce.machine_envelope.factory,
-    "createEvmMachineEnvelopeClient({evmSigner})",
-  );
-  assert.equal(
-    card.agentGuild.commerce.public_tools[0].endpoint,
-    "http://localhost/api/signed-agent-guild-preflight",
-  );
-  assert.equal(
-    card.agentGuild.commerce.public_tools[1].endpoint,
-    "http://localhost/api/agent-guild-preflight",
-  );
-  assert.equal(
-    card.agentGuild.commerce.public_tools[2].endpoint,
-    "http://localhost/api/payan-readiness",
-  );
+  assert.equal(card.agentGuild.commerce, undefined);
+  const cardBlob = JSON.stringify(card).toLowerCase();
+  for (const marker of ["x402", "payment", "paid", "price", "usdc", "402"]) {
+    assert.equal(cardBlob.includes(marker), false, `free A2A card contains ${marker}`);
+  }
   assert.deepEqual(
     card.skills.map((skill) => skill.id),
     [

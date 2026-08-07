@@ -44,9 +44,6 @@ interface ExecutionContext {
 }
 
 function agentCard(origin: string) {
-  const payanReadinessEndpoint = `${origin}/api/payan-readiness`;
-  const guildPreflightEndpoint = `${origin}/api/agent-guild-preflight`;
-  const signedPreflightEndpoint = `${origin}/api/signed-agent-guild-preflight`;
   return {
     protocolVersion: "0.3.0",
     version: "1.4.1",
@@ -80,7 +77,7 @@ function agentCard(origin: string) {
         name: "Agent Guild endpoint preflight",
         description:
           "POST one public agent endpoint and receive Agent Guild's live identity, protocol, liveness, and delegation verdict.",
-        tags: ["agent-guild", "preflight", "trust", "x402", "receipt"],
+        tags: ["agent-guild", "preflight", "trust", "receipt"],
         examples: [
           JSON.stringify({
             url: "https://public-agent.example/a2a",
@@ -112,12 +109,12 @@ function agentCard(origin: string) {
         id: "agent-guild-machine-envelope",
         name: "Agent Guild signed machine communication envelope",
         description:
-          "In one client call, hash a private payload locally, use one caller-owned Base-mainnet EOA for the exact-body proof and x402 payment, and receive an Agent Guild-signed sender, recipient, nonce, purpose, expiry, and optional value envelope verified offline.",
+          "In one client call, hash a private payload locally, use one caller-owned Base-mainnet EOA for the exact-body proof and settlement, and receive an Agent Guild-signed sender, recipient, nonce, purpose, expiry, and optional value envelope verified offline.",
         tags: [
           "agent-guild",
           "signed-message",
           "non-repudiation",
-          "x402",
+          "base-mainnet",
           "eip-191",
         ],
         examples: [
@@ -142,52 +139,9 @@ function agentCard(origin: string) {
       did: AGENT_DID,
       passport: PASSPORT_URL,
       offer_endpoint: `${GUILD_BASE}/offers`,
-      settlement:
-        "Independent third-party offers only. Offer credits are sandbox-only; genuine buyers attach the PAYMENT-RESPONSE from an external x402 Guild trust purchase.",
-      commerce: {
-        catalog: `${origin}/commerce.json`,
-        openapi: `${origin}/openapi.json`,
-        machine_envelope: {
-          client: ENVELOPE_CLIENT,
-          factory: "createEvmMachineEnvelopeClient({evmSigner})",
-          operation: "client.issue({payload, kind, recipient, nonce, ...})",
-          price_usd: 0.01,
-          currency: "USDC",
-          network: X402_NETWORK,
-          privacy: "payload bytes and private keys never leave the caller",
-        },
-        public_tools: [
-          {
-            id: "signed-agent-guild-preflight",
-            endpoint: signedPreflightEndpoint,
-            method: "POST",
-            input: signedPreflightDescription(origin).input,
-            description:
-              "Five-minute Ed25519/JCS snapshot binding the exact Agent Guild result, Guild release, caller recipient, nonce, purpose, and target endpoint.",
-            verification_key: `${origin}/.well-known/worker-signing-key.json`,
-            issuer_boundary: "worker-signed; not Agent-Guild-signed",
-            free_alternative: `${GUILD_BASE}/preflight?url=<url>`,
-          },
-          {
-            id: "agent-guild-preflight",
-            endpoint: guildPreflightEndpoint,
-            method: "POST",
-            input: { url: "https://public-agent.example/a2a" },
-            description:
-              "POST-compatible adapter for Agent Guild's free live endpoint preflight; accepts no credentials or payment.",
-            free_alternative: `${GUILD_BASE}/preflight?url=<url>`,
-          },
-          {
-            id: "payan-x402-readiness",
-            endpoint: payanReadinessEndpoint,
-            method: "POST",
-            input: { offerId: "kh..." },
-            description:
-              "Inspect one PayanAgent offer and its unpaid x402 challenge without signing or sending a payment.",
-          },
-        ],
-        paid_services_catalog: `${origin}/commerce.json`,
-      },
+      machine_catalog: `${origin}/commerce.json`,
+      machine_openapi: `${origin}/openapi.json`,
+      signing_key: `${origin}/.well-known/worker-signing-key.json`,
     },
   };
 }
