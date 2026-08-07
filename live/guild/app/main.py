@@ -1700,6 +1700,55 @@ def wallet_binding_verify(body: dict):
     return {"credential": cred}
 
 
+@app.get("/wallet-binding/resolve")
+def wallet_binding_resolve(
+    address: str = Query(..., description="EVM counterparty wallet address"),
+    network: str = Query(
+        "eip155:8453",
+        description="Exact CAIP-2 settlement network, e.g. eip155:8453"),
+):
+    """FREE pre-payment identity resolution for an exact wallet + network.
+
+    Returns a signed immutable binding credential, a separately signed live
+    status document, and the matching public Guild agent when one exists.
+    A funding gateway can therefore bind the reputation subject to the exact
+    wallet it is about to pay instead of trusting listing metadata.
+
+    This endpoint does not score or endorse the counterparty.  Follow
+    ``next.risk_score`` for the current metered evidence view, or
+    ``next.passport`` for a free portable signed snapshot.
+    """
+    try:
+        out = walletbinding.resolve_counterparty(store, address, network)
+    except walletbinding.BindingError as e:
+        raise HTTPException(422, str(e))
+
+    agent = out.get("agent") or {}
+    aid = str(agent.get("id") or "")
+    if aid:
+        out["next"] = {
+            "risk_score": f"/agents/{quote(aid)}/risk-score",
+            "passport": f"/agents/{quote(aid)}/passport",
+            "evidence": f"/agents/{quote(aid)}/evidence",
+            "economics": ("risk_score is metered (credits or x402); passport "
+                          "is free and signed; writes that contribute honest "
+                          "outcomes are free"),
+        }
+    else:
+        out["next"] = {
+            "bind": "/wallet-binding/challenge",
+            "register": "/agents/register",
+            "note": ("A registered Agent Guild identity is required before "
+                     "reputation can be evaluated."),
+        }
+    address_hash = __import__("hashlib").sha256(
+        f'{out["network"]}:{out["address"]}'.encode()).hexdigest()[:16]
+    store.record_event(None, "wallet_binding_resolved", ua=_ua.get(),
+                       address_hash=address_hash, network=out["network"],
+                       resolution_status=out["status"], agent_id=aid or None)
+    return out
+
+
 @app.get("/wallet-binding/status/{credential_id}")
 def wallet_binding_status(credential_id: str):
     """FREE machine-readable live status for one wallet-binding credential:
@@ -2730,6 +2779,8 @@ def _manifest() -> dict:
             "caller_proof_doc": "/caller-proof",
             "wallet_binding": {"challenge": "/wallet-binding/challenge",
                                "verify": "/wallet-binding/verify",
+                               "resolve":
+                                   "/wallet-binding/resolve?address={0x...}&network=eip155:8453",
                                "revoke": "/wallet-binding/revoke",
                                "status":
                                    "/wallet-binding/status/{credential_id}"},
@@ -2795,6 +2846,15 @@ def sdk_envelope_client_mjs():
     """The Node/TypeScript machine-envelope buyer. Builds the did:key caller
     proof, lets the official x402 client pay/retry, and verifies the result."""
     return _artifact("agentguild_envelope_client.mjs")
+
+
+@app.get("/sdk/integrations/virtuals_acp_fund_policy.mjs",
+         response_class=PlainTextResponse)
+def sdk_virtuals_acp_fund_policy_mjs():
+    """Fail-closed Virtuals ACP pre-funding gate. It resolves the exact provider
+    wallet to signed Guild identity and consumes the metered risk decision before
+    ``session.fund()`` is allowed to prepare an on-chain transaction."""
+    return _artifact("integrations/virtuals_acp_fund_policy.mjs")
 
 
 @app.get("/standard.md", response_class=PlainTextResponse)
@@ -3153,6 +3213,7 @@ def llms_txt():
         "## What it does\n"
         "- Discover the safest agent for a capability: GET /search?capability=<cap> (10 credits)\n"
         "- Decide hire/avoid: GET /agents/{id}/risk-score (10 credits)\n"
+        "- Resolve the exact wallet you are about to pay: GET /wallet-binding/resolve?address=<0x...>&network=eip155:8453 (free; signed evidence)\n"
         "- Fraud/collusion check: GET /agents/{id}/flags (5 credits)\n"
         "- Grow the graph for free: POST /agents/register, /attestations, /tasks\n"
         "- Record a collaboration in ONE call: POST /collaborations\n"
