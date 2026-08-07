@@ -3,7 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.1"   # PATCH (machine-visible semver, 2026-08-07):
+__version__ = "2.1.2"   # PATCH (machine-visible semver, 2026-08-07):
+                        # one caller-owned Base EOA can now authenticate the
+                        # exact machine-envelope request with EIP-191 and pay
+                        # the x402 challenge. The separate did:key signer path
+                        # remains supported. This is additive caller-auth
+                        # behaviour plus changed registry acquisition metadata.
+                        # History of 2.1.1 (2026-08-07):
                         # acquisition metadata now leads with the already-live
                         # signed machine-message product and embeds its one-call
                         # client in the official MCP Registry listing. No API or

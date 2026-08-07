@@ -1,4 +1,4 @@
-"""Generate the bundled caller-proof + wallet-binding verification vector.
+"""Generate caller-proof (did:key + one-wallet EVM) verification vectors.
 
 Produces verifiers/caller_proof_vector.json from the LIVE issuer/caller code
 (app.callerproof, app.walletbinding, app.crypto). The independent Python and
@@ -46,6 +46,11 @@ def main() -> int:
 
     # a deterministic EVM account (fixed seed → reproducible vector)
     acct = _account_from_seed(b"\x11" * 32)
+    evm_body = b'{"payload_sha256":"ab"}'
+    evm_proof = callerproof.create_evm_proof(
+        acct.key, method="POST", resource="/envelopes/issue", body=evm_body,
+        now=now, nonce="evm_cp_fixed_vector_nonce")
+
     nonce = "wb_fixed_vector_nonce"
     binding = walletbinding.binding_payload(
         did=did, address=acct.address, network="eip155:8453",
@@ -70,8 +75,9 @@ def main() -> int:
 
     vector = {
         "note": ("Independent verification vectors for "
-                 "agent-guild/caller-proof/v1 and the wallet-binding "
-                 "credential. Verify OFFLINE with no Agent Guild code."),
+                 "did:key caller-proof/v1, one-wallet EVM caller proof, and "
+                 "the wallet-binding credential. Verify OFFLINE with no "
+                 "Agent Guild code."),
         "generated_at": int(time.time()),
         "caller_proof": {
             "envelope": proof,
@@ -80,6 +86,13 @@ def main() -> int:
                         "body_utf8": ""},
             "public_key_hex": pub,
             "expected_did": did,
+        },
+        "evm_caller_proof": {
+            "envelope": evm_proof,
+            "request": {"method": "POST", "resource": "/envelopes/issue",
+                        "body_utf8": evm_body.decode("utf-8")},
+            "expected_did": evm_proof["payload"]["did"],
+            "expected_evm_address": acct.address,
         },
         "wallet_binding": {
             "binding": binding,

@@ -1666,7 +1666,7 @@ def get_revenue():
 # --- cryptographic machine attribution: caller-proof + wallet-binding --------
 @app.get("/caller-proof")
 def caller_proof_doc(request: Request):
-    """The machine-readable agent-guild/caller-proof/v1 schema, transport
+    """The machine-readable Agent Guild caller-proof schema, transport
     mappings, an example envelope and verification instructions. Free; this
     is how a machine learns to prove who it is without a human."""
     return callerproof.schema_document(str(request.base_url).rstrip("/"))
@@ -2501,13 +2501,14 @@ def _manifest() -> dict:
         },
         "caller_proof": {
             "protocol": callerproof.PROTOCOL,
+            "protocols": list(callerproof.SUPPORTED_PROTOCOLS),
             "http_header": callerproof.HTTP_HEADER,
             "mcp_meta_key": callerproof.MCP_META_KEY,
             "a2a_metadata_key": callerproof.A2A_METADATA_KEY,
             "doc": "/caller-proof",
-            "note": ("sign a JCS caller envelope with your did:key to prove "
-                     "this request came from your machine — no account, no "
-                     "human, no trusted user-agent"),
+            "note": ("sign a JCS caller envelope with your did:key, or use "
+                     "one Base EOA for EIP-191 request proof + x402 payment — "
+                     "no account, no human, no trusted user-agent"),
         },
         "version": __version__,
         "for_agents": "You (an AI agent) can use Agent Guild with no human: hosted, free "
@@ -3330,7 +3331,7 @@ async def machine_envelope_issue_route(
         raise HTTPException(401, {
             "error": "verified_caller_proof_required",
             "detail": (f"present {callerproof.HTTP_HEADER}: base64(JSON "
-                       f"{callerproof.PROTOCOL} envelope) bound to this exact "
+                       "did:key or Base-EVM caller proof) bound to this exact "
                        "POST body; AG will not issue an anonymous stamp"),
             "schema": "/caller-proof",
             "billing": "NOT CHARGED",

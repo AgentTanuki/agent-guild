@@ -187,8 +187,11 @@ def _machine_envelope_meta(s: dict) -> dict:
                   "sender DID to a private payload digest, recipient, purpose, "
                   "nonce and expiry; payload bytes are never uploaded."),
         "client": h + "/sdk/agentguild_envelope_client.mjs",
-        "factory": "createEvmMachineEnvelopeClient({didSigner, evmSigner})",
+        "factory": "createEvmMachineEnvelopeClient({evmSigner})",
         "issue": "client.issue({payload, kind, recipient, nonce, ...})",
+        "identity_payment": ("One caller-owned Base EOA signs the exact request "
+                             "with EIP-191 and pays x402; no registration or "
+                             "second identity key is required."),
         "payment": "x402 USDC on Base mainnet; current price comes from catalog",
         "catalog": (h + "/.well-known/agent-guild.json"
                     "?src=paid_offer:registry"),

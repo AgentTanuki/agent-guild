@@ -1,10 +1,12 @@
-"""agent-guild/caller-proof/v1 (machine-attribution pass).
+"""Agent Guild caller proofs (machine-attribution pass).
 
 A transport-neutral signed caller envelope a machine creates and verifies
 without a human: the caller's self-controlled did:key signs a JCS-canonical
 payload binding DID, method/action, canonical resource, request-body hash,
 issued/expiry times, unique nonce, audience "agent-guild" and the protocol
-version. Verified offline with the existing Ed25519/JCS primitives; nonce
+version. The additive EVM form uses an existing Base EOA and EIP-191 over the
+same canonical payload so one wallet can authenticate and pay. Verified
+offline; nonce
 replay, expiry, audience and exact request binding are enforced; anonymous
 calls stay allowed but UNVERIFIED; user-agent strings can never create
 verified status.
@@ -61,6 +63,43 @@ def test_create_and_verify_roundtrip_offline():
     # pure-offline signature verification with the existing primitives
     assert crypto.verify_jcs(p, env["signature"],
                              crypto.public_key_from_did(did))
+
+
+def test_evm_create_and_verify_roundtrip_offline():
+    key = "0x" + "42" * 32
+    env = callerproof.create_evm_proof(
+        key, method="POST", resource="/envelopes/issue",
+        body=b'{"payload_sha256":"ab"}', nonce="evm-proof-roundtrip")
+    assert env["payload"]["v"] == callerproof.EVM_PROTOCOL
+    assert env["payload"]["did"].startswith("did:pkh:eip155:8453:0x")
+    assert env["verificationMethod"].endswith("#blockchainAccountId")
+    out = callerproof.verify_proof(
+        store, env, method="POST", resource="/envelopes/issue",
+        body=b'{"payload_sha256":"ab"}')
+    assert out["verified"] is True
+    assert out["did"] == env["payload"]["did"]
+    assert out["protocol"] == callerproof.EVM_PROTOCOL
+
+
+def test_evm_proof_is_exact_body_bound_and_forgery_fails():
+    env = callerproof.create_evm_proof(
+        "0x" + "43" * 32, method="POST", resource="/envelopes/issue",
+        body=b'{"a":1}', nonce="evm-proof-tamper")
+    wrong_body = callerproof.verify_proof(
+        store, env, method="POST", resource="/envelopes/issue",
+        body=b'{"a":2}')
+    assert wrong_body["verified"] is False
+    assert "body" in wrong_body["reason"].lower()
+
+    forged = callerproof.create_evm_proof(
+        "0x" + "44" * 32, method="POST", resource="/envelopes/issue",
+        body=b'{"a":1}', nonce="evm-proof-forgery")
+    forged["payload"]["did"] = env["payload"]["did"]
+    out = callerproof.verify_proof(
+        store, forged, method="POST", resource="/envelopes/issue",
+        body=b'{"a":1}')
+    assert out["verified"] is False
+    assert "signature" in out["reason"].lower()
 
 
 @pytest.mark.parametrize("mutate,needles", [
@@ -205,11 +244,13 @@ def test_schema_published_on_machine_discovery_surfaces():
         manifest = client.get("/.well-known/agent-guild.json").json()
         cp = manifest.get("caller_proof")
         assert cp and cp["protocol"] == "agent-guild/caller-proof/v1"
+        assert callerproof.EVM_PROTOCOL in cp["protocols"]
         assert cp["http_header"] == callerproof.HTTP_HEADER
         assert cp["mcp_meta_key"] == callerproof.MCP_META_KEY
         assert "a2a_metadata_key" in cp
         doc = client.get("/caller-proof").json()
         assert doc["protocol"] == "agent-guild/caller-proof/v1"
+        assert callerproof.EVM_PROTOCOL in doc["protocols"]
         assert doc["payload_fields"]["nonce"]
         assert doc["example"]["payload"]["v"] == "agent-guild/caller-proof/v1"
         assert "verification" in doc
