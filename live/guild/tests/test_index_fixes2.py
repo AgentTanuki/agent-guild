@@ -245,14 +245,15 @@ def test_only_one_change_is_applied_per_cycle_globally(store):
 
 
 # --------------------------------------------------------------------------
-# 4. The A2A card leads with the decision
+# 4. The A2A card leads with the machine-communication primitive
 # --------------------------------------------------------------------------
-def test_agent_card_description_leads_with_the_endpoint_decision():
+def test_agent_card_description_leads_with_the_machine_envelope():
     from fastapi.testclient import TestClient
     from app.main import app
     card = TestClient(app).get("/.well-known/agent-card.json").json()
     desc = card["description"]
-    assert desc.lower().startswith("can i safely use or pay this endpoint")
+    assert desc.lower().startswith("seal machine intent without exposing its payload")
+    assert "provenance, not truth" in desc.lower()
     assert "preflight" in desc.lower()
     # passports may still be mentioned — as supporting, not as the opener
     head = desc[:200].lower()
