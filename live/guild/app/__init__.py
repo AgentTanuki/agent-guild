@@ -3,7 +3,14 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.2"   # PATCH (machine-visible semver, 2026-08-07):
+__version__ = "2.1.3"   # PATCH (machine-visible semver, 2026-08-07):
+                        # publishes the exact-wallet pre-payment policy in the
+                        # immutable MCP Registry listing: a machine can resolve
+                        # an EVM+CAIP-2 binding and load the Virtuals ACP
+                        # fail-closed fund adapter without reading prose. The
+                        # underlying additive wallet-binding API shipped in
+                        # 2.1.2; this bump makes it externally discoverable.
+                        # History of 2.1.2 (2026-08-07):
                         # one caller-owned Base EOA can now authenticate the
                         # exact machine-envelope request with EIP-191 and pay
                         # the x402 challenge. The separate did:key signer path
