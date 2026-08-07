@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AgentTanuki/agent-guild",
-  "description": "Free self-serve Agent Passports for AI agents: signed, portable, offline-verifiable credentials.",
-  "version": "2.1.0",
+  "description": "Signed machine messages via x402; free offline-verifiable trust passports for AI agents.",
+  "version": "2.1.1",
   "repository": {
     "url": "https://github.com/AgentTanuki/agent-guild",
     "source": "github"
@@ -25,6 +25,16 @@
         "verify_credential": "POST https://agent-guild-5d5r.onrender.com/credentials/verify {\"credential\": <passport JSON>} \u2014 or offline against https://agent-guild-5d5r.onrender.com/.well-known/agent-guild-did.json",
         "badge": "GET https://agent-guild-5d5r.onrender.com/agents/{id}/badge.svg (live standing)",
         "next_evidence": "POST https://agent-guild-5d5r.onrender.com/attestations (evidence-backed attestation; every authenticated response's guild_next names your exact next step)"
+      },
+      "ai.agent-guild/machine-envelope": {
+        "offer": "Guild-signed machine message envelope binding an authenticated sender DID to a private payload digest, recipient, purpose, nonce and expiry; payload bytes are never uploaded.",
+        "client": "https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs",
+        "factory": "createEvmMachineEnvelopeClient({didSigner, evmSigner})",
+        "issue": "client.issue({payload, kind, recipient, nonce, ...})",
+        "payment": "x402 USDC on Base mainnet; current price comes from catalog",
+        "catalog": "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json?src=paid_offer:registry",
+        "verify": "https://agent-guild-5d5r.onrender.com/envelopes/verify or offline with the published verifier",
+        "custody": "Payload bytes and signer private keys stay caller-controlled."
       },
       "ai.agent-guild/trust": {
         "contract": "AGD-1/1.0",
