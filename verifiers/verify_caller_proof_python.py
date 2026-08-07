@@ -1,5 +1,5 @@
-"""INDEPENDENT Python verification of agent-guild/caller-proof/v1 + the
-wallet-binding credential. No Agent Guild code imported — only third-party
+"""INDEPENDENT Python verification of did:key + one-wallet EVM caller proofs
+and the wallet-binding credential. No Agent Guild code imported — third-party
 primitives (rfc8785 for JCS, base58, pyca/cryptography, eth_account).
 
 Verifies, from the bundled vector:
@@ -67,6 +67,31 @@ def verify_caller_proof(v: dict) -> None:
     print("PASS caller-proof tamper: payload/did/body mutations all rejected")
 
 
+def verify_evm_caller_proof(v: dict) -> None:
+    payload = v["envelope"]["payload"]
+    signature = v["envelope"]["signature"]
+    assert payload["v"] == "agent-guild/caller-proof-evm/v1"
+    assert payload["aud"] == "agent-guild"
+    assert payload["did"] == v["expected_did"]
+    assert payload["did"].startswith("did:pkh:eip155:8453:0x")
+    recovered = Account.recover_message(
+        encode_defunct(primitive=rfc8785.dumps(payload)),
+        signature=bytes.fromhex(signature.removeprefix("0x")))
+    assert recovered.lower() == v["expected_evm_address"].lower(), \
+        "EVM caller-proof signature recovers a different address"
+    req = v["request"]
+    assert payload["method"] == req["method"]
+    assert payload["resource"] == req["resource"]
+    assert payload["body_sha256"] == hashlib.sha256(
+        req["body_utf8"].encode("utf-8")).hexdigest()
+    tampered = dict(payload, resource="/other")
+    tampered_recovered = Account.recover_message(
+        encode_defunct(primitive=rfc8785.dumps(tampered)),
+        signature=bytes.fromhex(signature.removeprefix("0x")))
+    assert tampered_recovered.lower() != v["expected_evm_address"].lower()
+    print("PASS EVM caller-proof: EIP-191 + did:pkh + exact request binding")
+
+
 def verify_wallet_binding(v: dict) -> None:
     binding = v["binding"]
     # 1. the DID controls the binding
@@ -128,6 +153,7 @@ def main() -> int:
     path = sys.argv[1] if len(sys.argv) > 1 else "caller_proof_vector.json"
     vec = json.load(open(path))
     verify_caller_proof(vec["caller_proof"])
+    verify_evm_caller_proof(vec["evm_caller_proof"])
     verify_wallet_binding(vec["wallet_binding"])
     verify_issued_credential(vec["wallet_binding"])
     print("ALL INDEPENDENT PYTHON CHECKS PASSED")
