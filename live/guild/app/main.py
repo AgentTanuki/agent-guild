@@ -602,7 +602,8 @@ def _http_demand_actor(request: Request, x_api_key: Optional[str]) -> str:
         ("agent-guild/demand-actor/" + basis).encode()).hexdigest()[:12]
 
 
-def _verify_http_caller_proof(request: Request, body: bytes = b"") -> tuple[bool, str]:
+def _verify_http_caller_proof(request: Request, body: bytes = b"", *,
+                              mark_nonce: bool = True) -> tuple[bool, str]:
     """Verify an agent-guild/caller-proof/v1 envelope on an HTTP read, bound
     to the EXACT request-target this server received. Returns
     (verified, did). A missing/invalid proof leaves the call UNVERIFIED
@@ -616,7 +617,8 @@ def _verify_http_caller_proof(request: Request, body: bytes = b"") -> tuple[bool
     resource = callerproof.http_resource(
         request.url.path, request.url.query)
     out = callerproof.verify_proof(store, env, method=request.method,
-                                   resource=resource, body=body)
+                                   resource=resource, body=body,
+                                   mark_nonce=mark_nonce)
     verified, did = bool(out.get("verified")), (out.get("did") or "")
     if verified:
         # stash for settle-time payer attribution (single verification per
@@ -2787,6 +2789,13 @@ def sdk_verify_mjs():
     return _artifact("agentguild_verify.mjs")
 
 
+@app.get("/sdk/agentguild_envelope_client.mjs", response_class=PlainTextResponse)
+def sdk_envelope_client_mjs():
+    """The Node/TypeScript machine-envelope buyer. Builds the did:key caller
+    proof, lets the official x402 client pay/retry, and verifies the result."""
+    return _artifact("agentguild_envelope_client.mjs")
+
+
 @app.get("/standard.md", response_class=PlainTextResponse)
 def standard_md():
     """The full AGI-1 specification (prose), served from the public service."""
@@ -3059,7 +3068,9 @@ def llms_txt():
         "GET /index/search?q=     search it\n"
         "POST /envelopes/issue    PAID: seal a caller-authenticated payload\n"
         "                         digest + recipient + nonce + expiry; the\n"
-        "                         payload stays private; verify is FREE\n"
+        "                         payload stays private; verify is FREE.\n"
+        "                         One-call Node buyer:\n"
+        "                         GET /sdk/agentguild_envelope_client.mjs\n"
         "GET /preflight/deep?url= PAID: adds drift history, cross-source\n"
         "                         corroboration and an explicit allow/caution/\n"
         "                         block policy verdict\n"
@@ -3306,7 +3317,15 @@ async def machine_envelope_issue_route(
     signing/validation failure is never charged. Verification is always free.
     """
     raw = await request.body()
-    verified, sender_did = _verify_http_caller_proof(request, body=raw)
+    # x402 is a two-request protocol: first obtain the 402 quote, then retry
+    # the SAME request with PAYMENT-SIGNATURE.  Validate the proof before the
+    # quote, but do not consume its single-use nonce until a request can
+    # actually execute.  This preserves replay protection while allowing the
+    # official x402 fetch/axios clients to resend the original headers.
+    will_execute = bool(_xpay_sig.get() or x_api_key
+                        or not billing.billing_enforced())
+    verified, sender_did = _verify_http_caller_proof(
+        request, body=raw, mark_nonce=will_execute)
     if not verified:
         raise HTTPException(401, {
             "error": "verified_caller_proof_required",
