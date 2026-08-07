@@ -6,11 +6,10 @@ Every independently confirmed mainnet settlement is classified as EXACTLY
 one of: verified_first_party_canary | cryptographically_bound_machine_payer |
 independently_attested_external_machine | unverified_payer.
 
-  * cryptographically_bound_machine_payer requires a VALID caller proof + a
-    VALID wallet-binding credential whose DID matches the proof and whose
-    (address, network) match the x402 settlement, and an identity not
-    Guild-operated — it proves machine identity + wallet control, NEVER
-    externality (see tests/test_attribution_honesty.py);
+  * cryptographically_bound_machine_payer requires either a Base-EVM caller
+    proof whose recovered EOA matches the payer, or a did:key caller proof +
+    dual-signed wallet-binding credential — it proves machine identity + wallet
+    control, NEVER externality (see tests/test_attribution_honesty.py);
   * first-party status comes from cryptographic/configured Guild identity
     (token-gated credential or configured canary wallets) — never a merely
     descriptive header;
@@ -132,6 +131,27 @@ def test_caller_proof_plus_wallet_binding_is_cryptographically_bound():
     assert rec["payer_attribution"] == "cryptographically_bound_machine_payer"
     assert rec["caller_did"] == did
     assert rec["wallet_binding_credential"] == cred["credential_id"]
+
+
+def test_direct_evm_caller_did_matching_payer_is_cryptographically_bound():
+    account = Account.create()
+    did = callerproof.evm_did(account.address)
+    out = payments.classify_payer_attribution(
+        store, payer=account.address, network=MAINNET, caller_did=did)
+    assert out["class"] == "cryptographically_bound_machine_payer"
+    assert out["caller_did"] == did
+    assert out["wallet_binding_credential"] is None
+
+
+def test_direct_evm_caller_did_must_match_payer_and_network():
+    account = Account.create()
+    did = callerproof.evm_did(account.address)
+    wrong_payer = payments.classify_payer_attribution(
+        store, payer="0x" + "99" * 20, network=MAINNET, caller_did=did)
+    wrong_network = payments.classify_payer_attribution(
+        store, payer=account.address, network="eip155:1", caller_did=did)
+    assert wrong_payer["class"] == "unverified_payer"
+    assert wrong_network["class"] == "unverified_payer"
 
 
 def test_guild_operated_did_is_canary_not_external():
