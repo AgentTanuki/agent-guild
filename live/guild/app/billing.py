@@ -76,6 +76,7 @@ PRICING: dict[str, int] = {
     "reputation": 5,        # GET /agents/{id}/reputation
     "evidence": 5,          # GET /agents/{id}/evidence
     "risk_score": 10,       # GET /agents/{id}/risk-score
+    "payment_decision": 10, # POST /wallet-binding/decision (signed exact payment)
     "fraud_check": 5,       # GET /agents/{id}/flags and /flags
 }
 
