@@ -61,7 +61,7 @@ def test_capability_copy_is_unchanged():
 
 def test_every_paid_operation_has_its_own_copy():
     seen = {op: a2a_x402.operation_copy(op)
-            for op in ("deep_preflight", "evidence_bundle", "watch_cycle",
+            for op in ("machine_envelope", "deep_preflight", "evidence_bundle", "watch_cycle",
                        "best_agent", "signed_decision")}
     assert len(set(seen.values())) == len(seen), "two operations share copy"
 
@@ -111,7 +111,7 @@ def test_machine_readable_descriptions_never_leak_the_paid_RESULT():
     """The description travels inside the challenge. It must say what you are
     buying without carrying the vocabulary of the result you have not paid
     for — guarded independently by tests/test_a2a_x402.py."""
-    for op in ("deep_preflight", "evidence_bundle", "watch_cycle",
+    for op in ("machine_envelope", "deep_preflight", "evidence_bundle", "watch_cycle",
                "best_agent", "signed_decision"):
         label = a2a_x402.operation_label(op)
         for leak in ("shortlist", "AGD-1", "ranked candidates"):
