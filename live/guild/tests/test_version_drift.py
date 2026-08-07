@@ -33,6 +33,7 @@ PUBLISHED_PRE_ENFORCEMENT_VERSIONS = {"1.0.0", "1.1.0", "1.2.0"}
 #: Add an entry when a version is published; never edit one.
 PUBLISHED_REGISTRY_FINGERPRINTS = {
     "2.0.2": "205fdfd11fdce92d5b96685df96e377bb413d96c6c70e3f696a50621ca150d09",
+    "2.1.0": "6f877f0ff8a937297b0d17d4cad09592f9a48e3aba282b7671a728e0f6b2ddb8",
 }
 
 
@@ -113,9 +114,9 @@ def test_every_machine_surface_reports_the_same_version():
     assert contract["service"]["version"] == __version__
 
 
-def test_registry_metadata_is_passport_first_and_carries_paid_discovery():
-    """The registry listing leads with the FREE self-serve passport and now
-    also carries paid-operation DISCOVERY.
+def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():
+    """The searchable listing names the paid signed-message product while the
+    first executable acquisition block preserves the FREE self-serve passport.
 
     This test used to assert the listing was "payment-free". That was right for
     the 2026-07-23 acquisition release and wrong from 2026-08-01: the MCP
@@ -125,7 +126,9 @@ def test_registry_metadata_is_passport_first_and_carries_paid_discovery():
     `paid_offer:registry` while no route could produce it.
 
     What is asserted now:
-      * passport STILL first — same description, same leading block;
+      * signed machine messages and x402 are searchable in the description;
+      * passport remains the first publisher block and stays free;
+      * the one-call envelope client is executable from registry metadata;
       * paid discovery EXISTS;
       * its catalog URL is a real callable route with a producible attribution;
       * NO copied prices (they drift when experiments run; a listing is
@@ -138,11 +141,14 @@ def test_registry_metadata_is_passport_first_and_carries_paid_discovery():
         "io.modelcontextprotocol.registry/publisher-provided"]
     host = "https://agent-guild-5d5r.onrender.com"
 
-    # --- passport is still what a machine meets first --------------------
+    # --- search copy exposes the paid product without hiding the free path -
+    description = server["description"].lower()
+    for phrase in ("signed machine messages", "x402", "free", "passports"):
+        assert phrase in description
+    assert len(server["description"]) <= 100
+
+    # --- passport remains the first executable acquisition block ----------
     assert list(pp)[0] == "ai.agent-guild/passport"
-    for word in ("payment", "escrow", "delegation", "x402", "price"):
-        assert word not in server["description"].lower(), (
-            f"the listing description must stay free-offer-led ({word!r})")
     passport = pp["ai.agent-guild/passport"]
     assert "No human involved" in passport["offer"]
     assert "passport_offer:mcp_registry" in passport["register"]
@@ -157,6 +163,19 @@ def test_registry_metadata_is_passport_first_and_carries_paid_discovery():
     assert passport["badge"].startswith(
         "GET " + host + "/agents/{id}/badge.svg")
     assert passport["next_evidence"].startswith("POST " + host + "/attestations")
+
+    # --- one-call paid signed-message path is explicit --------------------
+    envelope = pp["ai.agent-guild/machine-envelope"]
+    assert "signed machine message" in envelope["offer"].lower()
+    assert envelope["client"] == (
+        host + "/sdk/agentguild_envelope_client.mjs")
+    assert envelope["factory"] == (
+        "createEvmMachineEnvelopeClient({didSigner, evmSigner})")
+    assert envelope["issue"].startswith("client.issue({payload")
+    assert "x402" in envelope["payment"] and "Base mainnet" in envelope["payment"]
+    assert envelope["catalog"].endswith("?src=paid_offer:registry")
+    assert "offline" in envelope["verify"]
+    assert "caller-controlled" in envelope["custody"]
 
     # --- paid discovery exists and names the real operations -------------
     paid = pp["ai.agent-guild/paid-operations"]
