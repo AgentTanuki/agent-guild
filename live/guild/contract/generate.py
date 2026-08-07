@@ -181,6 +181,8 @@ def _wallet_policy_meta(s: dict) -> dict:
         "offer": "Fail-closed pre-payment policy for exact EVM+CAIP-2 wallets.",
         "resolve": ("GET " + h + "/wallet-binding/resolve?address={0x...}"
                     "&network=eip155:8453"),
+        "decision": "POST " + h + "/wallet-binding/decision",
+        "x402": h + "/sdk/integrations/x402_payment_policy.mjs",
         "virtuals": h + "/sdk/integrations/virtuals_acp_fund_policy.mjs",
     }
 
@@ -240,17 +242,11 @@ def _paid_ops_meta(s: dict) -> dict:
     from app import paidcatalog
     h = s["host"]
     return {
-        "note": ("The free passport path above is the main offer and needs no "
-                 "payment. These are the OPTIONAL paid operations, listed by "
-                 "name only."),
         "operations": [op["operation"] for op in paidcatalog._OPERATIONS],
         "catalog": (f"GET {h}/.well-known/agent-guild.json"
                     "?src=paid_offer:registry"),
-        "catalog_returns": ("current price, auth requirement, the callable "
-                            "entrypoint and the FREE alternative for each "
-                            "operation — always live, never copied here, "
-                            "because prices change and this listing does not"),
-        "payment": "x402 (USDC on Base mainnet, eip155:8453), per call",
+        "catalog_returns": "live price, auth, entrypoint and free alternative",
+        "payment": "x402 USDC/Base mainnet (eip155:8453) per call",
         "free_alternative_exists_for_every_paid_operation": True,
     }
 

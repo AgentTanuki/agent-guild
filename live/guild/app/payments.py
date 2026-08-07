@@ -155,6 +155,9 @@ def request_from_stored(operation: str, params: dict) -> "PaidRequest":
     if operation == "machine_envelope":
         return machine_envelope_request(
             str(params.get("request_sha256") or ""))
+    if operation == "payment_decision":
+        return payment_decision_request(
+            str(params.get("request_sha256") or ""))
     raise ValueError(f"unknown paid operation {operation!r}")
 
 
@@ -213,6 +216,15 @@ def machine_envelope_request(request_sha256: str) -> PaidRequest:
     """
     return PaidRequest.build("machine_envelope", "POST", "/envelopes/issue",
                              {"request_sha256": request_sha256})
+
+
+def payment_decision_request(request_sha256: str) -> PaidRequest:
+    """Paid signed decision bound to an opaque digest of every exact payment
+    and policy input.  The body remains private from settlement metadata while
+    any semantic mutation produces a different x402 resource."""
+    return PaidRequest.build(
+        "payment_decision", "POST", "/wallet-binding/decision",
+        {"request_sha256": request_sha256})
 
 
 def search_request(capability: str, limit: int = 20,

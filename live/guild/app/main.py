@@ -62,6 +62,7 @@ from . import callerproof
 from . import demand
 from . import market
 from . import walletbinding
+from . import paymentdecision
 from . import x402
 from . import payments
 from .payments import (
@@ -1763,6 +1764,57 @@ def wallet_binding_status(credential_id: str):
     return out
 
 
+@app.post("/wallet-binding/decision")
+def wallet_payment_decision(body: dict[str, Any], response: Response,
+                            x_api_key: Optional[str] = Header(None)):
+    """PAID signed decision for the exact payment a wallet is about to make.
+
+    The credential binds payee, CAIP-2 network, asset, atomic amount, resource,
+    optional capability, and the effective policy thresholds.  It is issued
+    before metering and fails closed: validation/signing failure is never
+    charged.  On success, an official x402 client can pay and retry this same
+    POST, then verify the ``eddsa-jcs-2022`` proof offline before it signs the
+    protected payment.
+    """
+    try:
+        digest = paymentdecision.request_sha256(body)
+        decision = paymentdecision.issue(store, body)
+    except paymentdecision.PaymentDecisionRefused as exc:
+        raise HTTPException(422, {
+            "error": exc.code, "detail": str(exc),
+            "billing": "NOT CHARGED — no complete signed decision was issued"})
+    preq = payments.payment_decision_request(digest)
+    quoted = preq.cost
+    facts = meter(preq, x_api_key, response)
+    subject = decision.get("credentialSubject") or {}
+    payment = subject.get("payment") or {}
+    store.record_event(
+        creds.sanitize_actor_key(x_api_key) if x_api_key else None,
+        "payment_decision_issued", ua=_ua.get(),
+        endpoint="wallet_payment_decision", transport="http",
+        request_sha256=digest, network=payment.get("network"),
+        decision=subject.get("decision"),
+        counterparty_agent_id=((subject.get("counterparty") or {})
+                               .get("agent") or {}).get("id"),
+        price_credits=quoted, paid=(facts["settlement_mode"] == "x402"),
+        **facts)
+    return decision
+
+
+@app.post("/wallet-binding/decision/verify")
+def wallet_payment_decision_verify(body: dict[str, Any]):
+    """FREE verification of a signed payment decision and optional exact input.
+
+    Passing ``{"decision": <credential>, "request": <original body>}`` proves
+    both the Guild signature/freshness and that no payment or policy field was
+    changed.  Passing the credential alone verifies its sealed bytes.
+    """
+    decision = (body.get("decision")
+                if isinstance(body.get("decision"), dict) else body)
+    expected = body.get("request") if isinstance(body.get("request"), dict) else None
+    return paymentdecision.verify(decision, expected_request=expected)
+
+
 @app.post("/wallet-binding/revoke")
 def wallet_binding_revoke(body: dict):
     """Machine-executable, DID-signed revocation of a wallet-binding
@@ -1851,7 +1903,7 @@ def guild_did_doc():
     gid = store.guild_identity()
     from . import x402_artifacts
     return {"did": gid["did"], "public_key": gid["public_key"], "name": gid["name"],
-            "credential_types": ["AgentGuildPassport"],
+            "credential_types": ["AgentGuildPassport", "AgentGuildPaymentDecision"],
             "verify_endpoint": "/credentials/verify",
             # x402 offer/receipt key binding: the SERVICE-signing kid
             # authorized to sign x402 offers/receipts for resources on this
@@ -2857,6 +2909,15 @@ def sdk_virtuals_acp_fund_policy_mjs():
     return _artifact("integrations/virtuals_acp_fund_policy.mjs")
 
 
+@app.get("/sdk/integrations/x402_payment_policy.mjs",
+         response_class=PlainTextResponse)
+def sdk_x402_payment_policy_mjs():
+    """Official x402 client pre-signature hook. It buys and verifies a Guild-
+    signed decision bound to the exact selected payment requirements, aborting
+    before the protected payment is signed unless the sealed verdict allows."""
+    return _artifact("integrations/x402_payment_policy.mjs")
+
+
 @app.get("/standard.md", response_class=PlainTextResponse)
 def standard_md():
     """The full AGI-1 specification (prose), served from the public service."""
@@ -2909,6 +2970,8 @@ def for_agents():
         "- About to pay or be paid for agent work? Use escrow (guild_escrow_open): funds\n"
         "  are held until the work is accepted, then released minus a small fee. Neither\n"
         "  side has to trust the other.\n"
+        "- About to sign an x402 payment? Install /sdk/integrations/x402_payment_policy.mjs\n"
+        "  to buy and verify a short-lived signed decision for the exact transaction.\n"
         "- Asked to prove you're trustworthy? Present your passport\n"
         "  (GET /agents/{id}/passport) — a Guild-signed credential anyone can verify.\n"
         "- Handed a passport? Verify it (POST /credentials/verify) — check the signature,\n"
@@ -2960,6 +3023,9 @@ def get_standard():
                 "AI-to-AI collaboration; content-addressed deliverable; provenance-tiered.",
             "SignedCheckpoint": "Issuer-signed commitment (head_hash + merkle_root) over "
                 "the record set; pinnable; makes history tamper-evident, even vs the issuer.",
+            "AgentGuildPaymentDecision": "AGPD-1 short-lived W3C VC binding an exact "
+                "payment tuple to active wallet identity, risk evidence, explicit policy "
+                "thresholds and an allow/block decision before signing.",
             "Challenge": "Append-only dispute that downweights its target pending resolution.",
         },
         "provenance_tiers": ["guild_mediated", "verifiable_outcome",
@@ -2977,6 +3043,8 @@ def get_standard():
             "attest": "POST /attestations · MCP guild_attest",
             "passport": "GET /agents/{id}/passport · MCP guild_passport",
             "verify": "POST /credentials/verify · MCP guild_verify",
+            "payment_decision": "POST /wallet-binding/decision (signed AGPD-1) · "
+                                "free verify at /wallet-binding/decision/verify",
             "evaluation": "GET /evaluation (provenance-labelled lift)",
             "escrow": "POST /escrow (fund) + /escrow/{id}/release (settle) · MCP "
                       "guild_escrow_open / guild_escrow_release — value-for-work with a "

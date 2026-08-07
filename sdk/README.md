@@ -130,3 +130,22 @@ the Guild-signed binding and live status locally, then consumes the metered risk
 Only an explicit policy pass allows `session.fund()` to continue; missing identity,
 stale/tampered evidence, an unpaid 402, an unavailable verifier, or an unsafe score
 all fail closed.
+
+### x402: buy a signed decision before any payment payload is signed
+
+Use [`integrations/x402_payment_policy.mjs`](integrations/x402_payment_policy.mjs)
+with the official client's pre-payment hook:
+
+```js
+client.onBeforePaymentCreation(createAgentGuildX402PaymentPolicy({
+  meteredFetch: separateUnguardedX402Fetch,
+  capability: "research",
+}));
+```
+
+The hook buys a short-lived `AGPD-1` Verifiable Credential bound to the exact
+selected payee, CAIP-2 network, token, atomic amount and resource. It verifies
+the Guild's `eddsa-jcs-2022` proof and exact fields locally, then returns only
+on a sealed `allow`; every unavailable, unpaid, stale, tampered, mismatched or
+blocked path aborts before signing. `meteredFetch` must use a separate,
+unguarded x402 client so the policy cannot recurse while paying for itself.

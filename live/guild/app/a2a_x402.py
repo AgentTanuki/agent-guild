@@ -136,6 +136,12 @@ OPERATION_COPY: dict[str, str] = {
         "recipient, message kind, nonce, expiry and any declared economic "
         "terms. The Guild never receives the payload and attests provenance "
         "and integrity — not that the message is true or settled."),
+    "payment_decision": (
+        "Paying returns a short-lived, Guild-signed AGPD-1 credential for the "
+        "exact payment you named: payee, CAIP-2 network, token, atomic amount "
+        "and resource, bound to active wallet identity, current risk evidence, "
+        "explicit policy thresholds and an allow/block decision. The proof is "
+        "portable and verifiable offline before any payment payload is signed."),
     "deep_preflight": (
         "Paying returns the DEEP endpoint trust check for the exact URL you "
         "named: every live check re-run at request time (does it complete a "
@@ -171,6 +177,10 @@ OPERATION_FREE_ALTERNATIVES: dict[str, str] = {
         "Free alternative: create agent-guild/caller-proof/v1 yourself and "
         "send it with the message for direct sender verification, without the "
         "independent Guild issuance timestamp. POST /envelopes/verify is free."),
+    "payment_decision": (
+        "Free alternative: GET /wallet-binding/resolve for signed exact-wallet "
+        "identity only, without the current risk evaluation or transaction-"
+        "specific signed decision. Verification of an issued decision is free."),
     "deep_preflight": (
         "Free alternatives: 'preflight: <url>' returns the live checks and "
         "verdict for the same endpoint at no cost; 'index' searches every "
@@ -199,6 +209,9 @@ OPERATION_LABEL: dict[str, str] = {
     "machine_envelope": ("signed machine message/intent commitment: caller-"
                          "authenticated sender, exact payload digest, recipient, "
                          "nonce and expiry; payload stays private"),
+    "payment_decision": ("signed exact-payment wallet decision: payee, chain, "
+                         "asset, amount and resource bound to current identity "
+                         "and risk evidence before signing"),
     "deep_preflight": ("deep endpoint trust check for one URL: live checks "
                        "plus drift history, corroboration and an "
                        "allow/caution/block policy verdict"),

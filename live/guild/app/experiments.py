@@ -133,6 +133,7 @@ SETTLED_MODE = "x402"
 #: unrelated escrow settlement or a watch sold for a different offer.
 OPERATION_EVENTS: dict[str, tuple[str, ...]] = {
     "machine_envelope": ("machine_envelope_issued",),
+    "payment_decision": ("payment_decision_issued",),
     "deep_preflight": ("deep_preflight_run",),
     "evidence_bundle": ("evidence_bundle_issued",),
     "watch_cycle": ("watch_provisioned",),

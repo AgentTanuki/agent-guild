@@ -142,6 +142,62 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             "any Guild envelope at POST /envelopes/verify is always free."),
     },
     {
+        "operation": "payment_decision",
+        "entrypoint": {
+            "protocol": "http",
+            "method": "POST",
+            "path": "/wallet-binding/decision",
+            "query_params": None,
+            "body": {
+                "payment": {
+                    "scheme": "exact",
+                    "network": "eip155:8453",
+                    "asset": "<EVM token contract>",
+                    "amount": "<positive atomic-unit integer string>",
+                    "pay_to": "<exact counterparty EVM address>",
+                    "resource": "<exact http(s) resource URL>",
+                },
+                "capability": "<optional required capability>",
+                "policy": {"max_risk": 32.99, "min_confidence": 0.5},
+                "ttl_seconds": 300,
+            },
+            "auth": "none required — pay per call from the 402 challenge, "
+                    "or send X-API-Key to draw on a credit balance",
+            "key_required": False,
+            "directly_callable": True,
+            "client": {
+                "language": "javascript/typescript (node)",
+                "source": "/sdk/integrations/x402_payment_policy.mjs",
+                "factory": "createAgentGuildX402PaymentPolicy({meteredFetch})",
+                "operation": "client.onBeforePaymentCreation(policy)",
+                "dependencies": ["official x402 client"],
+                "recursion_safety": (
+                    "meteredFetch must be a separate unguarded x402 client; "
+                    "a funded Agent Guild API key may use ordinary fetch"),
+            },
+            "server_derived_settlement_params": ["request_sha256"],
+        },
+        "alternatives": {
+            "free_identity_only": (
+                "GET /wallet-binding/resolve?address=<payee>&network=<CAIP-2>"),
+            "verify": "POST /wallet-binding/decision/verify",
+        },
+        "what_you_get": (
+            "A short-lived W3C Verifiable Credential whose eddsa-jcs-2022 "
+            "proof binds the exact selected payee, network, asset, atomic "
+            "amount and resource to active wallet identity, current risk "
+            "evidence, explicit thresholds and an allow/block decision."),
+        "why_it_is_worth_it": (
+            "It runs at the last reversible moment before a wallet signs. The "
+            "buyer keeps a portable record of exactly why that irreversible "
+            "payment was allowed or blocked, even if the Guild later goes "
+            "offline."),
+        "free_alternative": (
+            "GET /wallet-binding/resolve is free and returns signed exact-"
+            "wallet identity evidence, but no current risk evaluation or "
+            "signed transaction-specific decision."),
+    },
+    {
         "operation": "deep_preflight",
         "entrypoint": {
             "protocol": "http",
@@ -266,6 +322,8 @@ def _settlement_request(operation: str):
         return payments.watch_cycle_request("<endpoint>")
     if operation == "machine_envelope":
         return payments.machine_envelope_request("<request_sha256>")
+    if operation == "payment_decision":
+        return payments.payment_decision_request("<request_sha256>")
     raise ValueError(f"no settlement binding for {operation!r}")
 
 
