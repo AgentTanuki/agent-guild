@@ -56,11 +56,11 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
     openapi: "3.1.0",
     info: {
       title: "Agent Guild machine-commerce API",
-      version: "2.4.0",
+      version: "2.5.0",
       description:
-        "Cryptographic trust infrastructure for autonomous agents. Install a fail-closed policy before an x402 wallet signs, run a live endpoint preflight, buy a signed evidence bundle, or issue a private-payload machine envelope. Agent Guild remains the recipient, issuer, and settlement authority.",
+        "Cryptographic trust infrastructure for autonomous agents. Resolve an ERC-8004 identity into its verified service and buy an identity-bound preflight, install a fail-closed policy before an x402 wallet signs, run a live endpoint preflight, buy a signed evidence bundle, or issue a private-payload machine envelope. Agent Guild remains the recipient and settlement authority.",
       "x-guidance":
-        "Before hiring, delegating to, or paying an unfamiliar agent or x402 seller, use GET /preflight/deep with its public endpoint URL. Use POST /evidence/bundle when another machine needs a portable signed evidence artifact. Before a wallet signs an exact x402 payment, call POST /wallet-binding/decision on the canonical Agent Guild server and enforce the returned credential with the official fail-closed client hook. Use POST /envelopes/issue to bind a private payload digest to an authenticated sender, recipient, nonce, purpose, expiry, and optional value without revealing the payload; the official one-call client creates the caller proof, pays, pins the issuer, and verifies the result offline. GET /trust-decision buys a signed capability decision specifically about this worker. The canonical Agent Guild receives every payment and issues every receipt; this discovery relay never accepts API keys, private keys, or custody of funds.",
+        "When a counterparty gives you a Base ERC-8004 agent_id, use GET /erc8004/preflight to resolve its on-chain owner and agentURI, require the registration to bind the same identity, verify endpoint-domain control, and buy a worker-signed binding to Agent Guild's deep preflight. For a direct URL, use GET /preflight/deep. Use POST /evidence/bundle for portable signed evidence. Before a wallet signs an exact x402 payment, use POST /wallet-binding/decision and enforce the official fail-closed client hook. Use POST /envelopes/issue for a private-payload machine envelope. GET /trust-decision buys a signed capability decision specifically about this worker. The canonical Agent Guild receives every payment; this discovery relay never accepts API keys, private keys, or custody of funds.",
       contact: {
         name: "Agent Guild autonomous interface",
         url: `${GUILD_BASE}/for-agents`,
@@ -164,6 +164,66 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
           },
           "x-payment-info": paymentInfo("deep_preflight", 0.02),
           "x-free-alternative": `${GUILD_BASE}/preflight?url=<endpoint>`,
+        },
+      },
+      "/erc8004/preflight": {
+        get: {
+          operationId: "agentGuildErc8004Preflight",
+          summary:
+            "Buy a signed trust preflight for a Base ERC-8004 agent identity",
+          description:
+            "Resolve the official Base-mainnet ERC-8004 Identity Registry on-chain, read the owner, verified agent wallet, and agentURI, require the registration to bind the same registry and agent_id, verify control of the selected HTTPS A2A/MCP/web endpoint, and run Agent Guild's paid deep preflight. The response is a short-lived worker-signed artifact binding the on-chain identity evidence to the exact Agent Guild result and x402 receipt. This is not an ERC-8004 Validation Registry claim.",
+          tags: ["Trust before payment"],
+          parameters: [
+            {
+              name: "agent_id",
+              in: "query",
+              required: true,
+              description:
+                "ERC-721 tokenId in the official Base ERC-8004 Identity Registry.",
+              schema: {
+                type: "string",
+                pattern: "^(0|[1-9][0-9]{0,77})$",
+              },
+              example: "1",
+            },
+          ],
+          responses: {
+            "200": {
+              description:
+                "Worker-signed ERC-8004 identity evidence bound to the canonical Agent Guild deep-preflight result and payment receipt.",
+              content: {
+                "application/json": {
+                  schema: { type: "object", additionalProperties: true },
+                },
+              },
+            },
+            "402": paymentRequiredResponse,
+            "409": {
+              description:
+                "The registration does not bind the on-chain identity, the agent is inactive, or endpoint-domain control is unverified.",
+            },
+            "422": {
+              description:
+                "Invalid agent_id, unsupported agentURI, or no public HTTPS service.",
+            },
+            "502": {
+              description:
+                "The Base registry, registration file, or Agent Guild was unavailable.",
+            },
+            "503": {
+              description:
+                "Worker signing is unavailable; no payment challenge is issued.",
+            },
+          },
+          "x-payment-info": paymentInfo("erc8004_deep_preflight", 0.02),
+          "x-identity-registry": {
+            agentRegistry:
+              "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+            standard: "https://eips.ethereum.org/EIPS/eip-8004",
+            proofBoundary:
+              "Binds ERC-8004 identity and endpoint-control evidence to an Agent Guild preflight; does not claim ERC-8004 Validation Registry validation.",
+          },
         },
       },
       "/evidence/bundle": {

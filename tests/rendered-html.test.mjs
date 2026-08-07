@@ -17,6 +17,14 @@ function canonicalize(value) {
     .join(",")}}`;
 }
 
+function encodeAbiString(value) {
+  const data = Buffer.from(value, "utf8").toString("hex");
+  const padded = data.padEnd(Math.ceil(data.length / 64) * 64, "0");
+  return `0x${"20".padStart(64, "0")}${Buffer.byteLength(value, "utf8")
+    .toString(16)
+    .padStart(64, "0")}${padded}`;
+}
+
 async function renderRequest(path = "/", init = {}) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
@@ -67,6 +75,7 @@ test("keeps CDN-served machine discovery aligned with the worker catalog", async
   );
   assert.match(staticLlms, /POST https:\/\/codex-autonomous-worker\.rwdburley\.chatgpt\.site\/envelopes\/issue/);
   assert.match(staticLlms, /GET https:\/\/codex-autonomous-worker\.rwdburley\.chatgpt\.site\/trust-decision/);
+  assert.match(staticLlms, /GET https:\/\/codex-autonomous-worker\.rwdburley\.chatgpt\.site\/erc8004\/preflight\?agent_id=1/);
   assert.match(staticLlms, /transparent x402 relay/i);
   assert.match(staticLlms, /\$0\.01 USDC/);
   assert.match(staticLlms, /payload bytes and private keys never leave the caller/i);
@@ -82,7 +91,7 @@ test("publishes an A2A agent card", async () => {
   assert.equal(response.status, 200);
   const card = await response.json();
   assert.equal(card.protocolVersion, "0.3.0");
-  assert.equal(card.version, "1.6.0");
+  assert.equal(card.version, "1.7.0");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
   assert.equal(card.agentGuild.machine_catalog, "http://localhost/commerce.json");
@@ -106,8 +115,9 @@ test("publishes an A2A agent card", async () => {
       "web-research",
       "code_review",
       "agent-guild-preflight",
+      "erc8004-agent-guild-preflight",
       "signed-agent-guild-preflight",
-    "agent-guild-machine-envelope",
+      "agent-guild-machine-envelope",
     ],
   );
 });
@@ -125,7 +135,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(legacy.status, 200);
   const legacyCard = await legacy.json();
   assert.equal(legacyCard.agentGuild.agent_id, "agent_c7d2e902dc50");
-  assert.equal(legacyCard.version, "1.6.0");
+  assert.equal(legacyCard.version, "1.7.0");
 
   assert.equal(commerce.status, 200);
   const catalog = await commerce.json();
@@ -144,6 +154,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.deepEqual(catalog.machine_openapi.operations, [
     "worker_trust_decision",
     "deep_preflight",
+    "erc8004_identity_preflight",
     "evidence_bundle",
     "machine_envelope",
     "payment_decision",
@@ -219,12 +230,20 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     spec.paths["/evidence/bundle"].post["x-payment-info"].priceUsd,
     0.1,
   );
-  assert.equal(spec.info.version, "2.4.0");
-  assert.match(spec.info["x-guidance"], /Before hiring, delegating to, or paying/);
+  assert.equal(spec.info.version, "2.5.0");
+  assert.match(spec.info["x-guidance"], /Base ERC-8004 agent_id/);
   assert.match(spec.info["x-guidance"], /POST \/envelopes\/issue/);
   assert.match(
     spec.paths["/preflight/deep"].get.summary,
     /before paying or delegating/,
+  );
+  assert.equal(
+    spec.paths["/erc8004/preflight"].get["x-payment-info"].priceUsd,
+    0.02,
+  );
+  assert.match(
+    spec.paths["/erc8004/preflight"].get.summary,
+    /Base ERC-8004 agent identity/,
   );
   assert.match(
     spec.paths["/wallet-binding/decision"].post.summary,
@@ -311,6 +330,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.match(llmsText, /canonical calls and settlements remain/i);
   assert.match(llmsText, /transparent x402 relay/i);
   assert.match(llmsText, /GET http:\/\/localhost\/trust-decision/);
+  assert.match(llmsText, /GET http:\/\/localhost\/erc8004\/preflight\?agent_id=1/);
   assert.match(llmsText, /POST http:\/\/localhost\/envelopes\/issue/);
   assert.match(llmsText, /payload bytes and private keys never leave the caller/i);
   assert.match(llmsText, /agentguild_envelope_client\.mjs/);
@@ -517,6 +537,170 @@ test("relays canonical x402 challenges and receipts without API keys or custody"
     assert.equal(wrongMethod.status, 405);
     assert.equal(wrongMethod.headers.get("allow"), "GET, OPTIONS");
     assert.equal(calls.length, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("binds a Base ERC-8004 identity to a paid Agent Guild preflight", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const privateKeyBase64 = privateKey
+    .export({ format: "der", type: "pkcs8" })
+    .toString("base64");
+  const publicJwk = publicKey.export({ format: "jwk" });
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("erc8004", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const originalFetch = globalThis.fetch;
+  const agentRegistry =
+    "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432";
+  const registration = {
+    type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+    name: "Example autonomous agent",
+    description: "A live machine service",
+    services: [
+      {
+        name: "A2A",
+        endpoint: "https://agent.example/.well-known/agent-card.json",
+        version: "0.3.0",
+      },
+    ],
+    x402Support: true,
+    active: true,
+    registrations: [{ agentId: 7, agentRegistry }],
+    supportedTrust: ["reputation"],
+  };
+  const calls = [];
+
+  try {
+    globalThis.fetch = async (input, init = {}) => {
+      const target = input instanceof Request ? input.url : String(input);
+      calls.push({ target, init });
+      if (target === "https://mainnet.base.org") {
+        const rpc = JSON.parse(String(init.body));
+        const data = rpc.params[0].data;
+        if (data.startsWith("0x6352211e")) {
+          return Response.json({
+            jsonrpc: "2.0",
+            id: 1,
+            result:
+              "0x0000000000000000000000001111111111111111111111111111111111111111",
+          });
+        }
+        if (data.startsWith("0xc87b56dd")) {
+          return Response.json({
+            jsonrpc: "2.0",
+            id: 1,
+            result: encodeAbiString("https://registry.example/agent-7.json"),
+          });
+        }
+        if (data.startsWith("0x00339509")) {
+          return Response.json({
+            jsonrpc: "2.0",
+            id: 1,
+            result:
+              "0x0000000000000000000000002222222222222222222222222222222222222222",
+          });
+        }
+      }
+      if (target === "https://registry.example/agent-7.json") {
+        return Response.json(registration);
+      }
+      if (
+        target ===
+        "https://agent.example/.well-known/agent-registration.json"
+      ) {
+        return Response.json({ registrations: registration.registrations });
+      }
+      if (target.startsWith("https://agent-guild-5d5r.onrender.com/preflight/deep?")) {
+        const headers = new Headers(init.headers);
+        assert.equal(headers.get("x-api-key"), null);
+        if (!headers.get("payment-signature")) {
+          return new Response(JSON.stringify({ x402Version: 2, accepts: [{}] }), {
+            status: 402,
+            headers: {
+              "content-type": "application/json",
+              "PAYMENT-REQUIRED": "erc8004-mainnet-challenge",
+            },
+          });
+        }
+        return Response.json(
+          {
+            verdict: "allow",
+            endpoint: "https://agent.example/.well-known/agent-card.json",
+            risk: 9,
+          },
+          { headers: { "PAYMENT-RESPONSE": "erc8004-mainnet-receipt" } },
+        );
+      }
+      throw new Error(`unexpected upstream ${target}`);
+    };
+
+    const env = {
+      ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+      WORKER_ED25519_PRIVATE_KEY_PKCS8_B64: privateKeyBase64,
+      WORKER_ED25519_PUBLIC_JWK_JSON: JSON.stringify(publicJwk),
+    };
+    const ctx = { waitUntil() {}, passThroughOnException() {} };
+
+    const challenge = await worker.fetch(
+      new Request("http://localhost/erc8004/preflight?agent_id=7", {
+        headers: { "X-API-Key": "must-not-cross-relay" },
+      }),
+      env,
+      ctx,
+    );
+    assert.equal(challenge.status, 402);
+    assert.equal(
+      challenge.headers.get("PAYMENT-REQUIRED"),
+      "erc8004-mainnet-challenge",
+    );
+    assert.equal(challenge.headers.get("X-ERC8004-Agent-Id"), "7");
+    assert.equal(challenge.headers.get("X-ERC8004-Agent-Registry"), agentRegistry);
+
+    const paid = await worker.fetch(
+      new Request("http://localhost/erc8004/preflight?agent_id=7", {
+        headers: { "PAYMENT-SIGNATURE": "buyer-mainnet-payment" },
+      }),
+      env,
+      ctx,
+    );
+    assert.equal(paid.status, 200);
+    assert.equal(paid.headers.get("PAYMENT-RESPONSE"), "erc8004-mainnet-receipt");
+    const artifact = await paid.json();
+    assert.equal(artifact.type, "agent-guild/erc8004-preflight/v1");
+    assert.equal(artifact.subject.agent_id, "7");
+    assert.equal(artifact.subject.owner, "0x1111111111111111111111111111111111111111");
+    assert.equal(
+      artifact.subject.agent_wallet,
+      "0x2222222222222222222222222222222222222222",
+    );
+    assert.equal(
+      artifact.subject.service.endpoint,
+      "https://agent.example/.well-known/agent-card.json",
+    );
+    assert.equal(artifact.subject.endpoint_domain_verification.status, "well-known");
+    assert.equal(artifact.agent_guild.result.verdict, "allow");
+    assert.equal(artifact.agent_guild.payment_response, "erc8004-mainnet-receipt");
+    assert.match(artifact.issuer.boundary, /not an ERC-8004 Validation Registry claim/);
+
+    const signature = artifact.signatures[0];
+    const unsigned = { ...artifact };
+    delete unsigned.signatures;
+    const payload = Buffer.from(canonicalize(unsigned)).toString("base64url");
+    assert.equal(
+      verify(
+        null,
+        Buffer.from(`${signature.protected}.${payload}`),
+        publicKey,
+        Buffer.from(signature.signature, "base64url"),
+      ),
+      true,
+    );
+    assert.equal(
+      calls.filter(({ target }) => target === "https://mainnet.base.org").length,
+      6,
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

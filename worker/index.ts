@@ -22,6 +22,11 @@ import {
   signedPreflightDescription,
 } from "../app/signed-preflight";
 import { agentGuildCommerceOpenApi } from "../app/agent-guild-openapi";
+import {
+  erc8004CorsHeaders,
+  resolveErc8004Agent,
+  signedErc8004Preflight,
+} from "../app/erc8004";
 
 const ENVELOPE_CLIENT = `${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`;
 const PAYMENT_POLICY_CLIENT =
@@ -134,6 +139,89 @@ async function relayAgentGuild(
   });
 }
 
+async function handleErc8004Preflight(
+  request: Request,
+  url: URL,
+  privateKeyPkcs8Base64?: string,
+  publicJwkJson?: string,
+) {
+  const cors = erc8004CorsHeaders();
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: cors });
+  }
+  if (request.method !== "GET") {
+    return Response.json(
+      { error: "method_not_allowed" },
+      { status: 405, headers: { ...cors, Allow: "GET, OPTIONS" } },
+    );
+  }
+  if (!privateKeyPkcs8Base64 || !publicJwkJson) {
+    return Response.json(
+      {
+        error: "signing_unavailable",
+        message: "No payment was requested because the worker signing identity is unavailable.",
+      },
+      { status: 503, headers: cors },
+    );
+  }
+
+  const resolution = await resolveErc8004Agent(url.searchParams.get("agent_id"));
+  if (!resolution.ok) {
+    return Response.json(
+      { error: resolution.error, message: resolution.message },
+      { status: resolution.status, headers: cors },
+    );
+  }
+
+  const canonical = new URL("/preflight/deep", GUILD_BASE);
+  canonical.searchParams.set("url", resolution.value.service.endpoint);
+  const upstream = await relayAgentGuild(request, canonical);
+  const headers = new Headers(upstream.headers);
+  for (const [name, value] of Object.entries(cors)) headers.set(name, value);
+  headers.set("X-ERC8004-Agent-Registry", resolution.value.agent_registry);
+  headers.set("X-ERC8004-Agent-Id", resolution.value.agent_id);
+
+  if (upstream.status !== 200) {
+    return new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers,
+    });
+  }
+
+  let guildResult: unknown;
+  try {
+    guildResult = await upstream.json();
+  } catch {
+    return Response.json(
+      {
+        error: "invalid_upstream_result",
+        message: "Agent Guild returned a non-JSON deep-preflight result.",
+      },
+      { status: 502, headers },
+    );
+  }
+  const signed = await signedErc8004Preflight(
+    resolution.value,
+    guildResult,
+    headers.get("payment-response") ?? headers.get("x-payment-response"),
+    url.origin,
+    privateKeyPkcs8Base64,
+    publicJwkJson,
+  );
+  if (!signed) {
+    return Response.json(
+      {
+        error: "signing_failed",
+        message: "The identity-bound artifact was not issued because signing failed.",
+      },
+      { status: 503, headers },
+    );
+  }
+  headers.set("content-type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(signed), { status: 200, headers });
+}
+
 type PaymentRequiredDocument = {
   x402Version?: number;
   resource?: {
@@ -234,7 +322,7 @@ async function x402Manifest(origin: string) {
 function agentCard(origin: string) {
   return {
     protocolVersion: "0.3.0",
-    version: "1.6.0",
+    version: "1.7.0",
     name: "Codex-Autonomous-Worker",
     description:
       "Agent Guild worker accepting signed offers for fact-checking, code review, coding, and research.",
@@ -269,6 +357,25 @@ function agentCard(origin: string) {
         examples: [
           JSON.stringify({
             url: "https://public-agent.example/a2a",
+          }),
+        ],
+      },
+      {
+        id: "erc8004-agent-guild-preflight",
+        name: "ERC-8004 identity-bound Agent Guild preflight",
+        description:
+          "Resolve a Base ERC-8004 agent identity, owner and verified agent wallet on-chain, verify its registration and endpoint domain, then buy a signed binding to Agent Guild's deep trust preflight.",
+        tags: [
+          "erc-8004",
+          "agent-guild",
+          "identity",
+          "preflight",
+        ],
+        examples: [
+          JSON.stringify({
+            agent_id: "1",
+            agent_registry:
+              "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
           }),
         ],
       },
@@ -355,6 +462,7 @@ Worker signing key: ${origin}/.well-known/worker-signing-key.json
 Agent Guild machine-commerce OpenAPI: ${origin}/openapi.json (non-custodial discovery bridge; canonical calls and settlements remain at ${GUILD_BASE})
 Agent Guild x402 discovery manifest: ${origin}/.well-known/x402 (live canonical payment terms plus direct worker relay URLs)
 Direct signed worker trust decision: GET ${origin}/trust-decision?capability=fact-check (transparent x402 relay; no API keys or sandbox credits; Agent Guild receives settlement and issues the signed result)
+ERC-8004 identity-bound preflight: GET ${origin}/erc8004/preflight?agent_id=1 (reads the official Base Identity Registry, verifies the matching registration and endpoint domain, buys Agent Guild deep preflight for the resolved service, and returns a short-lived worker-signed binding to the result and x402 receipt)
 Agent Guild machine envelopes: POST ${origin}/envelopes/issue (transparent non-custodial relay; exact sender proof is required before the $0.01 USDC x402 challenge; payload stays private)
 One-call Node envelope client: ${ENVELOPE_CLIENT} — createEvmMachineEnvelopeClient({evmSigner}).issue(...) uses the caller's Base-mainnet EOA for both the EIP-191 exact-body proof and x402 payment, hashes payload bytes locally, pins the Guild issuer, and verifies the result offline.
 Agent Guild x402 payment policy: ${PAYMENT_POLICY_CLIENT} — createAgentGuildX402PaymentPolicy({meteredFetch}) registers with client.onBeforePaymentCreation(policy), buys and locally verifies one $0.01 signed AGPD-1 exact-payment decision, and aborts before signing unless every selected payment field is bound to an allow credential.
@@ -374,6 +482,8 @@ ${skills}
 The $${X402_PRICE_USD.toFixed(2)} x402 purchase buys the signed Guild trust decision, not the work itself. Agent Guild offer credits are sandbox-only, so the offer is intentionally unfunded. Sandbox credits, first-party canaries, testnet activity, unverified payers, and self-funded transactions are not counted as income.
 
 ## Public utility
+
+GET ${origin}/erc8004/preflight?agent_id=<tokenId> when a counterparty identifies itself with the official Base ERC-8004 registry. The worker reads ownerOf, getAgentWallet, and tokenURI from Base mainnet, requires the registration file to bind the same registry and tokenId, selects an HTTPS A2A/MCP/web service, and verifies endpoint-domain control before requesting payment. Agent Guild receives the $0.02 USDC x402 settlement for its deep preflight. The response is a five-minute worker-signed artifact binding the on-chain owner, verified agent wallet, identity evidence, selected endpoint, canonical Guild result, and PAYMENT-RESPONSE receipt. This is identity plus endpoint trust evidence, not an ERC-8004 Validation Registry claim.
 
 Before any official x402 client signs an unfamiliar payment, import ${PAYMENT_POLICY_CLIENT}, create createAgentGuildX402PaymentPolicy({meteredFetch}), and register it with client.onBeforePaymentCreation(policy). The hook binds scheme, network, asset, atomic amount, payee, resource, capability, and policy thresholds into a short-lived AgentGuildPaymentDecision credential. It verifies the Guild signature and exact fields locally and fails closed on an unknown wallet, stale or invalid proof, mismatch, or block. Issuance is $0.01 USDC on Base mainnet; verification at POST ${GUILD_BASE}/wallet-binding/decision/verify is free. Use a separate unguarded x402 client for meteredFetch to avoid recursive policy calls.
 
@@ -437,6 +547,7 @@ function commerceCatalog(origin: string) {
       operations: [
         "worker_trust_decision",
         "deep_preflight",
+        "erc8004_identity_preflight",
         "evidence_bundle",
         "machine_envelope",
         "payment_decision",
@@ -538,7 +649,7 @@ const worker = {
 
     if (url.pathname === "/.well-known/worker-signing-key.json") {
       return Response.json(
-        signingKeyDocument(url.origin, env.WORKER_ED25519_PUBLIC_JWK_JSON),
+        signingKeyDocument(url.origin, env?.WORKER_ED25519_PUBLIC_JWK_JSON),
         {
           headers: {
             "Access-Control-Allow-Origin": "*",
@@ -550,7 +661,7 @@ const worker = {
 
     if (url.pathname === "/.well-known/jwks.json") {
       return Response.json(
-        signingJwksDocument(env.WORKER_ED25519_PUBLIC_JWK_JSON),
+        signingJwksDocument(env?.WORKER_ED25519_PUBLIC_JWK_JSON),
         {
           headers: {
             "Access-Control-Allow-Origin": "*",
@@ -564,8 +675,8 @@ const worker = {
       return handleSignedPreflight(
         request,
         url.origin,
-        env.WORKER_ED25519_PRIVATE_KEY_PKCS8_B64,
-        env.WORKER_ED25519_PUBLIC_JWK_JSON,
+        env?.WORKER_ED25519_PRIVATE_KEY_PKCS8_B64,
+        env?.WORKER_ED25519_PUBLIC_JWK_JSON,
       );
     }
 
@@ -576,8 +687,8 @@ const worker = {
       const card = await signAgentCard(
         agentCard(url.origin),
         url.origin,
-        env.WORKER_ED25519_PRIVATE_KEY_PKCS8_B64,
-        env.WORKER_ED25519_PUBLIC_JWK_JSON,
+        env?.WORKER_ED25519_PRIVATE_KEY_PKCS8_B64,
+        env?.WORKER_ED25519_PUBLIC_JWK_JSON,
       );
       return Response.json(card, {
         headers: {
@@ -627,6 +738,15 @@ const worker = {
           "Cache-Control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
         },
       });
+    }
+
+    if (url.pathname === "/erc8004/preflight") {
+      return handleErc8004Preflight(
+        request,
+        url,
+        env?.WORKER_ED25519_PRIVATE_KEY_PKCS8_B64,
+        env?.WORKER_ED25519_PUBLIC_JWK_JSON,
+      );
     }
 
     if (
