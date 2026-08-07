@@ -415,6 +415,18 @@ test("publishes live x402 discovery with canonical terms and relay URLs", async 
 test("relays canonical x402 challenges and receipts without API keys or custody", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
+  const challengeDocument = {
+    x402Version: 2,
+    resource: {
+      url: "https://agent-guild-5d5r.onrender.com/check?capability=fact-check",
+      description: "Signed fact-check decision",
+      mimeType: "application/json",
+    },
+    accepts: [{ scheme: "exact", network: "eip155:8453" }],
+  };
+  const encodedChallenge = Buffer.from(
+    JSON.stringify(challengeDocument),
+  ).toString("base64");
   const envelopeBody = JSON.stringify({
     kind: "intent",
     recipient: "did:key:recipient",
@@ -444,11 +456,10 @@ test("relays canonical x402 challenges and receipts without API keys or custody"
           },
         });
       }
-      return new Response(JSON.stringify({ x402Version: 2, accepts: [{}] }), {
+      return new Response(null, {
         status: 402,
         headers: {
-          "content-type": "application/json",
-          "PAYMENT-REQUIRED": "base-mainnet-challenge",
+          "PAYMENT-REQUIRED": encodedChallenge,
         },
       });
     };
@@ -466,8 +477,9 @@ test("relays canonical x402 challenges and receipts without API keys or custody"
     assert.equal(trustDecision.status, 402);
     assert.equal(
       trustDecision.headers.get("PAYMENT-REQUIRED"),
-      "base-mainnet-challenge",
+      encodedChallenge,
     );
+    assert.deepEqual(await trustDecision.json(), challengeDocument);
     assert.equal(trustDecision.headers.get("X-Agent-Guild-Relay"), "non-custodial");
     assert.match(
       trustDecision.headers.get("X-Agent-Guild-Canonical-Resource") ?? "",

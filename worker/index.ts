@@ -132,6 +132,18 @@ async function relayAgentGuild(
   }
   responseHeaders.set("X-Agent-Guild-Canonical-Resource", canonical.toString());
   responseHeaders.set("X-Agent-Guild-Relay", "non-custodial");
+  const encodedPaymentRequired = responseHeaders.get("payment-required");
+  const paymentRequired = encodedPaymentRequired
+    ? decodePaymentRequired(encodedPaymentRequired)
+    : null;
+  if (upstream.status === 402 && paymentRequired) {
+    responseHeaders.set("content-type", "application/json; charset=utf-8");
+    return new Response(JSON.stringify(paymentRequired), {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: responseHeaders,
+    });
+  }
   return new Response(upstream.body, {
     status: upstream.status,
     statusText: upstream.statusText,
