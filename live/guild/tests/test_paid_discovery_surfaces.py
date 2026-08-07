@@ -71,6 +71,30 @@ def test_every_surface_carries_the_paid_catalog():
     assert "paid_offer:llms_txt" in txt
 
 
+def test_primary_machine_discovery_surfaces_publish_one_call_envelope_client():
+    """The profitable envelope must be executable from the documents agents
+    actually crawl, not discoverable only after reading prose or hand-building
+    a proof/payment stack."""
+    card = client.get("/.well-known/agent-card.json").json()
+    manifest = client.get("/.well-known/agent-guild.json").json()
+    surfaced = (
+        (card["x-agent-guild-paid-operations"],
+         "http://testserver/sdk/agentguild_envelope_client.mjs"),
+        (manifest["paid_operations"],
+         "https://agent-guild-5d5r.onrender.com"
+         "/sdk/agentguild_envelope_client.mjs"),
+    )
+    for block, expected in surfaced:
+        envelope = {op["operation"]: op for op in block["operations"]}[
+            "machine_envelope"]
+        buyer = envelope["entrypoint"]["client"]
+        assert buyer["source"] == expected
+        assert buyer["factory"].startswith("createEvmMachineEnvelopeClient")
+        assert buyer["operation"].startswith("client.issue")
+        assert buyer["dependencies"] == ["@x402/fetch", "@x402/evm"]
+        assert "caller control" in buyer["custody"]
+
+
 def test_free_alternative_is_named_on_every_surface():
     """Honesty invariant: we would rather be the default than be paid once.
     A paid offer that hides its free sibling is a dark pattern."""
