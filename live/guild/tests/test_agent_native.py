@@ -48,6 +48,9 @@ def test_sdk_and_spec_served_from_public_service_not_private_repo():
     assert "def verify_machine_envelope" in py.text
     mjs = client.get("/sdk/agentguild_verify.mjs")
     assert mjs.status_code == 200 and "verifyPassport" in mjs.text
+    virtuals = client.get("/sdk/integrations/virtuals_acp_fund_policy.mjs")
+    assert virtuals.status_code == 200
+    assert "createAgentGuildFundPolicy" in virtuals.text
     assert "verifyMachineEnvelope" in mjs.text
     buyer = client.get("/sdk/agentguild_envelope_client.mjs")
     assert buyer.status_code == 200

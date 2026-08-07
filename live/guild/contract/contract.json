@@ -755,6 +755,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/sdk/integrations/virtuals_acp_fund_policy.mjs"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/search"
   },
   {
@@ -810,6 +816,12 @@
     "POST"
    ],
    "path": "/wallet-binding/challenge"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/wallet-binding/resolve"
   },
   {
    "methods": [

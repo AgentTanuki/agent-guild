@@ -73,6 +73,18 @@ function verifySig(payload, sigHex, raw32) {
   } catch { return false; }
 }
 
+/** Verify a Guild-style JCS + Ed25519 document carrying a hex `proof` field. */
+export function verifyJcsDocument(document, { expectedIssuer = null } = {}) {
+  try {
+    if (!document || typeof document !== "object"
+        || typeof document.proof !== "string") return false;
+    const issuer = document.issuer || "";
+    if (!issuer || (expectedIssuer && issuer !== expectedIssuer)) return false;
+    const { proof, ...body } = document;
+    return verifySig(body, proof, publicKeyFromDid(issuer));
+  } catch { return false; }
+}
+
 function multibaseB58Decode(s) {
   if (!s.startsWith("z")) throw new Error("not base58btc multibase");
   return b58decode(s.slice(1));

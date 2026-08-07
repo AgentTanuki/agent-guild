@@ -360,3 +360,71 @@ def status_document(store: Any, credential_id: str) -> "dict[str, Any] | None":
     return {"credential": dict(cred),
             "status": {**body,
                        "proof": crypto.sign_jcs(body, gid["private_key"])}}
+
+
+def resolve_counterparty(store: Any, address: str, network: str
+                         ) -> dict[str, Any]:
+    """Resolve an exact payment wallet to its currently active machine DID.
+
+    This is the read-side counterpart to the dual-signature binding flow.  It
+    never treats a self-declared address as identity: only an active,
+    unexpired credential for the exact ``(address, network)`` pair can match.
+    The returned binding document and its live status are both signed, so a
+    funding policy can retain the evidence it relied on.
+
+    Resolution is intentionally free.  It answers *who controls this wallet?*
+    The economically valuable follow-up — the agent's current risk/evidence
+    view — remains the metered ``/agents/{id}/risk-score`` read.
+    """
+    addr = str(address or "").strip().lower()
+    net = str(network or "").strip()
+    if not (addr.startswith("0x") and len(addr) == 42):
+        raise BindingError("malformed EVM address")
+    try:
+        int(addr[2:], 16)
+    except ValueError:
+        raise BindingError("malformed EVM address")
+    if net not in allowed_networks():
+        raise BindingError(
+            "network must be an allowed CAIP-2 settlement network "
+            f"({', '.join(sorted(allowed_networks()))})")
+
+    cred = store.active_wallet_binding(addr, net)
+    if cred is None:
+        return {
+            "status": "unbound",
+            "bound": False,
+            "address": addr,
+            "network": net,
+            "binding": None,
+            "agent": None,
+            "note": ("No active dual-signature DID↔wallet credential exists "
+                     "for this exact address and network. This is unknown "
+                     "identity, not evidence of misconduct."),
+        }
+
+    signed_status = status_document(store, cred["credential_id"])
+    agent = store.agent_by_did(str(cred.get("did") or ""))
+    public_agent = None
+    if agent is not None:
+        metadata = agent.get("metadata") or {}
+        public_agent = {
+            "id": agent.get("id"),
+            "did": agent.get("did"),
+            "name": agent.get("name"),
+            "capabilities": list(agent.get("capabilities") or []),
+            "endpoint": agent.get("endpoint") or metadata.get("endpoint"),
+            "reachability": agent.get("reachability"),
+        }
+
+    return {
+        "status": "bound_registered" if public_agent else "bound_unregistered",
+        "bound": True,
+        "address": addr,
+        "network": net,
+        "binding": signed_status,
+        "agent": public_agent,
+        "note": ("The wallet controls the bound DID. Registration and "
+                 "reputation are separate claims; use the linked risk read "
+                 "before committing funds."),
+    }

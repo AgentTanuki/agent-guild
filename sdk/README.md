@@ -120,3 +120,13 @@ current signing DID before payment, retains the same proof across the standard
 python agentguild_verify.py agent_d0a8f6ef9b41
 node   agentguild_verify.mjs agent_d0a8f6ef9b41
 ```
+
+### Virtuals ACP: block unsafe funding at the transaction boundary
+
+Use [`integrations/virtuals_acp_fund_policy.mjs`](integrations/virtuals_acp_fund_policy.mjs)
+as the optional `fundPolicy` in `@virtuals-protocol/acp-node-v2`. It first resolves
+the exact provider wallet and settlement chain to a dual-signed machine DID, verifies
+the Guild-signed binding and live status locally, then consumes the metered risk read.
+Only an explicit policy pass allows `session.fund()` to continue; missing identity,
+stale/tampered evidence, an unpaid 402, an unavailable verifier, or an unsafe score
+all fail closed.
