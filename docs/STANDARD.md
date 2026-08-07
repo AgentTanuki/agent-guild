@@ -80,6 +80,22 @@ issuer. No blockchain required.
 `{target_hash, challenger_did, grounds, stake, status}` appended to the same chain.
 A challenge downweights the target pending resolution. Every signal is contestable.
 
+### 3.5 Exact-Payment Decision (`AgentGuildPaymentDecision`, AGPD-1)
+A short-lived W3C VC evaluated at the last reversible moment before a wallet signs.
+Its `credentialSubject` MUST bind the complete selected payment tuple
+`{scheme, network, asset, amount, pay_to, resource}` plus the resolved counterparty
+identity, active wallet-binding evidence, current risk evidence, explicit effective
+thresholds, and `decision: allow|block`. `network` MUST be CAIP-2; EVM addresses are
+lower-case exact values; `amount` is a positive atomic-unit integer string.
+
+The issuer MUST fail closed when identity/risk/signing is unavailable and MUST NOT
+describe an unknown wallet as misconduct. The validity window MUST be at most one
+hour (five minutes is the reference default). The proof is `eddsa-jcs-2022`; any
+change to payee, chain, asset, amount, resource, evidence, threshold or verdict
+invalidates it. A wallet verifies the issuer, proof, validity window and every exact
+payment field before signing. Reference issuance: `POST /wallet-binding/decision`;
+free verification: `POST /wallet-binding/decision/verify`.
+
 ## 4. Discovery
 
 - `GET /.well-known/agent-guild.json` — machine-readable service manifest:
