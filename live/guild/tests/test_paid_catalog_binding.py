@@ -25,8 +25,8 @@ from app import paidcatalog, payments  # noqa: E402
 from app.main import app  # noqa: E402
 
 client = TestClient(app, raise_server_exceptions=False)
-PAID_OPS = {"machine_envelope", "deep_preflight", "evidence_bundle",
-            "watch_cycle"}
+PAID_OPS = {"machine_envelope", "payment_decision", "deep_preflight",
+            "evidence_bundle", "watch_cycle"}
 
 
 def _routes():
@@ -92,6 +92,18 @@ def test_machine_envelope_binding_is_server_derived_and_private():
     resource = op["settlement"]["canonical_resource"]
     assert "request_sha256=" in resource
     assert "recipient" not in resource and "payload_sha256" not in resource
+
+
+def test_payment_decision_binding_is_server_derived_and_exact():
+    op = {o["operation"]: o for o in paidcatalog.operations()}[
+        "payment_decision"]
+    ep = op["entrypoint"]
+    assert ep["server_derived_settlement_params"] == ["request_sha256"]
+    assert set(ep["body"]["payment"]) == {
+        "scheme", "network", "asset", "amount", "pay_to", "resource"}
+    resource = op["settlement"]["canonical_resource"]
+    assert "request_sha256=" in resource
+    assert "pay_to" not in resource and "amount" not in resource
 
 
 def test_deep_preflight_entrypoint_actually_challenges():
