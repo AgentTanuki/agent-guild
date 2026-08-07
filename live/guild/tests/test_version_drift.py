@@ -34,6 +34,7 @@ PUBLISHED_PRE_ENFORCEMENT_VERSIONS = {"1.0.0", "1.1.0", "1.2.0"}
 PUBLISHED_REGISTRY_FINGERPRINTS = {
     "2.0.2": "205fdfd11fdce92d5b96685df96e377bb413d96c6c70e3f696a50621ca150d09",
     "2.1.0": "6f877f0ff8a937297b0d17d4cad09592f9a48e3aba282b7671a728e0f6b2ddb8",
+    "2.1.1": "2837b086e33b2037fd10b1b25cd934eccb75bbf590fe3cfd2f8dbc6252438a74",
 }
 
 
@@ -170,8 +171,10 @@ def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():
     assert envelope["client"] == (
         host + "/sdk/agentguild_envelope_client.mjs")
     assert envelope["factory"] == (
-        "createEvmMachineEnvelopeClient({didSigner, evmSigner})")
+        "createEvmMachineEnvelopeClient({evmSigner})")
     assert envelope["issue"].startswith("client.issue({payload")
+    assert "One caller-owned Base EOA" in envelope["identity_payment"]
+    assert "no registration" in envelope["identity_payment"]
     assert "x402" in envelope["payment"] and "Base mainnet" in envelope["payment"]
     assert envelope["catalog"].endswith("?src=paid_offer:registry")
     assert "offline" in envelope["verify"]
