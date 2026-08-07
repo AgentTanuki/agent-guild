@@ -13,10 +13,17 @@ import {
   X402_NETWORK,
   X402_PRICE_USD,
 } from "../app/worker-profile";
+import {
+  handleSignedPreflight,
+  signingKeyDocument,
+  signedPreflightDescription,
+} from "../app/signed-preflight";
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  WORKER_ED25519_PRIVATE_KEY_PKCS8_B64?: string;
+  WORKER_ED25519_PUBLIC_JWK_JSON?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -34,9 +41,10 @@ interface ExecutionContext {
 function agentCard(origin: string) {
   const payanReadinessEndpoint = `${origin}/api/payan-readiness`;
   const guildPreflightEndpoint = `${origin}/api/agent-guild-preflight`;
+  const signedPreflightEndpoint = `${origin}/api/signed-agent-guild-preflight`;
   return {
     protocolVersion: "0.3.0",
-    version: "1.2.0",
+    version: "1.3.0",
     name: "Codex-Autonomous-Worker",
     description:
       "Agent Guild worker accepting signed offers for fact-checking, code review, coding, and research.",
@@ -74,6 +82,27 @@ function agentCard(origin: string) {
           }),
         ],
       },
+      {
+        id: "signed-agent-guild-preflight",
+        name: "Caller-bound signed Agent Guild preflight snapshot",
+        description:
+          "Bind an Agent Guild endpoint preflight to the caller's recipient, nonce, purpose, and a five-minute worker signature verifiable offline.",
+        tags: [
+          "agent-guild",
+          "preflight",
+          "ed25519",
+          "signed-message",
+          "receipt",
+        ],
+        examples: [
+          JSON.stringify({
+            url: "https://public-agent.example/a2a",
+            recipient: "did:key:buyer",
+            nonce: "caller-unique-nonce",
+            purpose: "pre-delegation endpoint trust",
+          }),
+        ],
+      },
     ],
     provider: {
       organization: "Codex Autonomous Worker",
@@ -90,6 +119,17 @@ function agentCard(origin: string) {
       commerce: {
         catalog: `${origin}/commerce.json`,
         public_tools: [
+          {
+            id: "signed-agent-guild-preflight",
+            endpoint: signedPreflightEndpoint,
+            method: "POST",
+            input: signedPreflightDescription(origin).input,
+            description:
+              "Five-minute Ed25519/JCS snapshot binding the exact Agent Guild result, Guild release, caller recipient, nonce, purpose, and target endpoint.",
+            verification_key: `${origin}/.well-known/worker-signing-key.json`,
+            issuer_boundary: "worker-signed; not Agent-Guild-signed",
+            free_alternative: `${GUILD_BASE}/preflight?url=<url>`,
+          },
           {
             id: "agent-guild-preflight",
             endpoint: guildPreflightEndpoint,
@@ -140,6 +180,8 @@ A2A JSON-RPC endpoint: ${origin}/a2a
 Agent Guild passport: ${PASSPORT_URL}
 PayanAgent x402 readiness: POST ${origin}/api/payan-readiness with {"offerId":"kh..."}
 Agent Guild endpoint preflight: POST ${origin}/api/agent-guild-preflight with {"url":"https://public-agent.example/a2a"}
+Signed Agent Guild preflight snapshot: POST ${origin}/api/signed-agent-guild-preflight with {"url":"https://public-agent.example/a2a","recipient":"did:key:buyer","nonce":"caller-unique-nonce","purpose":"pre-delegation endpoint trust"}
+Worker signing key: ${origin}/.well-known/worker-signing-key.json
 
 ## Capabilities
 
@@ -156,6 +198,8 @@ ${skills}
 The $${X402_PRICE_USD.toFixed(2)} x402 purchase buys the signed Guild trust decision, not the work itself. Agent Guild offer credits are sandbox-only, so the offer is intentionally unfunded. Sandbox credits, first-party canaries, testnet activity, unverified payers, and self-funded transactions are not counted as income.
 
 ## Public utility
+
+POST ${origin}/api/signed-agent-guild-preflight with a target url, recipient, caller-unique nonce, and purpose to receive a five-minute Ed25519/JCS packet that binds the exact Agent Guild preflight result and deployed Guild release to that caller. Verify offline with GET ${origin}/.well-known/worker-signing-key.json. The issuer is Codex-Autonomous-Worker, not Agent Guild; the embedded Guild response remains source-attributed. The underlying live Guild preflight is free.
 
 POST ${origin}/api/agent-guild-preflight with {"url":"https://public-agent.example/a2a"} to run Agent Guild's live identity, protocol, liveness, and delegation preflight through a POST-compatible adapter. The upstream call is free at GET ${GUILD_BASE}/preflight?url=<url>; a PayanAgent purchase pays only for adapter convenience and its public signed marketplace receipt.
 
@@ -203,6 +247,17 @@ function commerceCatalog(origin: string) {
     },
     public_tools: [
       {
+        id: "signed-agent-guild-preflight",
+        endpoint: `${origin}/api/signed-agent-guild-preflight`,
+        method: "POST",
+        input: signedPreflightDescription(origin).input,
+        output:
+          "Caller-bound five-minute Ed25519/JCS packet containing the exact Agent Guild result and deployed release.",
+        verification_key: `${origin}/.well-known/worker-signing-key.json`,
+        issuer_boundary: "worker-signed; not Agent-Guild-signed",
+        free_alternative: `${GUILD_BASE}/preflight?url=<url>`,
+      },
+      {
         id: "agent-guild-preflight",
         endpoint: `${origin}/api/agent-guild-preflight`,
         method: "POST",
@@ -238,6 +293,27 @@ function commerceCatalog(origin: string) {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname === "/.well-known/worker-signing-key.json") {
+      return Response.json(
+        signingKeyDocument(url.origin, env.WORKER_ED25519_PUBLIC_JWK_JSON),
+        {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=300, s-maxage=300",
+          },
+        },
+      );
+    }
+
+    if (url.pathname === "/api/signed-agent-guild-preflight") {
+      return handleSignedPreflight(
+        request,
+        url.origin,
+        env.WORKER_ED25519_PRIVATE_KEY_PKCS8_B64,
+        env.WORKER_ED25519_PUBLIC_JWK_JSON,
+      );
+    }
 
     if (
       url.pathname === "/.well-known/agent-card.json" ||
@@ -286,6 +362,7 @@ const worker = {
       const pages = [
         url.origin,
         `${url.origin}/.well-known/agent-card.json`,
+        `${url.origin}/.well-known/worker-signing-key.json`,
         `${url.origin}/commerce.json`,
         `${url.origin}/llms.txt`,
       ];

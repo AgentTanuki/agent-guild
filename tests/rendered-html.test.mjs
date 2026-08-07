@@ -1,5 +1,20 @@
 import assert from "node:assert/strict";
+import { generateKeyPairSync, verify } from "node:crypto";
 import test from "node:test";
+
+function canonicalize(value) {
+  if (value === null || typeof value === "boolean" || typeof value === "string") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "number") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalize(item)).join(",")}]`;
+  }
+  const keys = Object.keys(value).sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`)
+    .join(",")}}`;
+}
 
 async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -42,16 +57,20 @@ test("publishes an A2A agent card", async () => {
   assert.equal(response.status, 200);
   const card = await response.json();
   assert.equal(card.protocolVersion, "0.3.0");
-  assert.equal(card.version, "1.2.0");
+  assert.equal(card.version, "1.3.0");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
   assert.equal(card.agentGuild.commerce.paid_action.price_usd, 1);
   assert.equal(
     card.agentGuild.commerce.public_tools[0].endpoint,
-    "http://localhost/api/agent-guild-preflight",
+    "http://localhost/api/signed-agent-guild-preflight",
   );
   assert.equal(
     card.agentGuild.commerce.public_tools[1].endpoint,
+    "http://localhost/api/agent-guild-preflight",
+  );
+  assert.equal(
+    card.agentGuild.commerce.public_tools[2].endpoint,
     "http://localhost/api/payan-readiness",
   );
   assert.equal(
@@ -68,6 +87,7 @@ test("publishes an A2A agent card", async () => {
       "web-research",
       "code_review",
       "agent-guild-preflight",
+      "signed-agent-guild-preflight",
     ],
   );
 });
@@ -84,7 +104,7 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   assert.equal(legacy.status, 200);
   const legacyCard = await legacy.json();
   assert.equal(legacyCard.agentGuild.agent_id, "agent_c7d2e902dc50");
-  assert.equal(legacyCard.version, "1.2.0");
+  assert.equal(legacyCard.version, "1.3.0");
 
   assert.equal(commerce.status, 200);
   const catalog = await commerce.json();
@@ -93,11 +113,16 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   assert.equal(catalog.work_intake.template.amount, 0);
   assert.equal(
     catalog.public_tools[0].endpoint,
-    "http://localhost/api/agent-guild-preflight",
+    "http://localhost/api/signed-agent-guild-preflight",
   );
   assert.match(catalog.public_tools[0].free_alternative, /\/preflight\?url=/);
+  assert.match(catalog.public_tools[0].issuer_boundary, /worker-signed/);
   assert.equal(
     catalog.public_tools[1].endpoint,
+    "http://localhost/api/agent-guild-preflight",
+  );
+  assert.equal(
+    catalog.public_tools[2].endpoint,
     "http://localhost/api/payan-readiness",
   );
   assert.match(
@@ -127,6 +152,9 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   assert.match(llmsText, /web-research:/);
   assert.match(llmsText, /POST http:\/\/localhost\/api\/payan-readiness/);
   assert.match(llmsText, /POST http:\/\/localhost\/api\/agent-guild-preflight/);
+  assert.match(llmsText, /POST http:\/\/localhost\/api\/signed-agent-guild-preflight/);
+  assert.match(llmsText, /\/\.well-known\/worker-signing-key\.json/);
+  assert.match(llmsText, /issuer is Codex-Autonomous-Worker, not Agent Guild/i);
   assert.match(llmsText, /upstream call is free/i);
 
   assert.equal(robots.status, 200);
@@ -135,7 +163,106 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   assert.equal(sitemap.status, 200);
   assert.match(sitemap.headers.get("content-type") ?? "", /^application\/xml\b/i);
   assert.match(await sitemap.text(), /\/\.well-known\/agent-card\.json/);
+  assert.match(await (await render("/sitemap.xml")).text(), /worker-signing-key\.json/);
   assert.match(await (await render("/sitemap.xml")).text(), /\/commerce\.json/);
+});
+
+test("issues caller-bound signed preflight snapshots verifiable offline", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const privateKeyBase64 = privateKey
+    .export({ format: "der", type: "pkcs8" })
+    .toString("base64");
+  const publicJwk = publicKey.export({ format: "jwk" });
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("signed-preflight", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const originalFetch = globalThis.fetch;
+
+  try {
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("/preflight?url=")) {
+        return Response.json({
+          verdict: "delegate_with_caution",
+          target: "https://public-agent.example/a2a",
+          checks: [{ id: "a2a", status: "pass" }],
+        });
+      }
+      if (url.endsWith("/release")) {
+        return Response.json({ version: "2.0.3", git_sha: "abc123" });
+      }
+      throw new Error(`unexpected upstream ${url}`);
+    };
+
+    const env = {
+      ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+      WORKER_ED25519_PRIVATE_KEY_PKCS8_B64: privateKeyBase64,
+      WORKER_ED25519_PUBLIC_JWK_JSON: JSON.stringify(publicJwk),
+    };
+    const response = await worker.fetch(
+      new Request("http://localhost/api/signed-agent-guild-preflight", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          url: "https://public-agent.example/a2a",
+          recipient: "did:key:buyer",
+          nonce: "buyer-nonce-123",
+          purpose: "pre-delegation endpoint trust",
+        }),
+      }),
+      env,
+      { waitUntil() {}, passThroughOnException() {} },
+    );
+
+    assert.equal(response.status, 200);
+    const envelope = await response.json();
+    assert.equal(
+      envelope.payload.type,
+      "agent-guild/caller-bound-preflight-snapshot/v1",
+    );
+    assert.equal(envelope.payload.recipient, "did:key:buyer");
+    assert.equal(envelope.payload.nonce, "buyer-nonce-123");
+    assert.equal(envelope.payload.issuer.boundary, "worker-signed; not Agent-Guild-signed");
+    assert.equal(envelope.payload.agent_guild.release.git_sha, "abc123");
+    assert.equal(envelope.payload.agent_guild.result.verdict, "delegate_with_caution");
+    assert.equal(
+      new Date(envelope.payload.expires_at).getTime() -
+        new Date(envelope.payload.issued_at).getTime(),
+      300_000,
+    );
+
+    const signature = Buffer.from(
+      envelope.proof.signature_base64url,
+      "base64url",
+    );
+    assert.equal(
+      verify(
+        null,
+        Buffer.from(canonicalize(envelope.payload)),
+        publicKey,
+        signature,
+      ),
+      true,
+    );
+    const tampered = structuredClone(envelope.payload);
+    tampered.subject.endpoint = "https://attacker.example/a2a";
+    assert.equal(
+      verify(null, Buffer.from(canonicalize(tampered)), publicKey, signature),
+      false,
+    );
+
+    const keyResponse = await worker.fetch(
+      new Request("http://localhost/.well-known/worker-signing-key.json"),
+      env,
+      { waitUntil() {}, passThroughOnException() {} },
+    );
+    const keyDocument = await keyResponse.json();
+    assert.equal(keyDocument.configured, true);
+    assert.equal(keyDocument.publicKeyJwk.x, publicJwk.x);
+    assert.match(keyDocument.agent_guild_identity.note, /not an Agent Guild issuer key/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("publishes an honest Agent Guild preflight adapter", async () => {
