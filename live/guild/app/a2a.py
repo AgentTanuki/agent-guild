@@ -399,7 +399,11 @@ def _agent_card(base: str) -> dict[str, Any]:
             "paid_offer:agent_card", base=base),
         "name": "Agent Guild",
         "description": (
-            "Can I safely use or pay this endpoint right now? Send "
+            "Seal machine intent without exposing its payload: the paid "
+            "machine_envelope operation binds an authenticated sender did:key "
+            "to an exact payload digest, recipient, nonce and expiry; anyone "
+            "can verify it for free. The Guild attests provenance, not truth. "
+            "Also: can I safely use or pay this endpoint right now? Send "
             "'preflight: <url>' and get back, free and live at request time, "
             "what that endpoint CLAIMS and separately what it just PROVED: a "
             "real protocol handshake (not merely HTTP 200), a resolvable agent "
