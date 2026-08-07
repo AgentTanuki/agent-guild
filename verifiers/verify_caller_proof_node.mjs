@@ -1,5 +1,5 @@
-// INDEPENDENT Node verification of agent-guild/caller-proof/v1 + the
-// wallet-binding credential. No Agent Guild code — only third-party libs
+// INDEPENDENT Node verification of did:key + one-wallet EVM caller proofs
+// and the wallet-binding credential. No Agent Guild code — third-party libs
 // (@noble/ed25519, canonicalize (RFC 8785 JCS), bs58, ethers, js-sha256).
 //
 //   node verify_caller_proof_node.mjs caller_proof_vector.json
@@ -48,6 +48,28 @@ async function verifyCallerProof(v) {
   console.log("PASS caller-proof tamper: mutations all rejected");
 }
 
+async function verifyEvmCallerProof(v) {
+  const { payload, signature } = v.envelope;
+  if (payload.v !== "agent-guild/caller-proof-evm/v1")
+    throw new Error("EVM caller-proof version");
+  if (payload.aud !== "agent-guild") throw new Error("EVM proof audience");
+  if (payload.did !== v.expected_did) throw new Error("EVM proof DID");
+  const message = Buffer.from(canonicalize(payload), "utf8");
+  const recovered = verifyMessage(message, signature);
+  if (recovered.toLowerCase() !== v.expected_evm_address.toLowerCase())
+    throw new Error("EVM caller-proof signature recovers a different address");
+  const req = v.request;
+  if (payload.method !== req.method) throw new Error("EVM method binding");
+  if (payload.resource !== req.resource) throw new Error("EVM resource binding");
+  if (payload.body_sha256 !== sha256(new TextEncoder().encode(req.body_utf8)))
+    throw new Error("EVM body-hash binding");
+  const tampered = { ...payload, resource: "/other" };
+  if (verifyMessage(Buffer.from(canonicalize(tampered), "utf8"), signature)
+      .toLowerCase() === v.expected_evm_address.toLowerCase())
+    throw new Error("EVM caller-proof tampering did not break the signer");
+  console.log("PASS EVM caller-proof: EIP-191 + did:pkh + exact request binding");
+}
+
 async function verifyWalletBinding(v) {
   const pub = Uint8Array.from(Buffer.from(v.did_public_key_hex, "hex"));
   if (!(await edVerifyJcs(v.binding, v.did_signature, pub)))
@@ -94,6 +116,7 @@ async function verifyIssuedCredential(v) {
 const path = process.argv[2] || "caller_proof_vector.json";
 const vec = JSON.parse(readFileSync(path, "utf8"));
 await verifyCallerProof(vec.caller_proof);
+await verifyEvmCallerProof(vec.evm_caller_proof);
 await verifyWalletBinding(vec.wallet_binding);
 await verifyIssuedCredential(vec.wallet_binding);
 console.log("ALL INDEPENDENT NODE CHECKS PASSED");
