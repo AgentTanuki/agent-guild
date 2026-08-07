@@ -3,7 +3,14 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.3"   # PATCH (machine-visible semver, 2026-08-07):
+__version__ = "2.1.4"   # PATCH (machine-visible semver, 2026-08-07):
+                        # adds AGPD-1: a paid, short-lived eddsa-jcs-2022
+                        # credential binding an exact x402 payee, chain, asset,
+                        # amount and resource to signed wallet identity, live
+                        # risk evidence and explicit thresholds; plus a public
+                        # official-client hook that enforces it before payment
+                        # payload creation. Additive API + registry metadata.
+                        # History of 2.1.3 (2026-08-07):
                         # publishes the exact-wallet pre-payment policy in the
                         # immutable MCP Registry listing: a machine can resolve
                         # an EVM+CAIP-2 binding and load the Virtuals ACP
