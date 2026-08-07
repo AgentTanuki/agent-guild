@@ -3,7 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.0"   # MINOR (machine-visible semver, 2026-08-07):
+__version__ = "2.1.1"   # PATCH (machine-visible semver, 2026-08-07):
+                        # acquisition metadata now leads with the already-live
+                        # signed machine-message product and embeds its one-call
+                        # client in the official MCP Registry listing. No API or
+                        # payment behaviour changes; the bump is required because
+                        # registry metadata already published as 2.1.0 is immutable.
+                        # History of 2.1.0 (2026-08-07):
                         # adds the machine-envelope product: paid, caller-
                         # proof-bound issuance of privacy-preserving signed
                         # message/intent commitments, plus free verification,
