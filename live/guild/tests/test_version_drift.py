@@ -14,7 +14,7 @@ import pathlib
 
 from fastapi.testclient import TestClient
 
-from app import __version__
+from app import __version__, pricing
 from app.billing import PRICING
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
@@ -230,10 +230,13 @@ def test_contract_payments_block_matches_billing_and_gateway():
     contract = json.loads((GUILD / "contract" / "contract.json").read_text())
     pay = contract["payments"]
     assert pay["mechanism"] == "x402" and pay["x402_version"] == 2
-    assert set(pay["priced_operations"]) == set(PRICING)
+    expected = {**PRICING,
+                **{op: cost for op, cost in pricing.DEFAULTS.items()
+                   if cost > 0}}
+    assert set(pay["priced_operations"]) == set(expected)
     for op, row in pay["priced_operations"].items():
-        assert row["credits"] == PRICING[op]
-        assert row["usdc_atomic"] == PRICING[op] * 1000
+        assert row["credits"] == expected[op]
+        assert row["usdc_atomic"] == expected[op] * 1000
     # the priced MCP tools declared in the contract exist in the MCP tool list
     assert set(pay["priced_mcp_tools"]) <= set(contract["mcp_tools"])
     assert "guild.check" in pay["priced_a2a_skills"]
