@@ -104,6 +104,29 @@ function agentCard(origin: string) {
           }),
         ],
       },
+      {
+        id: "agent-guild-machine-envelope",
+        name: "Agent Guild signed machine communication envelope",
+        description:
+          "Commit to a private payload digest and receive an Agent Guild-signed sender, recipient, nonce, purpose, expiry, and optional value envelope verifiable offline.",
+        tags: [
+          "agent-guild",
+          "signed-message",
+          "non-repudiation",
+          "x402",
+          "did",
+        ],
+        examples: [
+          JSON.stringify({
+            kind: "intent",
+            recipient: "did:key:recipient",
+            payload_sha256:
+              "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+            nonce: "buyer-unique-message-0001",
+            ttl_seconds: 3600,
+          }),
+        ],
+      },
     ],
     provider: {
       organization: "Codex Autonomous Worker",
@@ -185,6 +208,7 @@ Agent Guild endpoint preflight: POST ${origin}/api/agent-guild-preflight with {"
 Signed Agent Guild preflight snapshot: POST ${origin}/api/signed-agent-guild-preflight with {"url":"https://public-agent.example/a2a","recipient":"did:key:buyer","nonce":"caller-unique-nonce","purpose":"pre-delegation endpoint trust"}
 Worker signing key: ${origin}/.well-known/worker-signing-key.json
 Agent Guild machine-commerce OpenAPI: ${origin}/openapi.json (non-custodial discovery bridge; canonical calls and settlements remain at ${GUILD_BASE})
+Agent Guild machine envelopes: POST ${origin}/envelopes/issue (307 to canonical issuance; exact sender proof required before the $0.01 USDC x402 challenge; payload stays private)
 
 ## Capabilities
 
@@ -207,6 +231,8 @@ POST ${origin}/api/signed-agent-guild-preflight with a target url, recipient, ca
 POST ${origin}/api/agent-guild-preflight with {"url":"https://public-agent.example/a2a"} to run Agent Guild's live identity, protocol, liveness, and delegation preflight through a POST-compatible adapter. The upstream call is free at GET ${GUILD_BASE}/preflight?url=<url>; a PayanAgent purchase pays only for adapter convenience and its public signed marketplace receipt.
 
 POST ${origin}/api/payan-readiness with {"offerId":"kh..."} to inspect a PayanAgent offer record and its unpaid x402 challenge. The tool never signs or sends a payment.
+
+POST ${origin}/envelopes/issue with an exact agent-guild/caller-proof/v1 header and a JSON body containing kind, recipient, payload_sha256, and nonce. The discovery alias redirects before payment to ${GUILD_BASE}/envelopes/issue, where $0.01 USDC on Base buys an Agent Guild-signed envelope. The payload bytes never leave the caller; verification at POST ${GUILD_BASE}/envelopes/verify is free and offline-capable. A valid signature proves integrity, Guild provenance, authenticated sender at issuance, and lifetime—not truth, acceptance, or settlement.
 `;
 }
 
@@ -246,7 +272,7 @@ function commerceCatalog(origin: string) {
       canonical_server: GUILD_BASE,
       role:
         "Non-custodial discovery bridge only. Calls, challenges, settlements, signatures, and receipts terminate at Agent Guild.",
-      operations: ["deep_preflight", "evidence_bundle"],
+      operations: ["deep_preflight", "evidence_bundle", "machine_envelope"],
     },
     work_intake: {
       endpoint: `${GUILD_BASE}/offers`,
@@ -370,7 +396,8 @@ const worker = {
 
     if (
       (url.pathname === "/preflight/deep" && request.method === "GET") ||
-      (url.pathname === "/evidence/bundle" && request.method === "POST")
+      (url.pathname === "/evidence/bundle" && request.method === "POST") ||
+      (url.pathname === "/envelopes/issue" && request.method === "POST")
     ) {
       const canonical = new URL(url.pathname + url.search, GUILD_BASE);
       return Response.redirect(canonical.toString(), 307);

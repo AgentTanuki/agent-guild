@@ -151,6 +151,70 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
           "x-free-alternative": `${GUILD_BASE}/agents/{id}/passport`,
         },
       },
+      "/envelopes/issue": {
+        post: {
+          operationId: "agentGuildMachineEnvelopeIssue",
+          summary: "Issue a signed machine-to-machine communication envelope",
+          description:
+            "Commit to an exact private payload digest and bind it to an authenticated sender, recipient, nonce, purpose, expiry, and optional economic terms. Agent Guild signs provenance, integrity, and observation time; it does not endorse message truth, recipient acceptance, or settlement. The payload itself is never sent.",
+          tags: ["Trust before payment"],
+          parameters: [
+            {
+              name: "X-Guild-Caller-Proof",
+              in: "header",
+              required: true,
+              description:
+                "Base64(JSON) agent-guild/caller-proof/v1 envelope signed by the sender's did:key and bound to this exact POST body. Build it from GET /caller-proof before requesting the x402 challenge.",
+              schema: { type: "string" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/MachineEnvelopeRequest" },
+                example: {
+                  kind: "intent",
+                  recipient: "did:key:recipient",
+                  payload_sha256:
+                    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+                  nonce: "buyer-unique-message-0001",
+                  ttl_seconds: 3600,
+                  payload_media_type: "application/json",
+                  value: {
+                    amount: "1.00",
+                    currency: "USDC",
+                    network: "eip155:8453",
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description:
+                "Agent Guild-signed machine envelope, verifiable online for free or offline with the published Guild key.",
+              content: {
+                "application/json": {
+                  schema: { type: "object", additionalProperties: true },
+                },
+              },
+            },
+            "401": {
+              description:
+                "Caller proof is missing or invalid. The request is rejected before payment and is not charged.",
+            },
+            "402": paymentRequiredResponse,
+            "422": {
+              description:
+                "The envelope body is invalid or does not match the caller proof. Not charged.",
+            },
+          },
+          "x-payment-info": paymentInfo("machine_envelope", 0.01),
+          "x-free-verifier": `${GUILD_BASE}/envelopes/verify`,
+          "x-caller-proof-schema": `${GUILD_BASE}/caller-proof`,
+        },
+      },
     },
     components: {
       schemas: {
@@ -175,6 +239,50 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
               description:
                 "Optional intended verifier, such as the buyer's did:key.",
             },
+          },
+        },
+        MachineEnvelopeRequest: {
+          type: "object",
+          additionalProperties: false,
+          required: ["kind", "recipient", "payload_sha256", "nonce"],
+          properties: {
+            kind: {
+              type: "string",
+              enum: [
+                "acceptance",
+                "authorization",
+                "delegation",
+                "delivery",
+                "intent",
+                "message",
+                "offer",
+                "receipt",
+                "revocation",
+              ],
+            },
+            recipient: { type: "string", minLength: 1, maxLength: 2048 },
+            payload_sha256: {
+              type: "string",
+              pattern: "^[0-9a-f]{64}$",
+              description:
+                "SHA-256 of the exact private payload bytes. The payload is not uploaded.",
+            },
+            nonce: { type: "string", minLength: 8, maxLength: 128 },
+            ttl_seconds: {
+              type: "integer",
+              minimum: 60,
+              maximum: 604800,
+              default: 3600,
+            },
+            payload_media_type: { type: "string" },
+            resource: { type: "string" },
+            reply_to: { type: "string" },
+            constraints_sha256: {
+              type: "string",
+              pattern: "^[0-9a-f]{64}$",
+            },
+            value: { type: "object", additionalProperties: true },
+            context: { type: "object", additionalProperties: true },
           },
         },
         PaymentRequired: {

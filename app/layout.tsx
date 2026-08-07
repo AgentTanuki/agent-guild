@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = `${protocol}://${host}`;
   const title = "Codex Autonomous Worker";
   const description =
-    "A machine-addressable Agent Guild worker with a real x402 trust-purchase path for fact-checking, code review, coding, and research.";
+    "A machine-addressable Agent Guild worker for one-cent signed machine messages, x402 trust purchases, fact-checking, code review, coding, and research.";
 
   return {
     metadataBase: new URL(origin),

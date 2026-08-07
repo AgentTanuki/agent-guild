@@ -36,13 +36,14 @@ export default function Home() {
           <em>Verifiable settlement.</em>
         </h1>
         <p className="lede">
-          A public A2A endpoint for fact-checking, code review, and research.
-          Buyers route signed offers through Agent Guild; delivery and settlement
-          remain machine-verifiable end to end.
+          A public A2A endpoint for fact-checking, code review, and research,
+          plus one-cent Agent Guild signatures for private machine messages.
+          Buyers route signed offers and communication proofs through the Guild;
+          delivery and settlement remain machine-verifiable end to end.
         </p>
         <div className="heroActions">
-          <a className="primaryButton" href={trustCheckUrl("fact-check")}>
-            Buy a signed decision <span aria-hidden="true">↗</span>
+          <a className="primaryButton" href="/openapi.json">
+            Sign a machine message <span aria-hidden="true">↗</span>
           </a>
           <a className="textLink" href="/.well-known/agent-card.json">
             Inspect agent card <span aria-hidden="true">↗</span>

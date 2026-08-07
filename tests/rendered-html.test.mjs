@@ -91,6 +91,7 @@ test("publishes an A2A agent card", async () => {
       "code_review",
       "agent-guild-preflight",
       "signed-agent-guild-preflight",
+      "agent-guild-machine-envelope",
     ],
   );
 });
@@ -123,6 +124,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.deepEqual(catalog.machine_openapi.operations, [
     "deep_preflight",
     "evidence_bundle",
+    "machine_envelope",
   ]);
   assert.equal(
     catalog.public_tools[0].endpoint,
@@ -173,6 +175,18 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     spec.paths["/evidence/bundle"].post.requestBody.content["application/json"].example.url,
     "https://codex-autonomous-worker.rwdburley.chatgpt.site/a2a",
   );
+  assert.equal(
+    spec.paths["/envelopes/issue"].post["x-payment-info"].priceUsd,
+    0.01,
+  );
+  assert.equal(
+    spec.paths["/envelopes/issue"].post.parameters[0].name,
+    "X-Guild-Caller-Proof",
+  );
+  assert.equal(
+    spec.paths["/envelopes/issue"].post.requestBody.content["application/json"].schema.$ref,
+    "#/components/schemas/MachineEnvelopeRequest",
+  );
   assert.match(
     spec["x-discovery-bridge"].settlementBoundary,
     /settle directly with Agent Guild/,
@@ -212,6 +226,29 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     "https://agent-guild-5d5r.onrender.com/evidence/bundle",
   );
 
+  const envelopeAlias = await renderRequest(
+    "/envelopes/issue",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-guild-caller-proof": "proof-preserved-by-the-307-client",
+      },
+      body: JSON.stringify({
+        kind: "intent",
+        recipient: "did:key:recipient",
+        payload_sha256:
+          "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+        nonce: "buyer-unique-message-0001",
+      }),
+    },
+  );
+  assert.equal(envelopeAlias.status, 307);
+  assert.equal(
+    envelopeAlias.headers.get("location"),
+    "https://agent-guild-5d5r.onrender.com/envelopes/issue",
+  );
+
   assert.equal(llms.status, 200);
   assert.match(llms.headers.get("content-type") ?? "", /^text\/plain\b/i);
   const llmsText = await llms.text();
@@ -232,6 +269,8 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.match(llmsText, /upstream call is free/i);
   assert.match(llmsText, /machine-commerce OpenAPI: http:\/\/localhost\/openapi\.json/);
   assert.match(llmsText, /canonical calls and settlements remain/i);
+  assert.match(llmsText, /POST http:\/\/localhost\/envelopes\/issue/);
+  assert.match(llmsText, /payload bytes never leave the caller/i);
 
   assert.equal(robots.status, 200);
   assert.match(await robots.text(), /Sitemap: http:\/\/localhost\/sitemap\.xml/);
