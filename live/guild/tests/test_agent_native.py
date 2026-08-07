@@ -45,8 +45,14 @@ def test_sdk_and_spec_served_from_public_service_not_private_repo():
     # the drop-in verifiers are fetchable from the public service
     py = client.get("/sdk/agentguild_verify.py")
     assert py.status_code == 200 and "def verify_passport" in py.text
+    assert "def verify_machine_envelope" in py.text
     mjs = client.get("/sdk/agentguild_verify.mjs")
     assert mjs.status_code == 200 and "verifyPassport" in mjs.text
+    assert "verifyMachineEnvelope" in mjs.text
+    buyer = client.get("/sdk/agentguild_envelope_client.mjs")
+    assert buyer.status_code == 200
+    assert "createEvmMachineEnvelopeClient" in buyer.text
+    assert "createCallerProof" in buyer.text
     # the prose spec too
     assert "AGI-1" in client.get("/standard.md").text
     # /standard points at the live service, not private github URLs

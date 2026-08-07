@@ -187,6 +187,40 @@ def test_enforced_unpaid_call_challenges_without_counting_an_issuance(
     assert after == before
 
 
+def test_unpaid_quote_does_not_burn_proof_needed_by_x402_retry(monkeypatch):
+    """Official x402 clients retry the same POST and headers after a 402.
+
+    The unpaid quote must validate the caller proof without consuming its
+    nonce; the executing retry consumes it exactly once.
+    """
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    monkeypatch.setenv("GUILD_X402_ENABLED", "1")
+    monkeypatch.setenv("GUILD_X402_PAY_TO", "0x" + "11" * 20)
+    private, did = _identity()
+    raw = _raw(_body())
+    headers = {
+        "content-type": "application/json",
+        callerproof.HTTP_HEADER: _header(private, did, raw),
+    }
+
+    quote = client.post("/envelopes/issue", content=raw, headers=headers)
+    assert quote.status_code == 402, quote.text
+
+    # A retry carrying PAYMENT-SIGNATURE reaches the payment layer with the
+    # same proof. Use an intentionally malformed payment so the test never
+    # fabricates a settlement; reaching x402's 402 error (not caller auth's
+    # 401) proves the proof survived the quote and is consumed on this retry.
+    retry_headers = {**headers, "PAYMENT-SIGNATURE": "not-base64"}
+    retry = client.post(
+        "/envelopes/issue", content=raw, headers=retry_headers)
+    assert retry.status_code == 402, retry.text
+    assert retry.json()["detail"]["error"] == "x402_payment_invalid"
+
+    replay = client.post(
+        "/envelopes/issue", content=raw, headers=retry_headers)
+    assert replay.status_code == 401
+
+
 def test_verify_route_and_schema_are_free(monkeypatch):
     monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
     _, did = _identity()

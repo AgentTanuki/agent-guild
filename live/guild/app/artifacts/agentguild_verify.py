@@ -20,8 +20,10 @@ Guild-signed — you are NOT trusting this code's author, you are checking a sig
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import urllib.request
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -86,11 +88,52 @@ def _verify_sig(payload: Any, signature_hex: str, public_key: bytes) -> bool:
 
 
 # --- credential verification (offline) --------------------------------------
+def _b58_multibase_decode(s: str) -> bytes:
+    if not s.startswith("z"):
+        raise ValueError("not base58btc multibase")
+    return _b58decode(s[1:])
+
+
+def _verify_data_integrity(vc: dict[str, Any]) -> bool:
+    """Conforming W3C Data Integrity, cryptosuite eddsa-jcs-2022
+    (https://www.w3.org/TR/vc-di-eddsa/#eddsa-jcs-2022): JCS canonicalisation,
+    hashData = SHA256(JCS(proofConfig)) || SHA256(JCS(document)), Ed25519,
+    base58btc-multibase proofValue."""
+    import hashlib
+    proof = vc.get("proof") or {}
+    if proof.get("cryptosuite") != "eddsa-jcs-2022":
+        return False
+    proof_value = proof.get("proofValue")
+    if not proof_value:
+        return False
+    proof_config = {k: v for k, v in proof.items() if k != "proofValue"}
+    document = {k: v for k, v in vc.items() if k != "proof"}
+    if "@context" in proof_config and proof_config["@context"] != document.get("@context"):
+        return False
+    vm = proof.get("verificationMethod") or ""
+    did = vm.split("#", 1)[0] if vm else vc.get("issuer", "")
+    if vc.get("issuer") and did != vc["issuer"]:
+        return False
+    hash_data = (hashlib.sha256(_canonical(proof_config).encode("utf-8")).digest()
+                 + hashlib.sha256(_canonical(document).encode("utf-8")).digest())
+    try:
+        Ed25519PublicKey.from_public_bytes(public_key_from_did(did)).verify(
+            _b58_multibase_decode(proof_value), hash_data)
+        return True
+    except (InvalidSignature, ValueError):
+        return False
+
+
 def verify_credential(vc: dict[str, Any]) -> bool:
     """True iff `vc` carries a valid Ed25519 proof from its declared issuer DID.
-    Pure, offline — no network. Tampering with any field breaks this."""
+    Pure, offline — no network. Tampering with any field breaks this.
+    Handles both the conforming DataIntegrityProof (eddsa-jcs-2022) used for
+    all current credentials and the immutable AGI-1 legacy format
+    (hex signature, historical credentials only)."""
     try:
         proof = vc.get("proof") or {}
+        if proof.get("type") == "DataIntegrityProof":
+            return _verify_data_integrity(vc)
         proof_value = proof.get("proofValue")
         if not proof_value:
             return False
@@ -137,6 +180,61 @@ def verify_passport(vc: dict[str, Any], *, expected_issuer: Optional[str] = None
         "verifiable_collaborations": anchor.get("verifiable_collaborations"),
         "checkpoint_valid": checkpoint_valid,
     }
+
+
+def verify_machine_envelope(
+        envelope: dict[str, Any], *, expected_issuer: Optional[str] = None,
+        now: Optional[datetime] = None) -> dict[str, Any]:
+    """Verify an AgentGuildMachineEnvelope completely offline.
+
+    ``valid`` means byte integrity, issuer signature and unexpired lifetime.
+    It deliberately does not mean the committed message is true, accepted or
+    settled. Pin ``expected_issuer`` for an authority-specific decision.
+    """
+    try:
+        issuer = str(envelope.get("issuer") or "")
+        if (envelope.get("type") != "AgentGuildMachineEnvelope"
+                or envelope.get("protocol") !=
+                "agent-guild/machine-envelope/v1"):
+            raise ValueError("unsupported envelope")
+        proof = envelope.get("proof")
+        claimed_digest = envelope.get("envelope_sha256")
+        if not isinstance(proof, str) or not isinstance(claimed_digest, str):
+            raise ValueError("missing proof/digest")
+        without_digest = {k: v for k, v in envelope.items()
+                          if k != "envelope_sha256"}
+        digest_valid = hashlib.sha256(
+            _canonical(without_digest).encode("utf-8")).hexdigest() == \
+            claimed_digest
+        signed = {k: v for k, v in envelope.items()
+                  if k not in ("proof", "envelope_sha256")}
+        signature_valid = _verify_sig(
+            signed, proof, public_key_from_did(issuer))
+        current = now or datetime.now(timezone.utc)
+        until = datetime.fromisoformat(str(envelope["valid_until"]))
+        if until.tzinfo is None:
+            until = until.replace(tzinfo=timezone.utc)
+        expired = current > until
+        issuer_matches = (issuer == expected_issuer
+                          if expected_issuer else None)
+        valid = bool(signature_valid and digest_valid and not expired
+                     and issuer_matches is not False)
+        return {
+            "valid": valid, "signature_valid": signature_valid,
+            "digest_valid": digest_valid, "expired": expired,
+            "issuer": issuer, "issuer_matches": issuer_matches,
+            "sender_did": (envelope.get("sender") or {}).get("did"),
+            "recipient": (envelope.get("message") or {}).get("recipient"),
+            "payload_sha256": (envelope.get("message") or {}).get(
+                "payload_sha256"),
+            "note": ("Integrity/provenance only; this does not attest payload "
+                     "truth, recipient acceptance or settlement."),
+        }
+    except (KeyError, TypeError, ValueError):
+        return {"valid": False, "signature_valid": False,
+                "digest_valid": False, "expired": True,
+                "issuer": (envelope.get("issuer", "")
+                           if isinstance(envelope, dict) else "")}
 
 
 # --- convenience: fetch + verify + decide (one call) ------------------------

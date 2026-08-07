@@ -73,9 +73,48 @@ function verifySig(payload, sigHex, raw32) {
   } catch { return false; }
 }
 
+function multibaseB58Decode(s) {
+  if (!s.startsWith("z")) throw new Error("not base58btc multibase");
+  return b58decode(s.slice(1));
+}
+
+// Conforming W3C Data Integrity, cryptosuite eddsa-jcs-2022
+// (https://www.w3.org/TR/vc-di-eddsa/#eddsa-jcs-2022): JCS canonicalisation,
+// hashData = SHA256(JCS(proofConfig)) || SHA256(JCS(document)), Ed25519,
+// base58btc-multibase proofValue.
+function verifyDataIntegrity(vc) {
+  const proof = vc.proof || {};
+  if (proof.cryptosuite !== "eddsa-jcs-2022" || !proof.proofValue) return false;
+  const { proofValue, ...proofConfig } = proof;
+  const { proof: _omit, ...document } = vc;
+  if ("@context" in proofConfig
+      && canon(proofConfig["@context"]) !== canon(document["@context"] ?? null)) return false;
+  const vm = proof.verificationMethod || "";
+  const did = vm ? vm.split("#", 1)[0] : (vc.issuer || "");
+  if (vc.issuer && did !== vc.issuer) return false;
+  const { createHash } = awaitlessCrypto();
+  const hashData = Buffer.concat([
+    createHash("sha256").update(Buffer.from(canon(proofConfig), "utf8")).digest(),
+    createHash("sha256").update(Buffer.from(canon(document), "utf8")).digest(),
+  ]);
+  try {
+    return edVerify(null, hashData, edKey(publicKeyFromDid(did)),
+                    multibaseB58Decode(proofValue));
+  } catch { return false; }
+}
+
+// node:crypto is already imported statically; tiny indirection keeps the
+// data-integrity path self-describing.
+import { createHash as _createHash } from "node:crypto";
+function awaitlessCrypto() { return { createHash: _createHash }; }
+
 export function verifyCredential(vc) {
   try {
     const proof = vc.proof || {};
+    // Conforming DataIntegrityProof (all newly issued credentials).
+    if (proof.type === "DataIntegrityProof") return verifyDataIntegrity(vc);
+    // AGI-1 legacy format (historical credentials only): hex signature over
+    // the credential with proof-sans-proofValue embedded.
     if (!proof.proofValue) return false;
     const { proofValue, ...proofRest } = proof;
     const { proof: _omit, ...rest } = vc;
@@ -108,6 +147,39 @@ export function verifyPassport(vc, { expectedIssuer = null } = {}) {
     verifiableCollaborations: anchor.verifiable_collaborations ?? null,
     checkpointValid: cp ? verifyCheckpoint(cp) : null,
   };
+}
+
+export function verifyMachineEnvelope(envelope,
+                                      { expectedIssuer = null, now = new Date() } = {}) {
+  try {
+    if (envelope.type !== "AgentGuildMachineEnvelope"
+        || envelope.protocol !== "agent-guild/machine-envelope/v1") {
+      throw new Error("unsupported envelope");
+    }
+    const issuer = envelope.issuer || "";
+    const { envelope_sha256: claimedDigest, ...withoutDigest } = envelope;
+    const { proof, ...signed } = withoutDigest;
+    if (typeof proof !== "string" || typeof claimedDigest !== "string") {
+      throw new Error("missing proof/digest");
+    }
+    const digestValid = _createHash("sha256")
+      .update(Buffer.from(canon(withoutDigest), "utf8")).digest("hex") === claimedDigest;
+    const signatureValid = verifySig(signed, proof, publicKeyFromDid(issuer));
+    const validUntil = new Date(envelope.valid_until);
+    const expired = !Number.isFinite(validUntil.getTime()) || now > validUntil;
+    const issuerMatches = expectedIssuer ? issuer === expectedIssuer : null;
+    return {
+      valid: signatureValid && digestValid && !expired && issuerMatches !== false,
+      signatureValid, digestValid, expired, issuer, issuerMatches,
+      senderDid: envelope.sender?.did ?? null,
+      recipient: envelope.message?.recipient ?? null,
+      payloadSha256: envelope.message?.payload_sha256 ?? null,
+      note: "Integrity/provenance only; this does not attest payload truth, recipient acceptance or settlement.",
+    };
+  } catch {
+    return { valid: false, signatureValid: false, digestValid: false,
+             expired: true, issuer: envelope?.issuer ?? "" };
+  }
 }
 
 async function getJson(url) {

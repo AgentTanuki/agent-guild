@@ -325,6 +325,16 @@ def schema_document(base: str = "") -> dict[str, Any]:
         },
         "verify": {"method": "POST", "path": "/envelopes/verify",
                    "price": "free", "offline_capable": True},
+        "client": {
+            "language": "javascript/typescript (node)",
+            "source": "/sdk/agentguild_envelope_client.mjs",
+            "function": "createEvmMachineEnvelopeClient(...).issue(...)",
+            "payment_dependencies": ["@x402/fetch", "@x402/evm"],
+            "note": ("one function invocation hashes private payload bytes, "
+                     "creates an exact-body-bound did:key caller proof, lets "
+                     "the official x402 client pay/retry, and verifies the "
+                     "returned Guild signature offline"),
+        },
         "issuer": ((root + "/.well-known/agent-guild-did.json") if root
                    else "/.well-known/agent-guild-did.json"),
         "honesty": (
