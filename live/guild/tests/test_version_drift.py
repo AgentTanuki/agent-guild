@@ -180,6 +180,16 @@ def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():
     assert "offline" in envelope["verify"]
     assert "caller-controlled" in envelope["custody"]
 
+    # --- exact-wallet payment policy is executable from the listing -------
+    wallet = pp["ai.agent-guild/wallet-policy"]
+    assert "fail-closed" in wallet["offer"].lower()
+    assert "EVM+CAIP-2" in wallet["offer"]
+    assert wallet["resolve"] == (
+        "GET " + host +
+        "/wallet-binding/resolve?address={0x...}&network=eip155:8453")
+    assert wallet["virtuals"] == (
+        host + "/sdk/integrations/virtuals_acp_fund_policy.mjs")
+
     # --- paid discovery exists and names the real operations -------------
     paid = pp["ai.agent-guild/paid-operations"]
     from app import paidcatalog
@@ -235,6 +245,13 @@ def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():
         # reported a surface that could never move.
         body = c.get(f"{parsed.path}?src={src}").json()
         assert body["paid_operations"]["source"] == src
+
+        # The registry's wallet policy points only at live machine surfaces.
+        assert "/wallet-binding/resolve" in c.get(
+            "/openapi.json").json()["paths"]
+        adapter = c.get("/sdk/integrations/virtuals_acp_fund_policy.mjs")
+        assert adapter.status_code == 200
+        assert "createAgentGuildFundPolicy" in adapter.text
 
     for advertised in ("/agents/register", "/agents/{agent_id}/prove",
                        "/agents/{agent_id}/prove/verify",
