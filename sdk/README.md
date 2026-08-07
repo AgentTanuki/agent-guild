@@ -18,9 +18,13 @@ Guild-signed passport byte-for-byte.
 
 The Node SDK also includes `agentguild_envelope_client.mjs`: a non-custodial,
 one-call buyer for the paid machine-envelope primitive. It hashes payload bytes
-locally, signs the exact request with the caller's `did:key`, delegates Base-USDC
-payment to the official x402 v2 client, and verifies the returned Guild signature.
-The confidential payload and both private keys stay with the caller.
+locally, signs the exact request with the caller-owned identity key, delegates
+Base-USDC payment to the official x402 v2 client, and verifies the returned
+Guild signature.
+By default the same Base EOA authenticates the request with an EIP-191
+`did:pkh` proof and pays the x402 challenge, so no second identity key is
+required. A separate `did:key` signer remains supported. The confidential
+payload and private keys stay with the caller.
 
 ## Install (Python)
 
@@ -92,12 +96,9 @@ npm install @x402/fetch @x402/evm viem
 
 ```js
 import { privateKeyToAccount } from "viem/accounts";
-import {
-  didKeySigner, createEvmMachineEnvelopeClient,
-} from "./agentguild_envelope_client.mjs";
+import { createEvmMachineEnvelopeClient } from "./agentguild_envelope_client.mjs";
 
 const buyer = await createEvmMachineEnvelopeClient({
-  didSigner: didKeySigner(process.env.ED25519_PRIVATE_KEY_HEX),
   evmSigner: privateKeyToAccount(process.env.EVM_PRIVATE_KEY),
 });
 
