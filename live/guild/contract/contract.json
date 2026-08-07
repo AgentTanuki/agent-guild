@@ -44,6 +44,8 @@
   "guild_attest",
   "guild_best_agent",
   "guild_check",
+  "guild_envelope_issue",
+  "guild_envelope_verify",
   "guild_escrow_open",
   "guild_escrow_release",
   "guild_index",
@@ -65,26 +67,41 @@
   "mechanism": "x402",
   "offer_receipt_kid_profile": "did:web (/.well-known/did.json)",
   "priced_a2a_skills": [
-   "guild.check"
+   "guild.check",
+   "guild.preflight.deep"
   ],
   "priced_mcp_tools": [
    "guild_check",
    "guild_search",
    "guild_best_agent",
-   "guild_risk_score"
+   "guild_risk_score",
+   "guild_preflight_deep",
+   "guild_envelope_issue"
   ],
   "priced_operations": {
    "best_agent": {
     "credits": 10,
     "usdc_atomic": 10000
    },
+   "deep_preflight": {
+    "credits": 20,
+    "usdc_atomic": 20000
+   },
    "evidence": {
     "credits": 5,
     "usdc_atomic": 5000
    },
+   "evidence_bundle": {
+    "credits": 100,
+    "usdc_atomic": 100000
+   },
    "fraud_check": {
     "credits": 5,
     "usdc_atomic": 5000
+   },
+   "machine_envelope": {
+    "credits": 10,
+    "usdc_atomic": 10000
    },
    "reputation": {
     "credits": 5,
@@ -97,6 +114,10 @@
    "signed_decision": {
     "credits": 1000,
     "usdc_atomic": 1000000
+   },
+   "watch_cycle": {
+    "credits": 5,
+    "usdc_atomic": 5000
    }
   },
   "sandbox": "credits_sandbox via X-API-Key (not money)",
@@ -433,6 +454,24 @@
     "POST"
    ],
    "path": "/disputes/{case_id}/vote"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/envelopes"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/envelopes/issue"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/envelopes/verify"
   },
   {
    "methods": [
@@ -812,6 +851,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.0.3"
+  "version": "2.1.0"
  }
 }
