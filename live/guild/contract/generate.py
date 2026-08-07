@@ -145,8 +145,8 @@ def derived_server_json(contract: dict) -> dict:
         # Machine buyers search this field. The old passport-only copy made
         # the paid signed-message product invisible even after it was live.
         # Keep both propositions under the registry's 100-character cap.
-        "description": ("Signed machine messages via x402; free offline-"
-                        "verifiable trust passports for AI agents."),
+        "description": ("Signed machine messages + wallet trust gates via "
+                        "x402; free verifiable agent passports."),
         "version": s["version"],
         "repository": {"url": s["repository"], "source": "github"},
         "websiteUrl": s["host"],
@@ -159,6 +159,7 @@ def derived_server_json(contract: dict) -> dict:
             "io.modelcontextprotocol.registry/publisher-provided": {
                 "ai.agent-guild/passport": _passport_meta(s),
                 "ai.agent-guild/machine-envelope": _machine_envelope_meta(s),
+                "ai.agent-guild/wallet-policy": _wallet_policy_meta(s),
                 "ai.agent-guild/trust": _trust_meta(s),
                 "ai.agent-guild/paid-operations": _paid_ops_meta(s),
                 # NO ai.agent-guild/payments block (acquisition release
@@ -170,6 +171,17 @@ def derived_server_json(contract: dict) -> dict:
                 # it.
             },
         },
+    }
+
+
+def _wallet_policy_meta(s: dict) -> dict:
+    """Small executable pointer set for wallet agents at payment time."""
+    h = s["host"]
+    return {
+        "offer": "Fail-closed pre-payment policy for exact EVM+CAIP-2 wallets.",
+        "resolve": ("GET " + h + "/wallet-binding/resolve?address={0x...}"
+                    "&network=eip155:8453"),
+        "virtuals": h + "/sdk/integrations/virtuals_acp_fund_policy.mjs",
     }
 
 
