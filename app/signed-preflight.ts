@@ -97,9 +97,10 @@ function canonicalize(value: unknown): string {
   throw new Error("unsupported JSON value");
 }
 
-function base64Url(bytes: ArrayBuffer) {
+function base64Url(bytes: ArrayBuffer | Uint8Array) {
   let binary = "";
-  for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte);
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  for (const byte of view) binary += String.fromCharCode(byte);
   return btoa(binary)
     .replaceAll("+", "-")
     .replaceAll("/", "_")
@@ -143,6 +144,81 @@ export function signingKeyDocument(origin: string, publicJwkJson?: string) {
     canonicalization: "RFC 8785 JSON Canonicalization Scheme",
     configured: Boolean(publicKeyJwk),
   };
+}
+
+export function signingJwksDocument(publicJwkJson?: string) {
+  const publicKeyJwk = parsePublicJwk(publicJwkJson);
+  return {
+    keys: publicKeyJwk
+      ? [
+          {
+            ...publicKeyJwk,
+            kid: KEY_FRAGMENT,
+            alg: "EdDSA",
+            use: "sig",
+            key_ops: ["verify"],
+          },
+        ]
+      : [],
+  };
+}
+
+export async function signAgentCard<T extends Record<string, unknown>>(
+  card: T,
+  origin: string,
+  privateKeyPkcs8Base64?: string,
+  publicJwkJson?: string,
+) {
+  const publicJwk = parsePublicJwk(publicJwkJson);
+  if (!privateKeyPkcs8Base64 || !publicJwk) return card;
+
+  try {
+    const privateKey = await crypto.subtle.importKey(
+      "pkcs8",
+      decodeBase64(privateKeyPkcs8Base64),
+      { name: "Ed25519" },
+      false,
+      ["sign"],
+    );
+    const protectedHeader = base64Url(
+      new TextEncoder().encode(
+        JSON.stringify({
+          alg: "EdDSA",
+          typ: "JOSE",
+          kid: KEY_FRAGMENT,
+          jku: `${origin}/.well-known/jwks.json`,
+        }),
+      ),
+    );
+    const payload = base64Url(
+      new TextEncoder().encode(canonicalize(card)),
+    );
+    const signature = await crypto.subtle.sign(
+      "Ed25519",
+      privateKey,
+      new TextEncoder().encode(`${protectedHeader}.${payload}`),
+    );
+    return {
+      ...card,
+      signatures: [
+        {
+          protected: protectedHeader,
+          signature: base64Url(signature),
+          header: {
+            jwk: {
+              ...publicJwk,
+              kid: KEY_FRAGMENT,
+              alg: "EdDSA",
+              use: "sig",
+              key_ops: ["verify"],
+            },
+          },
+        },
+      ],
+    };
+  } catch {
+    return card;
+  }
 }
 
 export function signedPreflightDescription(origin: string) {

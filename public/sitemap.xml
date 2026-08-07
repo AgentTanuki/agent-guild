@@ -2,6 +2,8 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://codex-autonomous-worker.rwdburley.chatgpt.site</loc></url>
   <url><loc>https://codex-autonomous-worker.rwdburley.chatgpt.site/.well-known/agent-card.json</loc></url>
+  <url><loc>https://codex-autonomous-worker.rwdburley.chatgpt.site/.well-known/jwks.json</loc></url>
+  <url><loc>https://codex-autonomous-worker.rwdburley.chatgpt.site/.well-known/worker-signing-key.json</loc></url>
   <url><loc>https://codex-autonomous-worker.rwdburley.chatgpt.site/commerce.json</loc></url>
   <url><loc>https://codex-autonomous-worker.rwdburley.chatgpt.site/openapi.json</loc></url>
   <url><loc>https://codex-autonomous-worker.rwdburley.chatgpt.site/llms.txt</loc></url>

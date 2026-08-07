@@ -67,7 +67,7 @@ test("keeps CDN-served machine discovery aligned with the worker catalog", async
   );
   assert.match(staticLlms, /POST https:\/\/codex-autonomous-worker\.rwdburley\.chatgpt\.site\/envelopes\/issue/);
   assert.match(staticLlms, /\$0\.01 USDC/);
-  assert.match(staticLlms, /payload bytes never leave the caller/i);
+  assert.match(staticLlms, /payload bytes and private keys never leave the caller/i);
   assert.match(staticLlms, /agentguild_envelope_client\.mjs/);
   assert.match(staticLlms, /createEvmMachineEnvelopeClient/);
   assert.match(staticSitemap, /\/openapi\.json/);
@@ -78,14 +78,22 @@ test("publishes an A2A agent card", async () => {
   assert.equal(response.status, 200);
   const card = await response.json();
   assert.equal(card.protocolVersion, "0.3.0");
-  assert.equal(card.version, "1.4.0");
+  assert.equal(card.version, "1.4.1");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
-  assert.equal(card.agentGuild.commerce.paid_action.price_usd, 1);
+  assert.equal(
+    card.agentGuild.commerce.paid_services_catalog,
+    "http://localhost/commerce.json",
+  );
+  assert.equal(card.agentGuild.commerce.paid_action, undefined);
   assert.equal(card.agentGuild.commerce.openapi, "http://localhost/openapi.json");
   assert.equal(
     card.agentGuild.commerce.machine_envelope.client,
     "https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs",
+  );
+  assert.equal(
+    card.agentGuild.commerce.machine_envelope.factory,
+    "createEvmMachineEnvelopeClient({evmSigner})",
   );
   assert.equal(
     card.agentGuild.commerce.public_tools[0].endpoint,
@@ -98,10 +106,6 @@ test("publishes an A2A agent card", async () => {
   assert.equal(
     card.agentGuild.commerce.public_tools[2].endpoint,
     "http://localhost/api/payan-readiness",
-  );
-  assert.equal(
-    card.agentGuild.commerce.paid_action.network,
-    "eip155:8453",
   );
   assert.deepEqual(
     card.skills.map((skill) => skill.id),
@@ -132,7 +136,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(legacy.status, 200);
   const legacyCard = await legacy.json();
   assert.equal(legacyCard.agentGuild.agent_id, "agent_c7d2e902dc50");
-  assert.equal(legacyCard.version, "1.4.0");
+  assert.equal(legacyCard.version, "1.4.1");
 
   assert.equal(commerce.status, 200);
   const catalog = await commerce.json();
@@ -197,6 +201,11 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(
     spec.paths["/evidence/bundle"].post["x-payment-info"].priceUsd,
     0.1,
+  );
+  assert.equal(spec.info.version, "2.1.2");
+  assert.equal(
+    spec.paths["/envelopes/issue"].post["x-client-sdk"].factory,
+    "createEvmMachineEnvelopeClient({evmSigner})",
   );
   assert.equal(
     spec.paths["/evidence/bundle"].post.requestBody.content["application/json"].example.url,
@@ -301,7 +310,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.match(llmsText, /machine-commerce OpenAPI: http:\/\/localhost\/openapi\.json/);
   assert.match(llmsText, /canonical calls and settlements remain/i);
   assert.match(llmsText, /POST http:\/\/localhost\/envelopes\/issue/);
-  assert.match(llmsText, /payload bytes never leave the caller/i);
+  assert.match(llmsText, /payload bytes and private keys never leave the caller/i);
   assert.match(llmsText, /agentguild_envelope_client\.mjs/);
   assert.match(llmsText, /createEvmMachineEnvelopeClient/);
 
@@ -409,6 +418,46 @@ test("issues caller-bound signed preflight snapshots verifiable offline", async 
     assert.equal(keyDocument.configured, true);
     assert.equal(keyDocument.publicKeyJwk.x, publicJwk.x);
     assert.match(keyDocument.agent_guild_identity.note, /not an Agent Guild issuer key/);
+
+    const jwksResponse = await worker.fetch(
+      new Request("http://localhost/.well-known/jwks.json"),
+      env,
+      { waitUntil() {}, passThroughOnException() {} },
+    );
+    const jwks = await jwksResponse.json();
+    assert.equal(jwks.keys[0].kid, "ed25519-worker-1");
+    assert.equal(jwks.keys[0].alg, "EdDSA");
+    assert.equal(jwks.keys[0].x, publicJwk.x);
+
+    const cardResponse = await worker.fetch(
+      new Request("http://localhost/.well-known/agent-card.json"),
+      env,
+      { waitUntil() {}, passThroughOnException() {} },
+    );
+    const signedCard = await cardResponse.json();
+    assert.equal(signedCard.signatures.length, 1);
+    const cardSignature = signedCard.signatures[0];
+    const protectedHeader = JSON.parse(
+      Buffer.from(cardSignature.protected, "base64url").toString("utf8"),
+    );
+    assert.equal(protectedHeader.alg, "EdDSA");
+    assert.equal(protectedHeader.typ, "JOSE");
+    assert.equal(protectedHeader.kid, "ed25519-worker-1");
+    assert.equal(protectedHeader.jku, "http://localhost/.well-known/jwks.json");
+    const unsignedCard = structuredClone(signedCard);
+    delete unsignedCard.signatures;
+    const cardPayload = Buffer.from(canonicalize(unsignedCard)).toString(
+      "base64url",
+    );
+    assert.equal(
+      verify(
+        null,
+        Buffer.from(`${cardSignature.protected}.${cardPayload}`),
+        publicKey,
+        Buffer.from(cardSignature.signature, "base64url"),
+      ),
+      true,
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

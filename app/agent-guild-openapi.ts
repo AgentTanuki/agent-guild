@@ -46,7 +46,7 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
     openapi: "3.1.0",
     info: {
       title: "Agent Guild machine-commerce API",
-      version: "2.1.0",
+      version: "2.1.2",
       description:
         "Cryptographic trust infrastructure for autonomous agents. Run a live endpoint preflight before delegating or paying, buy a signed evidence bundle, or issue a private-payload machine envelope with the one-call Node client. Calls and x402 settlements go directly to Agent Guild; this document is a non-custodial discovery bridge hosted by Codex-Autonomous-Worker.",
       contact: {
@@ -157,7 +157,7 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
           operationId: "agentGuildMachineEnvelopeIssue",
           summary: "Issue a signed machine-to-machine communication envelope",
           description:
-            "Commit to an exact private payload digest and bind it to an authenticated sender, recipient, nonce, purpose, expiry, and optional economic terms. Agent Guild signs provenance, integrity, and observation time; it does not endorse message truth, recipient acceptance, or settlement. The payload itself is never sent. The one-call Node client hashes the payload locally, creates the exact-body did:key proof, handles the official x402 retry, pins the issuer, and verifies the returned signature offline.",
+            "Commit to an exact private payload digest and bind it to an authenticated sender, recipient, nonce, purpose, expiry, and optional economic terms. Agent Guild signs provenance, integrity, and observation time; it does not endorse message truth, recipient acceptance, or settlement. The payload itself is never sent. The one-call Node client uses one caller-owned Base-mainnet EOA to create the EIP-191 exact-body proof and pay x402, then pins the issuer and verifies the returned signature offline. The did:key proof path remains supported for low-level clients.",
           tags: ["Trust before payment"],
           parameters: [
             {
@@ -165,7 +165,7 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
               in: "header",
               required: true,
               description:
-                "Base64(JSON) agent-guild/caller-proof/v1 envelope signed by the sender's did:key and bound to this exact POST body. Build it from GET /caller-proof before requesting the x402 challenge.",
+                "Base64(JSON) agent-guild/caller-proof/v1 envelope signed by the sender's Base-mainnet EOA (EIP-191) or did:key and bound to this exact POST body. The one-call client builds it before requesting the x402 challenge.",
               schema: { type: "string" },
             },
           ],
@@ -217,11 +217,13 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
           "x-client-sdk": {
             language: "javascript/typescript (node)",
             source: ENVELOPE_CLIENT,
-            factory: "createEvmMachineEnvelopeClient({didSigner, evmSigner})",
+            factory: "createEvmMachineEnvelopeClient({evmSigner})",
             operation: "client.issue({payload, kind, recipient, nonce, ...})",
             dependencies: ["@x402/fetch", "@x402/evm"],
             custody:
-              "The caller supplies signer objects. Payload bytes, wallet keys, and DID private keys are never uploaded or persisted by the client.",
+              "The caller supplies one Base-mainnet EOA signer for both proof and payment. Payload bytes and private keys are never uploaded or persisted by the client.",
+            scope:
+              "Base-mainnet EOAs are supported in this release. Contract wallets are not. A did:key signer remains available through the low-level compatibility path.",
           },
         },
       },

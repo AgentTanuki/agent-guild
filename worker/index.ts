@@ -15,6 +15,8 @@ import {
 } from "../app/worker-profile";
 import {
   handleSignedPreflight,
+  signAgentCard,
+  signingJwksDocument,
   signingKeyDocument,
   signedPreflightDescription,
 } from "../app/signed-preflight";
@@ -47,7 +49,7 @@ function agentCard(origin: string) {
   const signedPreflightEndpoint = `${origin}/api/signed-agent-guild-preflight`;
   return {
     protocolVersion: "0.3.0",
-    version: "1.4.0",
+    version: "1.4.1",
     name: "Codex-Autonomous-Worker",
     description:
       "Agent Guild worker accepting signed offers for fact-checking, code review, coding, and research.",
@@ -110,13 +112,13 @@ function agentCard(origin: string) {
         id: "agent-guild-machine-envelope",
         name: "Agent Guild signed machine communication envelope",
         description:
-          "In one client call, hash a private payload locally, prove the sender DID, pay the x402 challenge, and receive an Agent Guild-signed sender, recipient, nonce, purpose, expiry, and optional value envelope verified offline.",
+          "In one client call, hash a private payload locally, use one caller-owned Base-mainnet EOA for the exact-body proof and x402 payment, and receive an Agent Guild-signed sender, recipient, nonce, purpose, expiry, and optional value envelope verified offline.",
         tags: [
           "agent-guild",
           "signed-message",
           "non-repudiation",
           "x402",
-          "did",
+          "eip-191",
         ],
         examples: [
           JSON.stringify({
@@ -147,7 +149,7 @@ function agentCard(origin: string) {
         openapi: `${origin}/openapi.json`,
         machine_envelope: {
           client: ENVELOPE_CLIENT,
-          factory: "createEvmMachineEnvelopeClient({didSigner, evmSigner})",
+          factory: "createEvmMachineEnvelopeClient({evmSigner})",
           operation: "client.issue({payload, kind, recipient, nonce, ...})",
           price_usd: 0.01,
           currency: "USDC",
@@ -184,17 +186,7 @@ function agentCard(origin: string) {
               "Inspect one PayanAgent offer and its unpaid x402 challenge without signing or sending a payment.",
           },
         ],
-        paid_action: {
-          purpose: "portable signed Agent Guild trust decision",
-          protocol: "x402-v2",
-          price_usd: X402_PRICE_USD,
-          currency: "USDC",
-          network: X402_NETWORK,
-          asset: X402_ASSET,
-          endpoints: Object.fromEntries(
-            DISCOVERY_CAPABILITIES.map(({ id }) => [id, trustCheckUrl(id)]),
-          ),
-        },
+        paid_services_catalog: `${origin}/commerce.json`,
       },
     },
   };
@@ -220,7 +212,7 @@ Signed Agent Guild preflight snapshot: POST ${origin}/api/signed-agent-guild-pre
 Worker signing key: ${origin}/.well-known/worker-signing-key.json
 Agent Guild machine-commerce OpenAPI: ${origin}/openapi.json (non-custodial discovery bridge; canonical calls and settlements remain at ${GUILD_BASE})
 Agent Guild machine envelopes: POST ${origin}/envelopes/issue (307 to canonical issuance; exact sender proof required before the $0.01 USDC x402 challenge; payload stays private)
-One-call Node envelope client: ${ENVELOPE_CLIENT} — createEvmMachineEnvelopeClient({didSigner, evmSigner}).issue(...) hashes payload bytes locally, creates the exact-body proof, handles x402 v2, pins the Guild issuer, and verifies the result offline.
+One-call Node envelope client: ${ENVELOPE_CLIENT} — createEvmMachineEnvelopeClient({evmSigner}).issue(...) uses the caller's Base-mainnet EOA for both the EIP-191 exact-body proof and x402 payment, hashes payload bytes locally, pins the Guild issuer, and verifies the result offline.
 
 ## Capabilities
 
@@ -244,7 +236,7 @@ POST ${origin}/api/agent-guild-preflight with {"url":"https://public-agent.examp
 
 POST ${origin}/api/payan-readiness with {"offerId":"kh..."} to inspect a PayanAgent offer record and its unpaid x402 challenge. The tool never signs or sends a payment.
 
-Import ${ENVELOPE_CLIENT} and call createEvmMachineEnvelopeClient({didSigner, evmSigner}).issue(...) for the recommended one-call path. It hashes the private payload locally, creates the exact-body caller proof, pays and retries through the official x402 client, pins the Guild issuer before payment, and verifies the returned Guild signature offline. The payload bytes never leave the caller, and neither do private keys.
+Import ${ENVELOPE_CLIENT} and call createEvmMachineEnvelopeClient({evmSigner}).issue(...) for the recommended one-call path. The caller's Base-mainnet EOA creates the EIP-191 exact-body proof and pays through the official x402 client. The client hashes the private payload locally, pins the Guild issuer before payment, and verifies the returned Guild signature offline. Payload bytes and private keys never leave the caller. Base-mainnet EOAs are supported in this release; contract wallets are not.
 
 Low-level clients can POST ${origin}/envelopes/issue with an exact agent-guild/caller-proof/v1 header and a JSON body containing kind, recipient, payload_sha256, and nonce. The discovery alias redirects before payment to ${GUILD_BASE}/envelopes/issue, where $0.01 USDC on Base buys an Agent Guild-signed envelope. Verification at POST ${GUILD_BASE}/envelopes/verify is free. A valid signature proves integrity, Guild provenance, authenticated sender at issuance, and lifetime—not truth, acceptance, or settlement.
 `;
@@ -357,6 +349,18 @@ const worker = {
       );
     }
 
+    if (url.pathname === "/.well-known/jwks.json") {
+      return Response.json(
+        signingJwksDocument(env.WORKER_ED25519_PUBLIC_JWK_JSON),
+        {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=300, s-maxage=300",
+          },
+        },
+      );
+    }
+
     if (url.pathname === "/api/signed-agent-guild-preflight") {
       return handleSignedPreflight(
         request,
@@ -370,7 +374,13 @@ const worker = {
       url.pathname === "/.well-known/agent-card.json" ||
       url.pathname === "/.well-known/agent.json"
     ) {
-      return Response.json(agentCard(url.origin), {
+      const card = await signAgentCard(
+        agentCard(url.origin),
+        url.origin,
+        env.WORKER_ED25519_PRIVATE_KEY_PKCS8_B64,
+        env.WORKER_ED25519_PUBLIC_JWK_JSON,
+      );
+      return Response.json(card, {
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age=300, s-maxage=300",
@@ -434,6 +444,7 @@ const worker = {
       const pages = [
         url.origin,
         `${url.origin}/.well-known/agent-card.json`,
+        `${url.origin}/.well-known/jwks.json`,
         `${url.origin}/.well-known/worker-signing-key.json`,
         `${url.origin}/commerce.json`,
         `${url.origin}/openapi.json`,
