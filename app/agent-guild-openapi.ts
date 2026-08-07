@@ -9,6 +9,8 @@ import {
 const EXAMPLE_ENDPOINT =
   "https://codex-autonomous-worker.rwdburley.chatgpt.site/a2a";
 const ENVELOPE_CLIENT = `${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`;
+const PAYMENT_POLICY_CLIENT =
+  `${GUILD_BASE}/sdk/integrations/x402_payment_policy.mjs`;
 
 function paymentInfo(operation: string, priceUsd: number) {
   return {
@@ -48,9 +50,9 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
     openapi: "3.1.0",
     info: {
       title: "Agent Guild machine-commerce API",
-      version: "2.2.0",
+      version: "2.3.0",
       description:
-        "Cryptographic trust infrastructure for autonomous agents. Run a live endpoint preflight before delegating or paying, buy a signed evidence bundle, or issue a private-payload machine envelope with the one-call Node client. This worker transparently relays exact requests and x402 headers; Agent Guild remains the recipient, issuer, and settlement authority.",
+        "Cryptographic trust infrastructure for autonomous agents. Install a fail-closed policy before an x402 wallet signs, run a live endpoint preflight, buy a signed evidence bundle, or issue a private-payload machine envelope. Agent Guild remains the recipient, issuer, and settlement authority.",
       contact: {
         name: "Agent Guild autonomous interface",
         url: `${GUILD_BASE}/for-agents`,
@@ -272,6 +274,72 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
           },
         },
       },
+      "/wallet-binding/decision": {
+        post: {
+          operationId: "agentGuildExactPaymentDecision",
+          summary: "Authorize one exact x402 payment before signing",
+          description:
+            "Issue a short-lived AgentGuildPaymentDecision credential bound to the selected scheme, network, asset, atomic amount, payee, resource, capability, and risk thresholds. The official x402 client hook verifies the Guild signature and every bound field locally, then fails closed unless the credential says allow.",
+          tags: ["Trust before payment"],
+          servers: [
+            {
+              url: GUILD_BASE,
+              description:
+                "Canonical Agent Guild issuer and settlement endpoint.",
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaymentDecisionRequest" },
+                example: {
+                  payment: {
+                    scheme: "exact",
+                    network: "eip155:8453",
+                    asset: X402_ASSET,
+                    amount: "10000",
+                    pay_to: "0x1111111111111111111111111111111111111111",
+                    resource: "https://seller.example/api/research",
+                  },
+                  capability: "research",
+                  policy: { max_risk: 32.99, min_confidence: 0.5 },
+                  ttl_seconds: 300,
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description:
+                "Short-lived eddsa-jcs-2022 W3C credential containing an exact-payment allow or block decision.",
+              content: {
+                "application/json": {
+                  schema: { type: "object", additionalProperties: true },
+                },
+              },
+            },
+            "402": paymentRequiredResponse,
+            "422": { description: "The payment or policy is invalid." },
+          },
+          "x-payment-info": paymentInfo("payment_decision", 0.01),
+          "x-free-alternative":
+            `${GUILD_BASE}/wallet-binding/resolve?address=<payee>&network=<CAIP-2>`,
+          "x-free-verifier": `${GUILD_BASE}/wallet-binding/decision/verify`,
+          "x-client-sdk": {
+            language: "javascript/typescript (node)",
+            source: PAYMENT_POLICY_CLIENT,
+            factory:
+              "createAgentGuildX402PaymentPolicy({meteredFetch})",
+            registration: "client.onBeforePaymentCreation(policy)",
+            contract: "AGPD-1/1.0",
+            behavior:
+              "Abort before payment payload creation when the signed decision is missing, stale, inexact, invalid, or not allow.",
+            recursionSafety:
+              "meteredFetch must use a separate unguarded x402 client; a funded Agent Guild API key may use ordinary fetch.",
+          },
+        },
+      },
     },
     components: {
       schemas: {
@@ -342,6 +410,58 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
             context: { type: "object", additionalProperties: true },
           },
         },
+        PaymentDecisionRequest: {
+          type: "object",
+          additionalProperties: false,
+          required: ["payment"],
+          properties: {
+            payment: {
+              type: "object",
+              additionalProperties: false,
+              required: [
+                "scheme",
+                "network",
+                "asset",
+                "amount",
+                "pay_to",
+                "resource",
+              ],
+              properties: {
+                scheme: { type: "string", const: "exact" },
+                network: { type: "string", example: "eip155:8453" },
+                asset: {
+                  type: "string",
+                  pattern: "^0x[0-9A-Fa-f]{40}$",
+                },
+                amount: {
+                  type: "string",
+                  pattern: "^[1-9][0-9]*$",
+                  description: "Atomic-unit amount from selected x402 terms.",
+                },
+                pay_to: {
+                  type: "string",
+                  pattern: "^0x[0-9A-Fa-f]{40}$",
+                },
+                resource: { type: "string", format: "uri" },
+              },
+            },
+            capability: { type: ["string", "null"] },
+            policy: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                max_risk: { type: "number", minimum: 0, maximum: 100 },
+                min_confidence: { type: "number", minimum: 0, maximum: 1 },
+              },
+            },
+            ttl_seconds: {
+              type: "integer",
+              minimum: 60,
+              maximum: 3600,
+              default: 300,
+            },
+          },
+        },
         PaymentRequired: {
           type: "object",
           additionalProperties: true,
@@ -364,6 +484,7 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       canonicalProvider: "Agent Guild",
       canonicalServer: GUILD_BASE,
       machineEnvelopeClient: ENVELOPE_CLIENT,
+      paymentPolicyClient: PAYMENT_POLICY_CLIENT,
       custody: "none",
       settlementBoundary:
         "This worker forwards x402 protocol headers but never receives settlement, stores payment material, or forwards Agent Guild API keys. Buyers settle directly with Agent Guild and verify Agent Guild's signatures and receipts.",

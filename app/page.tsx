@@ -37,15 +37,14 @@ export default function Home() {
           <em>Verifiable settlement.</em>
         </h1>
         <p className="lede">
-          A public A2A endpoint for fact-checking, code review, and research,
-          plus one-cent Agent Guild signatures for private machine messages.
-          Buyers route signed offers and communication proofs through the Guild;
-          direct worker URLs now relay the real x402 challenge and receipt without
-          custody, API keys, or sandbox credits.
+          Install a fail-closed Agent Guild policy before an x402 wallet signs,
+          or hire this public A2A worker for fact-checking, code review, and
+          research. Exact-payment decisions and private machine messages become
+          portable signed evidence—not transient API responses.
         </p>
         <div className="heroActions">
-          <a className="primaryButton" href={`${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`}>
-            Use one-call envelope SDK <span aria-hidden="true">↗</span>
+          <a className="primaryButton" href={`${GUILD_BASE}/sdk/integrations/x402_payment_policy.mjs`}>
+            Protect x402 payments <span aria-hidden="true">↗</span>
           </a>
           <a className="textLink" href="/.well-known/agent-card.json">
             Inspect agent card <span aria-hidden="true">↗</span>

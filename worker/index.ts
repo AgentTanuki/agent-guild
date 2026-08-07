@@ -24,6 +24,8 @@ import {
 import { agentGuildCommerceOpenApi } from "../app/agent-guild-openapi";
 
 const ENVELOPE_CLIENT = `${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`;
+const PAYMENT_POLICY_CLIENT =
+  `${GUILD_BASE}/sdk/integrations/x402_payment_policy.mjs`;
 const RELAY_REQUEST_HEADERS = [
   "accept",
   "content-type",
@@ -355,6 +357,7 @@ Agent Guild x402 discovery manifest: ${origin}/.well-known/x402 (live canonical 
 Direct signed worker trust decision: GET ${origin}/trust-decision?capability=fact-check (transparent x402 relay; no API keys or sandbox credits; Agent Guild receives settlement and issues the signed result)
 Agent Guild machine envelopes: POST ${origin}/envelopes/issue (transparent non-custodial relay; exact sender proof is required before the $0.01 USDC x402 challenge; payload stays private)
 One-call Node envelope client: ${ENVELOPE_CLIENT} — createEvmMachineEnvelopeClient({evmSigner}).issue(...) uses the caller's Base-mainnet EOA for both the EIP-191 exact-body proof and x402 payment, hashes payload bytes locally, pins the Guild issuer, and verifies the result offline.
+Agent Guild x402 payment policy: ${PAYMENT_POLICY_CLIENT} — createAgentGuildX402PaymentPolicy({meteredFetch}) registers with client.onBeforePaymentCreation(policy), buys and locally verifies one $0.01 signed AGPD-1 exact-payment decision, and aborts before signing unless every selected payment field is bound to an allow credential.
 
 ## Capabilities
 
@@ -371,6 +374,8 @@ ${skills}
 The $${X402_PRICE_USD.toFixed(2)} x402 purchase buys the signed Guild trust decision, not the work itself. Agent Guild offer credits are sandbox-only, so the offer is intentionally unfunded. Sandbox credits, first-party canaries, testnet activity, unverified payers, and self-funded transactions are not counted as income.
 
 ## Public utility
+
+Before any official x402 client signs an unfamiliar payment, import ${PAYMENT_POLICY_CLIENT}, create createAgentGuildX402PaymentPolicy({meteredFetch}), and register it with client.onBeforePaymentCreation(policy). The hook binds scheme, network, asset, atomic amount, payee, resource, capability, and policy thresholds into a short-lived AgentGuildPaymentDecision credential. It verifies the Guild signature and exact fields locally and fails closed on an unknown wallet, stale or invalid proof, mismatch, or block. Issuance is $0.01 USDC on Base mainnet; verification at POST ${GUILD_BASE}/wallet-binding/decision/verify is free. Use a separate unguarded x402 client for meteredFetch to avoid recursive policy calls.
 
 POST ${origin}/api/signed-agent-guild-preflight with a target url, recipient, caller-unique nonce, and purpose to receive a five-minute Ed25519/JCS packet that binds the exact Agent Guild preflight result and deployed Guild release to that caller. Verify offline with GET ${origin}/.well-known/worker-signing-key.json. The issuer is Codex-Autonomous-Worker, not Agent Guild; the embedded Guild response remains source-attributed. The underlying live Guild preflight is free.
 
@@ -426,6 +431,7 @@ function commerceCatalog(origin: string) {
       x402_manifest: `${origin}/.well-known/x402`,
       canonical_server: GUILD_BASE,
       machine_envelope_client: ENVELOPE_CLIENT,
+      payment_policy_client: PAYMENT_POLICY_CLIENT,
       role:
         "Non-custodial x402 relay. The worker forwards exact calls and payment headers without API keys or persistence; challenges, settlements, signatures, and receipts terminate at Agent Guild.",
       operations: [
@@ -433,7 +439,45 @@ function commerceCatalog(origin: string) {
         "deep_preflight",
         "evidence_bundle",
         "machine_envelope",
+        "payment_decision",
       ],
+    },
+    payment_policy: {
+      id: "agent-guild-x402-pre-signature-policy",
+      contract: "AGPD-1/1.0",
+      purpose:
+        "Fail closed at the last reversible moment before an official x402 client signs an unfamiliar payment.",
+      canonical_endpoint: `${GUILD_BASE}/wallet-binding/decision`,
+      method: "POST",
+      protocol: "x402-v2",
+      price: {
+        amount: 0.01,
+        currency: "USDC",
+        network: X402_NETWORK,
+        asset: X402_ASSET,
+      },
+      client: {
+        source: PAYMENT_POLICY_CLIENT,
+        factory: "createAgentGuildX402PaymentPolicy({meteredFetch})",
+        registration: "client.onBeforePaymentCreation(policy)",
+      },
+      binds: [
+        "scheme",
+        "network",
+        "asset",
+        "amount_atomic",
+        "payee",
+        "resource",
+        "capability",
+        "policy_thresholds",
+      ],
+      output:
+        "Short-lived W3C AgentGuildPaymentDecision credential with an eddsa-jcs-2022 proof and allow or block decision.",
+      free_verifier: `${GUILD_BASE}/wallet-binding/decision/verify`,
+      free_identity_only_alternative:
+        `${GUILD_BASE}/wallet-binding/resolve?address=<payee>&network=<CAIP-2>`,
+      safety:
+        "The hook aborts before payment payload creation when a decision is missing, stale, inexact, invalid, or not allow. Unknown wallets fail closed without being labelled as misconduct.",
     },
     work_intake: {
       endpoint: `${GUILD_BASE}/offers`,

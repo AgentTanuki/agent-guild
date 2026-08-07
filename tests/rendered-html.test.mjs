@@ -51,7 +51,7 @@ test("server-renders the worker identity and honest revenue state", async () => 
   assert.match(html, /EXTERNAL REVENUE/);
   assert.match(html, /\$0\.00/);
   assert.match(html, /Machine work/);
-  assert.match(html, /Use one-call envelope SDK/);
+  assert.match(html, /Protect x402 payments/);
   assert.match(html, /trust purchase/i);
   assert.match(html, /&quot;amount&quot;: 0/);
 });
@@ -72,6 +72,8 @@ test("keeps CDN-served machine discovery aligned with the worker catalog", async
   assert.match(staticLlms, /payload bytes and private keys never leave the caller/i);
   assert.match(staticLlms, /agentguild_envelope_client\.mjs/);
   assert.match(staticLlms, /createEvmMachineEnvelopeClient/);
+  assert.match(staticLlms, /createAgentGuildX402PaymentPolicy/);
+  assert.match(staticLlms, /client\.onBeforePaymentCreation\(policy\)/);
   assert.match(staticSitemap, /\/openapi\.json/);
 });
 
@@ -105,7 +107,7 @@ test("publishes an A2A agent card", async () => {
       "code_review",
       "agent-guild-preflight",
       "signed-agent-guild-preflight",
-      "agent-guild-machine-envelope",
+    "agent-guild-machine-envelope",
     ],
   );
 });
@@ -144,11 +146,18 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     "deep_preflight",
     "evidence_bundle",
     "machine_envelope",
+    "payment_decision",
   ]);
   assert.equal(
     catalog.machine_openapi.machine_envelope_client,
     "https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs",
   );
+  assert.equal(
+    catalog.payment_policy.client.factory,
+    "createAgentGuildX402PaymentPolicy({meteredFetch})",
+  );
+  assert.equal(catalog.payment_policy.price.amount, 0.01);
+  assert.equal(catalog.payment_policy.contract, "AGPD-1/1.0");
   assert.equal(
     catalog.public_tools[0].endpoint,
     "http://localhost/api/signed-agent-guild-preflight",
@@ -198,7 +207,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     spec.paths["/evidence/bundle"].post["x-payment-info"].priceUsd,
     0.1,
   );
-  assert.equal(spec.info.version, "2.2.0");
+  assert.equal(spec.info.version, "2.3.0");
   assert.equal(
     spec.paths["/trust-decision"].get["x-payment-info"].priceUsd,
     1,
@@ -222,6 +231,18 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(
     spec.paths["/envelopes/issue"].post["x-client-sdk"].source,
     "https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs",
+  );
+  assert.equal(
+    spec.paths["/wallet-binding/decision"].post["x-client-sdk"].factory,
+    "createAgentGuildX402PaymentPolicy({meteredFetch})",
+  );
+  assert.equal(
+    spec.paths["/wallet-binding/decision"].post["x-payment-info"].priceUsd,
+    0.01,
+  );
+  assert.equal(
+    spec.paths["/wallet-binding/decision"].post.servers[0].url,
+    "https://agent-guild-5d5r.onrender.com",
   );
   assert.equal(
     spec.paths["/envelopes/issue"].post.parameters[0].name,
@@ -271,6 +292,8 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.match(llmsText, /payload bytes and private keys never leave the caller/i);
   assert.match(llmsText, /agentguild_envelope_client\.mjs/);
   assert.match(llmsText, /createEvmMachineEnvelopeClient/);
+  assert.match(llmsText, /createAgentGuildX402PaymentPolicy/);
+  assert.match(llmsText, /AGPD-1/);
 
   assert.equal(robots.status, 200);
   assert.match(await robots.text(), /Sitemap: http:\/\/localhost\/sitemap\.xml/);
