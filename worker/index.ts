@@ -4,6 +4,7 @@ import handler from "vinext/server/app-router-entry";
 import {
   AGENT_DID,
   AGENT_ID,
+  CAPABILITIES,
   DISCOVERY_CAPABILITIES,
   GUILD_BASE,
   OFFER_TEMPLATE,
@@ -42,6 +43,7 @@ const RELAY_RESPONSE_HEADERS = [
   "x-payment-response",
 ] as const;
 const RELAY_TIMEOUT_MS = 30_000;
+const MANIFEST_TIMEOUT_MS = 12_000;
 
 interface Env {
   ASSETS: Fetcher;
@@ -130,10 +132,107 @@ async function relayAgentGuild(
   });
 }
 
+type PaymentRequiredDocument = {
+  x402Version?: number;
+  resource?: {
+    url?: string;
+    description?: string;
+    mimeType?: string;
+  };
+  accepts?: Array<Record<string, unknown>>;
+};
+
+function decodePaymentRequired(encoded: string): PaymentRequiredDocument | null {
+  try {
+    const bytes = Uint8Array.from(atob(encoded), (character) =>
+      character.charCodeAt(0),
+    );
+    return JSON.parse(new TextDecoder().decode(bytes)) as PaymentRequiredDocument;
+  } catch {
+    return null;
+  }
+}
+
+async function x402Manifest(origin: string) {
+  const lastUpdated = new Date().toISOString();
+  const results = await Promise.all(
+    CAPABILITIES.map(async (capability) => {
+      try {
+        const response = await fetch(trustCheckUrl(capability.id), {
+          headers: { accept: "application/json" },
+          redirect: "manual",
+          signal: AbortSignal.timeout(MANIFEST_TIMEOUT_MS),
+        });
+        const encoded = response.headers.get("payment-required");
+        const payment = encoded ? decodePaymentRequired(encoded) : null;
+        if (
+          response.status !== 402 ||
+          payment?.x402Version !== 2 ||
+          !payment.resource?.url ||
+          !Array.isArray(payment.accepts) ||
+          payment.accepts.length === 0
+        ) {
+          return { capability: capability.id, resource: null };
+        }
+        return {
+          capability: capability.id,
+          resource: {
+            resource: payment.resource.url,
+            type: "http",
+            x402Version: payment.x402Version,
+            accepts: payment.accepts,
+            lastUpdated,
+            metadata: {
+              name: `Agent Guild signed ${capability.name.toLowerCase()} decision`,
+              description:
+                payment.resource.description ?? capability.description,
+              category: "Trust",
+              input: {
+                method: "GET",
+                capability: capability.id,
+                signed: true,
+                ttl_seconds: 3600,
+              },
+              output:
+                "Portable Agent Guild-signed JSON decision, plus PAYMENT-RESPONSE settlement receipt.",
+              relay: `${origin}/trust-decision?capability=${encodeURIComponent(capability.id)}`,
+              canonicalProvider: "Agent Guild",
+              settlementBoundary:
+                "The worker relay takes no custody and stores no payment material. Settlement and issuance terminate at Agent Guild.",
+            },
+          },
+        };
+      } catch {
+        return { capability: capability.id, resource: null };
+      }
+    }),
+  );
+  const resources = results
+    .map(({ resource }) => resource)
+    .filter((resource) => resource !== null);
+  return {
+    x402Version: 2,
+    name: "Codex Autonomous Worker — Agent Guild trust commerce",
+    description:
+      "Live, cryptographically signed Agent Guild trust decisions for autonomous machines. Canonical resources settle directly to Agent Guild; this worker also exposes transparent, non-custodial relay URLs.",
+    url: origin,
+    skill: `${origin}/llms.txt`,
+    docs: `${origin}/openapi.json`,
+    network: X402_NETWORK,
+    count: resources.length,
+    resources,
+    unavailableCapabilities: results
+      .filter(({ resource }) => resource === null)
+      .map(({ capability }) => capability),
+    accountingPolicy:
+      "Only independently verified external mainnet or fiat USD revenue counts; self-funded, first-party, trial, sandbox, testnet, and unverified payments are excluded.",
+  };
+}
+
 function agentCard(origin: string) {
   return {
     protocolVersion: "0.3.0",
-    version: "1.5.0",
+    version: "1.6.0",
     name: "Codex-Autonomous-Worker",
     description:
       "Agent Guild worker accepting signed offers for fact-checking, code review, coding, and research.",
@@ -252,6 +351,7 @@ Agent Guild endpoint preflight: POST ${origin}/api/agent-guild-preflight with {"
 Signed Agent Guild preflight snapshot: POST ${origin}/api/signed-agent-guild-preflight with {"url":"https://public-agent.example/a2a","recipient":"did:key:buyer","nonce":"caller-unique-nonce","purpose":"pre-delegation endpoint trust"}
 Worker signing key: ${origin}/.well-known/worker-signing-key.json
 Agent Guild machine-commerce OpenAPI: ${origin}/openapi.json (non-custodial discovery bridge; canonical calls and settlements remain at ${GUILD_BASE})
+Agent Guild x402 discovery manifest: ${origin}/.well-known/x402 (live canonical payment terms plus direct worker relay URLs)
 Direct signed worker trust decision: GET ${origin}/trust-decision?capability=fact-check (transparent x402 relay; no API keys or sandbox credits; Agent Guild receives settlement and issues the signed result)
 Agent Guild machine envelopes: POST ${origin}/envelopes/issue (transparent non-custodial relay; exact sender proof is required before the $0.01 USDC x402 challenge; payload stays private)
 One-call Node envelope client: ${ENVELOPE_CLIENT} — createEvmMachineEnvelopeClient({evmSigner}).issue(...) uses the caller's Base-mainnet EOA for both the EIP-191 exact-body proof and x402 payment, hashes payload bytes locally, pins the Guild issuer, and verifies the result offline.
@@ -323,6 +423,7 @@ function commerceCatalog(origin: string) {
     },
     machine_openapi: {
       document: `${origin}/openapi.json`,
+      x402_manifest: `${origin}/.well-known/x402`,
       canonical_server: GUILD_BASE,
       machine_envelope_client: ENVELOPE_CLIENT,
       role:
@@ -472,6 +573,17 @@ const worker = {
       });
     }
 
+    if (url.pathname === "/.well-known/x402" && request.method === "GET") {
+      const manifest = await x402Manifest(url.origin);
+      return Response.json(manifest, {
+        status: manifest.count > 0 ? 200 : 503,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
+        },
+      });
+    }
+
     if (
       url.pathname === "/trust-decision" ||
       url.pathname === "/preflight/deep" ||
@@ -538,6 +650,7 @@ const worker = {
         `${url.origin}/.well-known/agent-card.json`,
         `${url.origin}/.well-known/jwks.json`,
         `${url.origin}/.well-known/worker-signing-key.json`,
+        `${url.origin}/.well-known/x402`,
         `${url.origin}/commerce.json`,
         `${url.origin}/openapi.json`,
         `${url.origin}/llms.txt`,

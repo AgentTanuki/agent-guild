@@ -80,7 +80,7 @@ test("publishes an A2A agent card", async () => {
   assert.equal(response.status, 200);
   const card = await response.json();
   assert.equal(card.protocolVersion, "0.3.0");
-  assert.equal(card.version, "1.5.0");
+  assert.equal(card.version, "1.6.0");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
   assert.equal(card.agentGuild.machine_catalog, "http://localhost/commerce.json");
@@ -123,7 +123,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(legacy.status, 200);
   const legacyCard = await legacy.json();
   assert.equal(legacyCard.agentGuild.agent_id, "agent_c7d2e902dc50");
-  assert.equal(legacyCard.version, "1.5.0");
+  assert.equal(legacyCard.version, "1.6.0");
 
   assert.equal(commerce.status, 200);
   const catalog = await commerce.json();
@@ -134,6 +134,10 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(
     catalog.machine_openapi.canonical_server,
     "https://agent-guild-5d5r.onrender.com",
+  );
+  assert.equal(
+    catalog.machine_openapi.x402_manifest,
+    "http://localhost/.well-known/x402",
   );
   assert.deepEqual(catalog.machine_openapi.operations, [
     "worker_trust_decision",
@@ -259,6 +263,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.match(llmsText, /issuer is Codex-Autonomous-Worker, not Agent Guild/i);
   assert.match(llmsText, /upstream call is free/i);
   assert.match(llmsText, /machine-commerce OpenAPI: http:\/\/localhost\/openapi\.json/);
+  assert.match(llmsText, /x402 discovery manifest: http:\/\/localhost\/\.well-known\/x402/);
   assert.match(llmsText, /canonical calls and settlements remain/i);
   assert.match(llmsText, /transparent x402 relay/i);
   assert.match(llmsText, /GET http:\/\/localhost\/trust-decision/);
@@ -276,6 +281,69 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.match(await (await render("/sitemap.xml")).text(), /worker-signing-key\.json/);
   assert.match(await (await render("/sitemap.xml")).text(), /\/commerce\.json/);
   assert.match(await (await render("/sitemap.xml")).text(), /\/openapi\.json/);
+  assert.match(await (await render("/sitemap.xml")).text(), /\/\.well-known\/x402/);
+});
+
+test("publishes live x402 discovery with canonical terms and relay URLs", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (input) => {
+      const resource = input instanceof Request ? input.url : String(input);
+      const capability = new URL(resource).searchParams.get("capability");
+      const paymentRequired = {
+        x402Version: 2,
+        resource: {
+          url: resource,
+          description: `Signed decision for ${capability}`,
+          mimeType: "application/json",
+        },
+        accepts: [
+          {
+            scheme: "exact",
+            network: "eip155:8453",
+            asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            amount: "1000000",
+            payTo: "0xaa4E3ba0Eb5f564cAb54dDC08f5BaAfb3D4cA8E5",
+          },
+        ],
+      };
+      return new Response(null, {
+        status: 402,
+        headers: {
+          "PAYMENT-REQUIRED": Buffer.from(
+            JSON.stringify(paymentRequired),
+          ).toString("base64"),
+        },
+      });
+    };
+
+    const response = await renderRequest("/.well-known/x402");
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("access-control-allow-origin"), "*");
+    const manifest = await response.json();
+    assert.equal(manifest.x402Version, 2);
+    assert.equal(manifest.count, 3);
+    assert.deepEqual(manifest.unavailableCapabilities, []);
+    assert.deepEqual(
+      manifest.resources.map(({ metadata }) => metadata.input.capability),
+      ["fact-check", "code-review", "research"],
+    );
+    assert.equal(manifest.resources[0].accepts[0].amount, "1000000");
+    assert.match(
+      manifest.resources[0].resource,
+      /agent-guild-5d5r\.onrender\.com\/check\?capability=fact-check/,
+    );
+    assert.equal(
+      manifest.resources[0].metadata.relay,
+      "http://localhost/trust-decision?capability=fact-check",
+    );
+    assert.match(
+      manifest.resources[0].metadata.settlementBoundary,
+      /Settlement and issuance terminate at Agent Guild/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("relays canonical x402 challenges and receipts without API keys or custody", async () => {
