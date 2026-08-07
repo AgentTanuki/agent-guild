@@ -13,6 +13,7 @@ which is precisely the path nobody exercises until it matters.
 from __future__ import annotations
 
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -24,6 +25,8 @@ _SCRIPT = os.path.join(os.path.dirname(__file__), "..", "..", "scripts",
                        "ship_decision.py")
 _GATE = os.path.join(os.path.dirname(__file__), "..", "..", "scripts",
                      "release_gate.py")
+_SHIP = (pathlib.Path(__file__).resolve().parents[3]
+         / ".github" / "workflows" / "ship.yml")
 
 
 def test_deployment_not_arrived_halts_instead_of_reverting():
@@ -76,3 +79,19 @@ def test_the_deploy_wait_is_raised_but_still_bounded():
     src = open(_GATE).read()
     assert "default=1800.0" in src, "the deploy wait must be the raised bound"
     assert "raise TimeoutError" in src, "an unbounded wait is not a gate"
+
+
+def test_late_deploy_has_a_supported_recertification_path():
+    src = _SHIP.read_text()
+    assert "workflow_dispatch:" in src
+    assert "recover_deployment:" in src
+    assert "certify production against the exact current main SHA" in src
+    assert "registry_publish_needed.py" in src
+
+
+def test_only_a_failed_release_gate_can_trigger_a_revert():
+    """A registry outage after a green deploy must never roll production back."""
+    src = _SHIP.read_text()
+    assert ("if: failure() && steps.release_gate.outcome == 'failure'"
+            in src)
+    assert "if: failure() && steps.merge.outputs.merged == 'true'" not in src
