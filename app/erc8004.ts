@@ -2,7 +2,12 @@ import { GUILD_BASE } from "./worker-profile";
 import { signAgentCard } from "./signed-preflight";
 
 const BASE_CHAIN_ID = 8453;
-const BASE_RPC = "https://mainnet.base.org";
+const BASE_RPCS = [
+  "https://mainnet.base.org",
+  "https://base-rpc.publicnode.com",
+  "https://base-mainnet.public.blastapi.io",
+  "https://1rpc.io/base",
+] as const;
 const IDENTITY_REGISTRY = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432";
 const AGENT_REGISTRY = `eip155:${BASE_CHAIN_ID}:${IDENTITY_REGISTRY}`;
 const OWNER_OF_SELECTOR = "6352211e";
@@ -110,31 +115,58 @@ function decodeAbiString(result: string) {
   }
 }
 
-async function ethCall(data: string) {
-  const response = await fetch(BASE_RPC, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "eth_call",
-      params: [{ to: IDENTITY_REGISTRY, data: `0x${data}` }, "latest"],
-    }),
-    signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
-  });
-  if (!response.ok) throw new Error(`Base RPC returned HTTP ${response.status}`);
-  const body = (await response.json()) as {
-    result?: unknown;
-    error?: { message?: unknown };
-  };
-  if (typeof body.result !== "string") {
-    throw new Error(
-      typeof body.error?.message === "string"
-        ? body.error.message
-        : "Base RPC returned no result",
-    );
+async function ethCalls(data: string[]) {
+  let lastError = "No Base RPC returned a result.";
+  for (const rpc of BASE_RPCS) {
+    try {
+      const response = await fetch(rpc, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          data.map((callData, index) => ({
+            jsonrpc: "2.0",
+            id: index + 1,
+            method: "eth_call",
+            params: [
+              { to: IDENTITY_REGISTRY, data: `0x${callData}` },
+              "latest",
+            ],
+          })),
+        ),
+        signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+        lastError = `${new URL(rpc).hostname} returned HTTP ${response.status}`;
+        continue;
+      }
+      const body = (await response.json()) as Array<{
+        id?: unknown;
+        result?: unknown;
+        error?: { message?: unknown };
+      }>;
+      if (!Array.isArray(body)) {
+        lastError = `${new URL(rpc).hostname} rejected JSON-RPC batching`;
+        continue;
+      }
+      const ordered = [...body].sort((left, right) => Number(left.id) - Number(right.id));
+      if (
+        ordered.length !== data.length ||
+        ordered.some((entry) => typeof entry.result !== "string")
+      ) {
+        const message = ordered.find((entry) => typeof entry.error?.message === "string")
+          ?.error?.message;
+        lastError = typeof message === "string" ? message : `${new URL(rpc).hostname} returned incomplete results`;
+        continue;
+      }
+      return {
+        rpc,
+        results: ordered.map((entry) => entry.result as string),
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : "Base RPC request failed";
+    }
   }
-  return body.result;
+  throw new Error(lastError);
 }
 
 function isUnsafeHostname(hostname: string) {
@@ -271,12 +303,15 @@ export async function resolveErc8004Agent(
   let ownerResult: string;
   let uriResult: string;
   let walletResult: string;
+  let rpc: string;
   try {
-    [ownerResult, uriResult, walletResult] = await Promise.all([
-      ethCall(`${OWNER_OF_SELECTOR}${agentId.hex}`),
-      ethCall(`${TOKEN_URI_SELECTOR}${agentId.hex}`),
-      ethCall(`${GET_AGENT_WALLET_SELECTOR}${agentId.hex}`),
+    const calls = await ethCalls([
+      `${OWNER_OF_SELECTOR}${agentId.hex}`,
+      `${TOKEN_URI_SELECTOR}${agentId.hex}`,
+      `${GET_AGENT_WALLET_SELECTOR}${agentId.hex}`,
     ]);
+    rpc = calls.rpc;
+    [ownerResult, uriResult, walletResult] = calls.results;
   } catch (error) {
     return failure(
       502,
@@ -356,7 +391,7 @@ export async function resolveErc8004Agent(
     ok: true,
     value: {
       schema: "agent-guild/erc8004-resolution/v1",
-      chain: { namespace: "eip155", chain_id: BASE_CHAIN_ID, rpc: BASE_RPC },
+      chain: { namespace: "eip155", chain_id: BASE_CHAIN_ID, rpc },
       identity_registry: IDENTITY_REGISTRY,
       agent_registry: AGENT_REGISTRY,
       agent_id: agentId.decimal,
@@ -426,7 +461,7 @@ export async function signedErc8004Preflight(
     expires_at: new Date(issuedAt.getTime() + 5 * 60_000).toISOString(),
     verification: {
       worker_key: `${origin}/.well-known/worker-signing-key.json`,
-      registry_source: BASE_RPC,
+      registry_source: resolution.chain.rpc,
       standard: "https://eips.ethereum.org/EIPS/eip-8004",
     },
   };

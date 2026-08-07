@@ -577,31 +577,25 @@ test("binds a Base ERC-8004 identity to a paid Agent Guild preflight", async () 
       const target = input instanceof Request ? input.url : String(input);
       calls.push({ target, init });
       if (target === "https://mainnet.base.org") {
-        const rpc = JSON.parse(String(init.body));
-        const data = rpc.params[0].data;
-        if (data.startsWith("0x6352211e")) {
-          return Response.json({
-            jsonrpc: "2.0",
-            id: 1,
-            result:
-              "0x0000000000000000000000001111111111111111111111111111111111111111",
-          });
-        }
-        if (data.startsWith("0xc87b56dd")) {
-          return Response.json({
-            jsonrpc: "2.0",
-            id: 1,
-            result: encodeAbiString("https://registry.example/agent-7.json"),
-          });
-        }
-        if (data.startsWith("0x00339509")) {
-          return Response.json({
-            jsonrpc: "2.0",
-            id: 1,
-            result:
-              "0x0000000000000000000000002222222222222222222222222222222222222222",
-          });
-        }
+        const batch = JSON.parse(String(init.body));
+        return Response.json(
+          batch.map((rpc) => {
+            const data = rpc.params[0].data;
+            let result;
+            if (data.startsWith("0x6352211e")) {
+              result =
+                "0x0000000000000000000000001111111111111111111111111111111111111111";
+            } else if (data.startsWith("0xc87b56dd")) {
+              result = encodeAbiString("https://registry.example/agent-7.json");
+            } else if (data.startsWith("0x00339509")) {
+              result =
+                "0x0000000000000000000000002222222222222222222222222222222222222222";
+            } else {
+              throw new Error(`unexpected eth_call ${data}`);
+            }
+            return { jsonrpc: "2.0", id: rpc.id, result };
+          }),
+        );
       }
       if (target === "https://registry.example/agent-7.json") {
         return Response.json(registration);
@@ -699,7 +693,7 @@ test("binds a Base ERC-8004 identity to a paid Agent Guild preflight", async () 
     );
     assert.equal(
       calls.filter(({ target }) => target === "https://mainnet.base.org").length,
-      6,
+      2,
     );
   } finally {
     globalThis.fetch = originalFetch;
