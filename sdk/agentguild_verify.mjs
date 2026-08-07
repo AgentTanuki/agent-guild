@@ -149,6 +149,39 @@ export function verifyPassport(vc, { expectedIssuer = null } = {}) {
   };
 }
 
+export function verifyMachineEnvelope(envelope,
+                                      { expectedIssuer = null, now = new Date() } = {}) {
+  try {
+    if (envelope.type !== "AgentGuildMachineEnvelope"
+        || envelope.protocol !== "agent-guild/machine-envelope/v1") {
+      throw new Error("unsupported envelope");
+    }
+    const issuer = envelope.issuer || "";
+    const { envelope_sha256: claimedDigest, ...withoutDigest } = envelope;
+    const { proof, ...signed } = withoutDigest;
+    if (typeof proof !== "string" || typeof claimedDigest !== "string") {
+      throw new Error("missing proof/digest");
+    }
+    const digestValid = _createHash("sha256")
+      .update(Buffer.from(canon(withoutDigest), "utf8")).digest("hex") === claimedDigest;
+    const signatureValid = verifySig(signed, proof, publicKeyFromDid(issuer));
+    const validUntil = new Date(envelope.valid_until);
+    const expired = !Number.isFinite(validUntil.getTime()) || now > validUntil;
+    const issuerMatches = expectedIssuer ? issuer === expectedIssuer : null;
+    return {
+      valid: signatureValid && digestValid && !expired && issuerMatches !== false,
+      signatureValid, digestValid, expired, issuer, issuerMatches,
+      senderDid: envelope.sender?.did ?? null,
+      recipient: envelope.message?.recipient ?? null,
+      payloadSha256: envelope.message?.payload_sha256 ?? null,
+      note: "Integrity/provenance only; this does not attest payload truth, recipient acceptance or settlement.",
+    };
+  } catch {
+    return { valid: false, signatureValid: false, digestValid: false,
+             expired: true, issuer: envelope?.issuer ?? "" };
+  }
+}
+
 async function getJson(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}`);
