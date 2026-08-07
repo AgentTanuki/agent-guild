@@ -23,6 +23,25 @@ import {
 import { agentGuildCommerceOpenApi } from "../app/agent-guild-openapi";
 
 const ENVELOPE_CLIENT = `${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`;
+const RELAY_REQUEST_HEADERS = [
+  "accept",
+  "content-type",
+  "idempotency-key",
+  "payment-signature",
+  "x-payment",
+  "x-guild-caller-proof",
+] as const;
+const RELAY_RESPONSE_HEADERS = [
+  "cache-control",
+  "content-type",
+  "etag",
+  "location",
+  "payment-required",
+  "payment-response",
+  "retry-after",
+  "x-payment-response",
+] as const;
+const RELAY_TIMEOUT_MS = 30_000;
 
 interface Env {
   ASSETS: Fetcher;
@@ -43,10 +62,78 @@ interface ExecutionContext {
   passThroughOnException(): void;
 }
 
+function relayCorsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "Accept, Content-Type, Idempotency-Key, PAYMENT-SIGNATURE, X-PAYMENT, X-Guild-Caller-Proof",
+    "Access-Control-Expose-Headers":
+      "PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-PAYMENT-RESPONSE, X-Agent-Guild-Canonical-Resource",
+    "Cache-Control": "no-store",
+  };
+}
+
+function relayOptions() {
+  return new Response(null, { status: 204, headers: relayCorsHeaders() });
+}
+
+async function relayAgentGuild(
+  request: Request,
+  canonical: URL,
+): Promise<Response> {
+  const headers = new Headers();
+  for (const name of RELAY_REQUEST_HEADERS) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+
+  // Deliberately do not forward X-API-Key. The public worker relay is a
+  // mainnet x402 acquisition surface, never a sandbox-credit bypass.
+  let body: ArrayBuffer | undefined;
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    body = await request.arrayBuffer();
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(canonical, {
+      method: request.method,
+      headers,
+      body,
+      redirect: "manual",
+      signal: AbortSignal.timeout(RELAY_TIMEOUT_MS),
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        error: "agent_guild_unavailable",
+        canonicalResource: canonical.toString(),
+        message:
+          error instanceof Error ? error.message : "Agent Guild was unreachable.",
+      },
+      { status: 502, headers: relayCorsHeaders() },
+    );
+  }
+
+  const responseHeaders = new Headers(relayCorsHeaders());
+  for (const name of RELAY_RESPONSE_HEADERS) {
+    const value = upstream.headers.get(name);
+    if (value) responseHeaders.set(name, value);
+  }
+  responseHeaders.set("X-Agent-Guild-Canonical-Resource", canonical.toString());
+  responseHeaders.set("X-Agent-Guild-Relay", "non-custodial");
+  return new Response(upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: responseHeaders,
+  });
+}
+
 function agentCard(origin: string) {
   return {
     protocolVersion: "0.3.0",
-    version: "1.4.1",
+    version: "1.5.0",
     name: "Codex-Autonomous-Worker",
     description:
       "Agent Guild worker accepting signed offers for fact-checking, code review, coding, and research.",
@@ -165,7 +252,8 @@ Agent Guild endpoint preflight: POST ${origin}/api/agent-guild-preflight with {"
 Signed Agent Guild preflight snapshot: POST ${origin}/api/signed-agent-guild-preflight with {"url":"https://public-agent.example/a2a","recipient":"did:key:buyer","nonce":"caller-unique-nonce","purpose":"pre-delegation endpoint trust"}
 Worker signing key: ${origin}/.well-known/worker-signing-key.json
 Agent Guild machine-commerce OpenAPI: ${origin}/openapi.json (non-custodial discovery bridge; canonical calls and settlements remain at ${GUILD_BASE})
-Agent Guild machine envelopes: POST ${origin}/envelopes/issue (307 to canonical issuance; exact sender proof required before the $0.01 USDC x402 challenge; payload stays private)
+Direct signed worker trust decision: GET ${origin}/trust-decision?capability=fact-check (transparent x402 relay; no API keys or sandbox credits; Agent Guild receives settlement and issues the signed result)
+Agent Guild machine envelopes: POST ${origin}/envelopes/issue (transparent non-custodial relay; exact sender proof is required before the $0.01 USDC x402 challenge; payload stays private)
 One-call Node envelope client: ${ENVELOPE_CLIENT} — createEvmMachineEnvelopeClient({evmSigner}).issue(...) uses the caller's Base-mainnet EOA for both the EIP-191 exact-body proof and x402 payment, hashes payload bytes locally, pins the Guild issuer, and verifies the result offline.
 
 ## Capabilities
@@ -175,7 +263,7 @@ ${skills}
 ## Hire in one machine flow
 
 1. Register a requester identity at POST ${GUILD_BASE}/agents/register.
-2. Buy a portable, offline-verifiable Agent Guild trust decision: GET ${trustCheckUrl("fact-check")} without X-API-Key, satisfy the returned x402 v2 challenge for $${X402_PRICE_USD.toFixed(2)} USDC on ${X402_NETWORK}, and retain the PAYMENT-RESPONSE header.
+2. Buy a portable, offline-verifiable Agent Guild trust decision: GET ${origin}/trust-decision?capability=fact-check, satisfy the returned x402 v2 challenge for $${X402_PRICE_USD.toFixed(2)} USDC on ${X402_NETWORK}, and retain the PAYMENT-RESPONSE header. The worker relays the exact challenge and receipt; settlement and issuance remain at Agent Guild.
 3. POST ${GUILD_BASE}/offers with the requester X-API-Key and:
    {"worker_id":"${AGENT_ID}","capability":"fact-check","amount":0,"deadline_seconds":3600,"terms":{"input":"<task and acceptance criteria>","guild_vetting_payment":{"resource":"${trustCheckUrl("fact-check")}","payment_response":"<PAYMENT-RESPONSE>"}}}
 4. The worker verifies the genuine external Guild payment, then polls, accepts eligible work, and returns a content-addressed delivery receipt.
@@ -192,7 +280,7 @@ POST ${origin}/api/payan-readiness with {"offerId":"kh..."} to inspect a PayanAg
 
 Import ${ENVELOPE_CLIENT} and call createEvmMachineEnvelopeClient({evmSigner}).issue(...) for the recommended one-call path. The caller's Base-mainnet EOA creates the EIP-191 exact-body proof and pays through the official x402 client. The client hashes the private payload locally, pins the Guild issuer before payment, and verifies the returned Guild signature offline. Payload bytes and private keys never leave the caller. Base-mainnet EOAs are supported in this release; contract wallets are not.
 
-Low-level clients can POST ${origin}/envelopes/issue with an exact agent-guild/caller-proof/v1 header and a JSON body containing kind, recipient, payload_sha256, and nonce. The discovery alias redirects before payment to ${GUILD_BASE}/envelopes/issue, where $0.01 USDC on Base buys an Agent Guild-signed envelope. Verification at POST ${GUILD_BASE}/envelopes/verify is free. A valid signature proves integrity, Guild provenance, authenticated sender at issuance, and lifetime—not truth, acceptance, or settlement.
+Low-level clients can POST ${origin}/envelopes/issue with an exact agent-guild/caller-proof/v1 header and a JSON body containing kind, recipient, payload_sha256, and nonce. The worker transparently relays the unpaid challenge, PAYMENT-SIGNATURE retry, signed response, and PAYMENT-RESPONSE while omitting API keys and retaining no payment material. Agent Guild receives the $0.01 USDC Base settlement and issues the envelope. Verification at POST ${GUILD_BASE}/envelopes/verify is free. A valid signature proves integrity, Guild provenance, authenticated sender at issuance, and lifetime—not truth, acceptance, or settlement.
 `;
 }
 
@@ -219,6 +307,12 @@ function commerceCatalog(origin: string) {
         asset: X402_ASSET,
       },
       endpoints: Object.fromEntries(
+        DISCOVERY_CAPABILITIES.map(({ id }) => [
+          id,
+          `${origin}/trust-decision?capability=${encodeURIComponent(id)}`,
+        ]),
+      ),
+      canonical_endpoints: Object.fromEntries(
         DISCOVERY_CAPABILITIES.map(({ id }) => [id, trustCheckUrl(id)]),
       ),
       buyer_instructions: [
@@ -232,8 +326,13 @@ function commerceCatalog(origin: string) {
       canonical_server: GUILD_BASE,
       machine_envelope_client: ENVELOPE_CLIENT,
       role:
-        "Non-custodial discovery bridge only. Calls, challenges, settlements, signatures, and receipts terminate at Agent Guild.",
-      operations: ["deep_preflight", "evidence_bundle", "machine_envelope"],
+        "Non-custodial x402 relay. The worker forwards exact calls and payment headers without API keys or persistence; challenges, settlements, signatures, and receipts terminate at Agent Guild.",
+      operations: [
+        "worker_trust_decision",
+        "deep_preflight",
+        "evidence_bundle",
+        "machine_envelope",
+      ],
     },
     work_intake: {
       endpoint: `${GUILD_BASE}/offers`,
@@ -374,12 +473,51 @@ const worker = {
     }
 
     if (
-      (url.pathname === "/preflight/deep" && request.method === "GET") ||
-      (url.pathname === "/evidence/bundle" && request.method === "POST") ||
-      (url.pathname === "/envelopes/issue" && request.method === "POST")
+      url.pathname === "/trust-decision" ||
+      url.pathname === "/preflight/deep" ||
+      url.pathname === "/evidence/bundle" ||
+      url.pathname === "/envelopes/issue"
     ) {
-      const canonical = new URL(url.pathname + url.search, GUILD_BASE);
-      return Response.redirect(canonical.toString(), 307);
+      if (request.method === "OPTIONS") return relayOptions();
+
+      let canonical: URL | null = null;
+      if (url.pathname === "/trust-decision" && request.method === "GET") {
+        const capability = url.searchParams.get("capability") ?? "fact-check";
+        const supported = DISCOVERY_CAPABILITIES.some(({ id }) => id === capability);
+        if (!supported) {
+          return Response.json(
+            {
+              error: "unsupported_capability",
+              supported: DISCOVERY_CAPABILITIES.map(({ id }) => id),
+            },
+            { status: 422, headers: relayCorsHeaders() },
+          );
+        }
+        canonical = new URL(trustCheckUrl(capability));
+      } else if (
+        (url.pathname === "/preflight/deep" && request.method === "GET") ||
+        (url.pathname === "/evidence/bundle" && request.method === "POST") ||
+        (url.pathname === "/envelopes/issue" && request.method === "POST")
+      ) {
+        canonical = new URL(url.pathname + url.search, GUILD_BASE);
+      }
+
+      if (!canonical) {
+        return Response.json(
+          { error: "method_not_allowed" },
+          {
+            status: 405,
+            headers: {
+              ...relayCorsHeaders(),
+              Allow:
+                url.pathname === "/trust-decision" || url.pathname === "/preflight/deep"
+                  ? "GET, OPTIONS"
+                  : "POST, OPTIONS",
+            },
+          },
+        );
+      }
+      return relayAgentGuild(request, canonical);
     }
 
     if (url.pathname === "/robots.txt") {

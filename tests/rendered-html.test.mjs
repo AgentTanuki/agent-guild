@@ -66,6 +66,8 @@ test("keeps CDN-served machine discovery aligned with the worker catalog", async
     "utf8",
   );
   assert.match(staticLlms, /POST https:\/\/codex-autonomous-worker\.rwdburley\.chatgpt\.site\/envelopes\/issue/);
+  assert.match(staticLlms, /GET https:\/\/codex-autonomous-worker\.rwdburley\.chatgpt\.site\/trust-decision/);
+  assert.match(staticLlms, /transparent x402 relay/i);
   assert.match(staticLlms, /\$0\.01 USDC/);
   assert.match(staticLlms, /payload bytes and private keys never leave the caller/i);
   assert.match(staticLlms, /agentguild_envelope_client\.mjs/);
@@ -78,7 +80,7 @@ test("publishes an A2A agent card", async () => {
   assert.equal(response.status, 200);
   const card = await response.json();
   assert.equal(card.protocolVersion, "0.3.0");
-  assert.equal(card.version, "1.4.1");
+  assert.equal(card.version, "1.5.0");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
   assert.equal(card.agentGuild.machine_catalog, "http://localhost/commerce.json");
@@ -121,7 +123,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(legacy.status, 200);
   const legacyCard = await legacy.json();
   assert.equal(legacyCard.agentGuild.agent_id, "agent_c7d2e902dc50");
-  assert.equal(legacyCard.version, "1.4.1");
+  assert.equal(legacyCard.version, "1.5.0");
 
   assert.equal(commerce.status, 200);
   const catalog = await commerce.json();
@@ -134,6 +136,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     "https://agent-guild-5d5r.onrender.com",
   );
   assert.deepEqual(catalog.machine_openapi.operations, [
+    "worker_trust_decision",
     "deep_preflight",
     "evidence_bundle",
     "machine_envelope",
@@ -156,17 +159,21 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     catalog.public_tools[2].endpoint,
     "http://localhost/api/payan-readiness",
   );
-  assert.match(
+  assert.equal(
     catalog.paid_action.endpoints["fact-check"],
-    /\/check\?capability=fact-check&signed=true&ttl_seconds=3600$/,
+    "http://localhost/trust-decision?capability=fact-check",
   );
-  assert.match(
+  assert.equal(
     catalog.paid_action.endpoints.coding,
-    /\/check\?capability=coding&signed=true&ttl_seconds=3600$/,
+    "http://localhost/trust-decision?capability=coding",
+  );
+  assert.equal(
+    catalog.paid_action.endpoints["web-research"],
+    "http://localhost/trust-decision?capability=web-research",
   );
   assert.match(
-    catalog.paid_action.endpoints["web-research"],
-    /\/check\?capability=web-research&signed=true&ttl_seconds=3600$/,
+    catalog.paid_action.canonical_endpoints["fact-check"],
+    /\/check\?capability=fact-check&signed=true&ttl_seconds=3600$/,
   );
 
   assert.equal(openapi.status, 200);
@@ -187,7 +194,15 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     spec.paths["/evidence/bundle"].post["x-payment-info"].priceUsd,
     0.1,
   );
-  assert.equal(spec.info.version, "2.1.2");
+  assert.equal(spec.info.version, "2.2.0");
+  assert.equal(
+    spec.paths["/trust-decision"].get["x-payment-info"].priceUsd,
+    1,
+  );
+  assert.deepEqual(
+    spec.paths["/trust-decision"].get.parameters[0].schema.enum,
+    ["fact-check", "code-review", "research", "coding", "web-research", "code_review"],
+  );
   assert.equal(
     spec.paths["/envelopes/issue"].post["x-client-sdk"].factory,
     "createEvmMachineEnvelopeClient({evmSigner})",
@@ -225,55 +240,6 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(wellKnownOpenApi.status, 200);
   assert.equal((await wellKnownOpenApi.json()).info.title, spec.info.title);
 
-  const deepAlias = await render(
-    "/preflight/deep?url=https%3A%2F%2Fpublic-agent.example%2Fa2a",
-  );
-  assert.equal(deepAlias.status, 307);
-  assert.equal(
-    deepAlias.headers.get("location"),
-    "https://agent-guild-5d5r.onrender.com/preflight/deep?url=https%3A%2F%2Fpublic-agent.example%2Fa2a",
-  );
-
-  const evidenceAlias = await renderRequest(
-    "/evidence/bundle",
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        url: "https://public-agent.example/a2a",
-        ttl_seconds: 3600,
-      }),
-    },
-  );
-  assert.equal(evidenceAlias.status, 307);
-  assert.equal(
-    evidenceAlias.headers.get("location"),
-    "https://agent-guild-5d5r.onrender.com/evidence/bundle",
-  );
-
-  const envelopeAlias = await renderRequest(
-    "/envelopes/issue",
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-guild-caller-proof": "proof-preserved-by-the-307-client",
-      },
-      body: JSON.stringify({
-        kind: "intent",
-        recipient: "did:key:recipient",
-        payload_sha256:
-          "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-        nonce: "buyer-unique-message-0001",
-      }),
-    },
-  );
-  assert.equal(envelopeAlias.status, 307);
-  assert.equal(
-    envelopeAlias.headers.get("location"),
-    "https://agent-guild-5d5r.onrender.com/envelopes/issue",
-  );
-
   assert.equal(llms.status, 200);
   assert.match(llms.headers.get("content-type") ?? "", /^text\/plain\b/i);
   const llmsText = await llms.text();
@@ -294,6 +260,8 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.match(llmsText, /upstream call is free/i);
   assert.match(llmsText, /machine-commerce OpenAPI: http:\/\/localhost\/openapi\.json/);
   assert.match(llmsText, /canonical calls and settlements remain/i);
+  assert.match(llmsText, /transparent x402 relay/i);
+  assert.match(llmsText, /GET http:\/\/localhost\/trust-decision/);
   assert.match(llmsText, /POST http:\/\/localhost\/envelopes\/issue/);
   assert.match(llmsText, /payload bytes and private keys never leave the caller/i);
   assert.match(llmsText, /agentguild_envelope_client\.mjs/);
@@ -308,6 +276,107 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.match(await (await render("/sitemap.xml")).text(), /worker-signing-key\.json/);
   assert.match(await (await render("/sitemap.xml")).text(), /\/commerce\.json/);
   assert.match(await (await render("/sitemap.xml")).text(), /\/openapi\.json/);
+});
+
+test("relays canonical x402 challenges and receipts without API keys or custody", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const envelopeBody = JSON.stringify({
+    kind: "intent",
+    recipient: "did:key:recipient",
+    payload_sha256:
+      "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+    nonce: "buyer-unique-message-0001",
+  });
+
+  try {
+    globalThis.fetch = async (input, init = {}) => {
+      const requestUrl = input instanceof Request ? input.url : String(input);
+      const requestHeaders = new Headers(init.headers);
+      const requestBody =
+        init.body instanceof ArrayBuffer
+          ? new TextDecoder().decode(init.body)
+          : init.body == null
+            ? null
+            : String(init.body);
+      calls.push({ requestUrl, init, requestHeaders, requestBody });
+
+      if (requestUrl.endsWith("/envelopes/issue")) {
+        return new Response(JSON.stringify({ issued: true }), {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "PAYMENT-RESPONSE": "base-mainnet-receipt",
+          },
+        });
+      }
+      return new Response(JSON.stringify({ x402Version: 2, accepts: [{}] }), {
+        status: 402,
+        headers: {
+          "content-type": "application/json",
+          "PAYMENT-REQUIRED": "base-mainnet-challenge",
+        },
+      });
+    };
+
+    const trustDecision = await renderRequest(
+      "/trust-decision?capability=fact-check",
+      {
+        headers: {
+          accept: "application/json",
+          "PAYMENT-SIGNATURE": "buyer-payment-signature",
+          "X-API-Key": "sandbox-credential-must-not-cross-relay",
+        },
+      },
+    );
+    assert.equal(trustDecision.status, 402);
+    assert.equal(
+      trustDecision.headers.get("PAYMENT-REQUIRED"),
+      "base-mainnet-challenge",
+    );
+    assert.equal(trustDecision.headers.get("X-Agent-Guild-Relay"), "non-custodial");
+    assert.match(
+      trustDecision.headers.get("X-Agent-Guild-Canonical-Resource") ?? "",
+      /\/check\?capability=fact-check&signed=true&ttl_seconds=3600$/,
+    );
+    assert.equal(calls[0].requestHeaders.get("x-api-key"), null);
+    assert.equal(
+      calls[0].requestHeaders.get("payment-signature"),
+      "buyer-payment-signature",
+    );
+
+    const envelope = await renderRequest("/envelopes/issue", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-guild-caller-proof": "caller-bound-proof",
+        "PAYMENT-SIGNATURE": "buyer-envelope-payment",
+        "X-API-Key": "sandbox-credential-must-not-cross-relay",
+      },
+      body: envelopeBody,
+    });
+    assert.equal(envelope.status, 200);
+    assert.equal(envelope.headers.get("PAYMENT-RESPONSE"), "base-mainnet-receipt");
+    assert.equal(calls[1].requestBody, envelopeBody);
+    assert.equal(
+      calls[1].requestHeaders.get("x-guild-caller-proof"),
+      "caller-bound-proof",
+    );
+    assert.equal(calls[1].requestHeaders.get("x-api-key"), null);
+
+    const unsupported = await renderRequest(
+      "/trust-decision?capability=manufactured-reputation",
+    );
+    assert.equal(unsupported.status, 422);
+    assert.equal(calls.length, 2);
+
+    const wrongMethod = await renderRequest("/trust-decision", { method: "POST" });
+    assert.equal(wrongMethod.status, 405);
+    assert.equal(wrongMethod.headers.get("allow"), "GET, OPTIONS");
+    assert.equal(calls.length, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("issues caller-bound signed preflight snapshots verifiable offline", async () => {

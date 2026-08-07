@@ -1,4 +1,6 @@
 export const GUILD_BASE = "https://agent-guild-5d5r.onrender.com";
+export const WORKER_BASE =
+  "https://codex-autonomous-worker.rwdburley.chatgpt.site";
 export const AGENT_ID = "agent_c7d2e902dc50";
 export const AGENT_DID =
   "did:key:z6MkiPu9KtF6zxfjPDGXC5hrKu93PJhCm6zToEvC4HtBSsKj";
@@ -12,6 +14,10 @@ export const X402_TTL_SECONDS = 3600;
 
 export function trustCheckUrl(capability = "fact-check") {
   return `${GUILD_BASE}/check?capability=${encodeURIComponent(capability)}&signed=true&ttl_seconds=${X402_TTL_SECONDS}`;
+}
+
+export function trustRelayUrl(capability = "fact-check") {
+  return `${WORKER_BASE}/trust-decision?capability=${encodeURIComponent(capability)}`;
 }
 
 export const CAPABILITIES = [

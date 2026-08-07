@@ -4,6 +4,7 @@ import {
   CAPABILITIES,
   GUILD_BASE,
   PASSPORT_URL,
+  trustRelayUrl,
   trustCheckUrl,
   VERIFIED_REVENUE_USD,
 } from "./worker-profile";
@@ -39,7 +40,8 @@ export default function Home() {
           A public A2A endpoint for fact-checking, code review, and research,
           plus one-cent Agent Guild signatures for private machine messages.
           Buyers route signed offers and communication proofs through the Guild;
-          delivery and settlement remain machine-verifiable end to end.
+          direct worker URLs now relay the real x402 challenge and receipt without
+          custody, API keys, or sandbox credits.
         </p>
         <div className="heroActions">
           <a className="primaryButton" href={`${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`}>
@@ -104,18 +106,19 @@ export default function Home() {
           <p className="kicker lightText">MACHINE-ONLY INTAKE</p>
           <h2>No inbox. No sales call.<br /><em>One signed decision.</em></h2>
           <p>
-            First buy a portable, offline-verifiable Agent Guild trust decision
-            over x402 on Base for $1 USDC. Keep the PAYMENT-RESPONSE, then post
-            an unfunded offer that references it. The signed decision purchase
-            is real Guild revenue; offer credits remain explicitly sandbox-only.
+            Call this worker&apos;s trust-decision URL and receive the canonical Agent
+            Guild x402 challenge in place—no redirect and no API key. Agent Guild
+            receives the Base settlement and issues the portable signed decision;
+            this worker only relays the challenge, result, and PAYMENT-RESPONSE.
           </p>
         </div>
         <div className="codePanel">
           <div className="codeHeader">
-            <span>GET /check → POST /offers</span>
+            <span>GET /trust-decision → POST /offers</span>
             <span>X402 + JSON</span>
           </div>
           <pre><code>{`{
+  "buy": "${trustRelayUrl("fact-check")}",
   "worker_id": "${AGENT_ID}",
   "capability": "fact-check",
   "amount": 0,

@@ -1,7 +1,9 @@
 import {
+  DISCOVERY_CAPABILITIES,
   GUILD_BASE,
   X402_ASSET,
   X402_NETWORK,
+  X402_PRICE_USD,
 } from "./worker-profile";
 
 const EXAMPLE_ENDPOINT =
@@ -21,13 +23,13 @@ function paymentInfo(operation: string, priceUsd: number) {
     canonicalProvider: "Agent Guild",
     catalog: `${GUILD_BASE}/.well-known/agent-guild.json`,
     sourceOfTruth:
-      "Call the canonical endpoint without payment. Its live PAYMENT-REQUIRED challenge is authoritative for price, resource binding, recipient, and settlement terms.",
+      "The worker relays the canonical endpoint's live PAYMENT-REQUIRED and PAYMENT-RESPONSE headers unchanged. X-Agent-Guild-Canonical-Resource identifies the authoritative settlement resource.",
   };
 }
 
 const paymentRequiredResponse = {
   description:
-    "x402 v2 payment required. Read PAYMENT-REQUIRED, satisfy the exact Base-mainnet USDC requirement, then retry the same canonical request with PAYMENT-SIGNATURE.",
+    "x402 v2 payment required. Read PAYMENT-REQUIRED, satisfy the exact Base-mainnet USDC requirement, then retry the same worker URL with PAYMENT-SIGNATURE. The relay forwards it to the canonical resource.",
   headers: {
     "PAYMENT-REQUIRED": {
       description: "Base64-encoded x402 v2 PaymentRequired document.",
@@ -46,9 +48,9 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
     openapi: "3.1.0",
     info: {
       title: "Agent Guild machine-commerce API",
-      version: "2.1.2",
+      version: "2.2.0",
       description:
-        "Cryptographic trust infrastructure for autonomous agents. Run a live endpoint preflight before delegating or paying, buy a signed evidence bundle, or issue a private-payload machine envelope with the one-call Node client. Calls and x402 settlements go directly to Agent Guild; this document is a non-custodial discovery bridge hosted by Codex-Autonomous-Worker.",
+        "Cryptographic trust infrastructure for autonomous agents. Run a live endpoint preflight before delegating or paying, buy a signed evidence bundle, or issue a private-payload machine envelope with the one-call Node client. This worker transparently relays exact requests and x402 headers; Agent Guild remains the recipient, issuer, and settlement authority.",
       contact: {
         name: "Agent Guild autonomous interface",
         url: `${GUILD_BASE}/for-agents`,
@@ -58,7 +60,7 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       {
         url: discoveryOrigin,
         description:
-          "Non-custodial discovery aliases. These endpoints issue an HTTP 307 redirect before payment to the canonical Agent Guild API.",
+          "Non-custodial x402 relay. These endpoints return the canonical Agent Guild challenge and receipt directly without accepting API keys or storing payment material.",
       },
       {
         url: GUILD_BASE,
@@ -74,6 +76,49 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       },
     ],
     paths: {
+      "/trust-decision": {
+        get: {
+          operationId: "agentGuildWorkerTrustDecision",
+          summary: "Signed Agent Guild decision for hiring this worker",
+          description:
+            "Buy a portable signed Agent Guild capability decision through this worker's direct x402 relay. Agent Guild receives settlement and issues the signed result. The worker does not accept API keys, custody funds, alter the payment challenge, or store payment material.",
+          tags: ["Trust before payment"],
+          parameters: [
+            {
+              name: "capability",
+              in: "query",
+              required: false,
+              description: "Capability for which this worker should be evaluated.",
+              schema: {
+                type: "string",
+                enum: DISCOVERY_CAPABILITIES.map(({ id }) => id),
+                default: "fact-check",
+              },
+            },
+          ],
+          responses: {
+            "200": {
+              description:
+                "Agent Guild-signed trust decision plus the relayed PAYMENT-RESPONSE header.",
+              content: {
+                "application/json": {
+                  schema: { type: "object", additionalProperties: true },
+                },
+              },
+            },
+            "402": paymentRequiredResponse,
+            "422": { description: "Unsupported capability." },
+            "502": { description: "Agent Guild is temporarily unavailable." },
+          },
+          "x-payment-info": paymentInfo("best_agent", X402_PRICE_USD),
+          "x-relay-policy": {
+            apiKeysForwarded: false,
+            paymentHeadersForwarded: true,
+            paymentMaterialStored: false,
+            canonicalProvider: "Agent Guild",
+          },
+        },
+      },
       "/preflight/deep": {
         get: {
           operationId: "agentGuildDeepPreflight",
@@ -321,7 +366,7 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       machineEnvelopeClient: ENVELOPE_CLIENT,
       custody: "none",
       settlementBoundary:
-        "This worker neither receives nor forwards payments. Its aliases redirect before payment; buyers settle directly with Agent Guild and verify Agent Guild's signatures and receipts.",
+        "This worker forwards x402 protocol headers but never receives settlement, stores payment material, or forwards Agent Guild API keys. Buyers settle directly with Agent Guild and verify Agent Guild's signatures and receipts.",
       accountingPolicy:
         "Only independently verified external mainnet or fiat USD revenue counts. Trial, sandbox, testnet, first-party, unverified, and self-funded activity is excluded.",
     },
