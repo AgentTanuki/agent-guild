@@ -89,7 +89,7 @@ def test_repeat_visits_are_reach_not_extra_qualified_actors():
             c.get("/llms.txt", headers={"user-agent": "langchain/0.2.1"})
         f = s.paid_offer_funnel()
         assert f["qualified_distinct_actors"] == 1
-        assert f["raw_impressions"] == 15          # 5 visits x 3 operations
+        assert f["raw_impressions"] == 20          # 5 visits x 4 operations
     finally:
         main.store = real
 
@@ -103,8 +103,8 @@ def test_crawler_traffic_is_excluded_from_the_denominator():
         f = s.paid_offer_funnel()
         assert f["qualified_distinct_actors"] == 1
         src = f["by_source"]["paid_offer:llms_txt"]
-        assert src["first_party_or_tooling"] == 3
-        assert src["qualified_impressions"] == 3
+        assert src["first_party_or_tooling"] == 4
+        assert src["qualified_impressions"] == 4
     finally:
         main.store = real
 
@@ -186,7 +186,7 @@ def test_identified_and_bare_mcp_clients_do_not_contaminate_each_other(monkeypat
     # as "qualified but unfollowable". Either way it never inflates the
     # denominator, which is what this test exists to protect.
     assert f["anonymous_unlinkable_impressions"] == 0
-    assert f["by_source"]["paid_offer:mcp_tool"]["not_qualified"] == 3
+    assert f["by_source"]["paid_offer:mcp_tool"]["not_qualified"] == 4
 
 
 # --------------------------------------------------------------------------

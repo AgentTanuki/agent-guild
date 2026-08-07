@@ -48,6 +48,7 @@ def build_contract() -> dict:
     from app.mcp_server import mcp
     from app import __version__
     from app.billing import PRICING
+    from app import pricing
 
     rest = {}
     for r in _iter_routes(app.routes):
@@ -95,11 +96,14 @@ def build_contract() -> dict:
             "priced_operations": {
                 op: {"credits": cost,
                      "usdc_atomic": cost * 1000}
-                for op, cost in sorted(PRICING.items())
+                for op, cost in sorted({**PRICING, **pricing.DEFAULTS}.items())
+                if cost > 0
             },
             "priced_mcp_tools": ["guild_check", "guild_search",
-                                 "guild_best_agent", "guild_risk_score"],
-            "priced_a2a_skills": ["guild.check"],
+                                 "guild_best_agent", "guild_risk_score",
+                                 "guild_preflight_deep",
+                                 "guild_envelope_issue"],
+            "priced_a2a_skills": ["guild.check", "guild.preflight.deep"],
             "offer_receipt_kid_profile": "did:web (/.well-known/did.json)",
         },
         "proof_suites": {
@@ -193,12 +197,13 @@ def _paid_ops_meta(s: dict) -> dict:
       listing is unobservable to us, and we say so rather than inventing a
       number for it.
     """
+    from app import paidcatalog
     h = s["host"]
     return {
         "note": ("The free passport path above is the main offer and needs no "
                  "payment. These are the OPTIONAL paid operations, listed by "
                  "name only."),
-        "operations": ["deep_preflight", "evidence_bundle", "watch_cycle"],
+        "operations": [op["operation"] for op in paidcatalog._OPERATIONS],
         "catalog": (f"GET {h}/.well-known/agent-guild.json"
                     "?src=paid_offer:registry"),
         "catalog_returns": ("current price, auth requirement, the callable "

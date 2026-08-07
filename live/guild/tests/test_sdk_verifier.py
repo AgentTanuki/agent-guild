@@ -14,6 +14,7 @@ _SDK = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..",
 sys.path.insert(0, _SDK)
 
 from app.store import Store  # noqa: E402
+from app import crypto, envelopes  # noqa: E402
 from app.bootstrap_eval import seed_bootstrap_evaluation  # noqa: E402
 import agentguild_verify as agi  # noqa: E402  (the drop-in)
 
@@ -56,3 +57,19 @@ def test_did_key_roundtrip_matches_guild():
     pub = agi.public_key_from_did(did)
     assert len(pub) == 32  # raw Ed25519 public key
     assert bytes.fromhex(s.guild_identity()["public_key"]) == pub
+
+
+def test_standalone_verifier_validates_machine_envelope_and_rejects_tamper():
+    s = Store(path="")
+    _, caller_public = crypto.generate_keypair()
+    caller_did = crypto.did_from_public_key(caller_public)
+    artifact = envelopes.issue(s, {
+        "kind": "delegation", "recipient": "did:key:zRecipient",
+        "payload_sha256": "ab" * 32, "nonce": "sdk-envelope-001",
+        "ttl_seconds": 3600,
+    }, sender_did=caller_did, caller_proof_verified=True)
+    out = agi.verify_machine_envelope(
+        artifact, expected_issuer=s.guild_did())
+    assert out["valid"] is True and out["sender_did"] == caller_did
+    artifact["message"]["recipient"] = "did:key:zForged"
+    assert agi.verify_machine_envelope(artifact)["valid"] is False

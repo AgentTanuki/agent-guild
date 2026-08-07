@@ -31,6 +31,10 @@ from typing import Any
 
 #: Opening prices in CREDITS (1 credit = $0.001). Basis, not doctrine.
 DEFAULTS: dict[str, int] = {
+    # High-volume machine communication primitive: one cent to bind an exact
+    # payload digest to an authenticated sender, recipient, nonce and expiry,
+    # then seal it with the Guild's did:key. Verification is always free.
+    "machine_envelope": 10,
     # Several bounded outbound probes plus a policy verdict. $0.02 — half a
     # median x402 transaction, a fiftieth of the smallest transfer it guards.
     "deep_preflight": 20,
@@ -48,6 +52,7 @@ DEFAULTS: dict[str, int] = {
 #: bounds and nowhere else, so a runaway loop can neither price us out of the
 #: market nor give the product away.
 CEILINGS: dict[str, int] = {
+    "machine_envelope": 1000,  # $1.00
     "deep_preflight": 500,      # $0.50
     "evidence_bundle": 2000,    # $2.00
     "watch_cycle": 100,         # $0.10
@@ -55,6 +60,11 @@ CEILINGS: dict[str, int] = {
 }
 
 RATIONALE: dict[str, str] = {
+    "machine_envelope": (
+        "a high-volume, privacy-preserving non-repudiation primitive for "
+        "machine messages and economic intents; opening at one cent keeps it "
+        "below the value of the coordination error it prevents, while free "
+        "verification makes every issued artefact more useful"),
     "deep_preflight": (
         "just above the marginal cost of several bounded outbound probes, and "
         "far below the cost of the mistake it prevents: an irreversible x402 "

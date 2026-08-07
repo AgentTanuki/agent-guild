@@ -130,6 +130,12 @@ def _free_supply_block(ctx: dict[str, Any]) -> dict[str, Any]:
 #: shortlist. That lands squarely on the first blocked boundary — qualified
 #: paid-offer exposure — where every impression counts.
 OPERATION_COPY: dict[str, str] = {
+    "machine_envelope": (
+        "Paying returns a privacy-preserving, Guild-signed machine envelope "
+        "for the exact payload digest you named: authenticated sender did:key, "
+        "recipient, message kind, nonce, expiry and any declared economic "
+        "terms. The Guild never receives the payload and attests provenance "
+        "and integrity — not that the message is true or settled."),
     "deep_preflight": (
         "Paying returns the DEEP endpoint trust check for the exact URL you "
         "named: every live check re-run at request time (does it complete a "
@@ -161,6 +167,10 @@ OPERATION_COPY: dict[str, str] = {
 #: Zero-cost alternatives, per operation. A challenge that hides the free path
 #: is a dark pattern, and the free path is also how the index gets better.
 OPERATION_FREE_ALTERNATIVES: dict[str, str] = {
+    "machine_envelope": (
+        "Free alternative: create agent-guild/caller-proof/v1 yourself and "
+        "send it with the message for direct sender verification, without the "
+        "independent Guild issuance timestamp. POST /envelopes/verify is free."),
     "deep_preflight": (
         "Free alternatives: 'preflight: <url>' returns the live checks and "
         "verdict for the same endpoint at no cost; 'index' searches every "
@@ -186,6 +196,9 @@ DEFAULT_FREE_ALTERNATIVES = (
 #: to tell what they are buying without any of it leaking before they pay —
 #: guarded by tests/test_a2a_x402.py.
 OPERATION_LABEL: dict[str, str] = {
+    "machine_envelope": ("signed machine message/intent commitment: caller-"
+                         "authenticated sender, exact payload digest, recipient, "
+                         "nonce and expiry; payload stays private"),
     "deep_preflight": ("deep endpoint trust check for one URL: live checks "
                        "plus drift history, corroboration and an "
                        "allow/caution/block policy verdict"),

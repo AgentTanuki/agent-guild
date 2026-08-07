@@ -20,8 +20,10 @@ Guild-signed — you are NOT trusting this code's author, you are checking a sig
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import urllib.request
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -178,6 +180,61 @@ def verify_passport(vc: dict[str, Any], *, expected_issuer: Optional[str] = None
         "verifiable_collaborations": anchor.get("verifiable_collaborations"),
         "checkpoint_valid": checkpoint_valid,
     }
+
+
+def verify_machine_envelope(
+        envelope: dict[str, Any], *, expected_issuer: Optional[str] = None,
+        now: Optional[datetime] = None) -> dict[str, Any]:
+    """Verify an AgentGuildMachineEnvelope completely offline.
+
+    ``valid`` means byte integrity, issuer signature and unexpired lifetime.
+    It deliberately does not mean the committed message is true, accepted or
+    settled. Pin ``expected_issuer`` for an authority-specific decision.
+    """
+    try:
+        issuer = str(envelope.get("issuer") or "")
+        if (envelope.get("type") != "AgentGuildMachineEnvelope"
+                or envelope.get("protocol") !=
+                "agent-guild/machine-envelope/v1"):
+            raise ValueError("unsupported envelope")
+        proof = envelope.get("proof")
+        claimed_digest = envelope.get("envelope_sha256")
+        if not isinstance(proof, str) or not isinstance(claimed_digest, str):
+            raise ValueError("missing proof/digest")
+        without_digest = {k: v for k, v in envelope.items()
+                          if k != "envelope_sha256"}
+        digest_valid = hashlib.sha256(
+            _canonical(without_digest).encode("utf-8")).hexdigest() == \
+            claimed_digest
+        signed = {k: v for k, v in envelope.items()
+                  if k not in ("proof", "envelope_sha256")}
+        signature_valid = _verify_sig(
+            signed, proof, public_key_from_did(issuer))
+        current = now or datetime.now(timezone.utc)
+        until = datetime.fromisoformat(str(envelope["valid_until"]))
+        if until.tzinfo is None:
+            until = until.replace(tzinfo=timezone.utc)
+        expired = current > until
+        issuer_matches = (issuer == expected_issuer
+                          if expected_issuer else None)
+        valid = bool(signature_valid and digest_valid and not expired
+                     and issuer_matches is not False)
+        return {
+            "valid": valid, "signature_valid": signature_valid,
+            "digest_valid": digest_valid, "expired": expired,
+            "issuer": issuer, "issuer_matches": issuer_matches,
+            "sender_did": (envelope.get("sender") or {}).get("did"),
+            "recipient": (envelope.get("message") or {}).get("recipient"),
+            "payload_sha256": (envelope.get("message") or {}).get(
+                "payload_sha256"),
+            "note": ("Integrity/provenance only; this does not attest payload "
+                     "truth, recipient acceptance or settlement."),
+        }
+    except (KeyError, TypeError, ValueError):
+        return {"valid": False, "signature_valid": False,
+                "digest_valid": False, "expired": True,
+                "issuer": (envelope.get("issuer", "")
+                           if isinstance(envelope, dict) else "")}
 
 
 # --- convenience: fetch + verify + decide (one call) ------------------------

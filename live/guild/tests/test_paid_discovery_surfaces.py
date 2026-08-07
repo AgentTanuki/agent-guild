@@ -26,7 +26,8 @@ from app.store import Store  # noqa: E402
 
 client = TestClient(app)
 
-PAID_OPS = {"deep_preflight", "evidence_bundle", "watch_cycle"}
+PAID_OPS = {"machine_envelope", "deep_preflight", "evidence_bundle",
+            "watch_cycle"}
 
 
 def test_catalog_prices_come_from_the_gateway_not_a_copy(monkeypatch):

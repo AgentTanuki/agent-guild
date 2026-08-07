@@ -151,6 +151,9 @@ def request_from_stored(operation: str, params: dict) -> "PaidRequest":
             int(params.get("ttl_seconds") or 3600))
     if operation == "watch_cycle":
         return watch_cycle_request(str(params.get("endpoint") or ""))
+    if operation == "machine_envelope":
+        return machine_envelope_request(
+            str(params.get("request_sha256") or ""))
     raise ValueError(f"unknown paid operation {operation!r}")
 
 
@@ -197,6 +200,18 @@ def watch_cycle_request(endpoint: str) -> PaidRequest:
     """One continuous-watch recheck cycle, charged only when performed."""
     return PaidRequest.build("watch_cycle", "POST", "/watch/cycle",
                              {"endpoint": endpoint})
+
+
+def machine_envelope_request(request_sha256: str) -> PaidRequest:
+    """Paid signed machine envelope.
+
+    The canonical resource carries only an opaque digest of the normalized
+    body + authenticated sender DID. Confidential message content never
+    appears in the settlement URL, but every result-affecting input remains
+    bound to the payment.
+    """
+    return PaidRequest.build("machine_envelope", "POST", "/envelopes/issue",
+                             {"request_sha256": request_sha256})
 
 
 def search_request(capability: str, limit: int = 20,

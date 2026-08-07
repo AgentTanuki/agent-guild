@@ -285,7 +285,7 @@ def test_a2a_deep_preflight_challenge_records_a_distinct_actor(
 # --------------------------------------------------------------------------
 # Seeding — an engine with no experiment is inert
 # --------------------------------------------------------------------------
-def test_a_fresh_store_cycle_seeds_exactly_one_experiment(store, monkeypatch):
+def test_a_fresh_store_cycle_seeds_the_bounded_operation_experiments(store, monkeypatch):
     """Deployed 061dcea returned experiments: {} — the engine had nothing to
     learn from and could never satisfy 'find the formula without a human'."""
     from app.swarm import runner
@@ -296,8 +296,12 @@ def test_a_fresh_store_cycle_seeds_exactly_one_experiment(store, monkeypatch):
     monkeypatch.setattr("app.indexops.ingest", lambda s, r=None: {"added": 0})
     assert store.experiments == {}
     out = runner._run_index_cycle(store)
-    assert out["seeded"]["seeded"] == ["deep_preflight_price_v1"]
-    assert len(store.experiments) == 1
+    assert out["seeded"]["seeded"] == [
+        "machine_envelope_price_v1", "deep_preflight_price_v1"]
+    env = store.experiments["machine_envelope_price_v1"]
+    assert env["variable"] == "price:machine_envelope"
+    assert env["tested_price_credits"] == pricing.price("machine_envelope")
+    assert len(store.experiments) == 2
     rec = store.experiments["deep_preflight_price_v1"]
     assert rec["variable"] == "price:deep_preflight"
     assert rec["baseline"]["operation_scope"] == "deep_preflight"
@@ -315,7 +319,7 @@ def test_seeding_is_idempotent_and_never_resets_the_window(store, monkeypatch):
     live = store.experiments["deep_preflight_price_v1"]
     assert live["started_at"] == started
     assert live["baseline"] == baseline
-    assert len(store.experiments) == 1
+    assert len(store.experiments) == 2
 
 
 def test_a_restart_does_not_reset_the_experiment(store, tmp_path):
@@ -326,11 +330,12 @@ def test_a_restart_does_not_reset_the_experiment(store, tmp_path):
     assert reloaded.experiments["deep_preflight_price_v1"]["started_at"] == started
 
 
-def test_an_operator_pinned_price_is_not_seeded(store, monkeypatch):
+def test_an_operator_pinned_operation_is_not_seeded(store, monkeypatch):
     monkeypatch.setenv("GUILD_PRICE_DEEP_PREFLIGHT", "20")
     out = experiments.seed_defaults(store)
-    assert out["seeded"] == []
-    assert out["already_present"][0]["reason"] == "price_pinned_by_operator"
+    assert out["seeded"] == ["machine_envelope_price_v1"]
+    skipped = {row["key"]: row["reason"] for row in out["already_present"]}
+    assert skipped["deep_preflight_price_v1"] == "price_pinned_by_operator"
 
 
 def test_a_seeded_experiment_without_exposure_is_not_decisive(store):

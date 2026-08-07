@@ -25,7 +25,8 @@ from app import paidcatalog, payments  # noqa: E402
 from app.main import app  # noqa: E402
 
 client = TestClient(app, raise_server_exceptions=False)
-PAID_OPS = {"deep_preflight", "evidence_bundle", "watch_cycle"}
+PAID_OPS = {"machine_envelope", "deep_preflight", "evidence_bundle",
+            "watch_cycle"}
 
 
 def _routes():
@@ -72,10 +73,25 @@ def test_entrypoint_parameters_match_what_the_route_requires(name):
         assert ep["directly_callable"] is False
         assert supplied == {"url", "interval_s"}
         return
-    missing = binding_params - supplied
+    server_derived = set(ep.get("server_derived_settlement_params") or {})
+    missing = binding_params - supplied - server_derived
     assert not missing, (
         f"{name}: the advertised call omits {missing}, which the settlement "
         f"binding requires")
+
+
+def test_machine_envelope_binding_is_server_derived_and_private():
+    op = {o["operation"]: o for o in paidcatalog.operations()}[
+        "machine_envelope"]
+    ep = op["entrypoint"]
+    assert ep["caller_proof_required"] is True
+    assert ep["server_derived_settlement_params"] == ["request_sha256"]
+    assert "payload_sha256" in ep["body"]
+    # The settlement URL binds an opaque normalized-request digest, not the
+    # recipient, message digest or context themselves.
+    resource = op["settlement"]["canonical_resource"]
+    assert "request_sha256=" in resource
+    assert "recipient" not in resource and "payload_sha256" not in resource
 
 
 def test_deep_preflight_entrypoint_actually_challenges():

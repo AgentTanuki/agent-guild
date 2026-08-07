@@ -49,6 +49,7 @@ from . import pricing
 from . import trustindex
 from . import indexops
 from . import deepcheck
+from . import envelopes
 from . import indexsources
 from . import experiments
 from .state import store
@@ -212,6 +213,10 @@ _ABUSE_BUCKETS = {
     ("POST", "/attestations"): "write_burst",
     ("POST", "/tasks"): "write_burst",
     ("POST", "/demand/watch"): "demand_watch",
+    # Issuance produces an Ed25519 signature before payment authorization so
+    # signing failures can never bill. Bound the unpaid pre-production surface
+    # just like other writes; a fresh did:key is not a scarce identity.
+    ("POST", "/envelopes/issue"): "write_burst",
 }
 _PRICED_READ_PREFIXES = ("/search", "/check", "/evaluation", "/ledger/", "/agents/")
 
@@ -597,7 +602,7 @@ def _http_demand_actor(request: Request, x_api_key: Optional[str]) -> str:
         ("agent-guild/demand-actor/" + basis).encode()).hexdigest()[:12]
 
 
-def _verify_http_caller_proof(request: Request) -> tuple[bool, str]:
+def _verify_http_caller_proof(request: Request, body: bytes = b"") -> tuple[bool, str]:
     """Verify an agent-guild/caller-proof/v1 envelope on an HTTP read, bound
     to the EXACT request-target this server received. Returns
     (verified, did). A missing/invalid proof leaves the call UNVERIFIED
@@ -611,7 +616,7 @@ def _verify_http_caller_proof(request: Request) -> tuple[bool, str]:
     resource = callerproof.http_resource(
         request.url.path, request.url.query)
     out = callerproof.verify_proof(store, env, method=request.method,
-                                   resource=resource, body=b"")
+                                   resource=resource, body=body)
     verified, did = bool(out.get("verified")), (out.get("did") or "")
     if verified:
         # stash for settle-time payer attribution (single verification per
@@ -780,7 +785,9 @@ happened when we called it &middot; <a href="/index/search?q=">/index/search</a>
 &middot; <code>/preflight</code> &middot; <code>POST /evidence/verify</code></p>
 
 <h2>Paid, self-serve, no sales call</h2>
-<p class=k><code>/preflight/deep</code> adds drift history, cross-source
+<p class=k><code>POST /envelopes/issue</code> seals an authenticated machine
+message or economic intent without receiving its payload; verification is
+free &middot; <code>/preflight/deep</code> adds drift history, cross-source
 corroboration and a policy verdict &middot; <code>POST /evidence/bundle</code>
 issues a signed snapshot you verify offline without us &middot;
 <code>POST /watch</code> monitors an endpoint continuously, charged per check
@@ -788,7 +795,8 @@ actually performed. <a href="/pricing">Prices and their basis</a>.</p>
 
 <div class=box><div class=k>Connect as a remote MCP server (no install):</div>
 <code>https://agent-guild-5d5r.onrender.com/mcp</code>
-<div class=v>guild_preflight &middot; guild_index &middot; guild_preflight_deep
+<div class=v>guild_envelope_issue &middot; guild_envelope_verify &middot;
+guild_preflight &middot; guild_index &middot; guild_preflight_deep
 &middot; guild_watch &middot; guild_check</div>
 <div class=v>A2A: send <code>preflight: &lt;url&gt;</code> or
 <code>index</code> to <code>/a2a</code>.</div></div>
@@ -814,6 +822,8 @@ def root(request: Request):
         "thesis": "attestations only count when backed by evidence of a real transaction",
         "endpoints": [
             "POST /agents/register", "GET /agents", "GET /agents/{id}",
+            "GET /envelopes", "POST /envelopes/issue",
+            "POST /envelopes/verify",
             "POST /tasks", "GET /tasks/{id}", "POST /tasks/{id}/receipt",
             "POST /attestations", "GET /agents/{id}/attestations",
             "GET /agents/{id}/reputation", "GET /agents/{id}/evidence",
@@ -3047,6 +3057,9 @@ def llms_txt():
         "                         what happened when we actually called it\n"
         "                         (MCP: guild_index; A2A: 'index')\n"
         "GET /index/search?q=     search it\n"
+        "POST /envelopes/issue    PAID: seal a caller-authenticated payload\n"
+        "                         digest + recipient + nonce + expiry; the\n"
+        "                         payload stays private; verify is FREE\n"
         "GET /preflight/deep?url= PAID: adds drift history, cross-source\n"
         "                         corroboration and an explicit allow/caution/\n"
         "                         block policy verdict\n"
@@ -3273,6 +3286,64 @@ def evidence_verify_route(body: dict[str, Any]):
     than we claimed when we sold it."""
     bundle = body.get("bundle") if isinstance(body.get("bundle"), dict) else body
     return deepcheck.verify_bundle(store, bundle)
+
+
+@app.get("/envelopes")
+def machine_envelope_schema(request: Request):
+    """Machine-readable signed-envelope protocol. FREE."""
+    return envelopes.schema_document(str(request.base_url).rstrip("/"))
+
+
+@app.post("/envelopes/issue")
+async def machine_envelope_issue_route(
+        request: Request, body: dict[str, Any], response: Response,
+        x_api_key: Optional[str] = Header(None)):
+    """PAID: seal an authenticated machine message commitment.
+
+    A valid caller-proof is mandatory: the Guild will not sell an anonymous
+    rubber stamp. The confidential payload never reaches this route — only its
+    SHA-256 digest. Issuance happens before metering and fails closed, so a
+    signing/validation failure is never charged. Verification is always free.
+    """
+    raw = await request.body()
+    verified, sender_did = _verify_http_caller_proof(request, body=raw)
+    if not verified:
+        raise HTTPException(401, {
+            "error": "verified_caller_proof_required",
+            "detail": (f"present {callerproof.HTTP_HEADER}: base64(JSON "
+                       f"{callerproof.PROTOCOL} envelope) bound to this exact "
+                       "POST body; AG will not issue an anonymous stamp"),
+            "schema": "/caller-proof",
+            "billing": "NOT CHARGED",
+        })
+    try:
+        digest = envelopes.request_sha256(body, sender_did)
+        artifact = envelopes.issue(
+            store, body, sender_did=sender_did,
+            caller_proof_verified=verified)
+    except envelopes.EnvelopeIssuanceRefused as exc:
+        raise HTTPException(422, {
+            "error": exc.code, "detail": str(exc),
+            "billing": "NOT CHARGED — no valid signed artefact was produced"})
+
+    preq = payments.machine_envelope_request(digest)
+    quoted = preq.cost
+    facts = meter(preq, x_api_key, response)
+    store.record_event(
+        "did:" + sender_did, "machine_envelope_issued", ua=_ua.get(),
+        endpoint="machine_envelope", transport="http",
+        kind=(artifact.get("message") or {}).get("kind"),
+        request_sha256=digest, price_credits=quoted,
+        paid=(facts["settlement_mode"] == "x402"), **facts)
+    return artifact
+
+
+@app.post("/envelopes/verify")
+def machine_envelope_verify_route(body: dict[str, Any]):
+    """Verify a Guild-issued machine envelope. FREE, always."""
+    envelope = (body.get("envelope")
+                if isinstance(body.get("envelope"), dict) else body)
+    return envelopes.verify(store, envelope)
 
 
 @app.post("/watch")

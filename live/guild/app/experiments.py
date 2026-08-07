@@ -132,6 +132,7 @@ SETTLED_MODE = "x402"
 #: deep_preflight price must be judged on deep_preflight revenue — not on
 #: unrelated escrow settlement or a watch sold for a different offer.
 OPERATION_EVENTS: dict[str, tuple[str, ...]] = {
+    "machine_envelope": ("machine_envelope_issued",),
     "deep_preflight": ("deep_preflight_run",),
     "evidence_bundle": ("evidence_bundle_issued",),
     "watch_cycle": ("watch_provisioned",),
@@ -540,11 +541,21 @@ def next_action(store: Any, key: str) -> dict[str, Any]:
                          "itself needs to change"}
 
 
-#: The default experiment the service starts with. ONE, deliberately: the
-#: engine applies at most one change per cycle, so seeding several would just
-#: queue changes that cannot run concurrently anyway, and would make the first
-#: result harder to attribute.
+#: Bounded, operation-scoped experiments the service starts with. More than one
+#: may observe concurrently because their exposure and revenue events are
+#: disjoint; :func:`apply_next_action` still applies at most ONE change globally
+#: per cycle, so two prices can never move together and destroy attribution.
 DEFAULT_EXPERIMENTS = (
+    {
+        "key": "machine_envelope_price_v1",
+        "variable": "price:machine_envelope",
+        "hypothesis": (
+            "Caller-authenticated machines shown the one-cent envelope price "
+            "do not buy. If enough qualified callers see the offer and no "
+            "confirmed external mainnet purchase follows, halve the price; "
+            "if zero-price issuance still does not convert, the offer or "
+            "distribution is wrong rather than the price."),
+    },
     {
         "key": "deep_preflight_price_v1",
         "variable": "price:deep_preflight",
@@ -574,7 +585,9 @@ def seed_defaults(store: Any) -> dict[str, Any]:
       * NEVER seeds an experiment whose price is pinned by an operator, because
         the engine could not act on it anyway and a permanently undecidable
         experiment is noise;
-      * seeds ONE experiment, matching the one-change-per-cycle rule.
+      * seeds only this code-reviewed allowlist. Experiments observe distinct
+        operation-scoped events; the action loop enforces one GLOBAL price
+        change per cycle.
 
     It does NOT fabricate exposure. A seeded experiment with no qualified
     callers correctly reports `insufficient_evidence` — that is the honest
