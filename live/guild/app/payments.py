@@ -49,6 +49,7 @@ from x402.extensions.payment_identifier import (
 from x402.schemas import PaymentPayload, PaymentRequired
 
 from . import billing
+from . import callerproof
 from . import x402
 from . import x402_artifacts as artifacts
 from . import x402_confirm
@@ -1134,12 +1135,12 @@ def classify_payer_attribution(store: Any, *, payer: str,
         matching wallet binding, OR a configured canary wallet
         (GUILD_X402_FIRST_PARTY_PAYERS), OR the token-gated first-party
         flag. Never external revenue.
-      * cryptographically_bound_machine_payer — a VALID caller proof
-        (caller_did present, verified upstream) + a VALID wallet-binding
-        credential whose DID == caller_did and whose (address, network)
-        EXACTLY match the settled payer and network. This proves machine
-        identity continuity and wallet control. It does NOT prove the payer
-        is external to Agent Guild — ownership/externality stay UNPROVEN.
+      * cryptographically_bound_machine_payer — either (a) a VALID Base-EVM
+        caller proof whose recovered EOA EXACTLY matches the settled payer, or
+        (b) a VALID did:key caller proof plus wallet-binding credential whose
+        DID/address/network exactly match. This proves machine identity
+        continuity and wallet control. It does NOT prove the payer is external
+        to Agent Guild — ownership/externality stay UNPROVEN.
       * independently_attested_external_machine — additionally requires a
         currently-valid externality attestation from a SEPARATE allowlisted
         issuer (app/externality.py). With the default empty allowlist this
@@ -1165,12 +1166,23 @@ def classify_payer_attribution(store: Any, *, payer: str,
 
     if not caller_did or not payer_l:
         return result                              # unknown, never external
-    # exact (address, network) binding: the SETTLED network decides.
-    cred = store.active_wallet_binding(payer_l, network)
-    if not cred or cred.get("did") != caller_did:
-        return result                              # binding must match payer+DID
+    # Exact (address, network) binding: the SETTLED network decides.  A Base
+    # did:pkh caller proof is already a wallet-control proof, so forcing that
+    # same wallet to create a second DID↔wallet credential would add no
+    # cryptographic fact.  Legacy did:key callers retain the dual-signed
+    # wallet-binding path.
+    direct_evm = callerproof.evm_address_for_did(caller_did)
+    direct_binding = bool(
+        direct_evm and direct_evm == payer_l
+        and network == f"eip155:{callerproof.BASE_MAINNET_CHAIN_ID}")
+    cred = None
+    if not direct_binding:
+        cred = store.active_wallet_binding(payer_l, network)
+        if not cred or cred.get("did") != caller_did:
+            return result                          # binding must match payer+DID
     result["caller_did"] = caller_did
-    result["wallet_binding_credential"] = cred.get("credential_id")
+    result["wallet_binding_credential"] = (
+        cred.get("credential_id") if cred else None)
     agent = store.agent_by_did(caller_did)
     if agent and agent.get("first_party"):
         result["class"] = "verified_first_party_canary"
