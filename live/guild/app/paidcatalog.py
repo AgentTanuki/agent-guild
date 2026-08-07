@@ -55,7 +55,7 @@ SOURCE_IDS = (
     "paid_offer:x402_challenge",  # the 402 itself (a caller already on a route)
 )
 
-#: The three canonical paid operations, derived from the ACTUAL request
+#: The canonical paid operations, derived from the ACTUAL request
 #: builders in `payments` and the ACTUAL public routes in `main`.
 #:
 #: ENTRYPOINT vs SETTLEMENT RESOURCE — these are NOT the same thing and this
@@ -78,6 +78,53 @@ SOURCE_IDS = (
 #: directly callable HTTP route at all (watch_cycle), we say exactly that and
 #: point the machine at the flow that does exist.
 _OPERATIONS: tuple[dict[str, Any], ...] = (
+    {
+        "operation": "machine_envelope",
+        "entrypoint": {
+            "protocol": "http",
+            "method": "POST",
+            "path": "/envelopes/issue",
+            "query_params": None,
+            "body": {
+                "kind": "intent",
+                "recipient": "did:key:<recipient or other identifier>",
+                "payload_sha256": "<64 hex chars: digest of exact message bytes>",
+                "nonce": "<caller-unique message id, 8..128 chars>",
+                "ttl_seconds": 3600,
+            },
+            "auth": (
+                "no account or API key required — present a valid "
+                "agent-guild/caller-proof/v1 in X-Guild-Caller-Proof to bind "
+                "the sender did:key, then pay per call from the 402 challenge"),
+            "key_required": False,
+            "caller_proof_required": True,
+            "directly_callable": True,
+            # The exact settlement binding is an opaque server-derived hash of
+            # normalized body + authenticated sender DID. It is deliberately
+            # not a caller-supplied body field.
+            "server_derived_settlement_params": ["request_sha256"],
+        },
+        "alternatives": {
+            "mcp": ("guild_envelope_issue(kind=..., recipient=..., "
+                    "payload_sha256=..., nonce=...)"),
+            "verify": "guild_envelope_verify(envelope=<issued envelope>)",
+        },
+        "what_you_get": (
+            "A privacy-preserving, Guild-signed machine communication envelope "
+            "binding an authenticated sender did:key to an exact payload "
+            "digest, recipient, purpose, nonce, expiry and optional economic "
+            "terms. The payload itself never reaches the Guild."),
+        "why_it_is_worth_it": (
+            "It turns ephemeral machine intent into a portable, non-repudiable "
+            "record a recipient, arbiter or downstream agent can verify without "
+            "trusting either participant. The scope is explicit: integrity and "
+            "provenance, never an endorsement that the message is true."),
+        "free_alternative": (
+            "Create agent-guild/caller-proof/v1 yourself and send it directly "
+            "with the message — free and sender-verifiable, but without the "
+            "independent Guild issuance timestamp. Verifying any Guild envelope "
+            "at POST /envelopes/verify is always free."),
+    },
     {
         "operation": "deep_preflight",
         "entrypoint": {
@@ -201,6 +248,8 @@ def _settlement_request(operation: str):
         return payments.evidence_bundle_request("<url>")
     if operation == "watch_cycle":
         return payments.watch_cycle_request("<endpoint>")
+    if operation == "machine_envelope":
+        return payments.machine_envelope_request("<request_sha256>")
     raise ValueError(f"no settlement binding for {operation!r}")
 
 
