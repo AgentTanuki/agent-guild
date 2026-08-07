@@ -14,6 +14,12 @@ const PAYMENT_POLICY_CLIENT =
 
 function paymentInfo(operation: string, priceUsd: number) {
   return {
+    protocols: [{ x402: {} }],
+    price: {
+      mode: "fixed",
+      currency: "USD",
+      amount: priceUsd.toFixed(6),
+    },
     protocol: "x402",
     version: 2,
     scheme: "exact",
@@ -50,9 +56,11 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
     openapi: "3.1.0",
     info: {
       title: "Agent Guild machine-commerce API",
-      version: "2.3.0",
+      version: "2.4.0",
       description:
         "Cryptographic trust infrastructure for autonomous agents. Install a fail-closed policy before an x402 wallet signs, run a live endpoint preflight, buy a signed evidence bundle, or issue a private-payload machine envelope. Agent Guild remains the recipient, issuer, and settlement authority.",
+      "x-guidance":
+        "Before hiring, delegating to, or paying an unfamiliar agent or x402 seller, use GET /preflight/deep with its public endpoint URL. Use POST /evidence/bundle when another machine needs a portable signed evidence artifact. Before a wallet signs an exact x402 payment, call POST /wallet-binding/decision on the canonical Agent Guild server and enforce the returned credential with the official fail-closed client hook. Use POST /envelopes/issue to bind a private payload digest to an authenticated sender, recipient, nonce, purpose, expiry, and optional value without revealing the payload; the official one-call client creates the caller proof, pays, pins the issuer, and verifies the result offline. GET /trust-decision buys a signed capability decision specifically about this worker. The canonical Agent Guild receives every payment and issues every receipt; this discovery relay never accepts API keys, private keys, or custody of funds.",
       contact: {
         name: "Agent Guild autonomous interface",
         url: `${GUILD_BASE}/for-agents`,
@@ -281,13 +289,6 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
           description:
             "Issue a short-lived AgentGuildPaymentDecision credential bound to the selected scheme, network, asset, atomic amount, payee, resource, capability, and risk thresholds. The official x402 client hook verifies the Guild signature and every bound field locally, then fails closed unless the credential says allow.",
           tags: ["Trust before payment"],
-          servers: [
-            {
-              url: GUILD_BASE,
-              description:
-                "Canonical Agent Guild issuer and settlement endpoint.",
-            },
-          ],
           requestBody: {
             required: true,
             content: {

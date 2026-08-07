@@ -448,6 +448,7 @@ function commerceCatalog(origin: string) {
       purpose:
         "Fail closed at the last reversible moment before an official x402 client signs an unfamiliar payment.",
       canonical_endpoint: `${GUILD_BASE}/wallet-binding/decision`,
+      relay_endpoint: `${origin}/wallet-binding/decision`,
       method: "POST",
       protocol: "x402-v2",
       price: {
@@ -632,7 +633,8 @@ const worker = {
       url.pathname === "/trust-decision" ||
       url.pathname === "/preflight/deep" ||
       url.pathname === "/evidence/bundle" ||
-      url.pathname === "/envelopes/issue"
+      url.pathname === "/envelopes/issue" ||
+      url.pathname === "/wallet-binding/decision"
     ) {
       if (request.method === "OPTIONS") return relayOptions();
 
@@ -653,7 +655,8 @@ const worker = {
       } else if (
         (url.pathname === "/preflight/deep" && request.method === "GET") ||
         (url.pathname === "/evidence/bundle" && request.method === "POST") ||
-        (url.pathname === "/envelopes/issue" && request.method === "POST")
+        (url.pathname === "/envelopes/issue" && request.method === "POST") ||
+        (url.pathname === "/wallet-binding/decision" && request.method === "POST")
       ) {
         canonical = new URL(url.pathname + url.search, GUILD_BASE);
       }

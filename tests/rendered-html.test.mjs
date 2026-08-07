@@ -159,6 +159,10 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(catalog.payment_policy.price.amount, 0.01);
   assert.equal(catalog.payment_policy.contract, "AGPD-1/1.0");
   assert.equal(
+    catalog.payment_policy.relay_endpoint,
+    "http://localhost/wallet-binding/decision",
+  );
+  assert.equal(
     catalog.public_tools[0].endpoint,
     "http://localhost/api/signed-agent-guild-preflight",
   );
@@ -203,11 +207,21 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     spec.paths["/preflight/deep"].get["x-payment-info"].priceUsd,
     0.02,
   );
+  assert.deepEqual(
+    spec.paths["/preflight/deep"].get["x-payment-info"].protocols,
+    [{ x402: {} }],
+  );
+  assert.deepEqual(
+    spec.paths["/preflight/deep"].get["x-payment-info"].price,
+    { mode: "fixed", currency: "USD", amount: "0.020000" },
+  );
   assert.equal(
     spec.paths["/evidence/bundle"].post["x-payment-info"].priceUsd,
     0.1,
   );
-  assert.equal(spec.info.version, "2.3.0");
+  assert.equal(spec.info.version, "2.4.0");
+  assert.match(spec.info["x-guidance"], /Before hiring, delegating to, or paying/);
+  assert.match(spec.info["x-guidance"], /POST \/envelopes\/issue/);
   assert.equal(
     spec.paths["/trust-decision"].get["x-payment-info"].priceUsd,
     1,
@@ -240,10 +254,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     spec.paths["/wallet-binding/decision"].post["x-payment-info"].priceUsd,
     0.01,
   );
-  assert.equal(
-    spec.paths["/wallet-binding/decision"].post.servers[0].url,
-    "https://agent-guild-5d5r.onrender.com",
-  );
+  assert.equal(spec.paths["/wallet-binding/decision"].post.servers, undefined);
   assert.equal(
     spec.paths["/envelopes/issue"].post.parameters[0].name,
     "X-Guild-Caller-Proof",
@@ -455,16 +466,45 @@ test("relays canonical x402 challenges and receipts without API keys or custody"
     );
     assert.equal(calls[1].requestHeaders.get("x-api-key"), null);
 
+    const decisionBody = JSON.stringify({
+      payment: {
+        scheme: "exact",
+        network: "eip155:8453",
+        asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        amount: "10000",
+        pay_to: "0x1111111111111111111111111111111111111111",
+        resource: "https://seller.example/api/research",
+      },
+      capability: "research",
+      policy: { max_risk: 32.99, min_confidence: 0.5 },
+    });
+    const paymentDecision = await renderRequest("/wallet-binding/decision", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "PAYMENT-SIGNATURE": "buyer-policy-payment",
+        "X-API-Key": "sandbox-credential-must-not-cross-relay",
+      },
+      body: decisionBody,
+    });
+    assert.equal(paymentDecision.status, 402);
+    assert.equal(calls[2].requestBody, decisionBody);
+    assert.equal(calls[2].requestHeaders.get("x-api-key"), null);
+    assert.equal(
+      calls[2].requestUrl,
+      "https://agent-guild-5d5r.onrender.com/wallet-binding/decision",
+    );
+
     const unsupported = await renderRequest(
       "/trust-decision?capability=manufactured-reputation",
     );
     assert.equal(unsupported.status, 422);
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3);
 
     const wrongMethod = await renderRequest("/trust-decision", { method: "POST" });
     assert.equal(wrongMethod.status, 405);
     assert.equal(wrongMethod.headers.get("allow"), "GET, OPTIONS");
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3);
   } finally {
     globalThis.fetch = originalFetch;
   }
