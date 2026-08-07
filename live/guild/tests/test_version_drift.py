@@ -189,6 +189,10 @@ def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():
         "/wallet-binding/resolve?address={0x...}&network=eip155:8453")
     assert wallet["virtuals"] == (
         host + "/sdk/integrations/virtuals_acp_fund_policy.mjs")
+    assert wallet["decision"] == (
+        "POST " + host + "/wallet-binding/decision")
+    assert wallet["x402"] == (
+        host + "/sdk/integrations/x402_payment_policy.mjs")
 
     # --- paid discovery exists and names the real operations -------------
     paid = pp["ai.agent-guild/paid-operations"]
