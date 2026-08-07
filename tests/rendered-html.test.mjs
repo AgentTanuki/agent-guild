@@ -61,6 +61,7 @@ test("publishes an A2A agent card", async () => {
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
   assert.equal(card.agentGuild.commerce.paid_action.price_usd, 1);
+  assert.equal(card.agentGuild.commerce.openapi, "http://localhost/openapi.json");
   assert.equal(
     card.agentGuild.commerce.public_tools[0].endpoint,
     "http://localhost/api/signed-agent-guild-preflight",
@@ -92,10 +93,11 @@ test("publishes an A2A agent card", async () => {
   );
 });
 
-test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
-  const [legacy, commerce, llms, robots, sitemap] = await Promise.all([
+test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async () => {
+  const [legacy, commerce, openapi, llms, robots, sitemap] = await Promise.all([
     render("/.well-known/agent.json"),
     render("/commerce.json"),
+    render("/openapi.json"),
     render("/llms.txt"),
     render("/robots.txt"),
     render("/sitemap.xml"),
@@ -111,6 +113,15 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   assert.equal(catalog.paid_action.protocol, "x402-v2");
   assert.equal(catalog.paid_action.price.amount, 1);
   assert.equal(catalog.work_intake.template.amount, 0);
+  assert.equal(catalog.machine_openapi.document, "http://localhost/openapi.json");
+  assert.equal(
+    catalog.machine_openapi.canonical_server,
+    "https://agent-guild-5d5r.onrender.com",
+  );
+  assert.deepEqual(catalog.machine_openapi.operations, [
+    "deep_preflight",
+    "evidence_bundle",
+  ]);
   assert.equal(
     catalog.public_tools[0].endpoint,
     "http://localhost/api/signed-agent-guild-preflight",
@@ -138,6 +149,36 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
     /\/check\?capability=web-research&signed=true&ttl_seconds=3600$/,
   );
 
+  assert.equal(openapi.status, 200);
+  assert.equal(openapi.headers.get("access-control-allow-origin"), "*");
+  const spec = await openapi.json();
+  assert.equal(spec.openapi, "3.1.0");
+  assert.equal(spec.servers[0].url, "https://agent-guild-5d5r.onrender.com");
+  assert.equal(
+    spec.paths["/preflight/deep"].get.responses["402"].headers["PAYMENT-REQUIRED"].schema.type,
+    "string",
+  );
+  assert.equal(
+    spec.paths["/preflight/deep"].get["x-payment-info"].priceUsd,
+    0.02,
+  );
+  assert.equal(
+    spec.paths["/evidence/bundle"].post["x-payment-info"].priceUsd,
+    0.1,
+  );
+  assert.equal(
+    spec.paths["/evidence/bundle"].post.requestBody.content["application/json"].example.url,
+    "https://codex-autonomous-worker.rwdburley.chatgpt.site/a2a",
+  );
+  assert.match(spec["x-discovery-bridge"].settlementBoundary, /Agent Guild directly/);
+  assert.equal(spec["x-discovery-bridge"].custody, "none");
+
+  const wellKnownOpenApi = await render(
+    "/.well-known/agent-guild-commerce-openapi.json",
+  );
+  assert.equal(wellKnownOpenApi.status, 200);
+  assert.equal((await wellKnownOpenApi.json()).info.title, spec.info.title);
+
   assert.equal(llms.status, 200);
   assert.match(llms.headers.get("content-type") ?? "", /^text\/plain\b/i);
   const llmsText = await llms.text();
@@ -156,6 +197,8 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   assert.match(llmsText, /\/\.well-known\/worker-signing-key\.json/);
   assert.match(llmsText, /issuer is Codex-Autonomous-Worker, not Agent Guild/i);
   assert.match(llmsText, /upstream call is free/i);
+  assert.match(llmsText, /machine-commerce OpenAPI: http:\/\/localhost\/openapi\.json/);
+  assert.match(llmsText, /canonical calls and settlements remain/i);
 
   assert.equal(robots.status, 200);
   assert.match(await robots.text(), /Sitemap: http:\/\/localhost\/sitemap\.xml/);
@@ -165,6 +208,7 @@ test("publishes legacy, commerce, and LLM discovery surfaces", async () => {
   assert.match(await sitemap.text(), /\/\.well-known\/agent-card\.json/);
   assert.match(await (await render("/sitemap.xml")).text(), /worker-signing-key\.json/);
   assert.match(await (await render("/sitemap.xml")).text(), /\/commerce\.json/);
+  assert.match(await (await render("/sitemap.xml")).text(), /\/openapi\.json/);
 });
 
 test("issues caller-bound signed preflight snapshots verifiable offline", async () => {

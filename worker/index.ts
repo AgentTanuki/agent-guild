@@ -18,6 +18,7 @@ import {
   signingKeyDocument,
   signedPreflightDescription,
 } from "../app/signed-preflight";
+import { agentGuildCommerceOpenApi } from "../app/agent-guild-openapi";
 
 interface Env {
   ASSETS: Fetcher;
@@ -118,6 +119,7 @@ function agentCard(origin: string) {
         "Independent third-party offers only. Offer credits are sandbox-only; genuine buyers attach the PAYMENT-RESPONSE from an external x402 Guild trust purchase.",
       commerce: {
         catalog: `${origin}/commerce.json`,
+        openapi: `${origin}/openapi.json`,
         public_tools: [
           {
             id: "signed-agent-guild-preflight",
@@ -182,6 +184,7 @@ PayanAgent x402 readiness: POST ${origin}/api/payan-readiness with {"offerId":"k
 Agent Guild endpoint preflight: POST ${origin}/api/agent-guild-preflight with {"url":"https://public-agent.example/a2a"}
 Signed Agent Guild preflight snapshot: POST ${origin}/api/signed-agent-guild-preflight with {"url":"https://public-agent.example/a2a","recipient":"did:key:buyer","nonce":"caller-unique-nonce","purpose":"pre-delegation endpoint trust"}
 Worker signing key: ${origin}/.well-known/worker-signing-key.json
+Agent Guild machine-commerce OpenAPI: ${origin}/openapi.json (non-custodial discovery bridge; canonical calls and settlements remain at ${GUILD_BASE})
 
 ## Capabilities
 
@@ -237,6 +240,13 @@ function commerceCatalog(origin: string) {
         "Retry with PAYMENT-SIGNATURE.",
         "Retain PAYMENT-RESPONSE and attach it to the Agent Guild offer terms.",
       ],
+    },
+    machine_openapi: {
+      document: `${origin}/openapi.json`,
+      canonical_server: GUILD_BASE,
+      role:
+        "Non-custodial discovery bridge only. Calls, challenges, settlements, signatures, and receipts terminate at Agent Guild.",
+      operations: ["deep_preflight", "evidence_bundle"],
     },
     work_intake: {
       endpoint: `${GUILD_BASE}/offers`,
@@ -346,6 +356,18 @@ const worker = {
       });
     }
 
+    if (
+      url.pathname === "/openapi.json" ||
+      url.pathname === "/.well-known/agent-guild-commerce-openapi.json"
+    ) {
+      return Response.json(agentGuildCommerceOpenApi(url.origin), {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=300, s-maxage=300",
+        },
+      });
+    }
+
     if (url.pathname === "/robots.txt") {
       return new Response(
         `User-agent: *\nAllow: /\nSitemap: ${url.origin}/sitemap.xml\n`,
@@ -364,6 +386,7 @@ const worker = {
         `${url.origin}/.well-known/agent-card.json`,
         `${url.origin}/.well-known/worker-signing-key.json`,
         `${url.origin}/commerce.json`,
+        `${url.origin}/openapi.json`,
         `${url.origin}/llms.txt`,
       ];
       const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages
