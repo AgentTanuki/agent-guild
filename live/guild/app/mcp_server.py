@@ -40,6 +40,7 @@ from mcp.types import ToolAnnotations
 from . import paidcatalog, pricing
 from .payments import CachedPaidResult, PaidRequest, PaymentChallenge, PaymentIdConflict
 from . import deepcheck
+from . import envelopes
 from . import indexops
 from . import preflight
 from . import pricing
@@ -573,10 +574,14 @@ def guild_index(query: str = "", limit: int = 20, ctx: Context = None) -> dict:
     output_schema=paidcatalog.mcp_discovery_output_schema(),
 )
 def guild_paid_operations(ctx: Context = None) -> dict:
-    """FREE. Returns the three paid operations with their CURRENT price, exact
+    """FREE. Returns every paid operation with its CURRENT price, exact
     callable entrypoint, x402 settlement resource, and the free alternative to
     each. No account, no key, no human — calling this costs nothing.
 
+    machine_envelope — privacy-preserving signed message/intent commitment:
+                       authenticated sender, recipient, exact payload digest,
+                       nonce, expiry and optional value terms. Verification is
+                       free; the Guild attests provenance, not message truth.
     deep_preflight   — live verification of an endpoint before you trust it.
     evidence_bundle  — a SIGNED, PORTABLE, OFFLINE-VERIFIABLE snapshot: the
                        agent's record, its ledger anchor, and a Merkle
@@ -618,6 +623,82 @@ def guild_paid_operations(ctx: Context = None) -> dict:
                            actor_distinct=_distinct,
                            endpoint="mcp_tool", transport="mcp")
     return block
+
+
+@mcp.tool
+def guild_envelope_issue(
+        kind: str, recipient: str, payload_sha256: str, nonce: str,
+        ttl_seconds: int = envelopes.DEFAULT_TTL_S,
+        payload_media_type: str = "", resource: str = "", reply_to: str = "",
+        constraints_sha256: str = "", value: Optional[dict] = None,
+        message_context: Optional[dict] = None, api_key: str = "",
+        ctx: Context = None) -> dict:
+    """PAID. Seal one exact machine message or economic intent.
+
+    The payload stays between you and the recipient; pass only its SHA-256.
+    A valid agent-guild/caller-proof/v1 in this tools/call's _meta is required
+    and binds your did:key as sender. The result is Guild-signed, portable and
+    offline-verifiable. AG attests integrity, sender authentication and issue
+    time — never payload truth, recipient acceptance or settlement.
+
+    Kinds: message, intent, offer, acceptance, delegation, authorization,
+    delivery, receipt, revocation. Use guild_envelope_verify for free checks.
+    """
+    verified, sender_did = _caller_proof_state()
+    if not verified or not sender_did:
+        return {
+            "error": "verified_caller_proof_required",
+            "detail": (f"send {callerproof.PROTOCOL} in MCP _meta["
+                       f"{callerproof.MCP_META_KEY!r}]; AG will not issue an "
+                       "anonymous rubber stamp"),
+            "schema": "/caller-proof", "billing": "NOT CHARGED",
+        }
+    body: dict[str, Any] = {
+        "kind": kind, "recipient": recipient,
+        "payload_sha256": payload_sha256, "nonce": nonce,
+        "ttl_seconds": ttl_seconds,
+    }
+    for name, val in (("payload_media_type", payload_media_type),
+                      ("resource", resource), ("reply_to", reply_to),
+                      ("constraints_sha256", constraints_sha256),
+                      ("value", value), ("context", message_context)):
+        if val not in (None, "", {}):
+            body[name] = val
+    try:
+        digest = envelopes.request_sha256(body, sender_did)
+        artifact = envelopes.issue(
+            store, body, sender_did=sender_did,
+            caller_proof_verified=True)
+    except envelopes.EnvelopeIssuanceRefused as exc:
+        return {"error": exc.code, "detail": str(exc),
+                "billing": "NOT CHARGED"}
+
+    preq = payments.machine_envelope_request(digest)
+    quoted = preq.cost
+
+    def _produce():
+        facts = settlement_mode()
+        store.record_event(
+            "did:" + sender_did, "machine_envelope_issued",
+            ua=_client_ua(ctx), endpoint="machine_envelope", transport="mcp",
+            kind=kind, request_sha256=digest, price_credits=quoted,
+            paid=(facts.get("settlement_mode") == "x402"), **facts)
+        return artifact
+
+    # Artifact was successfully produced before the gateway is entered: any
+    # validation/signing failure above returned without authorization or bill.
+    return _serve_paid(preq, _produce, ctx, api_key)
+
+
+@mcp.tool
+def guild_envelope_verify(envelope: dict, ctx: Context = None) -> dict:
+    """FREE. Verify a Guild-issued machine envelope and its expiry.
+
+    No key, payment or network trust is required. A valid result means exact
+    integrity, Guild provenance and authenticated sender at issuance — not
+    that the committed message is true or that its recipient accepted it.
+    """
+    return envelopes.verify(store, envelope)
 
 
 @mcp.tool
