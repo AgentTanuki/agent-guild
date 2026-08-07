@@ -6,8 +6,10 @@ import {
 } from "../../../sdk/agentguild_verify.mjs";
 import {
   CALLER_PROOF_HEADER,
+  EVM_CALLER_PROOF_PROTOCOL,
   createCallerProof,
   didKeySigner,
+  evmWalletCallerProofSigner,
   issueMachineEnvelope,
 } from "../../../sdk/agentguild_envelope_client.mjs";
 
@@ -98,6 +100,28 @@ assert.equal(
   proof.payload.body_sha256,
   createHash("sha256").update(exactBody).digest("hex"),
 );
+
+let evmSignedBytes;
+const evmCaller = evmWalletCallerProofSigner({
+  address: "0x" + "33".repeat(20),
+  async signMessage({ message }) {
+    evmSignedBytes = Buffer.from(message.raw);
+    return "0x" + "44".repeat(65);
+  },
+});
+const evmProof = await createCallerProof({
+  signer: evmCaller,
+  body: exactBody,
+  nonce: "evm-proof-nonce-0001",
+  now: new Date("2026-08-07T10:00:00Z"),
+});
+assert.equal(evmProof.payload.v, EVM_CALLER_PROOF_PROTOCOL);
+assert.equal(
+  evmProof.payload.did,
+  "did:pkh:eip155:8453:0x" + "33".repeat(20),
+);
+assert.equal(evmProof.signature, "0x" + "44".repeat(65));
+assert.equal(evmSignedBytes.toString("utf8"), canon(evmProof.payload));
 
 const result = await issueMachineEnvelope({
   signer: caller,
