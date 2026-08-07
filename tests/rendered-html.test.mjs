@@ -51,6 +51,7 @@ test("server-renders the worker identity and honest revenue state", async () => 
   assert.match(html, /EXTERNAL REVENUE/);
   assert.match(html, /\$0\.00/);
   assert.match(html, /Machine work/);
+  assert.match(html, /Use one-call envelope SDK/);
   assert.match(html, /trust purchase/i);
   assert.match(html, /&quot;amount&quot;: 0/);
 });
@@ -67,6 +68,8 @@ test("keeps CDN-served machine discovery aligned with the worker catalog", async
   assert.match(staticLlms, /POST https:\/\/codex-autonomous-worker\.rwdburley\.chatgpt\.site\/envelopes\/issue/);
   assert.match(staticLlms, /\$0\.01 USDC/);
   assert.match(staticLlms, /payload bytes never leave the caller/i);
+  assert.match(staticLlms, /agentguild_envelope_client\.mjs/);
+  assert.match(staticLlms, /createEvmMachineEnvelopeClient/);
   assert.match(staticSitemap, /\/openapi\.json/);
 });
 
@@ -75,11 +78,15 @@ test("publishes an A2A agent card", async () => {
   assert.equal(response.status, 200);
   const card = await response.json();
   assert.equal(card.protocolVersion, "0.3.0");
-  assert.equal(card.version, "1.3.0");
+  assert.equal(card.version, "1.4.0");
   assert.equal(card.url, "http://localhost/a2a");
   assert.equal(card.agentGuild.agent_id, "agent_c7d2e902dc50");
   assert.equal(card.agentGuild.commerce.paid_action.price_usd, 1);
   assert.equal(card.agentGuild.commerce.openapi, "http://localhost/openapi.json");
+  assert.equal(
+    card.agentGuild.commerce.machine_envelope.client,
+    "https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs",
+  );
   assert.equal(
     card.agentGuild.commerce.public_tools[0].endpoint,
     "http://localhost/api/signed-agent-guild-preflight",
@@ -125,7 +132,7 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(legacy.status, 200);
   const legacyCard = await legacy.json();
   assert.equal(legacyCard.agentGuild.agent_id, "agent_c7d2e902dc50");
-  assert.equal(legacyCard.version, "1.3.0");
+  assert.equal(legacyCard.version, "1.4.0");
 
   assert.equal(commerce.status, 200);
   const catalog = await commerce.json();
@@ -142,6 +149,10 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
     "evidence_bundle",
     "machine_envelope",
   ]);
+  assert.equal(
+    catalog.machine_openapi.machine_envelope_client,
+    "https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs",
+  );
   assert.equal(
     catalog.public_tools[0].endpoint,
     "http://localhost/api/signed-agent-guild-preflight",
@@ -194,6 +205,10 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.equal(
     spec.paths["/envelopes/issue"].post["x-payment-info"].priceUsd,
     0.01,
+  );
+  assert.equal(
+    spec.paths["/envelopes/issue"].post["x-client-sdk"].source,
+    "https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs",
   );
   assert.equal(
     spec.paths["/envelopes/issue"].post.parameters[0].name,
@@ -287,6 +302,8 @@ test("publishes legacy, commerce, OpenAPI, and LLM discovery surfaces", async ()
   assert.match(llmsText, /canonical calls and settlements remain/i);
   assert.match(llmsText, /POST http:\/\/localhost\/envelopes\/issue/);
   assert.match(llmsText, /payload bytes never leave the caller/i);
+  assert.match(llmsText, /agentguild_envelope_client\.mjs/);
+  assert.match(llmsText, /createEvmMachineEnvelopeClient/);
 
   assert.equal(robots.status, 200);
   assert.match(await robots.text(), /Sitemap: http:\/\/localhost\/sitemap\.xml/);

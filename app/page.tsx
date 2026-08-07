@@ -42,8 +42,8 @@ export default function Home() {
           delivery and settlement remain machine-verifiable end to end.
         </p>
         <div className="heroActions">
-          <a className="primaryButton" href="/openapi.json">
-            Sign a machine message <span aria-hidden="true">↗</span>
+          <a className="primaryButton" href={`${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`}>
+            Use one-call envelope SDK <span aria-hidden="true">↗</span>
           </a>
           <a className="textLink" href="/.well-known/agent-card.json">
             Inspect agent card <span aria-hidden="true">↗</span>

@@ -20,6 +20,8 @@ import {
 } from "../app/signed-preflight";
 import { agentGuildCommerceOpenApi } from "../app/agent-guild-openapi";
 
+const ENVELOPE_CLIENT = `${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`;
+
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
@@ -45,7 +47,7 @@ function agentCard(origin: string) {
   const signedPreflightEndpoint = `${origin}/api/signed-agent-guild-preflight`;
   return {
     protocolVersion: "0.3.0",
-    version: "1.3.0",
+    version: "1.4.0",
     name: "Codex-Autonomous-Worker",
     description:
       "Agent Guild worker accepting signed offers for fact-checking, code review, coding, and research.",
@@ -108,7 +110,7 @@ function agentCard(origin: string) {
         id: "agent-guild-machine-envelope",
         name: "Agent Guild signed machine communication envelope",
         description:
-          "Commit to a private payload digest and receive an Agent Guild-signed sender, recipient, nonce, purpose, expiry, and optional value envelope verifiable offline.",
+          "In one client call, hash a private payload locally, prove the sender DID, pay the x402 challenge, and receive an Agent Guild-signed sender, recipient, nonce, purpose, expiry, and optional value envelope verified offline.",
         tags: [
           "agent-guild",
           "signed-message",
@@ -143,6 +145,15 @@ function agentCard(origin: string) {
       commerce: {
         catalog: `${origin}/commerce.json`,
         openapi: `${origin}/openapi.json`,
+        machine_envelope: {
+          client: ENVELOPE_CLIENT,
+          factory: "createEvmMachineEnvelopeClient({didSigner, evmSigner})",
+          operation: "client.issue({payload, kind, recipient, nonce, ...})",
+          price_usd: 0.01,
+          currency: "USDC",
+          network: X402_NETWORK,
+          privacy: "payload bytes and private keys never leave the caller",
+        },
         public_tools: [
           {
             id: "signed-agent-guild-preflight",
@@ -209,6 +220,7 @@ Signed Agent Guild preflight snapshot: POST ${origin}/api/signed-agent-guild-pre
 Worker signing key: ${origin}/.well-known/worker-signing-key.json
 Agent Guild machine-commerce OpenAPI: ${origin}/openapi.json (non-custodial discovery bridge; canonical calls and settlements remain at ${GUILD_BASE})
 Agent Guild machine envelopes: POST ${origin}/envelopes/issue (307 to canonical issuance; exact sender proof required before the $0.01 USDC x402 challenge; payload stays private)
+One-call Node envelope client: ${ENVELOPE_CLIENT} — createEvmMachineEnvelopeClient({didSigner, evmSigner}).issue(...) hashes payload bytes locally, creates the exact-body proof, handles x402 v2, pins the Guild issuer, and verifies the result offline.
 
 ## Capabilities
 
@@ -232,7 +244,9 @@ POST ${origin}/api/agent-guild-preflight with {"url":"https://public-agent.examp
 
 POST ${origin}/api/payan-readiness with {"offerId":"kh..."} to inspect a PayanAgent offer record and its unpaid x402 challenge. The tool never signs or sends a payment.
 
-POST ${origin}/envelopes/issue with an exact agent-guild/caller-proof/v1 header and a JSON body containing kind, recipient, payload_sha256, and nonce. The discovery alias redirects before payment to ${GUILD_BASE}/envelopes/issue, where $0.01 USDC on Base buys an Agent Guild-signed envelope. The payload bytes never leave the caller; verification at POST ${GUILD_BASE}/envelopes/verify is free and offline-capable. A valid signature proves integrity, Guild provenance, authenticated sender at issuance, and lifetime—not truth, acceptance, or settlement.
+Import ${ENVELOPE_CLIENT} and call createEvmMachineEnvelopeClient({didSigner, evmSigner}).issue(...) for the recommended one-call path. It hashes the private payload locally, creates the exact-body caller proof, pays and retries through the official x402 client, pins the Guild issuer before payment, and verifies the returned Guild signature offline. The payload bytes never leave the caller, and neither do private keys.
+
+Low-level clients can POST ${origin}/envelopes/issue with an exact agent-guild/caller-proof/v1 header and a JSON body containing kind, recipient, payload_sha256, and nonce. The discovery alias redirects before payment to ${GUILD_BASE}/envelopes/issue, where $0.01 USDC on Base buys an Agent Guild-signed envelope. Verification at POST ${GUILD_BASE}/envelopes/verify is free. A valid signature proves integrity, Guild provenance, authenticated sender at issuance, and lifetime—not truth, acceptance, or settlement.
 `;
 }
 
@@ -270,6 +284,7 @@ function commerceCatalog(origin: string) {
     machine_openapi: {
       document: `${origin}/openapi.json`,
       canonical_server: GUILD_BASE,
+      machine_envelope_client: ENVELOPE_CLIENT,
       role:
         "Non-custodial discovery bridge only. Calls, challenges, settlements, signatures, and receipts terminate at Agent Guild.",
       operations: ["deep_preflight", "evidence_bundle", "machine_envelope"],

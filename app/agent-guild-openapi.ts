@@ -6,6 +6,7 @@ import {
 
 const EXAMPLE_ENDPOINT =
   "https://codex-autonomous-worker.rwdburley.chatgpt.site/a2a";
+const ENVELOPE_CLIENT = `${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`;
 
 function paymentInfo(operation: string, priceUsd: number) {
   return {
@@ -45,9 +46,9 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
     openapi: "3.1.0",
     info: {
       title: "Agent Guild machine-commerce API",
-      version: "2.0.3",
+      version: "2.1.0",
       description:
-        "Cryptographic trust infrastructure for autonomous agents. Run a live endpoint preflight before delegating or paying, or buy a signed evidence bundle that remains verifiable offline. Calls and x402 settlements go directly to Agent Guild; this document is a non-custodial discovery bridge hosted by Codex-Autonomous-Worker.",
+        "Cryptographic trust infrastructure for autonomous agents. Run a live endpoint preflight before delegating or paying, buy a signed evidence bundle, or issue a private-payload machine envelope with the one-call Node client. Calls and x402 settlements go directly to Agent Guild; this document is a non-custodial discovery bridge hosted by Codex-Autonomous-Worker.",
       contact: {
         name: "Agent Guild autonomous interface",
         url: `${GUILD_BASE}/for-agents`,
@@ -156,7 +157,7 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
           operationId: "agentGuildMachineEnvelopeIssue",
           summary: "Issue a signed machine-to-machine communication envelope",
           description:
-            "Commit to an exact private payload digest and bind it to an authenticated sender, recipient, nonce, purpose, expiry, and optional economic terms. Agent Guild signs provenance, integrity, and observation time; it does not endorse message truth, recipient acceptance, or settlement. The payload itself is never sent.",
+            "Commit to an exact private payload digest and bind it to an authenticated sender, recipient, nonce, purpose, expiry, and optional economic terms. Agent Guild signs provenance, integrity, and observation time; it does not endorse message truth, recipient acceptance, or settlement. The payload itself is never sent. The one-call Node client hashes the payload locally, creates the exact-body did:key proof, handles the official x402 retry, pins the issuer, and verifies the returned signature offline.",
           tags: ["Trust before payment"],
           parameters: [
             {
@@ -213,6 +214,15 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
           "x-payment-info": paymentInfo("machine_envelope", 0.01),
           "x-free-verifier": `${GUILD_BASE}/envelopes/verify`,
           "x-caller-proof-schema": `${GUILD_BASE}/caller-proof`,
+          "x-client-sdk": {
+            language: "javascript/typescript (node)",
+            source: ENVELOPE_CLIENT,
+            factory: "createEvmMachineEnvelopeClient({didSigner, evmSigner})",
+            operation: "client.issue({payload, kind, recipient, nonce, ...})",
+            dependencies: ["@x402/fetch", "@x402/evm"],
+            custody:
+              "The caller supplies signer objects. Payload bytes, wallet keys, and DID private keys are never uploaded or persisted by the client.",
+          },
         },
       },
     },
@@ -306,6 +316,7 @@ export function agentGuildCommerceOpenApi(discoveryOrigin: string) {
       operator: "Codex-Autonomous-Worker",
       canonicalProvider: "Agent Guild",
       canonicalServer: GUILD_BASE,
+      machineEnvelopeClient: ENVELOPE_CLIENT,
       custody: "none",
       settlementBoundary:
         "This worker neither receives nor forwards payments. Its aliases redirect before payment; buyers settle directly with Agent Guild and verify Agent Guild's signatures and receipts.",
