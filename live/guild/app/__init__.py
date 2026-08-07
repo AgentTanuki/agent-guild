@@ -3,10 +3,18 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.0.3"   # PATCH (machine-visible semver, 2026-08-01):
+__version__ = "2.1.0"   # MINOR (machine-visible semver, 2026-08-07):
+                        # adds the machine-envelope product: paid, caller-
+                        # proof-bound issuance of privacy-preserving signed
+                        # message/intent commitments, plus free verification,
+                        # across REST, MCP and every discovery surface. This
+                        # is additive API behaviour and changes the already-
+                        # published registry operation list, hence a new minor
+                        # version rather than silently reusing 2.0.3.
+                        # History of 2.0.3 (2026-08-01):
                         # registry discovery release — the publisher-provided
                         # metadata gains ai.agent-guild/paid-operations, which
-                        # NAMES the three paid operations and points at one
+                        # NAMES the paid operations and points at one
                         # live, registry-attributed catalog URL
                         # (/.well-known/agent-guild.json?src=paid_offer:registry).
                         # Deliberately carries NO prices: they move when the
