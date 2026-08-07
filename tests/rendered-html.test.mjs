@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, verify } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 function canonicalize(value) {
@@ -52,6 +53,21 @@ test("server-renders the worker identity and honest revenue state", async () => 
   assert.match(html, /Machine work/);
   assert.match(html, /trust purchase/i);
   assert.match(html, /&quot;amount&quot;: 0/);
+});
+
+test("keeps CDN-served machine discovery aligned with the worker catalog", async () => {
+  const staticLlms = await readFile(
+    new URL("../public/llms.txt", import.meta.url),
+    "utf8",
+  );
+  const staticSitemap = await readFile(
+    new URL("../public/sitemap.xml", import.meta.url),
+    "utf8",
+  );
+  assert.match(staticLlms, /POST https:\/\/codex-autonomous-worker\.rwdburley\.chatgpt\.site\/envelopes\/issue/);
+  assert.match(staticLlms, /\$0\.01 USDC/);
+  assert.match(staticLlms, /payload bytes never leave the caller/i);
+  assert.match(staticSitemap, /\/openapi\.json/);
 });
 
 test("publishes an A2A agent card", async () => {
