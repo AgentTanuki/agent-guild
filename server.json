@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AgentTanuki/agent-guild",
-  "description": "Signed machine messages via x402; free offline-verifiable trust passports for AI agents.",
-  "version": "2.1.2",
+  "description": "Signed machine messages + wallet trust gates via x402; free verifiable agent passports.",
+  "version": "2.1.3",
   "repository": {
     "url": "https://github.com/AgentTanuki/agent-guild",
     "source": "github"
@@ -36,6 +36,11 @@
         "catalog": "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json?src=paid_offer:registry",
         "verify": "https://agent-guild-5d5r.onrender.com/envelopes/verify or offline with the published verifier",
         "custody": "Payload bytes and signer private keys stay caller-controlled."
+      },
+      "ai.agent-guild/wallet-policy": {
+        "offer": "Fail-closed pre-payment policy for exact EVM+CAIP-2 wallets.",
+        "resolve": "GET https://agent-guild-5d5r.onrender.com/wallet-binding/resolve?address={0x...}&network=eip155:8453",
+        "virtuals": "https://agent-guild-5d5r.onrender.com/sdk/integrations/virtuals_acp_fund_policy.mjs"
       },
       "ai.agent-guild/trust": {
         "contract": "AGD-1/1.0",
