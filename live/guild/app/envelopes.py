@@ -177,11 +177,11 @@ def request_sha256(body: Any, sender_did: str) -> str:
 def issue(store: Any, body: Any, *, sender_did: str,
           caller_proof_verified: bool) -> dict[str, Any]:
     """Issue one caller-authenticated envelope.  Fails closed."""
-    if (not caller_proof_verified or not isinstance(sender_did, str)
-            or not sender_did.startswith("did:key:")):
+    authentication = callerproof.authentication_protocol_for_did(sender_did)
+    if not caller_proof_verified or authentication is None:
         raise EnvelopeIssuanceRefused(
-            f"a valid {callerproof.PROTOCOL} proof is required; AG will not "
-            "sell an anonymous rubber stamp")
+            "a valid did:key or Base-wallet caller proof is required; AG "
+            "will not sell an anonymous rubber stamp")
     req = normalise_request(body)
     gid = store.guild_identity()
     if not gid.get("did") or not gid.get("private_key"):
@@ -204,14 +204,14 @@ def issue(store: Any, body: Any, *, sender_did: str,
         "valid_until": valid_until.isoformat(),
         "sender": {
             "did": sender_did,
-            "authentication": callerproof.PROTOCOL,
+            "authentication": authentication,
             "caller_proof_verified": True,
         },
         "message": req,
         "attestation_scope": {
             "attested": (
                 "Agent Guild received an issuance request authenticated by "
-                "the sender did:key and sealed this exact canonical envelope "
+                "the sender DID and sealed this exact canonical envelope "
                 "at issued_at."),
             "not_attested": [
                 "truth or legality of the payload",
@@ -310,7 +310,10 @@ def schema_document(base: str = "") -> dict[str, Any]:
             "communication commitments; verification is free and offline-capable"),
         "issue": {
             "method": "POST", "path": "/envelopes/issue",
+            # Keep the original scalar stable; options is the additive field.
             "caller_authentication": callerproof.PROTOCOL,
+            "caller_authentication_options": list(
+                callerproof.SUPPORTED_PROTOCOLS),
             "caller_proof_header": callerproof.HTTP_HEADER,
             "payment": "x402 USDC on Base mainnet or sandbox credits",
             "body": {
@@ -328,12 +331,13 @@ def schema_document(base: str = "") -> dict[str, Any]:
         "client": {
             "language": "javascript/typescript (node)",
             "source": "/sdk/agentguild_envelope_client.mjs",
-            "function": "createEvmMachineEnvelopeClient(...).issue(...)",
+            "function": "createEvmMachineEnvelopeClient({evmSigner}).issue(...)",
             "payment_dependencies": ["@x402/fetch", "@x402/evm"],
             "note": ("one function invocation hashes private payload bytes, "
-                     "creates an exact-body-bound did:key caller proof, lets "
-                     "the official x402 client pay/retry, and verifies the "
-                     "returned Guild signature offline"),
+                     "uses the same caller-owned Base EOA for exact-body "
+                     "authentication and x402 payment, and verifies the "
+                     "returned Guild signature offline; a separate did:key "
+                     "signer remains supported"),
         },
         "issuer": ((root + "/.well-known/agent-guild-did.json") if root
                    else "/.well-known/agent-guild-did.json"),
