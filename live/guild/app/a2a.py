@@ -400,7 +400,7 @@ def _agent_card(base: str) -> dict[str, Any]:
         "name": "Agent Guild",
         "description": (
             "Seal machine intent without exposing its payload: the paid "
-            "machine_envelope operation binds an authenticated sender did:key "
+            "machine_envelope operation binds an authenticated sender DID "
             "to an exact payload digest, recipient, nonce and expiry; anyone "
             "can verify it for free. The Guild attests provenance, not truth. "
             "Also: can I safely use or pay this endpoint right now? Send "
