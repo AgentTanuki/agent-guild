@@ -107,7 +107,7 @@ jobs:
           node verify_node_digitalbazaar.mjs vector.json
 
   caller-proof-wallet-verification:
-    # caller-proof/v1 + wallet-binding CREDENTIAL verification from
+    # did:key + one-wallet EVM caller proofs and wallet-binding credential from
     # genuinely CLEAN Python and Node environments: the vector is generated
     # by the live issuer code, then verified by third-party-primitive-only
     # verifiers installed from their own pinned manifests (never the repo's
