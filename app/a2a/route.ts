@@ -6,6 +6,7 @@ import {
   GUILD_BASE,
   OFFER_TEMPLATE,
   PASSPORT_URL,
+  trustRelayUrl,
   trustCheckUrl,
   X402_ASSET,
   X402_NETWORK,
@@ -102,6 +103,7 @@ export async function POST(request: NextRequest) {
   );
   const capability = requestedCapability?.id ?? OFFER_TEMPLATE.capability;
   const vettingUrl = trustCheckUrl(capability);
+  const relayUrl = trustRelayUrl(capability);
   const response = {
     kind: "signed_offer_intake",
     status: "ready",
@@ -117,7 +119,8 @@ export async function POST(request: NextRequest) {
     paid_action: {
       purpose:
         "Buy a live, signed Agent Guild trust decision before offering work. The portable decision can be verified offline; this is a Guild service purchase, not a payment for the work.",
-      call: `GET ${vettingUrl}`,
+      call: `GET ${relayUrl}`,
+      canonical_resource: vettingUrl,
       protocol: "x402-v2",
       price: {
         amount: X402_PRICE_USD,
@@ -126,7 +129,7 @@ export async function POST(request: NextRequest) {
         asset: X402_ASSET,
       },
       authentication:
-        "Omit X-API-Key so the endpoint returns an x402 challenge. Retry with PAYMENT-SIGNATURE and retain PAYMENT-RESPONSE.",
+        "Omit X-API-Key so the worker returns Agent Guild's canonical x402 challenge directly. Retry the same worker URL with PAYMENT-SIGNATURE and retain PAYMENT-RESPONSE. Agent Guild receives settlement and issues the signed decision.",
     },
     next_action: {
       call: `POST ${GUILD_BASE}/offers`,

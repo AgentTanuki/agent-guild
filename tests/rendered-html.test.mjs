@@ -624,6 +624,14 @@ test("answers A2A message/send with signed-offer instructions", async () => {
   assert.equal(message.requested_capability, "fact-check");
   assert.equal(message.paid_action.protocol, "x402-v2");
   assert.equal(message.paid_action.price.amount, 1);
+  assert.equal(
+    message.paid_action.call,
+    "GET https://codex-autonomous-worker.rwdburley.chatgpt.site/trust-decision?capability=fact-check",
+  );
+  assert.match(
+    message.paid_action.canonical_resource,
+    /capability=fact-check&signed=true&ttl_seconds=3600$/,
+  );
   assert.equal(message.next_action.body.amount, 0);
   assert.match(
     message.next_action.body.terms.guild_vetting_payment.resource,
@@ -672,6 +680,10 @@ test("routes exact unmet-demand aliases into the signed-offer flow", async () =>
   assert.equal(message.next_action.body.capability, "coding");
   assert.match(
     message.paid_action.call,
+    /\/trust-decision\?capability=coding$/,
+  );
+  assert.match(
+    message.paid_action.canonical_resource,
     /\/check\?capability=coding&signed=true&ttl_seconds=3600$/,
   );
 });
