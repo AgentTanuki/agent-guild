@@ -132,7 +132,7 @@ def _free_supply_block(ctx: dict[str, Any]) -> dict[str, Any]:
 OPERATION_COPY: dict[str, str] = {
     "machine_envelope": (
         "Paying returns a privacy-preserving, Guild-signed machine envelope "
-        "for the exact payload digest you named: authenticated sender did:key, "
+        "for the exact payload digest you named: authenticated sender DID, "
         "recipient, message kind, nonce, expiry and any declared economic "
         "terms. The Guild never receives the payload and attests provenance "
         "and integrity — not that the message is true or settled."),
