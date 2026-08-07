@@ -737,6 +737,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/sdk/agentguild_envelope_client.mjs"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/sdk/agentguild_verify.mjs"
   },
   {
