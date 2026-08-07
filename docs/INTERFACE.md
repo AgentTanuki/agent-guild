@@ -119,6 +119,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /sdk/agentguild_envelope_client.mjs`
 - `GET /sdk/agentguild_verify.mjs`
 - `GET /sdk/agentguild_verify.py`
+- `GET /sdk/integrations/virtuals_acp_fund_policy.mjs`
 - `GET /search`
 - `GET /self-eval`
 - `GET /self-eval/history`
@@ -129,6 +130,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /tasks/{task_id}`
 - `POST /tasks/{task_id}/receipt`
 - `POST /wallet-binding/challenge`
+- `GET /wallet-binding/resolve`
 - `POST /wallet-binding/revoke`
 - `GET /wallet-binding/status/{credential_id}`
 - `POST /wallet-binding/verify`
