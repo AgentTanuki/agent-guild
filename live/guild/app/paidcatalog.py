@@ -93,9 +93,9 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
                 "ttl_seconds": 3600,
             },
             "auth": (
-                "no account or API key required — present a valid "
-                "agent-guild/caller-proof/v1 in X-Guild-Caller-Proof to bind "
-                "the sender did:key, then pay per call from the 402 challenge"),
+                "no account or API key required — use the same Base EOA for "
+                "agent-guild/caller-proof-evm/v1 and x402 payment, or present "
+                "the legacy did:key caller-proof/v1"),
             "key_required": False,
             "caller_proof_required": True,
             "directly_callable": True,
@@ -103,10 +103,14 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
                 "language": "javascript/typescript (node)",
                 "source": "/sdk/agentguild_envelope_client.mjs",
                 "factory": (
-                    "createEvmMachineEnvelopeClient({didSigner, evmSigner})"),
+                    "createEvmMachineEnvelopeClient({evmSigner})"),
                 "operation": (
                     "client.issue({payload, kind, recipient, nonce, ...})"),
                 "dependencies": ["@x402/fetch", "@x402/evm"],
+                "identity": (
+                    "The same caller-owned Base EOA signs the exact request "
+                    "with EIP-191 and pays x402; no registration or second "
+                    "identity key is required."),
                 "custody": (
                     "Payload bytes and signer private keys remain under "
                     "caller control and are never uploaded or persisted."),
@@ -123,7 +127,7 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
         },
         "what_you_get": (
             "A privacy-preserving, Guild-signed machine communication envelope "
-            "binding an authenticated sender did:key to an exact payload "
+            "binding an authenticated sender DID to an exact payload "
             "digest, recipient, purpose, nonce, expiry and optional economic "
             "terms. The payload itself never reaches the Guild."),
         "why_it_is_worth_it": (
@@ -132,10 +136,10 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             "trusting either participant. The scope is explicit: integrity and "
             "provenance, never an endorsement that the message is true."),
         "free_alternative": (
-            "Create agent-guild/caller-proof/v1 yourself and send it directly "
-            "with the message — free and sender-verifiable, but without the "
-            "independent Guild issuance timestamp. Verifying any Guild envelope "
-            "at POST /envelopes/verify is always free."),
+            "Create either supported Agent Guild caller proof yourself and "
+            "send it directly with the message — free and sender-verifiable, "
+            "but without the independent Guild issuance timestamp. Verifying "
+            "any Guild envelope at POST /envelopes/verify is always free."),
     },
     {
         "operation": "deep_preflight",
