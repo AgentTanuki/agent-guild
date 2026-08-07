@@ -51,6 +51,9 @@ def test_sdk_and_spec_served_from_public_service_not_private_repo():
     virtuals = client.get("/sdk/integrations/virtuals_acp_fund_policy.mjs")
     assert virtuals.status_code == 200
     assert "createAgentGuildFundPolicy" in virtuals.text
+    x402_policy = client.get("/sdk/integrations/x402_payment_policy.mjs")
+    assert x402_policy.status_code == 200
+    assert "createAgentGuildX402PaymentPolicy" in x402_policy.text
     assert "verifyMachineEnvelope" in mjs.text
     buyer = client.get("/sdk/agentguild_envelope_client.mjs")
     assert buyer.status_code == 200
