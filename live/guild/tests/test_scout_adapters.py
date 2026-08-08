@@ -215,6 +215,99 @@ def test_x402_probe_treats_a_valid_402_as_reachable_and_200_as_not_verified():
 
 
 # ---------------------------------------------------------------------------
+# ERC-8004: public broker discovery, independent endpoint qualification
+# ---------------------------------------------------------------------------
+
+def test_erc8004_adapter_uses_broker_and_keeps_scores_registry_attested():
+    cap = _cap()
+    seen = []
+
+    def fetch(url, **kw):
+        seen.append(url)
+        if "protocols=a2a" in url:
+            return ({"hits": []}, "ok")
+        return ({"hits": [{
+            "name": "Onchain Supplier",
+            "description": f"does {cap}",
+            "registry": "erc-8004",
+            "uaid": "uaid:aid:test",
+            "protocols": ["mcp", "a2a"],
+            "endpoints": {
+                "primary": "https://supplier.example/mcp",
+                "customEndpoints": {
+                    "mcp": "https://supplier.example/mcp",
+                    "a2a": "https://supplier.example/a2a",
+                },
+            },
+            "availabilityStatus": "online",
+            "trustScore": 91.5,
+            "metadata": {
+                "nativeId": "8453:42",
+                "verificationStatus": "indexed",
+            },
+        }]}, "ok")
+
+    out = scout.adapter_erc8004(cap, fetch)
+    assert len(out) == 1
+    assert "registries=erc-8004" in seen[0]
+    assert "sortBy=most-available" in seen[0]
+    assert "protocols=mcp" in seen[0]
+    assert "protocols=a2a" in seen[1]
+    assert out[0]["protocol"] == "mcp"
+    assert out[0]["endpoint"] == "https://supplier.example/mcp"
+    assert out[0]["registry_attested"]["broker_trust_score"] == "91.5"
+    assert out[0]["manifest"]["remotes"][0]["url"] == out[0]["endpoint"]
+
+
+def test_erc8004_adapter_skips_registration_without_runnable_protocol():
+    def fetch(url, **kw):
+        if "protocols=a2a" in url:
+            return ({"hits": []}, "ok")
+        return ({"hits": [{
+            "name": "Metadata Only",
+            "protocols": ["erc-8004"],
+            "endpoints": {"primary": "https://ipfs.io/ipfs/example"},
+        }]}, "ok")
+
+    assert scout.adapter_erc8004("research", fetch) == []
+
+
+def test_erc8004_mcp_candidate_requires_independent_protocol_probe():
+    cap = _cap()
+
+    def fetch_broker(url, **kw):
+        if "protocols=a2a" in url:
+            return ({"hits": []}, "ok")
+        return ({"hits": [{
+            "name": "Onchain Supplier",
+            "description": f"does {cap}",
+            "registry": "erc-8004",
+            "uaid": "uaid:aid:test",
+            "protocols": ["mcp"],
+            "endpoints": {"primary": "https://supplier.example/mcp"},
+            "trustScore": 99,
+        }]}, "ok")
+
+    cand = scout.adapter_erc8004(cap, fetch_broker)[0]
+    cand["capability"] = cap
+
+    def do_not_fetch(url, **kw):
+        raise AssertionError("MCP execution endpoint must not be generic-GETted")
+
+    rec = scout.qualify_candidate(
+        cand, do_not_fetch,
+        mcp_probe=lambda endpoint: {
+            "reachable": True,
+            "protocol_verified": False,
+            "detail": "http_401",
+        })
+    assert rec["card_valid"] is True
+    assert rec["evidence"]["discovery_protocol_verified"] is True
+    assert rec["evidence"]["execution_protocol_verified"] is False
+    assert rec["evidence"]["registry_attested"]["broker_trust_score"] == "99"
+
+
+# ---------------------------------------------------------------------------
 # correct bounded HTTP handling (chunked + content-length), not line stripping
 # ---------------------------------------------------------------------------
 

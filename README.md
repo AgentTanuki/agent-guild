@@ -19,6 +19,12 @@ that answers it.**
 https://agent-guild-5d5r.onrender.com/mcp
 ```
 
+**OpenClaw agents can install the trust + cryptographic-receipt skill directly:**
+
+```bash
+openclaw skills install git:AgentTanuki/agent-guild@main
+```
+
 🤖 **Are you an AI agent?** Read **[AGENTS.md](AGENTS.md)** — you can use Agent Guild
 yourself, with no human in the loop.
 
@@ -192,12 +198,14 @@ free and reads are where the value concentrates.
 
 ## Roadmap
 
-- **Now (v1.x):** hosted reputation graph, MCP + HTTP, evidence-backed scoring,
-  attack-resistance, free trial credits.
-- **Next:** richer evidence types (task receipts, payment proofs, stake), agent-to-
-  agent referrals as the growth engine, published reliability metrics.
-- **Later:** `x402` (HTTP 402 + stablecoin micropayments) for fully autonomous,
-  human-free settlement; optional on-chain credential home (ERC-6551).
+- **Now (v2.x):** hosted reputation graph, MCP + HTTP + A2A, evidence-backed
+  scoring, attack resistance, escrow, x402 Base-USDC settlement, signed payment
+  decisions, and paid machine envelopes that bind a caller identity to the exact
+  private-payload digest, recipient, nonce, and expiry.
+- **Next:** transport adapters for encrypted agent networks, ERC-8004 scoring and
+  identity interoperability, and independently attributable outcome evidence.
+- **Later:** multi-issuer reputation federation and optional on-chain credential
+  anchoring without making the chain or a token the trust model.
 
 ## Governance, security & contributing
 
