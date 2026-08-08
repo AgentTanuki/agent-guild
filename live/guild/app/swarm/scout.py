@@ -6,8 +6,8 @@ for guesses. The scout:
   * takes its work list ONLY from store.demand_feed_entries() (real, genuine,
     unmet demand — the same feed suppliers pull);
   * queries bounded registry adapters (official MCP Registry, the A2A
-    registry's live JSON API, the x402 Bazaar facilitator catalogue;
-    ERC-8004/Base is declared honestly unsupported until an indexer exists);
+    registry's live JSON API, the x402 Bazaar facilitator catalogue, and
+    ERC-8004 mainnets through Hashgraph Online's public Registry Broker);
   * qualifies each candidate with the EVIDENCE its protocol actually offers:
       - A2A: the public agent card, fetched over an SSRF-safe pinned fetch;
       - MCP: the registry manifest IS the discovery evidence; reachability is
@@ -69,6 +69,7 @@ CANDIDATE_STATUS = "discovered_unverified"
 
 A2A_REGISTRY_API = "https://a2aregistry.org/api/agents"
 MCP_REGISTRY_SEARCH = "https://registry.modelcontextprotocol.io/v0.1/servers"
+ERC8004_BROKER_SEARCH = "https://hol.org/registry/api/v1/search"
 
 SCOUT_UA = ("agent-guild-scout/1 (+https://agent-guild-5d5r."
             "onrender.com/.well-known/agent-guild.json)")
@@ -557,11 +558,107 @@ def adapter_x402_bazaar(capability: str, fetch: Callable,
 
 
 def adapter_erc8004(capability: str, fetch: Callable) -> list[dict]:
-    """ERC-8004 / Base on-chain agent discovery. HONESTY: reading the
-    identity registry requires an indexer or bounded log scans this scout
-    does not ship yet — returning [] with a declared reason instead of
-    pretending coverage."""
-    return []
+    """ERC-8004 mainnet discovery through Hashgraph Online's public,
+    read-only Registry Broker.
+
+    The broker indexes ERC-8004 registrations across supported EVM mainnets
+    and normalises their advertised MCP/A2A endpoints. Its rows are discovery
+    leads only: every broker score, availability label and verification label
+    remains explicitly ``registry_attested``. Agent Guild independently
+    validates the A2A card or performs a side-effect-free MCP initialize
+    before recording protocol evidence. Rows without a runnable MCP/A2A
+    endpoint are skipped instead of turning an IPFS registration document
+    into a pretend execution endpoint.
+    """
+    base = (f"{ERC8004_BROKER_SEARCH}?registries=erc-8004"
+            f"&q={quote(capability)}&sortBy=most-available")
+    # The broker combines repeated `protocols` filters as AND, not OR. Two
+    # individually bounded reads avoid drowning callable registrations in the
+    # large population of metadata-only ERC-8004 placeholders.
+    hits: list[tuple[dict, str]] = []
+    for wanted in ("mcp", "a2a"):
+        url = (f"{base}&protocols={wanted}"
+               f"&limit={MAX_CANDIDATES_PER_REGISTRY}")
+        doc, _reason = fetch(url, max_bytes=MAX_REGISTRY_BYTES)
+        rows = (doc or {}).get("hits", []) if isinstance(doc, dict) else []
+        hits.extend((row, url) for row in rows if isinstance(row, dict))
+    out: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for row, source_url in hits:
+        protocols = {_s(p).lower() for p in (row.get("protocols") or [])}
+        endpoints = row.get("endpoints") or {}
+        if not isinstance(endpoints, dict):
+            endpoints = {}
+        custom = endpoints.get("customEndpoints") or {}
+        if not isinstance(custom, dict):
+            custom = {}
+
+        protocol = ""
+        endpoint = ""
+        card_url = ""
+        if "mcp" in protocols:
+            protocol = "mcp"
+            endpoint = _s(custom.get("mcp") or custom.get("mcp.url")
+                          or endpoints.get("api")
+                          or endpoints.get("primary"))
+        elif "a2a" in protocols:
+            protocol = "a2a"
+            endpoint = _s(custom.get("a2a") or endpoints.get("api")
+                          or endpoints.get("primary"))
+            card_url = _s(endpoints.get("wellKnown")
+                          or custom.get("a2a.wellKnown"))
+            if not card_url and endpoint:
+                parsed = urlparse(endpoint)
+                if parsed.scheme and parsed.netloc:
+                    card_url = (f"{parsed.scheme}://{parsed.netloc}"
+                                "/.well-known/agent-card.json")
+        if not protocol or not endpoint:
+            continue
+        dedupe_key = (_s(row.get("uaid")), endpoint)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+
+        profile = row.get("profile") or {}
+        metadata = row.get("metadata") or {}
+        if not isinstance(profile, dict):
+            profile = {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        name = _s(row.get("name") or profile.get("display_name"))
+        description = _s(row.get("description") or profile.get("bio"))
+        attested = {
+            "registry": _s(row.get("registry")),
+            "uaid": _s(row.get("uaid")),
+            "native_id": _s(metadata.get("nativeId")),
+            "availability_status": _s(row.get("availabilityStatus")),
+            "verification_status": _s(metadata.get("verificationStatus")),
+            "broker_trust_score": _s(row.get("trustScore")),
+        }
+        cand = {
+            "source": "erc8004_registry_broker",
+            "source_url": source_url,
+            "name": name,
+            "description": description,
+            "endpoint": endpoint,
+            "protocol": protocol,
+            "registry_attested": {k: v for k, v in attested.items() if v},
+            "erc8004_uaid": _s(row.get("uaid")),
+        }
+        if protocol == "mcp":
+            # This is the broker-normalised registration evidence. Its
+            # validity is recorded separately from the independent MCP probe.
+            cand["manifest"] = {
+                "name": name or _s(row.get("uaid")),
+                "description": description,
+                "remotes": [{"type": "streamable-http", "url": endpoint}],
+            }
+        else:
+            cand["card_url"] = card_url
+        out.append(cand)
+        if len(out) >= MAX_CANDIDATES_PER_REGISTRY:
+            break
+    return out
 
 
 ADAPTERS: dict[str, Callable[[str, Callable], list[dict]]] = {
