@@ -26,6 +26,10 @@ Transport mappings:
   * HTTP — header ``X-Guild-Caller-Proof: base64(JSON envelope)``; the
     proof binds the actual HTTP method and the exact request-target
     (path + '?' + query as sent) and the raw request body;
+  * HTTP marketplace body — ``{"request": {...}, "caller_proof": {...}}``;
+    the proof binds the actual method/request-target and
+    ``JCS(request)``.  This avoids a circular signature while allowing
+    marketplaces that can forward JSON bodies but not custom headers;
   * MCP  — ``_meta["io.agent-guild/caller-proof"] = envelope``; binds
     method="tools/call", resource=<tool name> and
     body_sha256 = sha256(JCS(visible tool arguments, minus api_key/_meta))
@@ -55,6 +59,8 @@ SUPPORTED_PROTOCOLS = (PROTOCOL, EVM_PROTOCOL)
 AUDIENCE = "agent-guild"
 BASE_MAINNET_CHAIN_ID = 8453
 HTTP_HEADER = "X-Guild-Caller-Proof"
+HTTP_BODY_REQUEST_KEY = "request"
+HTTP_BODY_PROOF_KEY = "caller_proof"
 MCP_META_KEY = "io.agent-guild/caller-proof"
 A2A_METADATA_KEY = "io.agent-guild/caller-proof"
 MAX_TTL_S = 600.0                 # proofs are short-lived by design
@@ -81,6 +87,17 @@ def a2a_parts_body(parts: Any) -> bytes:
     metadata must not invalidate a proof over the actual content."""
     return crypto.canonicalize_jcs(
         parts if isinstance(parts, list) else []).encode("utf-8")
+
+
+def http_marketplace_body(request_body: Any) -> bytes:
+    """Canonical bytes signed by the headerless HTTP marketplace transport.
+
+    The proof rides beside ``request`` in the outer JSON object, so it cannot
+    sign the raw outer body without signing itself.  Binding RFC 8785 JCS of
+    the semantic request gives deterministic, serialization-independent
+    verification while every result-affecting field remains signed.
+    """
+    return crypto.canonicalize_jcs(request_body).encode("utf-8")
 
 
 def create_proof(private_hex: str, did: str, *, method: str, resource: str,
@@ -348,6 +365,18 @@ def schema_document(base: str = "") -> dict[str, Any]:
             "http": {"header": HTTP_HEADER,
                      "encoding": "base64(JSON envelope)",
                      "resource": "path?query exactly as sent"},
+            "http_marketplace_body": {
+                "shape": {
+                    HTTP_BODY_REQUEST_KEY: "<semantic request object>",
+                    HTTP_BODY_PROOF_KEY: "<caller-proof envelope>",
+                },
+                "method": "POST",
+                "resource": "path?query exactly as sent",
+                "body": "sha256 of RFC 8785 JCS(request)",
+                "strict_outer_keys": True,
+                "purpose": ("for relays that forward JSON input but cannot "
+                            "forward a custom proof header"),
+            },
             "mcp": {"meta_key": MCP_META_KEY,
                     "method": "tools/call", "resource": "<tool name>",
                     "body": "sha256 of JCS(tool arguments minus "

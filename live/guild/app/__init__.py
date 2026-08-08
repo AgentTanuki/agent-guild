@@ -3,7 +3,16 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.4"   # PATCH (machine-visible semver, 2026-08-07):
+__version__ = "2.1.5"   # PATCH (machine-visible semver, 2026-08-08):
+                        # makes paid machine envelopes directly listable and
+                        # buyable through a headerless x402 marketplace relay:
+                        # caller proof rides in a strict JSON wrapper, signs
+                        # the complete semantic request, and binds the exact
+                        # PayanAgent buy URL without permitting arbitrary
+                        # resource substitution. Anonymous registry probes
+                        # receive a non-executable discovery 402; anonymous
+                        # payment retries still fail before settlement.
+                        # History of 2.1.4 (2026-08-07):
                         # adds AGPD-1: a paid, short-lived eddsa-jcs-2022
                         # credential binding an exact x402 payee, chain, asset,
                         # amount and resource to signed wallet identity, live

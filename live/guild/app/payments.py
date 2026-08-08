@@ -38,7 +38,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from x402.extensions.payment_identifier import (
     PAYMENT_IDENTIFIER,
@@ -81,6 +81,31 @@ class PaidRequest:
     method: str                          # actual HTTP method
     path: str                            # concrete path — real ids, no templates
     query: tuple[tuple[str, str], ...] = ()
+    # A marketplace relay may rewrite the v2 resource echo to its own stable
+    # buy URL. Only machine envelopes support this, and only for PayanAgent's
+    # canonical HTTPS /x402/<offer-id> route. The caller proof signs the same
+    # URL inside the semantic request before this object is constructed.
+    resource_url_override: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        override = self.resource_url_override
+        if override is None:
+            return
+        parsed = urlsplit(override)
+        offer_id = parsed.path.removeprefix("/x402/")
+        valid = (
+            self.operation == "machine_envelope"
+            and parsed.scheme == "https"
+            and parsed.netloc == "payanagent.com"
+            and parsed.path == f"/x402/{offer_id}"
+            and not parsed.query and not parsed.fragment
+            and 8 <= len(offer_id) <= 128
+            and all(c.isalnum() or c in "_-" for c in offer_id))
+        if not valid:
+            raise ValueError(
+                "resource_url_override must be the canonical PayanAgent "
+                "https://payanagent.com/x402/<offer-id> URL for a machine "
+                "envelope")
 
     @staticmethod
     def build(operation: str, method: str, path: str,
@@ -99,6 +124,8 @@ class PaidRequest:
     def resource_url(self) -> str:
         """Trusted configured origin + concrete path + canonical query.
         NEVER derived from Host/X-Forwarded-* headers."""
+        if self.resource_url_override is not None:
+            return self.resource_url_override
         base = x402.public_host() + self.path
         return base + ("?" + self.canonical_query if self.query else "")
 
@@ -206,7 +233,9 @@ def watch_cycle_request(endpoint: str) -> PaidRequest:
                              {"endpoint": endpoint})
 
 
-def machine_envelope_request(request_sha256: str) -> PaidRequest:
+def machine_envelope_request(
+        request_sha256: str, x402_resource_url: Optional[str] = None
+        ) -> PaidRequest:
     """Paid signed machine envelope.
 
     The canonical resource carries only an opaque digest of the normalized
@@ -214,8 +243,10 @@ def machine_envelope_request(request_sha256: str) -> PaidRequest:
     appears in the settlement URL, but every result-affecting input remains
     bound to the payment.
     """
-    return PaidRequest.build("machine_envelope", "POST", "/envelopes/issue",
-                             {"request_sha256": request_sha256})
+    q = tuple(sorted({"request_sha256": str(request_sha256)}.items()))
+    return PaidRequest(
+        operation="machine_envelope", method="POST", path="/envelopes/issue",
+        query=q, resource_url_override=x402_resource_url)
 
 
 def payment_decision_request(request_sha256: str) -> PaidRequest:
