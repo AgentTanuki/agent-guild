@@ -628,6 +628,39 @@ def _verify_http_caller_proof(request: Request, body: bytes = b"", *,
     return verified, did
 
 
+def _verify_marketplace_body_caller_proof(
+        request: Request, body: dict[str, Any], *, mark_nonce: bool = True
+        ) -> tuple[bool, str, dict[str, Any]]:
+    """Verify the headerless marketplace transport for machine envelopes.
+
+    Standard marketplace buyers can usually submit JSON input but cannot add
+    arbitrary headers.  The proof therefore rides beside the semantic request
+    and signs JCS(request), never itself.  The outer shape is deliberately
+    strict: silently ignoring unsigned sibling fields would create ambiguity.
+    """
+    expected = {callerproof.HTTP_BODY_REQUEST_KEY,
+                callerproof.HTTP_BODY_PROOF_KEY}
+    if set(body) != expected:
+        return False, "", body
+    semantic = body.get(callerproof.HTTP_BODY_REQUEST_KEY)
+    env = body.get(callerproof.HTTP_BODY_PROOF_KEY)
+    if not isinstance(semantic, dict) or not isinstance(env, dict):
+        return False, "", body
+    try:
+        signed_body = callerproof.http_marketplace_body(semantic)
+    except Exception:
+        return False, "", body
+    resource = callerproof.http_resource(
+        request.url.path, request.url.query)
+    out = callerproof.verify_proof(
+        store, env, method=request.method, resource=resource,
+        body=signed_body, mark_nonce=mark_nonce)
+    verified, did = bool(out.get("verified")), (out.get("did") or "")
+    if verified:
+        _caller_did.set(did)
+    return verified, did, semantic
+
+
 def _record_http_demand(request: Request, capability: str,
                         x_api_key: Optional[str]) -> Optional[dict]:
     """B1: the shared PRE-AUTHORIZATION demand recorder (app/demand.py) —
@@ -3454,28 +3487,69 @@ async def machine_envelope_issue_route(
     # official x402 fetch/axios clients to resend the original headers.
     will_execute = bool(_xpay_sig.get() or x_api_key
                         or not billing.billing_enforced())
-    verified, sender_did = _verify_http_caller_proof(
-        request, body=raw, mark_nonce=will_execute)
+    proof_header = request.headers.get(callerproof.HTTP_HEADER.lower())
+    body_proof_present = callerproof.HTTP_BODY_PROOF_KEY in body
+    if proof_header:
+        verified, sender_did = _verify_http_caller_proof(
+            request, body=raw, mark_nonce=will_execute)
+        semantic_body = body
+    else:
+        verified, sender_did, semantic_body = \
+            _verify_marketplace_body_caller_proof(
+                request, body, mark_nonce=will_execute)
     if not verified:
+        # Registry/index probes conventionally POST `{}` and require a real
+        # x402 402 to discover a merchant.  Return a NON-EXECUTABLE quote only
+        # when the request carries no identity, credential or payment at all.
+        # A paid retry without proof still dies here with 401, before meter(),
+        # so discovery can never buy an anonymous Guild stamp.
+        discovery_probe = (
+            not proof_header and not body_proof_present
+            and not _xpay_sig.get() and not _xpay_v1.get()
+            and not x_api_key and billing.billing_enforced()
+            and x402.enabled())
+        if discovery_probe:
+            challenge = PaymentChallenge(
+                payments.machine_envelope_request("discovery-only"), extra={
+                    "discovery_only": True,
+                    "executable": False,
+                    "detail": (
+                        "Registry quote only. To execute, send either "
+                        f"{callerproof.HTTP_HEADER} bound to the exact raw "
+                        "body, or JSON {request, caller_proof} with the proof "
+                        "bound to RFC 8785 JCS(request). Anonymous payment "
+                        "retries are rejected before settlement."),
+                    "schema": "/envelopes",
+                })
+            try:
+                headers = {x402.PAYMENT_REQUIRED_HEADER:
+                           challenge.header_value()}
+            except Exception:
+                headers = {}
+            raise HTTPException(402, challenge.body, headers=headers)
         raise HTTPException(401, {
             "error": "verified_caller_proof_required",
             "detail": (f"present {callerproof.HTTP_HEADER}: base64(JSON "
                        "did:key or Base-EVM caller proof) bound to this exact "
-                       "POST body; AG will not issue an anonymous stamp"),
+                       "POST body, or send JSON {request, caller_proof} with "
+                       "the proof bound to JCS(request); AG will not issue an "
+                       "anonymous stamp"),
             "schema": "/caller-proof",
             "billing": "NOT CHARGED",
         })
     try:
-        digest = envelopes.request_sha256(body, sender_did)
+        normalized = envelopes.normalise_request(semantic_body)
+        digest = envelopes.request_sha256(semantic_body, sender_did)
         artifact = envelopes.issue(
-            store, body, sender_did=sender_did,
+            store, semantic_body, sender_did=sender_did,
             caller_proof_verified=verified)
     except envelopes.EnvelopeIssuanceRefused as exc:
         raise HTTPException(422, {
             "error": exc.code, "detail": str(exc),
             "billing": "NOT CHARGED — no valid signed artefact was produced"})
 
-    preq = payments.machine_envelope_request(digest)
+    preq = payments.machine_envelope_request(
+        digest, normalized.get("x402_resource_url"))
     quoted = preq.cost
     facts = meter(preq, x_api_key, response)
     store.record_event(

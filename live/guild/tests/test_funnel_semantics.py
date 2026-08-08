@@ -174,6 +174,11 @@ def test_first_party_http_mainnet_payment_is_flagged_at_settle_time(
                         lambda: FakeFacilitator(network="eip155:8453"))
     monkeypatch.setattr(x402_confirm, "_get_receipt",
                         lambda tx, timeout=15.0: _receipt())
+    # Mainnet settlement now persists a pre-settlement recovery anchor. Keep
+    # this unit test deterministic and offline: whether a public Base RPC is
+    # reachable must not decide if the attribution assertion runs.
+    monkeypatch.setattr(x402_confirm, "current_block",
+                        lambda network=None: 31_000_000)
     from app.main import app
     cap = _cap()
     preq = payments.check_request(cap)

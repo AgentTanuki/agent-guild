@@ -41,6 +41,8 @@ export const CALLER_PROOF_PROTOCOL = "agent-guild/caller-proof/v1";
 export const EVM_CALLER_PROOF_PROTOCOL = "agent-guild/caller-proof-evm/v1";
 export const MACHINE_ENVELOPE_PROTOCOL = "agent-guild/machine-envelope/v1";
 export const CALLER_PROOF_HEADER = "X-Guild-Caller-Proof";
+export const MARKETPLACE_REQUEST_FIELD = "request";
+export const MARKETPLACE_PROOF_FIELD = "caller_proof";
 export const BASE_MAINNET_CHAIN_ID = 8453;
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -258,6 +260,7 @@ export function machineEnvelopeRequest({
   constraintsSha256,
   value,
   context,
+  x402ResourceUrl,
 }) {
   if (typeof recipient !== "string" || !recipient.trim()) {
     throw new TypeError("recipient is required");
@@ -279,7 +282,61 @@ export function machineEnvelopeRequest({
   }
   optional(request, "value", value);
   optional(request, "context", context);
+  optional(request, "x402_resource_url", x402ResourceUrl);
   return request;
+}
+
+/**
+ * Build JSON input for a marketplace/relay that forwards buyer input but
+ * cannot forward custom HTTP headers. The proof signs RFC 8785 JCS(request),
+ * so it is deterministic and never circularly signs its own outer envelope.
+ * A standard marketplace buyer can pass the returned object directly as the
+ * offer input; the marketplace handles the x402 retry and payment.
+ */
+export async function machineEnvelopeMarketplaceInput({
+  signer,
+  host = DEFAULT_HOST,
+  paymentResourceUrl,
+  payanOfferId,
+  proofTtlSeconds = 300,
+  proofNonce: nonce,
+  now,
+  ...requestOptions
+}) {
+  if (paymentResourceUrl !== undefined && payanOfferId !== undefined) {
+    throw new TypeError("provide paymentResourceUrl or payanOfferId, not both");
+  }
+  const relayResource = paymentResourceUrl
+    || (payanOfferId ? `https://payanagent.com/x402/${payanOfferId}` : "");
+  let parsedRelay;
+  try { parsedRelay = new URL(relayResource); } catch { parsedRelay = null; }
+  if (!parsedRelay
+      || parsedRelay.protocol !== "https:"
+      || parsedRelay.host !== "payanagent.com"
+      || !/^\/x402\/[A-Za-z0-9_-]{8,128}$/.test(parsedRelay.pathname)
+      || parsedRelay.search || parsedRelay.hash) {
+    throw new TypeError(
+      "a canonical PayanAgent paymentResourceUrl or payanOfferId is required",
+    );
+  }
+  const endpoint = new URL("/envelopes/issue", host);
+  const request = machineEnvelopeRequest({
+    ...requestOptions,
+    x402ResourceUrl: relayResource,
+  });
+  const proof = await createCallerProof({
+    signer,
+    method: "POST",
+    resource: endpoint.pathname + endpoint.search,
+    body: canon(request),
+    ttlSeconds: proofTtlSeconds,
+    nonce,
+    now,
+  });
+  return {
+    [MARKETPLACE_REQUEST_FIELD]: request,
+    [MARKETPLACE_PROOF_FIELD]: proof,
+  };
 }
 
 export class MachineEnvelopePurchaseError extends Error {

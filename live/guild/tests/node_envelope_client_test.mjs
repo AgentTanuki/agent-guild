@@ -11,6 +11,7 @@ import {
   didKeySigner,
   evmWalletCallerProofSigner,
   issueMachineEnvelope,
+  machineEnvelopeMarketplaceInput,
 } from "../../../sdk/agentguild_envelope_client.mjs";
 
 const caller = didKeySigner("11".repeat(32));
@@ -122,6 +123,39 @@ assert.equal(
 );
 assert.equal(evmProof.signature, "0x" + "44".repeat(65));
 assert.equal(evmSignedBytes.toString("utf8"), canon(evmProof.payload));
+
+const marketplaceInput = await machineEnvelopeMarketplaceInput({
+  signer: caller,
+  host: "https://agent-guild.example",
+  payanOfferId: "kh_marketplace_offer_0001",
+  payload,
+  kind: "delegation",
+  recipient: "did:key:z6MkRecipient",
+  nonce: "marketplace-message-0001",
+  ttlSeconds: 7200,
+  proofTtlSeconds: 180,
+  proofNonce: "marketplace-proof-0001",
+  now: new Date("2026-08-07T10:00:00Z"),
+});
+assert.equal(marketplaceInput.request.payload, undefined);
+assert.equal(
+  marketplaceInput.request.x402_resource_url,
+  "https://payanagent.com/x402/kh_marketplace_offer_0001",
+);
+assert.equal(marketplaceInput.request.ttl_seconds, 7200);
+assert.equal(
+  marketplaceInput.caller_proof.payload.exp
+    - marketplaceInput.caller_proof.payload.iat,
+  180,
+);
+assert.equal(
+  marketplaceInput.caller_proof.payload.body_sha256,
+  createHash("sha256").update(canon(marketplaceInput.request)).digest("hex"),
+);
+assert.equal(
+  marketplaceInput.caller_proof.payload.resource,
+  "/envelopes/issue",
+);
 
 const result = await issueMachineEnvelope({
   signer: caller,

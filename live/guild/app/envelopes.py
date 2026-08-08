@@ -22,6 +22,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from urllib.parse import urlsplit
 
 from . import callerproof
 from .crypto import canonicalize_jcs, sign_jcs
@@ -39,6 +40,7 @@ KINDS = frozenset({
 
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _SAFE_TOKEN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/+#-]{0,127}$")
+_PAYAN_OFFER_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,128}$")
 
 
 class EnvelopeIssuanceRefused(ValueError):
@@ -104,6 +106,32 @@ def _normalise_value(raw: Any) -> dict[str, str] | None:
     return out
 
 
+def _normalise_x402_resource_url(raw: Any) -> str | None:
+    """Accept only PayanAgent's canonical relay resource.
+
+    PayanAgent rewrites an external seller's x402 resource echo to its own
+    ``/x402/<offer-id>`` URL before the buyer signs.  That alias is safe only
+    when it is signed by the caller proof and included in the opaque request
+    digest.  A broad arbitrary-URL escape hatch would undo exact-resource
+    binding, so the first transport profile is intentionally narrow.
+    """
+    if raw is None or raw == "":
+        return None
+    value = _bounded_string(raw, "x402_resource_url", maximum=1024)
+    parsed = urlsplit(value)
+    offer_id = parsed.path.removeprefix("/x402/")
+    if not (
+            parsed.scheme == "https"
+            and parsed.netloc == "payanagent.com"
+            and parsed.path == f"/x402/{offer_id}"
+            and not parsed.query and not parsed.fragment
+            and _PAYAN_OFFER_ID_RE.fullmatch(offer_id)):
+        raise EnvelopeIssuanceRefused(
+            "x402_resource_url must be the canonical PayanAgent "
+            "https://payanagent.com/x402/<offer-id> URL")
+    return value
+
+
 def normalise_request(body: Any) -> dict[str, Any]:
     """Return the canonical, privacy-preserving issuance request."""
     if not isinstance(body, dict):
@@ -162,6 +190,10 @@ def normalise_request(body: Any) -> dict[str, Any]:
         out["value"] = value
     if context:
         out["context"] = context
+    x402_resource_url = _normalise_x402_resource_url(
+        body.get("x402_resource_url"))
+    if x402_resource_url is not None:
+        out["x402_resource_url"] = x402_resource_url
     return out
 
 
@@ -315,6 +347,25 @@ def schema_document(base: str = "") -> dict[str, Any]:
             "caller_authentication_options": list(
                 callerproof.SUPPORTED_PROTOCOLS),
             "caller_proof_header": callerproof.HTTP_HEADER,
+            "marketplace_body_transport": {
+                "shape": {
+                    callerproof.HTTP_BODY_REQUEST_KEY: "<issue body below>",
+                    callerproof.HTTP_BODY_PROOF_KEY: "<caller-proof envelope>",
+                },
+                "proof_body": "RFC 8785 JCS(request)",
+                "proof_resource": "/envelopes/issue",
+                "strict_outer_keys": True,
+                "use_when": ("the relay forwards JSON buyer input but cannot "
+                             "forward custom headers"),
+            },
+            "anonymous_discovery": {
+                "probe": {},
+                "status": 402,
+                "discovery_only": True,
+                "executable": False,
+                "guarantee": ("a payment or API-key retry without a valid "
+                              "caller proof is rejected before settlement"),
+            },
             "payment": "x402 USDC on Base mainnet or sandbox credits",
             "body": {
                 "kind": sorted(KINDS),
@@ -323,7 +374,12 @@ def schema_document(base: str = "") -> dict[str, Any]:
                 "nonce": "caller-chosen unique message id, 8..128 chars",
                 "ttl_seconds": f"60..{MAX_TTL_S}; default {DEFAULT_TTL_S}",
                 "optional": ["payload_media_type", "resource", "reply_to",
-                             "constraints_sha256", "value", "context"],
+                             "constraints_sha256", "value", "context",
+                             "x402_resource_url"],
+                "x402_resource_url": (
+                    "for a PayanAgent relay buy only: the exact "
+                    "https://payanagent.com/x402/<offer-id> URL; it is caller-"
+                    "proof signed and included in the payment digest"),
             },
         },
         "verify": {"method": "POST", "path": "/envelopes/verify",
@@ -332,6 +388,8 @@ def schema_document(base: str = "") -> dict[str, Any]:
             "language": "javascript/typescript (node)",
             "source": "/sdk/agentguild_envelope_client.mjs",
             "function": "createEvmMachineEnvelopeClient({evmSigner}).issue(...)",
+            "marketplace_function": (
+                "machineEnvelopeMarketplaceInput({signer, ...})"),
             "payment_dependencies": ["@x402/fetch", "@x402/evm"],
             "note": ("one function invocation hashes private payload bytes, "
                      "uses the same caller-owned Base EOA for exact-body "
@@ -344,4 +402,22 @@ def schema_document(base: str = "") -> dict[str, Any]:
         "honesty": (
             "The Guild signs observation, exact digest, sender authentication "
             "and time. It does not endorse message truth or claim settlement."),
+        "payanagent_relay": {
+            "registration": {
+                "externalUrl": root + "/envelopes/issue" if root
+                               else "/envelopes/issue",
+                "httpMethod": "POST",
+                "offerType": "api",
+                "wallet_binding": (
+                    "registering seller wallet must equal the x402 payTo"),
+            },
+            "buyer_input": (
+                "call machineEnvelopeMarketplaceInput with paymentResourceUrl "
+                "set to https://payanagent.com/x402/<this-offer-id>; the "
+                "returned {request, caller_proof} is the Payan buy input"),
+            "why_the_alias_is_safe": (
+                "the exact Payan buy URL is inside request, signed by the "
+                "caller proof, included in request_sha256, and checked again "
+                "by the payment gateway"),
+        },
     }

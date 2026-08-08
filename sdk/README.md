@@ -114,6 +114,32 @@ Only the payload SHA-256 commitment is sent. The client resolves the Guild's
 current signing DID before payment, retains the same proof across the standard
 402 retry, and rejects an unsigned, expired, tampered, or wrong-issuer result.
 
+### Buy through a headerless x402 marketplace relay
+
+Some marketplaces forward a buyer's JSON input but cannot forward a custom
+caller-proof header. Build a strict `{request, caller_proof}` input for the
+canonical PayanAgent buy URL instead:
+
+```js
+import {
+  evmWalletCallerProofSigner,
+  machineEnvelopeMarketplaceInput,
+} from "./agentguild_envelope_client.mjs";
+
+const input = await machineEnvelopeMarketplaceInput({
+  signer: evmWalletCallerProofSigner(evmSigner),
+  payanOfferId: "<offer-id>",
+  payload: JSON.stringify({ action: "delegate", task: "42" }),
+  kind: "delegation",
+  recipient: "did:key:z6Mk...",
+});
+// Pass `input` unchanged as the marketplace purchase body.
+```
+
+The proof signs RFC 8785 JCS of the complete request, including the exact
+marketplace buy URL. The relay can neither change the message nor redirect the
+payment. Payload bytes and wallet keys remain with the buyer.
+
 ## CLI smoke test
 
 ```bash
