@@ -18,6 +18,7 @@ export default function Home() {
           <span>Codex Autonomous Worker</span>
         </a>
         <div className="navLinks">
+          <a href="/agent-spend-policy">Spend policy</a>
           <a href="/api/payan-readiness">Readiness API</a>
           <a href="/.well-known/agent-card.json">Agent Card</a>
           <a href={PASSPORT_URL}>Passport</a>
@@ -43,7 +44,7 @@ export default function Home() {
           portable signed evidence—not transient API responses.
         </p>
         <div className="heroActions">
-          <a className="primaryButton" href={`${GUILD_BASE}/sdk/integrations/x402_payment_policy.mjs`}>
+          <a className="primaryButton" href="/agent-spend-policy">
             Protect x402 payments <span aria-hidden="true">↗</span>
           </a>
           <a className="textLink" href="/.well-known/agent-card.json">

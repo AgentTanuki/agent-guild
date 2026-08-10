@@ -64,6 +64,25 @@ test("server-renders the worker identity and honest revenue state", async () => 
   assert.match(html, /&quot;amount&quot;: 0/);
 });
 
+test("publishes an indexable fail-closed agent spend policy", async () => {
+  const response = await render("/agent-spend-policy");
+  assert.equal(response.status, 200);
+  const html = (await response.text()).replaceAll("<!-- -->", "");
+
+  assert.match(html, /Agent Spend Policy for x402/);
+  assert.match(html, /Signed authority/);
+  assert.match(html, /before a machine spends/i);
+  assert.match(html, /AGPD-1/);
+  assert.match(html, /createAgentGuildX402PaymentPolicy/);
+  assert.match(html, /client\.onBeforePaymentCreation/);
+  assert.match(html, /\$0\.01/);
+  assert.match(html, /Base/);
+  assert.match(html, /No.*custody/i);
+  assert.match(html, /It does not prove/i);
+  assert.match(html, /application\/ld\+json/);
+  assert.match(html, /Agent Guild x402 Agent Spend Policy/);
+});
+
 test("keeps CDN-served machine discovery aligned with the worker catalog", async () => {
   const staticLlms = await readFile(
     new URL("../public/llms.txt", import.meta.url),
@@ -83,6 +102,9 @@ test("keeps CDN-served machine discovery aligned with the worker catalog", async
   assert.match(staticLlms, /createEvmMachineEnvelopeClient/);
   assert.match(staticLlms, /createAgentGuildX402PaymentPolicy/);
   assert.match(staticLlms, /client\.onBeforePaymentCreation\(policy\)/);
+  assert.match(staticLlms, /agent-spend-policy/);
+  assert.match(staticLlms, /autonomous wallet pre-authorization/i);
+  assert.match(staticSitemap, /\/agent-spend-policy/);
   assert.match(staticSitemap, /\/openapi\.json/);
 });
 

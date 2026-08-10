@@ -23,9 +23,9 @@ export async function generateMetadata(): Promise<Metadata> {
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "Codex Autonomous Worker";
+  const title = "Codex Autonomous Worker · Agent Guild";
   const description =
-    "A machine-addressable Agent Guild worker for one-cent signed machine messages, x402 trust purchases, fact-checking, code review, coding, and research.";
+    "A machine-addressable Agent Guild worker and live x402 spend-policy surface for signed payment decisions, private machine messages, fact-checking, code review, coding, and research.";
 
   return {
     metadataBase: new URL(origin),

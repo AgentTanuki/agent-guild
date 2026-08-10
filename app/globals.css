@@ -459,6 +459,168 @@ footer {
   padding: 26px 4vw;
 }
 
+.policyPage {
+  background: var(--paper);
+  min-height: 100vh;
+}
+
+.policyHero {
+  border-bottom: 1px solid var(--ink);
+  padding: 100px 8vw 72px;
+}
+
+.policyHero h1 {
+  font-size: clamp(58px, 8.5vw, 126px);
+  font-weight: 520;
+  letter-spacing: -0.072em;
+  line-height: 0.86;
+  margin: 50px 0 46px;
+  max-width: 1160px;
+}
+
+.policyHero h1 em {
+  color: var(--rust);
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+
+.policyFacts {
+  border-top: 1px solid var(--line);
+  display: grid;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  grid-template-columns: repeat(4, 1fr);
+  letter-spacing: 0.03em;
+  margin-top: 76px;
+  text-transform: uppercase;
+}
+
+.policyFacts span {
+  border-right: 1px solid var(--line);
+  padding: 22px 18px 0 0;
+}
+
+.policyFacts span:last-child {
+  border-right: 0;
+}
+
+.policyFacts b {
+  color: var(--rust);
+}
+
+.policyFlow,
+.policyContract {
+  display: grid;
+  gap: 5vw;
+  grid-template-columns: 50px 0.8fr 1.25fr;
+  padding: 110px 8vw;
+}
+
+.policySteps {
+  border-top: 1px solid var(--ink);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.policySteps li {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 26px;
+  grid-template-columns: 48px 1fr;
+  padding: 25px 0;
+}
+
+.policySteps > li > span {
+  color: var(--rust);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+}
+
+.policySteps h3,
+.proofBoundary h3 {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+.policySteps p,
+.policyContract p,
+.proofBoundary p,
+.policyCodeSection p {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.policyCodeSection {
+  background: var(--ink);
+  color: var(--paper);
+  display: grid;
+  gap: 7vw;
+  grid-template-columns: 0.75fr 1.25fr;
+  padding: 96px 8vw;
+}
+
+.policyCodeSection h2,
+.policyContract h2 {
+  font-size: clamp(42px, 5vw, 66px);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  margin: 25px 0 28px;
+}
+
+.policyCodeSection > div:first-child > p:last-child {
+  color: rgba(243, 240, 232, 0.68);
+}
+
+.policyCodePanel {
+  background: #171914;
+}
+
+.policyContract {
+  border-bottom: 1px solid var(--ink);
+}
+
+.requestExample {
+  background: #e7e2d6;
+  border: 1px solid var(--ink);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  line-height: 1.65;
+  margin: 0;
+  overflow-x: auto;
+  padding: 26px;
+}
+
+.proofBoundary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.proofBoundary article {
+  min-height: 310px;
+  padding: 72px 8vw;
+}
+
+.proofBoundary article:first-child {
+  background: var(--acid);
+  border-right: 1px solid var(--ink);
+}
+
+.proofBoundary article:last-child {
+  background: var(--rust);
+  color: var(--paper);
+}
+
+.proofBoundary h3 {
+  font-size: clamp(27px, 3vw, 42px);
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+  margin: 28px 0 20px;
+}
+
 @media (max-width: 900px) {
   .navLinks a {
     display: none;
@@ -487,15 +649,23 @@ footer {
   }
 
   .capabilitySection,
-  .hireSection {
+  .hireSection,
+  .policyFlow,
+  .policyContract {
     grid-template-columns: 45px 1fr;
     padding-left: 5vw;
     padding-right: 5vw;
   }
 
   .capabilityGrid,
-  .codePanel {
+  .codePanel,
+  .policySteps,
+  .requestExample {
     grid-column: 2;
+  }
+
+  .policyCodeSection {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -538,9 +708,46 @@ footer {
   }
 
   .capabilitySection,
-  .hireSection {
+  .hireSection,
+  .policyFlow,
+  .policyContract {
     display: block;
     padding: 78px 6vw;
+  }
+
+  .policyHero {
+    padding: 76px 6vw 60px;
+  }
+
+  .policyHero h1 {
+    font-size: 17vw;
+  }
+
+  .policyFacts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .policyFacts span {
+    border-bottom: 1px solid var(--line);
+    padding: 18px 12px 18px 0;
+  }
+
+  .policyCodeSection {
+    padding: 76px 6vw;
+  }
+
+  .policySteps,
+  .requestExample {
+    margin-top: 50px;
+  }
+
+  .proofBoundary {
+    display: block;
+  }
+
+  .proofBoundary article:first-child {
+    border-bottom: 1px solid var(--ink);
+    border-right: 0;
   }
 
   .sectionNumber {
