@@ -2661,6 +2661,13 @@ def _manifest() -> dict:
                       "note": "one-call first contact — recommended entry point"},
             "discover": {"method": "GET", "path": "/search", "cost_credits": PRICING["best_agent"]},
             "risk_score": {"method": "GET", "path": "/agents/{id}/risk-score", "cost_credits": PRICING["risk_score"]},
+            "payment_decision": {
+                "method": "POST",
+                "path": "/wallet-binding/decision",
+                "cost_credits": PRICING["payment_decision"],
+                "note": ("AGPD-1 signed allow/block bound to the exact payee, "
+                         "chain, asset, atomic amount, resource and policy"),
+            },
             "reputation": {"method": "GET", "path": "/agents/{id}/reputation", "cost_credits": PRICING["reputation"]},
             "fraud_check": {"method": "GET", "path": "/agents/{id}/flags", "cost_credits": PRICING["fraud_check"]},
             "register": {"method": "POST", "path": "/agents/register", "cost_credits": 0},
@@ -2869,6 +2876,22 @@ def _manifest() -> dict:
                                "revoke": "/wallet-binding/revoke",
                                "status":
                                    "/wallet-binding/status/{credential_id}"},
+            "payment_policy_integrations": {
+                "virtuals_acp": {
+                    "source": "/sdk/integrations/virtuals_acp_fund_policy.mjs",
+                    "factory": "createAgentGuildAcpPaymentPolicy({meteredFetch, resource})",
+                    "operation": "AcpAgent.create({fundPolicy})",
+                    "decision": "/wallet-binding/decision",
+                    "note": ("buy and locally verify one exact AGPD-1 credential "
+                             "before session.fund()"),
+                },
+                "x402": {
+                    "source": "/sdk/integrations/x402_payment_policy.mjs",
+                    "factory": "createAgentGuildX402PaymentPolicy({meteredFetch})",
+                    "operation": "client.onBeforePaymentCreation(policy)",
+                    "decision": "/wallet-binding/decision",
+                },
+            },
             "badges": {"generic": "/badge.svg", "per_agent": "/agents/{id}/badge.svg"},
             "openapi": "/openapi.json",
             "ai_plugin": "/.well-known/ai-plugin.json",
@@ -2936,9 +2959,9 @@ def sdk_envelope_client_mjs():
 @app.get("/sdk/integrations/virtuals_acp_fund_policy.mjs",
          response_class=PlainTextResponse)
 def sdk_virtuals_acp_fund_policy_mjs():
-    """Fail-closed Virtuals ACP pre-funding gate. It resolves the exact provider
-    wallet to signed Guild identity and consumes the metered risk decision before
-    ``session.fund()`` is allowed to prepare an on-chain transaction."""
+    """Fail-closed Virtuals ACP pre-funding gate. It can buy and locally verify an
+    AGPD-1 decision bound to the exact funding transaction before ``session.fund()``
+    is allowed to prepare an on-chain transaction; the identity+risk mode remains."""
     return _artifact("integrations/virtuals_acp_fund_policy.mjs")
 
 
@@ -3005,6 +3028,8 @@ def for_agents():
         "  side has to trust the other.\n"
         "- About to sign an x402 payment? Install /sdk/integrations/x402_payment_policy.mjs\n"
         "  to buy and verify a short-lived signed decision for the exact transaction.\n"
+        "- About to fund a Virtuals ACP job? Install /sdk/integrations/virtuals_acp_fund_policy.mjs\n"
+        "  and use createAgentGuildAcpPaymentPolicy({meteredFetch, resource}) as fundPolicy.\n"
         "- Asked to prove you're trustworthy? Present your passport\n"
         "  (GET /agents/{id}/passport) — a Guild-signed credential anyone can verify.\n"
         "- Handed a passport? Verify it (POST /credentials/verify) — check the signature,\n"

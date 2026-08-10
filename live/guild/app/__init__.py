@@ -3,7 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.5"   # PATCH (machine-visible semver, 2026-08-08):
+__version__ = "2.1.6"   # PATCH (machine-visible semver, 2026-08-10):
+                        # makes the Virtuals ACP adapter purchase and locally
+                        # verify one AGPD-1 decision bound to the exact provider,
+                        # chain, token, atomic amount and job URL before fund();
+                        # publishes both wallet-policy factories in machine
+                        # discovery. The identity+risk factory stays compatible.
+                        # History of 2.1.5 (2026-08-08):
                         # makes paid machine envelopes directly listable and
                         # buyable through a headerless x402 marketplace relay:
                         # caller proof rides in a strict JSON wrapper, signs

@@ -150,12 +150,28 @@ node   agentguild_verify.mjs agent_d0a8f6ef9b41
 ### Virtuals ACP: block unsafe funding at the transaction boundary
 
 Use [`integrations/virtuals_acp_fund_policy.mjs`](integrations/virtuals_acp_fund_policy.mjs)
-as the optional `fundPolicy` in `@virtuals-protocol/acp-node-v2`. It first resolves
-the exact provider wallet and settlement chain to a dual-signed machine DID, verifies
-the Guild-signed binding and live status locally, then consumes the metered risk read.
-Only an explicit policy pass allows `session.fund()` to continue; missing identity,
+as the optional `fundPolicy` in `@virtuals-protocol/acp-node-v2`. The paid
+transaction-specific factory is the default for irreversible funding:
+
+```js
+const fundPolicy = createAgentGuildAcpPaymentPolicy({
+  meteredFetch: separateUnguardedX402Fetch,
+  resource: ({ jobId }) => `https://market.example/acp/jobs/${jobId}`,
+  capability: ({ job }) => job.description,
+});
+```
+
+It buys one short-lived `AGPD-1` credential bound to the exact provider wallet,
+CAIP-2 chain, token contract, atomic amount and caller-supplied job URL. The Guild
+signature and every field are verified locally; only an exact sealed `allow` lets
+`session.fund()` continue. `meteredFetch` must use a separate unguarded x402 client
+so the decision purchase cannot recurse through the protected funding policy.
+
+`createAgentGuildFundPolicy` remains available as the lower-cost compatibility
+factory: it verifies the signed wallet binding locally, then consumes the metered
+risk read without issuing a transaction-specific credential. Missing identity,
 stale/tampered evidence, an unpaid 402, an unavailable verifier, or an unsafe score
-all fail closed.
+fail closed in both modes.
 
 ### x402: buy a signed decision before any payment payload is signed
 
