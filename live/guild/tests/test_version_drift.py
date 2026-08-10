@@ -35,6 +35,8 @@ PUBLISHED_REGISTRY_FINGERPRINTS = {
     "2.0.2": "205fdfd11fdce92d5b96685df96e377bb413d96c6c70e3f696a50621ca150d09",
     "2.1.0": "6f877f0ff8a937297b0d17d4cad09592f9a48e3aba282b7671a728e0f6b2ddb8",
     "2.1.1": "2837b086e33b2037fd10b1b25cd934eccb75bbf590fe3cfd2f8dbc6252438a74",
+    "2.1.4": "d89c3be7d8f73015e6a47299160ce371578697231957b440022821e9b6266729",
+    "2.1.5": "d89c3be7d8f73015e6a47299160ce371578697231957b440022821e9b6266729",
 }
 
 
@@ -256,6 +258,7 @@ def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():
         adapter = c.get("/sdk/integrations/virtuals_acp_fund_policy.mjs")
         assert adapter.status_code == 200
         assert "createAgentGuildFundPolicy" in adapter.text
+        assert "createAgentGuildAcpPaymentPolicy" in adapter.text
 
     for advertised in ("/agents/register", "/agents/{agent_id}/prove",
                        "/agents/{agent_id}/prove/verify",

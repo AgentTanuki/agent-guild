@@ -51,6 +51,7 @@ def test_sdk_and_spec_served_from_public_service_not_private_repo():
     virtuals = client.get("/sdk/integrations/virtuals_acp_fund_policy.mjs")
     assert virtuals.status_code == 200
     assert "createAgentGuildFundPolicy" in virtuals.text
+    assert "createAgentGuildAcpPaymentPolicy" in virtuals.text
     x402_policy = client.get("/sdk/integrations/x402_payment_policy.mjs")
     assert x402_policy.status_code == 200
     assert "createAgentGuildX402PaymentPolicy" in x402_policy.text
@@ -78,6 +79,13 @@ def test_for_agents_is_served_publicly_and_self_contained():
     m = client.get("/.well-known/agent-guild.json").json()
     assert "/for-agents" in m["for_agents"] and "github.com" not in m["for_agents"]
     assert "/for-agents" in client.get("/llms.txt").text
+
+    integrations = m["discovery"]["payment_policy_integrations"]
+    assert integrations["virtuals_acp"]["source"] == \
+        "/sdk/integrations/virtuals_acp_fund_policy.mjs"
+    assert "createAgentGuildAcpPaymentPolicy" in \
+        integrations["virtuals_acp"]["factory"]
+    assert integrations["x402"]["decision"] == "/wallet-binding/decision"
 
 
 def test_standard_endpoint_is_machine_readable():

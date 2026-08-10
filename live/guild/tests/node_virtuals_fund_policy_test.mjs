@@ -1,10 +1,31 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { canon } from "../../../sdk/agentguild_verify.mjs";
 import { didKeySigner } from "../../../sdk/agentguild_envelope_client.mjs";
-import { createAgentGuildFundPolicy } from "../../../sdk/integrations/virtuals_acp_fund_policy.mjs";
+import {
+  createAgentGuildAcpPaymentPolicy,
+  createAgentGuildFundPolicy,
+} from "../../../sdk/integrations/virtuals_acp_fund_policy.mjs";
+
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+function b58encode(bytes) {
+  let n = BigInt("0x" + Buffer.from(bytes).toString("hex"));
+  let out = "";
+  while (n > 0n) {
+    out = B58[Number(n % 58n)] + out;
+    n /= 58n;
+  }
+  for (const byte of bytes) {
+    if (byte === 0) out = "1" + out;
+    else break;
+  }
+  return out || "1";
+}
 
 const guild = didKeySigner("55".repeat(32));
 const address = "0x" + "66".repeat(20);
+const asset = "0x" + "77".repeat(20);
 const asOf = new Date("2026-08-07T12:00:00Z");
 
 async function signed(body) {
@@ -12,6 +33,23 @@ async function signed(body) {
     ...body,
     proof: Buffer.from(await guild.sign(Buffer.from(canon(body), "utf8"))).toString("hex"),
   };
+}
+
+async function secure(unsigned) {
+  const proof = {
+    "@context": unsigned["@context"],
+    type: "DataIntegrityProof",
+    cryptosuite: "eddsa-jcs-2022",
+    created: unsigned.validFrom,
+    verificationMethod: `${guild.did}#${guild.did.slice(8)}`,
+    proofPurpose: "assertionMethod",
+  };
+  const hashData = Buffer.concat([
+    createHash("sha256").update(Buffer.from(canon(proof), "utf8")).digest(),
+    createHash("sha256").update(Buffer.from(canon(unsigned), "utf8")).digest(),
+  ]);
+  const signature = await guild.sign(hashData);
+  return { ...unsigned, proof: { ...proof, proofValue: "z" + b58encode(signature) } };
 }
 
 const credential = await signed({
@@ -109,4 +147,117 @@ const unpaid = await createAgentGuildFundPolicy({
 assert.equal(unpaid.allow, false);
 assert.match(unpaid.reason, /requires payment/);
 
-console.log("virtuals ACP fund policy: signed allow, tamper, and unpaid paths ok");
+const paymentContext = {
+  chainId: 8453,
+  jobId: 42n,
+  providerAddress: address,
+  amount: { address: asset, rawAmount: 25000n },
+  job: { description: "fact-check" },
+};
+
+async function decisionFor(body, mutate = null) {
+  const subject = {
+    id: "did:key:zProvider",
+    contract: "AGPD-1/1.0",
+    payment: body.payment,
+    counterparty: {
+      resolution_status: "bound_registered",
+      agent: {
+        id: "agent_provider",
+        did: "did:key:zProvider",
+        capabilities: ["fact-check"],
+      },
+    },
+    policy: {
+      effective: {
+        max_risk: Math.min(body.policy.max_risk, 32.99),
+        min_confidence: Math.max(body.policy.min_confidence, 0.5),
+      },
+    },
+    decision: "allow",
+    reason: "exact signed allow",
+  };
+  if (mutate) mutate(subject);
+  return secure({
+    "@context": ["https://www.w3.org/ns/credentials/v2"],
+    id: "urn:agent-guild:payment-decision:acp-test",
+    type: ["VerifiableCredential", "AgentGuildPaymentDecision"],
+    issuer: guild.did,
+    validFrom: "2026-08-07T11:59:00.000Z",
+    validUntil: "2026-08-07T12:04:00.000Z",
+    credentialSubject: subject,
+  });
+}
+
+const issuerFetch = async url => {
+  assert.equal(new URL(url).pathname, "/.well-known/agent-guild-did.json");
+  return response({ did: guild.did });
+};
+let paymentDecisionCalls = 0;
+const decisionFetch = async (url, init) => {
+  paymentDecisionCalls += 1;
+  assert.equal(new URL(url).pathname, "/wallet-binding/decision");
+  const body = JSON.parse(init.body);
+  return response(await decisionFor(body));
+};
+
+const paymentPolicy = createAgentGuildAcpPaymentPolicy({
+  host: "https://guild.example",
+  fetchImpl: issuerFetch,
+  meteredFetch: decisionFetch,
+  resource: context => `https://acp.example/jobs/${context.jobId}`,
+  capability: "fact-check",
+  maxRisk: 40,
+  minConfidence: 0.7,
+  now: () => asOf,
+});
+const paymentAllowed = await paymentPolicy(paymentContext);
+assert.equal(paymentAllowed.allow, true);
+assert.equal(paymentAllowed.evidence.decision.credentialSubject.payment.amount, "25000");
+assert.equal(paymentDecisionCalls, 1);
+
+const tamperedPayment = await createAgentGuildAcpPaymentPolicy({
+  host: "https://guild.example",
+  fetchImpl: issuerFetch,
+  meteredFetch: async (_url, init) => {
+    const body = JSON.parse(init.body);
+    return response(await decisionFor(
+      body, subject => { subject.payment.amount = "25001"; }));
+  },
+  resource: "https://acp.example/jobs/42",
+  now: () => asOf,
+})(paymentContext);
+assert.equal(tamperedPayment.allow, false);
+assert.match(tamperedPayment.reason, /invalid, stale, inexact/);
+
+let shouldNotPay = 0;
+const missingResource = await createAgentGuildAcpPaymentPolicy({
+  fetchImpl: issuerFetch,
+  meteredFetch: async () => { shouldNotPay += 1; return response({}); },
+})(paymentContext);
+assert.equal(missingResource.allow, false);
+assert.match(missingResource.reason, /resource must resolve/);
+assert.equal(shouldNotPay, 0);
+
+const unpaidDecision = await createAgentGuildAcpPaymentPolicy({
+  host: "https://guild.example",
+  fetchImpl: issuerFetch,
+  meteredFetch: async () => response({ error: "payment required" }, 402),
+  resource: "https://acp.example/jobs/42",
+  now: () => asOf,
+})(paymentContext);
+assert.equal(unpaidDecision.allow, false);
+assert.match(unpaidDecision.reason, /requires payment/);
+
+assert.throws(
+  () => createAgentGuildAcpPaymentPolicy({
+    fetchImpl: decisionFetch,
+    meteredFetch: decisionFetch,
+    resource: "https://acp.example/jobs/42",
+  }),
+  /separate unguarded x402 transport/
+);
+
+console.log(
+  "virtuals ACP fund policy: signed identity/risk and exact AGPD-1 paths ok"
+);
