@@ -55,6 +55,10 @@ def test_sdk_and_spec_served_from_public_service_not_private_repo():
     x402_policy = client.get("/sdk/integrations/x402_payment_policy.mjs")
     assert x402_policy.status_code == 200
     assert "createAgentGuildX402PaymentPolicy" in x402_policy.text
+    payan_policy = client.get(
+        "/sdk/integrations/payanagent_payment_policy.mjs")
+    assert payan_policy.status_code == 200
+    assert "createPaymentPolicy" in payan_policy.text
     assert "verifyMachineEnvelope" in mjs.text
     buyer = client.get("/sdk/agentguild_envelope_client.mjs")
     assert buyer.status_code == 200
@@ -92,6 +96,9 @@ def test_for_agents_is_served_publicly_and_self_contained():
         integrations["x402"]["protected_value_factory"]
     assert integrations["virtuals_acp"]["protected_decision"] == \
         "/wallet-binding/protected-decision"
+    assert integrations["payanagent_mcp"]["source"] == \
+        "/sdk/integrations/payanagent_payment_policy.mjs"
+    assert integrations["payanagent_mcp"]["default_mode"] == "protected"
 
 
 def test_standard_endpoint_is_machine_readable():
