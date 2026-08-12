@@ -2539,6 +2539,38 @@ def _passport_offer_block(surface: str) -> dict[str, Any]:
     }
 
 
+@app.head("/check")
+def check_discovery_quote(
+    capability: str = Query(..., description="Capability to vet before delegating"),
+    signed: bool = Query(False, description="Quote a signed AGD-1 decision"),
+    ttl_seconds: int = Query(3600, ge=60, le=604800,
+                             description="Validity window for signed decisions"),
+):
+    """Non-executable x402 discovery quote for registry health probes.
+
+    Some machine directories use ``HEAD`` to establish that a paid ``GET``
+    resource is live.  The quote deliberately names the canonical ``GET``
+    request and never enters the authorization/settlement gateway, records
+    demand, or returns protected content.  A payment-bearing ``HEAD`` retry is
+    therefore still only a quote and cannot settle funds.
+    """
+    preq = payments.check_request(capability, signed, ttl_seconds)
+    challenge = PaymentChallenge(preq, extra={
+        "discovery_only": True,
+        "executable": False,
+        "detail": ("Registry health quote only. Execute and pay the exact "
+                   "GET resource named in PAYMENT-REQUIRED; HEAD never "
+                   "settles or returns the trust decision."),
+    })
+    try:
+        headers = {x402.PAYMENT_REQUIRED_HEADER: challenge.header_value()}
+    except Exception:  # never mask the quote when header serialization fails
+        headers = {}
+    # Do not use _challenge_http here: a registry liveness probe is not a
+    # commercial offer impression and must not affect conversion analytics.
+    raise HTTPException(402, challenge.body, headers=headers)
+
+
 @app.get("/check")
 def check(
     request: Request,
