@@ -361,6 +361,12 @@ def resource_info(preq: "PaidRequest") -> ResourceInfo:
         description=(f"Agent Guild paid read ({preq.operation}): "
                      + operation_label(preq.operation)),
         mime_type="application/json",
+        # These official x402 v2 fields are carried into CDP Bazaar after an
+        # independent settlement.  Without them the resource is searchable
+        # only by its long description and appears as an unnamed merchant.
+        service_name="Agent Guild",
+        tags=list(_BAZAAR_TAGS.get(preq.operation, _BAZAAR_DEFAULT_TAGS)),
+        icon_url=public_host() + "/badge.svg",
     )
 
 
@@ -369,6 +375,43 @@ def resource_info(preq: "PaidRequest") -> ResourceInfo:
 # catalogues can index the Guild's paid trust operations without a human.
 _BAZAAR_OUTPUT = {
     "best_agent": {"verdict": "hire", "best": {"agent_id": "…", "score": 0.93}},
+    "signed_decision": {
+        "type": "AgentGuildDecision",
+        "contract": "AGD-1/1.0",
+        "issuer": "did:key:z6MkExampleAgentGuildIssuer",
+        "capability": "fact-check",
+        "status": "supply",
+        "issued_at": "2026-08-12T08:00:00+00:00",
+        "valid_until": "2026-08-12T09:00:00+00:00",
+        "decision": {
+            "contract": "AGD-1/1.0",
+            "agent_id": "agent_example",
+            "estimate": 0.93,
+            "confidence": 0.82,
+            "reachability_status": "recently_reachable",
+            "recommended_for_routing": True,
+        },
+        "routing": {
+            "routable": True,
+            "provider_id": "agent_example",
+            "endpoint": "https://agent.example/a2a",
+            "reachability_status": "recently_reachable",
+        },
+        "checkpoint": {
+            "index": 123,
+            "published_at": "2026-08-12T07:55:00+00:00",
+            "head_hash": "sha256:example",
+        },
+        "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "verificationMethod": (
+                "did:key:z6MkExampleAgentGuildIssuer#z6MkExampleAgentGuildIssuer"
+            ),
+            "proofPurpose": "assertionMethod",
+            "proofValue": "zExampleEd25519Signature",
+        },
+    },
     "reputation": {"score": 0.9, "confidence": 0.8},
     "evidence": {"attestations": [], "receipts": []},
     "risk_score": {"risk": 12, "recommendation": "hire"},
@@ -379,14 +422,68 @@ _BAZAAR_OUTPUT = {
     "fraud_check": {"suspicion": 0.02, "flags": []},
 }
 
+_BAZAAR_DEFAULT_TAGS = ("agent-trust", "agent-security", "x402")
+_BAZAAR_TAGS = {
+    "best_agent": (
+        "agent-trust", "agent-routing", "delegation", "reputation", "x402"),
+    "signed_decision": (
+        "agent-trust", "agent-reputation", "signed-proof", "delegation", "x402"),
+    "payment_decision": (
+        "payment-policy", "wallet-security", "agent-payments", "signed-proof", "x402"),
+    "machine_envelope": (
+        "signed-message", "agent-comms", "provenance", "integrity", "x402"),
+    "deep_preflight": (
+        "endpoint-security", "agent-trust", "preflight", "risk", "x402"),
+    "evidence_bundle": (
+        "signed-proof", "evidence", "agent-trust", "provenance", "x402"),
+}
+
+_BAZAAR_OUTPUT_SCHEMAS = {
+    "signed_decision": {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "const": "AgentGuildDecision"},
+            "contract": {"type": "string", "const": "AGD-1/1.0"},
+            "issuer": {"type": "string", "pattern": "^did:key:"},
+            "capability": {"type": "string"},
+            "status": {"type": "string"},
+            "issued_at": {"type": "string", "format": "date-time"},
+            "valid_until": {"type": "string", "format": "date-time"},
+            "decision": {"type": ["object", "null"]},
+            "routing": {"type": "object"},
+            "checkpoint": {"type": "object"},
+            "proof": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "const": "DataIntegrityProof"},
+                    "cryptosuite": {"type": "string", "const": "eddsa-jcs-2022"},
+                    "proofValue": {"type": "string"},
+                },
+                "required": ["type", "cryptosuite", "proofValue"],
+            },
+        },
+        "required": [
+            "type", "contract", "issuer", "capability", "status",
+            "issued_at", "valid_until", "decision", "routing",
+            "checkpoint", "proof",
+        ],
+    },
+}
+
 
 def bazaar_extension(preq: "PaidRequest") -> dict[str, Any]:
     query = dict(preq.query)
+    output: dict[str, Any] = {
+        "type": "json",
+        "example": _BAZAAR_OUTPUT.get(preq.operation, {}),
+    }
+    output_schema = _BAZAAR_OUTPUT_SCHEMAS.get(preq.operation)
+    if output_schema:
+        output["schema"] = output_schema
     info: dict[str, Any] = {
         "input": {"type": "http", "method": preq.method,
                   **({"queryParams": query} if query else {})},
-        "output": {"type": "json",
-                   "example": _BAZAAR_OUTPUT.get(preq.operation, {})},
+        "output": output,
     }
     schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -405,7 +502,8 @@ def bazaar_extension(preq: "PaidRequest") -> dict[str, Any]:
             "output": {
                 "type": "object",
                 "properties": {"type": {"type": "string"},
-                               "example": {"type": "object"}},
+                               "example": {"type": "object"},
+                               "schema": {"type": "object"}},
                 "required": ["type"],
             },
         },

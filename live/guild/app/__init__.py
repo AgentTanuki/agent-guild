@@ -3,7 +3,11 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.6"   # PATCH (machine-visible semver, 2026-08-10):
+__version__ = "2.1.7"   # PATCH (machine-visible semver, 2026-08-12):
+                        # publishes named, intent-tagged x402 resource metadata
+                        # and a truthful AGD-1 output contract for autonomous
+                        # buyer discovery in Coinbase Bazaar after settlement.
+                        # History of 2.1.6 (2026-08-10):
                         # makes the Virtuals ACP adapter purchase and locally
                         # verify one AGPD-1 decision bound to the exact provider,
                         # chain, token, atomic amount and job URL before fund();
