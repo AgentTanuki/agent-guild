@@ -13,6 +13,7 @@ import {
   issueMachineEnvelope,
   machineEnvelopeMarketplaceInput,
   signedDecisionMarketplaceInput,
+  paymentDecisionMarketplaceInput,
 } from "../../../sdk/agentguild_envelope_client.mjs";
 
 const caller = didKeySigner("11".repeat(32));
@@ -178,6 +179,37 @@ assert.equal(decisionInput.caller_proof.payload.resource, "/check/decision");
 assert.equal(
   decisionInput.caller_proof.payload.body_sha256,
   createHash("sha256").update(canon(decisionInput.request)).digest("hex"),
+);
+
+const paymentDecisionInput = await paymentDecisionMarketplaceInput({
+  signer: caller,
+  host: "https://agent-guild.example",
+  payanOfferId: "kh_payment_decision_0001",
+  payment: {
+    scheme: "exact",
+    network: "eip155:8453",
+    asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    amount: "25000",
+    pay_to: "0x1111111111111111111111111111111111111111",
+    resource: "https://seller.example/work/42",
+  },
+  capability: "code-review",
+  policy: { max_risk: 25, min_confidence: 0.8 },
+  ttlSeconds: 300,
+  proofNonce: "payment-decision-proof-0001",
+  now: new Date("2026-08-07T10:00:00Z"),
+});
+assert.equal(
+  paymentDecisionInput.request.x402_resource_url,
+  "https://payanagent.com/x402/kh_payment_decision_0001",
+);
+assert.equal(
+  paymentDecisionInput.caller_proof.payload.resource,
+  "/wallet-binding/decision",
+);
+assert.equal(
+  paymentDecisionInput.caller_proof.payload.body_sha256,
+  createHash("sha256").update(canon(paymentDecisionInput.request)).digest("hex"),
 );
 
 const result = await issueMachineEnvelope({

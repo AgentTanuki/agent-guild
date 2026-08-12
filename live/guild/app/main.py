@@ -63,6 +63,7 @@ from . import demand
 from . import market
 from . import walletbinding
 from . import paymentdecision
+from . import marketpaymentdecision
 from . import trustdecision
 from . import x402
 from . import payments
@@ -1799,8 +1800,9 @@ def wallet_binding_status(credential_id: str):
 
 
 @app.post("/wallet-binding/decision")
-def wallet_payment_decision(body: dict[str, Any], response: Response,
-                            x_api_key: Optional[str] = Header(None)):
+async def wallet_payment_decision(
+        request: Request, body: dict[str, Any], response: Response,
+        x_api_key: Optional[str] = Header(None)):
     """PAID signed decision for the exact payment a wallet is about to make.
 
     The credential binds payee, CAIP-2 network, asset, atomic amount, resource,
@@ -1810,14 +1812,70 @@ def wallet_payment_decision(body: dict[str, Any], response: Response,
     POST, then verify the ``eddsa-jcs-2022`` proof offline before it signs the
     protected payment.
     """
+    wrapper_fields = {callerproof.HTTP_BODY_REQUEST_KEY,
+                      callerproof.HTTP_BODY_PROOF_KEY}
+    marketplace = set(body) == wrapper_fields
+    marketplace_discovery = (
+        not body and not _xpay_sig.get() and not _xpay_v1.get()
+        and not x_api_key and billing.billing_enforced() and x402.enabled())
+    caller_did = ""
+    relay_url = None
+    semantic = body
+    marketplace_candidate = (
+        marketplace or bool(set(body) & wrapper_fields)
+        or (not body and bool(_xpay_sig.get() or _xpay_v1.get()))
+        or marketplace_discovery)
+    if marketplace_candidate:
+        will_execute = bool(_xpay_sig.get() or x_api_key
+                            or not billing.billing_enforced())
+        verified, caller_did, semantic = _verify_marketplace_body_caller_proof(
+            request, body, mark_nonce=will_execute)
+        if not verified:
+            if marketplace_discovery:
+                challenge = PaymentChallenge(
+                    payments.payment_decision_request("discovery-only"), extra={
+                        "discovery_only": True,
+                        "executable": False,
+                        "detail": (
+                            "Registry quote only. To execute, send strict JSON "
+                            "{request, caller_proof}; the proof binds POST "
+                            "/wallet-binding/decision and RFC 8785 JCS(request). "
+                            "An unsigned payment retry is rejected before "
+                            "settlement."),
+                        "client": "/sdk/agentguild_envelope_client.mjs",
+                    })
+                try:
+                    headers = {x402.PAYMENT_REQUIRED_HEADER:
+                               challenge.header_value()}
+                except Exception:
+                    headers = {}
+                raise HTTPException(402, challenge.body, headers=headers)
+            raise HTTPException(401, {
+                "error": "verified_caller_proof_required",
+                "detail": (
+                    "send strict JSON {request, caller_proof}; the proof must "
+                    "bind POST /wallet-binding/decision and RFC 8785 "
+                    "JCS(request)"),
+                "billing": "NOT CHARGED",
+                "caller_proof": "/caller-proof",
+            })
     try:
-        digest = paymentdecision.request_sha256(body)
-        decision = paymentdecision.issue(store, body)
-    except paymentdecision.PaymentDecisionRefused as exc:
+        if marketplace:
+            normalized = marketpaymentdecision.normalise_request(semantic)
+            digest = marketpaymentdecision.request_sha256(
+                semantic, caller_did)
+            decision_request = marketpaymentdecision.agpd_request(semantic)
+            relay_url = normalized["x402_resource_url"]
+        else:
+            digest = paymentdecision.request_sha256(semantic)
+            decision_request = semantic
+        decision = paymentdecision.issue(store, decision_request)
+    except (paymentdecision.PaymentDecisionRefused,
+            marketpaymentdecision.MarketplacePaymentDecisionRefused) as exc:
         raise HTTPException(422, {
             "error": exc.code, "detail": str(exc),
             "billing": "NOT CHARGED — no complete signed decision was issued"})
-    preq = payments.payment_decision_request(digest)
+    preq = payments.payment_decision_request(digest, relay_url)
     quoted = preq.cost
     facts = meter(preq, x_api_key, response)
     subject = decision.get("credentialSubject") or {}
@@ -1825,7 +1883,9 @@ def wallet_payment_decision(body: dict[str, Any], response: Response,
     store.record_event(
         creds.sanitize_actor_key(x_api_key) if x_api_key else None,
         "payment_decision_issued", ua=_ua.get(),
-        endpoint="wallet_payment_decision", transport="http",
+        endpoint="wallet_payment_decision",
+        transport=("http-marketplace" if marketplace else "http"),
+        caller_did=caller_did or None,
         request_sha256=digest, network=payment.get("network"),
         decision=subject.get("decision"),
         counterparty_agent_id=((subject.get("counterparty") or {})
@@ -2955,6 +3015,8 @@ def _manifest() -> dict:
                 },
                 "x402": {
                     "source": "/sdk/integrations/x402_payment_policy.mjs",
+                    "marketplace_client": "/sdk/agentguild_envelope_client.mjs",
+                    "marketplace_factory": "paymentDecisionMarketplaceInput",
                     "factory": "createAgentGuildX402PaymentPolicy({meteredFetch})",
                     "operation": "client.onBeforePaymentCreation(policy)",
                     "decision": "/wallet-binding/decision",

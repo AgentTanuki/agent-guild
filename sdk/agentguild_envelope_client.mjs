@@ -406,6 +406,57 @@ export async function signedDecisionMarketplaceInput({
   };
 }
 
+/**
+ * Build one marketplace-safe AGPD-1 payment decision request. The buyer proof
+ * binds every payment/policy field plus the exact Payan buy URL before the
+ * marketplace can ask the wallet to settle the $0.01 decision fee.
+ */
+export async function paymentDecisionMarketplaceInput({
+  signer,
+  host = DEFAULT_HOST,
+  paymentResourceUrl,
+  payanOfferId,
+  payment,
+  capability,
+  policy,
+  ttlSeconds = 300,
+  proofTtlSeconds = 300,
+  proofNonce: nonce,
+  now,
+}) {
+  if (!payment || typeof payment !== "object" || Array.isArray(payment)) {
+    throw new TypeError("payment is required");
+  }
+  const ttl = Math.trunc(Number(ttlSeconds));
+  if (!Number.isFinite(ttl) || ttl < 60 || ttl > 3600) {
+    throw new RangeError("ttlSeconds must be 60..3600");
+  }
+  const relayResource = payanRelayResource({
+    paymentResourceUrl, payanOfferId,
+  });
+  const endpoint = new URL("/wallet-binding/decision", host);
+  const request = {
+    payment: { ...payment },
+    ttl_seconds: ttl,
+    x402_resource_url: relayResource,
+  };
+  if (capability !== undefined) request.capability = capability;
+  if (policy !== undefined) request.policy = { ...policy };
+  const proof = await createCallerProof({
+    signer,
+    method: "POST",
+    resource: endpoint.pathname + endpoint.search,
+    body: canon(request),
+    ttlSeconds: proofTtlSeconds,
+    nonce,
+    now,
+  });
+  return {
+    [MARKETPLACE_REQUEST_FIELD]: request,
+    [MARKETPLACE_PROOF_FIELD]: proof,
+  };
+}
+
 export class MachineEnvelopePurchaseError extends Error {
   constructor(message, { status = 0, detail = null } = {}) {
     super(message);
