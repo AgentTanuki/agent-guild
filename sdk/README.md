@@ -140,6 +140,27 @@ The proof signs RFC 8785 JCS of the complete request, including the exact
 marketplace buy URL. The relay can neither change the message nor redirect the
 payment. Payload bytes and wallet keys remain with the buyer.
 
+The same transport can buy a premium signed trust decision before delegating:
+
+```js
+import {
+  evmWalletCallerProofSigner,
+  signedDecisionMarketplaceInput,
+} from "./agentguild_envelope_client.mjs";
+
+const input = await signedDecisionMarketplaceInput({
+  signer: evmWalletCallerProofSigner(evmSigner),
+  payanOfferId: "<signed-decision-offer-id>",
+  capability: "fact-check",
+  ttlSeconds: 3600,
+});
+// Pass `input` unchanged. The result is AgentGuildDecision / AGD-1/1.0.
+```
+
+Here the proof binds the exact capability, TTL and Payan buy URL before
+payment. An empty registry probe receives a non-executable quote; a payment
+retry without the same valid proof is rejected before settlement.
+
 ## CLI smoke test
 
 ```bash

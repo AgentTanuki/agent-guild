@@ -82,9 +82,10 @@ class PaidRequest:
     path: str                            # concrete path — real ids, no templates
     query: tuple[tuple[str, str], ...] = ()
     # A marketplace relay may rewrite the v2 resource echo to its own stable
-    # buy URL. Only machine envelopes support this, and only for PayanAgent's
-    # canonical HTTPS /x402/<offer-id> route. The caller proof signs the same
-    # URL inside the semantic request before this object is constructed.
+    # buy URL. Only caller-proof-authenticated marketplace operations support
+    # this, and only for PayanAgent's canonical HTTPS /x402/<offer-id> route.
+    # The caller proof signs the same URL inside the semantic request before
+    # this object is constructed.
     resource_url_override: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -94,7 +95,7 @@ class PaidRequest:
         parsed = urlsplit(override)
         offer_id = parsed.path.removeprefix("/x402/")
         valid = (
-            self.operation == "machine_envelope"
+            self.operation in ("machine_envelope", "signed_decision")
             and parsed.scheme == "https"
             and parsed.netloc == "payanagent.com"
             and parsed.path == f"/x402/{offer_id}"
@@ -104,8 +105,8 @@ class PaidRequest:
         if not valid:
             raise ValueError(
                 "resource_url_override must be the canonical PayanAgent "
-                "https://payanagent.com/x402/<offer-id> URL for a machine "
-                "envelope")
+                "https://payanagent.com/x402/<offer-id> URL for a supported "
+                "caller-proof-authenticated marketplace operation")
 
     @staticmethod
     def build(operation: str, method: str, path: str,
@@ -212,6 +213,21 @@ def check_request(capability: str, signed: bool = False,
     operation = "signed_decision" if signed else "best_agent"
     return PaidRequest.build(operation, "GET", "/check", {
         "capability": capability, "signed": signed, "ttl_seconds": ttl_seconds})
+
+
+def marketplace_signed_decision_request(
+        request_sha256: str, x402_resource_url: Optional[str] = None
+        ) -> PaidRequest:
+    """Paid caller-bound AGD-1 decision for JSON-only marketplaces.
+
+    The executable request body is authenticated separately.  Settlement uses
+    only its opaque digest, unless an exact caller-signed Payan buy URL is
+    supplied for a verified non-custodial relay.
+    """
+    q = tuple(sorted({"request_sha256": str(request_sha256)}.items()))
+    return PaidRequest(
+        operation="signed_decision", method="POST", path="/check/decision",
+        query=q, resource_url_override=x402_resource_url)
 
 
 def deep_preflight_request(url: str) -> PaidRequest:
