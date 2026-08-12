@@ -9,6 +9,15 @@ import {
   verifyCredential,
   verifyJcsDocument,
 } from "../agentguild_verify.mjs";
+import {
+  CALLER_PROOF_HEADER,
+  createCallerProof,
+  encodeCallerProof,
+  evmWalletCallerProofSigner,
+} from "../agentguild_envelope_client.mjs";
+import {
+  expectedProtectedDecisionFeeCredits,
+} from "./x402_payment_policy.mjs";
 
 const NETWORK_BY_CHAIN = new Map([
   [8453, "eip155:8453"],
@@ -84,6 +93,9 @@ export function createAgentGuildAcpPaymentPolicy({
   pinIssuer = true,
   now = () => new Date(),
   onDecision = null,
+  protectedValue = false,
+  evmSigner = null,
+  maxDecisionFeeCredits = 10_000_000,
 } = {}) {
   if (typeof fetchImpl !== "function") {
     throw new TypeError("fetchImpl must be a function");
@@ -99,6 +111,15 @@ export function createAgentGuildAcpPaymentPolicy({
       "meteredFetch must be a separate unguarded x402 transport to avoid recursion"
     );
   }
+  if (protectedValue && !evmSigner) {
+    throw new TypeError("evmSigner is required for protectedValue payer continuity");
+  }
+  if (protectedValue && typeof meteredFetch !== "function") {
+    throw new TypeError("protectedValue requires meteredFetch; API keys cannot buy this mainnet-only product");
+  }
+  const callerSigner = protectedValue
+    ? evmWalletCallerProofSigner(evmSigner)
+    : null;
   const base = normalizeHost(host);
 
   return async function agentGuildAcpPaymentPolicy(context) {
@@ -135,14 +156,35 @@ export function createAgentGuildAcpPaymentPolicy({
         },
         ttl_seconds: Number(ttlSeconds),
       };
+      if (protectedValue) {
+        const expectedFee = expectedProtectedDecisionFeeCredits(expected.amount);
+        if (expectedFee > Number(maxDecisionFeeCredits)) {
+          return {
+            allow: false,
+            reason: "protected-value decision fee exceeds maxDecisionFeeCredits",
+          };
+        }
+      }
       const headers = {
         accept: "application/json",
         "content-type": "application/json",
       };
       if (apiKey) headers["X-API-Key"] = apiKey;
+      const endpointPath = protectedValue
+        ? "/wallet-binding/protected-decision"
+        : "/wallet-binding/decision";
+      if (callerSigner) {
+        const proof = await createCallerProof({
+          signer: callerSigner,
+          method: "POST",
+          resource: endpointPath,
+          body: JSON.stringify(body),
+        });
+        headers[CALLER_PROOF_HEADER] = encodeCallerProof(proof);
+      }
       const decision = await getJson(
         decisionFetch,
-        `${base}/wallet-binding/decision`,
+        `${base}${endpointPath}`,
         { method: "POST", headers, body: JSON.stringify(body) },
         "Agent Guild signed ACP funding decision"
       );
@@ -170,12 +212,31 @@ export function createAgentGuildAcpPaymentPolicy({
       const capabilityExact = requestedCapability
         ? subject?.counterparty?.agent?.capabilities?.includes(requestedCapability)
         : true;
+      const expectedFeeCredits = protectedValue
+        ? expectedProtectedDecisionFeeCredits(expected.amount)
+        : null;
+      const protection = subject?.protection || {};
+      const protectionExact = !protectedValue || (
+        protection.contract === "agent-guild/protected-value-policy/v1"
+        && protection?.pricing?.contract === "agent-guild/protected-value-pricing/v1"
+        && protection?.pricing?.basis_points === 25
+        && protection?.pricing?.minimum_fee_credits === 10
+        && protection?.pricing?.maximum_fee_credits === 10_000_000
+        && protection?.pricing?.fee_credits === expectedFeeCredits
+        && protection?.pricing?.protected_amount_atomic === expected.amount
+        && protection?.service_client?.caller_did === callerSigner.did
+        && protection?.service_client?.payer_eoa === evmSigner.address.toLowerCase()
+        && protection?.reachability?.recommended_for_routing === true
+        && protection?.value_at_risk?.tiers?.[protection.required_value_tier] === true
+      );
       const permitted = proofValid && fresh && exact && policyExact
         && capabilityExact && subject.contract === "AGPD-1/1.0"
+        && protectionExact
         && subject.decision === "allow";
       if (typeof onDecision === "function") await onDecision(decision, context);
       const sealedBlock = proofValid && fresh && exact && policyExact
         && capabilityExact && subject.contract === "AGPD-1/1.0"
+        && protectionExact
         && subject.decision !== "allow";
       return {
         allow: permitted,

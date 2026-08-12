@@ -26,7 +26,8 @@ from app.store import Store  # noqa: E402
 
 client = TestClient(app)
 
-PAID_OPS = {"machine_envelope", "payment_decision", "deep_preflight",
+PAID_OPS = {"machine_envelope", "payment_decision",
+            "protected_payment_decision", "deep_preflight",
             "evidence_bundle", "watch_cycle"}
 
 
@@ -35,7 +36,15 @@ def test_catalog_prices_come_from_the_gateway_not_a_copy(monkeypatch):
     ops = {o["operation"]: o for o in paidcatalog.operations()}
     assert set(ops) == PAID_OPS
     for name, op in ops.items():
-        assert op["price_credits"] == pricing.price(name)
+        if name == "protected_payment_decision":
+            # Discovery carries the deterministic minimum; the exact body-
+            # derived fee is quoted by the shared gateway and published in
+            # dynamic_price. It is deliberately not in pricing.DEFAULTS.
+            assert op["price_credits"] == 10
+            assert op["dynamic_price"]["basis_points"] == 25
+            assert op["dynamic_price"]["immutable"] is True
+        else:
+            assert op["price_credits"] == pricing.price(name)
         assert op["free_alternative"], f"{name} must name a free alternative"
         # NOTE: resource/route correctness is asserted in
         # tests/test_paid_catalog_binding.py against payments.*_request and the

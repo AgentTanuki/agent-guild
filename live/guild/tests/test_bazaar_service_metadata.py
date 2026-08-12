@@ -1,6 +1,10 @@
 """High-quality x402 Bazaar metadata for autonomous buyers."""
 from app import x402
-from app.payments import check_request, payment_decision_request
+from app import protecteddecision
+from app.payments import (
+    check_request, payment_decision_request,
+    protected_payment_decision_request,
+)
 from x402.extensions.bazaar import (
     extract_discovery_info_from_extension,
     validate_discovery_extension,
@@ -55,3 +59,15 @@ def test_other_paid_products_receive_operation_specific_tags_without_schema_drif
     output = x402.bazaar_extension(ordinary)["info"]["output"]
     assert output["example"]["verdict"] == "hire"
     assert "schema" not in output
+
+
+def test_protected_value_decision_has_value_at_risk_discovery_metadata():
+    preq = protected_payment_decision_request(
+        "a" * 64, protecteddecision.discovery_quote())
+    info = x402.resource_info(preq)
+    assert {"payment-policy", "value-at-risk", "x402"} <= set(info.tags)
+    extension = x402.bazaar_extension(preq)
+    protection = extension["info"]["output"]["example"][
+        "credentialSubject"]["protection"]
+    assert protection["contract"] == "agent-guild/protected-value-policy/v1"
+    assert protection["pricing"]["basis_points"] == 25

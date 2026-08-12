@@ -419,6 +419,17 @@ _BAZAAR_OUTPUT = {
         "type": ["VerifiableCredential", "AgentGuildPaymentDecision"],
         "credentialSubject": {"contract": "AGPD-1/1.0", "decision": "allow"},
     },
+    "protected_payment_decision": {
+        "type": ["VerifiableCredential", "AgentGuildPaymentDecision"],
+        "credentialSubject": {
+            "contract": "AGPD-1/1.0", "decision": "allow",
+            "protection": {
+                "contract": "agent-guild/protected-value-policy/v1",
+                "required_value_tier": "high",
+                "pricing": {"basis_points": 25, "fee_credits": 2500},
+            },
+        },
+    },
     "fraud_check": {"suspicion": 0.02, "flags": []},
 }
 
@@ -430,6 +441,8 @@ _BAZAAR_TAGS = {
         "agent-trust", "agent-reputation", "signed-proof", "delegation", "x402"),
     "payment_decision": (
         "payment-policy", "wallet-security", "agent-payments", "signed-proof", "x402"),
+    "protected_payment_decision": (
+        "payment-policy", "wallet-security", "value-at-risk", "agent-payments", "x402"),
     "machine_envelope": (
         "signed-message", "agent-comms", "provenance", "integrity", "x402"),
     "deep_preflight": (

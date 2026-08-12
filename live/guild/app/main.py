@@ -45,6 +45,7 @@ from . import billing
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from . import instanceid
 from . import preflight
+from . import protecteddecision
 from . import pricing
 from . import trustindex
 from . import indexops
@@ -1909,6 +1910,169 @@ def wallet_payment_decision_verify(body: dict[str, Any]):
     return paymentdecision.verify(decision, expected_request=expected)
 
 
+@app.get("/wallet-binding/protected-decision")
+def wallet_protected_payment_decision_schema():
+    """FREE machine-readable contract and deterministic fee schedule."""
+    return {
+        "contract": protecteddecision.CONTRACT,
+        "purpose": (
+            "a higher-assurance AGPD-1 decision for exact Base-mainnet USDC "
+            "payments: active wallet identity + current risk policy + fresh "
+            "verified routing + evidence depth appropriate to value at risk"),
+        "call": "POST /wallet-binding/protected-decision",
+        "request": {
+            "payment": {
+                "scheme": "exact", "network": "eip155:8453",
+                "asset": protecteddecision.BASE_USDC,
+                "amount": "<positive atomic USDC integer>",
+                "pay_to": "<exact EVM payee>",
+                "resource": "<exact protected payment URL>",
+            },
+            "capability": "<optional required capability>",
+            "policy": {"max_risk": 32.99, "min_confidence": 0.5},
+            "ttl_seconds": 300,
+        },
+        "caller_proof": (
+            "required: Base-EVM EIP-191 proof over the exact request; the "
+            "same recovered EOA must fund the x402 service fee"),
+        "pricing": protecteddecision.schedule(),
+        "free_alternative": (
+            "POST /wallet-binding/decision for the ordinary low-cost AGPD-1 "
+            "policy; GET /wallet-binding/resolve for identity only"),
+        "verify": "POST /wallet-binding/protected-decision/verify",
+        "limits": (
+            "not insurance, escrow, delivery guarantee or refund guarantee"),
+    }
+
+
+@app.post("/wallet-binding/protected-decision")
+async def wallet_protected_payment_decision(
+        request: Request, body: dict[str, Any], response: Response):
+    """PAID value-based policy for one exact Base-mainnet USDC payment.
+
+    The result is produced before billing and every validation/signing failure
+    is free. A Base-EVM caller proof is mandatory and must recover the same EOA
+    that funds the x402 service fee, so cryptographically bound machine revenue
+    is the only executable path.
+    """
+    marketplace_fields = {callerproof.HTTP_BODY_REQUEST_KEY,
+                          callerproof.HTTP_BODY_PROOF_KEY}
+    marketplace = set(body) == marketplace_fields
+    proof_header = request.headers.get(callerproof.HTTP_HEADER.lower())
+    discovery = (
+        not body and not proof_header and not _xpay_sig.get()
+        and not _xpay_v1.get() and billing.billing_enforced() and x402.enabled())
+    will_execute = bool(_xpay_sig.get() or not billing.billing_enforced())
+    if proof_header:
+        raw = await request.body()
+        verified, caller_did = _verify_http_caller_proof(
+            request, body=raw, mark_nonce=will_execute)
+        semantic = body
+    else:
+        verified, caller_did, semantic = _verify_marketplace_body_caller_proof(
+            request, body, mark_nonce=will_execute)
+    if not verified:
+        if discovery:
+            discovery_quote = protecteddecision.discovery_quote()
+            challenge = PaymentChallenge(
+                payments.protected_payment_decision_request(
+                    "discovery-only", discovery_quote), extra={
+                        "discovery_only": True,
+                        "executable": False,
+                        "detail": (
+                            "Registry quote only. Execution requires strict "
+                            "JSON {request, caller_proof}; a Base-EVM EIP-191 "
+                            "proof must bind RFC 8785 JCS(request), and the "
+                            "same EOA must fund the x402 service fee."),
+                        "pricing": protecteddecision.schedule(),
+                        "schema": "/wallet-binding/protected-decision",
+                    })
+            try:
+                headers = {x402.PAYMENT_REQUIRED_HEADER:
+                           challenge.header_value()}
+            except Exception:
+                headers = {}
+            raise HTTPException(402, challenge.body, headers=headers)
+        raise HTTPException(401, {
+            "error": "verified_base_evm_caller_proof_required",
+            "detail": (
+                "present a Base-EVM EIP-191 caller proof bound to the exact "
+                "request; the recovered EOA must also fund the x402 fee"),
+            "billing": "NOT CHARGED",
+        })
+    if callerproof.evm_address_for_did(caller_did) is None:
+        raise HTTPException(401, {
+            "error": "base_evm_caller_proof_required",
+            "detail": "did:key proof is insufficient for payer continuity",
+            "billing": "NOT CHARGED",
+        })
+    if not marketplace:
+        # Exact-raw-body header proof is supported for direct clients. A Payan
+        # alias is intentionally unavailable here because only the strict
+        # marketplace normalizer can safely bind it into caller proof.
+        semantic_request = semantic
+        relay_url = None
+        try:
+            normalized = protecteddecision.normalise_request(semantic_request)
+            digest = protecteddecision.request_sha256(
+                semantic_request, caller_did)
+        except protecteddecision.ProtectedDecisionRefused as exc:
+            raise HTTPException(422, {
+                "error": exc.code, "detail": str(exc),
+                "billing": "NOT CHARGED"})
+    else:
+        try:
+            semantic_request = semantic
+            normalized = protecteddecision.normalise_request(semantic_request)
+            digest = protecteddecision.request_sha256(
+                semantic_request, caller_did)
+            # Dynamic value pricing cannot be truthfully represented by a
+            # fixed-price Payan listing. JSON-only buyers call this canonical
+            # route directly and pay the body-derived challenge.
+            relay_url = None
+        except (paymentdecision.PaymentDecisionRefused,
+                marketpaymentdecision.MarketplacePaymentDecisionRefused) as exc:
+            raise HTTPException(422, {
+                "error": getattr(exc, "code", "invalid_request"),
+                "detail": str(exc), "billing": "NOT CHARGED"})
+    try:
+        service_quote = protecteddecision.quote(semantic_request)
+        decision = paymentdecision.issue(
+            store, semantic_request,
+            policy_extension=lambda s, n, r, risk, prov:
+                protecteddecision.issue_extension(
+                    s, n, r, risk, prov, caller_did=caller_did))
+    except (paymentdecision.PaymentDecisionRefused,
+            protecteddecision.ProtectedDecisionRefused) as exc:
+        raise HTTPException(422, {
+            "error": getattr(exc, "code", "invalid_request"),
+            "detail": str(exc), "billing": "NOT CHARGED"})
+
+    preq = payments.protected_payment_decision_request(
+        digest, service_quote, relay_url)
+    facts = meter(preq, None, response)
+    subject = decision.get("credentialSubject") or {}
+    store.record_event(
+        None, "protected_payment_decision_issued", ua=_ua.get(),
+        endpoint="wallet_protected_payment_decision",
+        caller_did=caller_did, request_sha256=digest,
+        protected_amount_atomic=normalized["payment"]["amount"],
+        protected_value_tier=service_quote["protected_value_tier"],
+        price_credits=preq.cost, decision=subject.get("decision"),
+        paid=(facts["settlement_mode"] == "x402"), **facts)
+    return decision
+
+
+@app.post("/wallet-binding/protected-decision/verify")
+def wallet_protected_payment_decision_verify(body: dict[str, Any]):
+    """FREE verification of signature, exact request and exact service fee."""
+    decision = body.get("decision")
+    expected = body.get("request")
+    if not isinstance(decision, dict) or not isinstance(expected, dict):
+        raise HTTPException(422, "decision and request objects are required")
+    return protecteddecision.verify(decision, expected_request=expected)
+
+
 @app.post("/wallet-binding/revoke")
 def wallet_binding_revoke(body: dict):
     """Machine-executable, DID-signed revocation of a wallet-binding
@@ -2796,6 +2960,17 @@ def _manifest() -> dict:
                 "note": ("AGPD-1 signed allow/block bound to the exact payee, "
                          "chain, asset, atomic amount, resource and policy"),
             },
+            "protected_payment_decision": {
+                "method": "POST",
+                "path": "/wallet-binding/protected-decision",
+                "cost": "25 bps of exact protected Base-USDC value",
+                "minimum_usd": 0.01,
+                "maximum_usd": 10000,
+                "note": (
+                    "higher-assurance AGPD-1: exact wallet identity, current "
+                    "risk, fresh verified routing, value-tier evidence, and "
+                    "caller EOA == x402 payer before settlement"),
+            },
             "reputation": {"method": "GET", "path": "/agents/{id}/reputation", "cost_credits": PRICING["reputation"]},
             "fraud_check": {"method": "GET", "path": "/agents/{id}/flags", "cost_credits": PRICING["fraud_check"]},
             "register": {"method": "POST", "path": "/agents/register", "cost_credits": 0},
@@ -2921,7 +3096,8 @@ def _manifest() -> dict:
                                  f"{billing.TRIAL_CREDITS} sandbox credits "
                                  "(NOT money) — funds any priced read below"),
                 "credit_funded": sorted(PRICING),
-                "x402_funded": sorted(x402.EXAMPLE_RESOURCE_PATHS),
+                "x402_funded": sorted(set(x402.EXAMPLE_RESOURCE_PATHS) | {
+                    "protected_payment_decision"}),
             },
             "x402": {
                 "protocol": "x402",
@@ -3011,7 +3187,13 @@ def _manifest() -> dict:
                     "operation": "AcpAgent.create({fundPolicy})",
                     "decision": "/wallet-binding/decision",
                     "note": ("buy and locally verify one exact AGPD-1 credential "
-                             "before session.fund()"),
+                             "before session.fund(); set protectedValue:true "
+                             "and pass evmSigner for value-tier assurance"),
+                    "protected_value_factory": (
+                        "createAgentGuildAcpPaymentPolicy({meteredFetch, "
+                        "resource, protectedValue:true, evmSigner})"),
+                    "protected_decision": (
+                        "/wallet-binding/protected-decision"),
                 },
                 "x402": {
                     "source": "/sdk/integrations/x402_payment_policy.mjs",
@@ -3020,6 +3202,11 @@ def _manifest() -> dict:
                     "factory": "createAgentGuildX402PaymentPolicy({meteredFetch})",
                     "operation": "client.onBeforePaymentCreation(policy)",
                     "decision": "/wallet-binding/decision",
+                    "protected_value_factory": (
+                        "createAgentGuildX402PaymentPolicy({meteredFetch, "
+                        "protectedValue:true, evmSigner})"),
+                    "protected_decision": (
+                        "/wallet-binding/protected-decision"),
                 },
             },
             "badges": {"generic": "/badge.svg", "per_agent": "/agents/{id}/badge.svg"},
@@ -3157,7 +3344,8 @@ def for_agents():
         "  are held until the work is accepted, then released minus a small fee. Neither\n"
         "  side has to trust the other.\n"
         "- About to sign an x402 payment? Install /sdk/integrations/x402_payment_policy.mjs\n"
-        "  to buy and verify a short-lived signed decision for the exact transaction.\n"
+        "  to buy and verify a short-lived signed decision for the exact transaction;\n"
+        "  use protectedValue:true for value-tier evidence and live-routing assurance.\n"
         "- About to fund a Virtuals ACP job? Install /sdk/integrations/virtuals_acp_fund_policy.mjs\n"
         "  and use createAgentGuildAcpPaymentPolicy({meteredFetch, resource}) as fundPolicy.\n"
         "- Asked to prove you're trustworthy? Present your passport\n"
@@ -3233,6 +3421,10 @@ def get_standard():
             "verify": "POST /credentials/verify · MCP guild_verify",
             "payment_decision": "POST /wallet-binding/decision (signed AGPD-1) · "
                                 "free verify at /wallet-binding/decision/verify",
+            "protected_payment_decision": (
+                "POST /wallet-binding/protected-decision · value-based "
+                "Base-USDC assurance (25 bps, $0.01 floor, $10,000 cap) · "
+                "free verify at /wallet-binding/protected-decision/verify"),
             "evaluation": "GET /evaluation (provenance-labelled lift)",
             "escrow": "POST /escrow (fund) + /escrow/{id}/release (settle) · MCP "
                       "guild_escrow_open / guild_escrow_release — value-for-work with a "

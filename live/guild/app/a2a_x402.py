@@ -142,6 +142,12 @@ OPERATION_COPY: dict[str, str] = {
         "and resource, bound to active wallet identity, current risk evidence, "
         "explicit policy thresholds and an allow/block decision. The proof is "
         "portable and verifiable offline before any payment payload is signed."),
+    "protected_payment_decision": (
+        "Paying returns the higher-assurance AGPD-1 credential for an exact "
+        "Base-USDC payment: active wallet identity, current risk, fresh "
+        "verified routing and evidence depth appropriate to the exact value "
+        "at risk. The transparent fee is 25 basis points of protected value, "
+        "with a $0.01 floor and $10,000 ceiling."),
     "deep_preflight": (
         "Paying returns the DEEP endpoint trust check for the exact URL you "
         "named: every live check re-run at request time (does it complete a "
@@ -181,6 +187,10 @@ OPERATION_FREE_ALTERNATIVES: dict[str, str] = {
         "Free alternative: GET /wallet-binding/resolve for signed exact-wallet "
         "identity only, without the current risk evaluation or transaction-"
         "specific signed decision. Verification of an issued decision is free."),
+    "protected_payment_decision": (
+        "Free alternatives: GET /wallet-binding/resolve for identity only, "
+        "or the ordinary low-cost POST /wallet-binding/decision for routine "
+        "payments without the value-tier and fresh-routing gates."),
     "deep_preflight": (
         "Free alternatives: 'preflight: <url>' returns the live checks and "
         "verdict for the same endpoint at no cost; 'index' searches every "
@@ -212,6 +222,10 @@ OPERATION_LABEL: dict[str, str] = {
     "payment_decision": ("signed exact-payment wallet decision: payee, chain, "
                          "asset, amount and resource bound to current identity "
                          "and risk evidence before signing"),
+    "protected_payment_decision": (
+        "value-based exact-payment protection: Base-USDC amount, wallet "
+        "identity, current risk, fresh routing and evidence depth in one "
+        "signed pre-transfer decision"),
     "deep_preflight": ("deep endpoint trust check for one URL: live checks "
                        "plus drift history, corroboration and an "
                        "allow/caution/block policy verdict"),

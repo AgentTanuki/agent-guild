@@ -15,6 +15,12 @@ import {
   DEFAULT_HOST,
   verifyCredential,
 } from "../agentguild_verify.mjs";
+import {
+  CALLER_PROOF_HEADER,
+  createCallerProof,
+  encodeCallerProof,
+  evmWalletCallerProofSigner,
+} from "../agentguild_envelope_client.mjs";
 
 function normalizeHost(host) {
   return String(host || DEFAULT_HOST).replace(/\/$/, "");
@@ -53,6 +59,49 @@ function samePayment(actual, expected) {
     && actual?.resource === expected.resource;
 }
 
+export function expectedProtectedDecisionFeeCredits(amountAtomic, {
+  feeBps = 25,
+  minFeeCredits = 10,
+  maxFeeCredits = 10_000_000,
+} = {}) {
+  const amount = BigInt(amountAtomic);
+  const rawAtomic = (amount * BigInt(feeBps) + 9_999n) / 10_000n;
+  const rawCredits = (rawAtomic + 999n) / 1_000n;
+  return Number(
+    rawCredits < BigInt(minFeeCredits)
+      ? BigInt(minFeeCredits)
+      : rawCredits > BigInt(maxFeeCredits)
+        ? BigInt(maxFeeCredits)
+        : rawCredits
+  );
+}
+
+async function buyDecision({
+  base, endpointPath, decisionFetch, apiKey, body, callerSigner,
+}) {
+  const rawBody = JSON.stringify(body);
+  const headers = {
+    accept: "application/json",
+    "content-type": "application/json",
+  };
+  if (apiKey) headers["X-API-Key"] = apiKey;
+  if (callerSigner) {
+    const proof = await createCallerProof({
+      signer: callerSigner,
+      method: "POST",
+      resource: endpointPath,
+      body: rawBody,
+    });
+    headers[CALLER_PROOF_HEADER] = encodeCallerProof(proof);
+  }
+  return getJson(
+    decisionFetch,
+    `${base}${endpointPath}`,
+    { method: "POST", headers, body: rawBody },
+    "Agent Guild signed payment decision"
+  );
+}
+
 /**
  * Create an official x402 `onBeforePaymentCreation` hook.
  *
@@ -72,6 +121,9 @@ export function createAgentGuildX402PaymentPolicy({
   pinIssuer = true,
   now = () => new Date(),
   onDecision = null,
+  protectedValue = false,
+  evmSigner = null,
+  maxDecisionFeeCredits = 10_000_000,
 } = {}) {
   if (typeof fetchImpl !== "function") {
     throw new TypeError("fetchImpl must be a function");
@@ -88,6 +140,15 @@ export function createAgentGuildX402PaymentPolicy({
     );
   }
   const base = normalizeHost(host);
+  if (protectedValue && !evmSigner) {
+    throw new TypeError("evmSigner is required for protectedValue payer continuity");
+  }
+  if (protectedValue && typeof meteredFetch !== "function") {
+    throw new TypeError("protectedValue requires meteredFetch; API keys cannot buy this mainnet-only product");
+  }
+  const callerSigner = protectedValue
+    ? evmWalletCallerProofSigner(evmSigner)
+    : null;
 
   return async function agentGuildX402PaymentPolicy(context) {
     try {
@@ -125,17 +186,21 @@ export function createAgentGuildX402PaymentPolicy({
         },
         ttl_seconds: Number(ttlSeconds),
       };
-      const headers = {
-        accept: "application/json",
-        "content-type": "application/json",
-      };
-      if (apiKey) headers["X-API-Key"] = apiKey;
-      const decision = await getJson(
-        decisionFetch,
-        `${base}/wallet-binding/decision`,
-        { method: "POST", headers, body: JSON.stringify(body) },
-        "Agent Guild signed payment decision"
-      );
+      if (protectedValue) {
+        const expectedFee = expectedProtectedDecisionFeeCredits(expected.amount);
+        if (expectedFee > Number(maxDecisionFeeCredits)) {
+          return {
+            abort: true,
+            reason: "protected-value decision fee exceeds maxDecisionFeeCredits",
+          };
+        }
+      }
+      const endpointPath = protectedValue
+        ? "/wallet-binding/protected-decision"
+        : "/wallet-binding/decision";
+      const decision = await buyDecision({
+        base, endpointPath, decisionFetch, apiKey, body, callerSigner,
+      });
       const expectedIssuer = pinIssuer
         ? (await getJson(
             fetchImpl,
@@ -160,13 +225,32 @@ export function createAgentGuildX402PaymentPolicy({
       const capabilityExact = requestedCapability
         ? subject?.counterparty?.agent?.capabilities?.includes(requestedCapability)
         : true;
+      const expectedFeeCredits = protectedValue
+        ? expectedProtectedDecisionFeeCredits(expected.amount)
+        : null;
+      const protection = subject?.protection || {};
+      const protectionExact = !protectedValue || (
+        protection.contract === "agent-guild/protected-value-policy/v1"
+        && protection?.pricing?.contract === "agent-guild/protected-value-pricing/v1"
+        && protection?.pricing?.basis_points === 25
+        && protection?.pricing?.minimum_fee_credits === 10
+        && protection?.pricing?.maximum_fee_credits === 10_000_000
+        && protection?.pricing?.fee_credits === expectedFeeCredits
+        && protection?.pricing?.protected_amount_atomic === expected.amount
+        && protection?.service_client?.caller_did === callerSigner.did
+        && protection?.service_client?.payer_eoa === evmSigner.address.toLowerCase()
+        && protection?.reachability?.recommended_for_routing === true
+        && protection?.value_at_risk?.tiers?.[protection.required_value_tier] === true
+      );
       const permitted = proofValid && fresh && exact && policyExact
         && capabilityExact && subject.contract === "AGPD-1/1.0"
+        && protectionExact
         && subject.decision === "allow";
       if (typeof onDecision === "function") await onDecision(decision, context);
       if (!permitted) {
         const sealedBlock = proofValid && fresh && exact && policyExact
           && capabilityExact && subject.contract === "AGPD-1/1.0"
+          && protectionExact
           && subject.decision !== "allow";
         return {
           abort: true,

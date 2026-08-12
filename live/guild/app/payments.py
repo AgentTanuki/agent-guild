@@ -87,16 +87,27 @@ class PaidRequest:
     # The caller proof signs the same URL inside the semantic request before
     # this object is constructed.
     resource_url_override: Optional[str] = None
+    # Value-priced operations derive an exact per-request fee before the
+    # challenge. The override is immutable and travels through every shared
+    # gateway path; no transport gets a cheaper static fallback.
+    cost_credits_override: Optional[int] = None
 
     def __post_init__(self) -> None:
         override = self.resource_url_override
+        cost_override = self.cost_credits_override
+        if (cost_override is not None
+                and (isinstance(cost_override, bool)
+                     or not isinstance(cost_override, int)
+                     or cost_override <= 0)):
+            raise ValueError("cost_credits_override must be a positive integer")
         if override is None:
             return
         parsed = urlsplit(override)
         offer_id = parsed.path.removeprefix("/x402/")
         valid = (
             self.operation in (
-                "machine_envelope", "signed_decision", "payment_decision")
+                "machine_envelope", "signed_decision", "payment_decision",
+                "protected_payment_decision")
             and parsed.scheme == "https"
             and parsed.netloc == "payanagent.com"
             and parsed.path == f"/x402/{offer_id}"
@@ -146,6 +157,8 @@ class PaidRequest:
         basis — a price the experiment engine may move is configuration, not a
         constant compiled into the payment gateway. Legacy operations keep
         their PRICING entry so nothing existing changes behaviour."""
+        if self.cost_credits_override is not None:
+            return self.cost_credits_override
         from . import pricing as _pricing
         if self.operation in _pricing.DEFAULTS:
             return _pricing.price(self.operation)
@@ -277,6 +290,23 @@ def payment_decision_request(
         operation="payment_decision", method="POST",
         path="/wallet-binding/decision", query=q,
         resource_url_override=x402_resource_url)
+
+
+def protected_payment_decision_request(
+        request_sha256: str, service_quote: dict[str, Any],
+        x402_resource_url: Optional[str] = None) -> PaidRequest:
+    """Value-priced protected decision bound to its exact signed quote."""
+    q = tuple(sorted({
+        "request_sha256": str(request_sha256),
+        "pricing": str(service_quote["contract"]),
+        "fee_bps": str(service_quote["basis_points"]),
+        "fee_credits": str(service_quote["fee_credits"]),
+    }.items()))
+    return PaidRequest(
+        operation="protected_payment_decision", method="POST",
+        path="/wallet-binding/protected-decision", query=q,
+        resource_url_override=x402_resource_url,
+        cost_credits_override=int(service_quote["fee_credits"]))
 
 
 def search_request(capability: str, limit: int = 20,
@@ -840,6 +870,15 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
     ident = (x402.replay_guard.identity(auth) if isinstance(auth, dict) else "")
     payer = str(auth.get("from") or "").lower() if isinstance(auth, dict) else ""
     nonce = str(auth.get("nonce") or "") if isinstance(auth, dict) else ""
+    if preq.operation == "protected_payment_decision":
+        expected_payer = callerproof.evm_address_for_did(caller_did)
+        if (not expected_payer or expected_payer != payer
+                or x402.network() != "eip155:8453"):
+            _fail_pid()
+            raise x402.PaymentBindingError(
+                "caller_payer_mismatch",
+                "the Base-EVM caller-proof EOA must exactly equal the x402 "
+                "payer before settlement")
 
     try:
         # --- recovery paths (a durable record from a crashed process) -------

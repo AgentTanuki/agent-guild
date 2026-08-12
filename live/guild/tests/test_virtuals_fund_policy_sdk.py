@@ -16,4 +16,5 @@ def test_node_virtuals_fund_policy_adapter():
     result = subprocess.run(
         [node, str(script)], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr or result.stdout
-    assert "signed identity/risk and exact AGPD-1 paths ok" in result.stdout
+    assert "signed identity/risk, exact AGPD-1 and protected value paths ok" \
+        in result.stdout

@@ -99,6 +99,18 @@ def build_contract() -> dict:
                 for op, cost in sorted({**PRICING, **pricing.DEFAULTS}.items())
                 if cost > 0
             },
+            "dynamic_priced_operations": {
+                "protected_payment_decision": {
+                    "entrypoint": "/wallet-binding/protected-decision",
+                    "network": "eip155:8453",
+                    "asset": "Base mainnet USDC",
+                    "basis_points": 25,
+                    "minimum_usdc_atomic": 10000,
+                    "maximum_usdc_atomic": 10000000000,
+                    "quote_binding": [
+                        "request_sha256", "pricing", "fee_bps", "fee_credits"],
+                },
+            },
             "priced_mcp_tools": ["guild_check", "guild_search",
                                  "guild_best_agent", "guild_risk_score",
                                  "guild_preflight_deep",

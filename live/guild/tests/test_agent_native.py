@@ -86,6 +86,12 @@ def test_for_agents_is_served_publicly_and_self_contained():
     assert "createAgentGuildAcpPaymentPolicy" in \
         integrations["virtuals_acp"]["factory"]
     assert integrations["x402"]["decision"] == "/wallet-binding/decision"
+    assert integrations["x402"]["protected_decision"] == \
+        "/wallet-binding/protected-decision"
+    assert "protectedValue:true" in \
+        integrations["x402"]["protected_value_factory"]
+    assert integrations["virtuals_acp"]["protected_decision"] == \
+        "/wallet-binding/protected-decision"
 
 
 def test_standard_endpoint_is_machine_readable():

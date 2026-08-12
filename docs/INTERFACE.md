@@ -1,6 +1,6 @@
 # Agent Guild — machine interface (GENERATED)
 
-*Generated from `live/guild/contract/contract.json` v2 (service 2.1.9). Do not edit by hand — run `make contract`.*
+*Generated from `live/guild/contract/contract.json` v2 (service 2.2.0). Do not edit by hand — run `make contract`.*
 
 - Host: https://agent-guild-5d5r.onrender.com
 - MCP (streamable HTTP): https://agent-guild-5d5r.onrender.com/mcp/
@@ -134,6 +134,8 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /wallet-binding/challenge`
 - `POST /wallet-binding/decision`
 - `POST /wallet-binding/decision/verify`
+- `GET | POST /wallet-binding/protected-decision`
+- `POST /wallet-binding/protected-decision/verify`
 - `GET /wallet-binding/resolve`
 - `POST /wallet-binding/revoke`
 - `GET /wallet-binding/status/{credential_id}`

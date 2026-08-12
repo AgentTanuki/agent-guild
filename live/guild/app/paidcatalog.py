@@ -211,6 +211,68 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             "signed transaction-specific decision."),
     },
     {
+        "operation": "protected_payment_decision",
+        "entrypoint": {
+            "protocol": "http",
+            "method": "POST",
+            "path": "/wallet-binding/protected-decision",
+            "query_params": None,
+            "body": {
+                "payment": {
+                    "scheme": "exact", "network": "eip155:8453",
+                    "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                    "amount": "<positive atomic USDC integer>",
+                    "pay_to": "<exact counterparty EVM address>",
+                    "resource": "<exact protected payment URL>",
+                },
+                "capability": "<optional required capability>",
+                "policy": {"max_risk": 32.99, "min_confidence": 0.5},
+                "ttl_seconds": 300,
+            },
+            "auth": (
+                "Base-EVM caller proof REQUIRED; the same EOA must fund the "
+                "x402 service fee; no account or API key path"),
+            "key_required": False,
+            "caller_proof_required": True,
+            "directly_callable": True,
+            "client": {
+                "language": "javascript/typescript (node)",
+                "source": "/sdk/integrations/x402_payment_policy.mjs",
+                "factory": (
+                    "createAgentGuildX402PaymentPolicy({meteredFetch, "
+                    "protectedValue:true, evmSigner})"),
+                "virtuals_factory": (
+                    "createAgentGuildAcpPaymentPolicy({meteredFetch, "
+                    "protectedValue:true, evmSigner, resource})"),
+                "local_fee_cap": "maxDecisionFeeCredits",
+            },
+            "server_derived_settlement_params": [
+                "request_sha256", "pricing", "fee_bps", "fee_credits"],
+        },
+        "alternatives": {
+            "ordinary_agpd": "POST /wallet-binding/decision",
+            "free_identity_only": (
+                "GET /wallet-binding/resolve?address=<payee>&network=eip155:8453"),
+            "verify": "POST /wallet-binding/protected-decision/verify",
+        },
+        "what_you_get": (
+            "A signed AGPD-1 decision for one exact Base-USDC payment plus "
+            "fresh verified routing, evidence depth appropriate to the value "
+            "tier, an exact value-based fee quote, and cryptographic continuity "
+            "between the requesting EOA and the x402 payer."),
+        "why_it_is_worth_it": (
+            "The service fee is 25 basis points of the exact protected value "
+            "($0.01 minimum, $10,000 maximum). Assurance and price therefore "
+            "scale with the irreversible value at risk instead of requiring "
+            "millions of unrelated micro-purchases."),
+        "free_alternative": (
+            "Use the ordinary low-cost AGPD-1 decision for routine payments, "
+            "or free wallet-binding resolution for identity only. This tier "
+            "adds value-at-risk evidence and live-routing gates; it is not "
+            "insurance, escrow or a refund guarantee."),
+        "dynamic_pricing": True,
+    },
+    {
         "operation": "deep_preflight",
         "entrypoint": {
             "protocol": "http",
@@ -337,6 +399,10 @@ def _settlement_request(operation: str):
         return payments.machine_envelope_request("<request_sha256>")
     if operation == "payment_decision":
         return payments.payment_decision_request("<request_sha256>")
+    if operation == "protected_payment_decision":
+        from . import protecteddecision
+        return payments.protected_payment_decision_request(
+            "<request_sha256>", protecteddecision.discovery_quote())
     raise ValueError(f"no settlement binding for {operation!r}")
 
 
@@ -349,7 +415,11 @@ def _base_url(base: Optional[str] = None) -> str:
 def price_usd(operation: str) -> str:
     """Current effective price as a USD string. Reads `pricing` live so an
     experiment-applied override can never disagree with what we advertise."""
-    credits = pricing.price(operation)
+    if operation == "protected_payment_decision":
+        from . import protecteddecision
+        credits = protecteddecision.discovery_quote()["fee_credits"]
+    else:
+        credits = pricing.price(operation)
     return f"${credits / 1000:.3f}".rstrip("0").rstrip(".") or "$0"
 
 
@@ -365,6 +435,10 @@ def operations(base: Optional[str] = None) -> list[dict[str, Any]]:
     for op in _OPERATIONS:
         name = op["operation"]
         preq = _settlement_request(name)
+        protected_schedule = None
+        if name == "protected_payment_decision":
+            from . import protecteddecision
+            protected_schedule = protecteddecision.schedule()
         ep = dict(op["entrypoint"])
         # The executable instruction, rendered from the REAL route.
         call = f"{ep['method']} {root}{ep['path']}"
@@ -386,7 +460,21 @@ def operations(base: Optional[str] = None) -> list[dict[str, Any]]:
         out.append({
             "operation": name,
             "price_usd": price_usd(name),
-            "price_credits": pricing.price(name),
+            "price_credits": (preq.cost if name == "protected_payment_decision"
+                              else pricing.price(name)),
+            **({"dynamic_price": {
+                    "pricing_contract": protected_schedule["contract"],
+                    "formula": (
+                        "ceil(protected_usdc_atomic * basis_points / 10000), "
+                        "then ceil to $0.001 and clamp"),
+                    "basis_points": protected_schedule["basis_points"],
+                    "minimum_usd": (
+                        protected_schedule["minimum_fee_credits"] / 1000),
+                    "maximum_usd": (
+                        protected_schedule["maximum_fee_credits"] / 1000),
+                    "immutable": protected_schedule["immutable"],
+                    "exact_quote": "POST the signed request and inspect the 402 accepts.amount",
+                }} if name == "protected_payment_decision" else {}),
             "payment": "x402 (USDC on Base mainnet, eip155:8453)",
             # HOW YOU CALL IT — executable verbatim.
             "entrypoint": ep,
