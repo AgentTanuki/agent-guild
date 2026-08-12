@@ -3,7 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.8"   # PATCH (machine-visible semver, 2026-08-12):
+__version__ = "2.1.9"   # PATCH (machine-visible semver, 2026-08-12):
+                        # makes the $0.01 AGPD-1 pre-payment decision executable
+                        # through JSON-only marketplaces. Caller proof seals
+                        # the exact payee, chain, token, amount, resource,
+                        # policy and Payan buy URL; unsigned payment retries
+                        # fail before settlement. History of 2.1.8 (2026-08-12):
                         # makes premium AGD-1 decisions executable through
                         # JSON-only marketplaces: caller proof signs the exact
                         # capability, TTL and Payan buy URL; settlement binds

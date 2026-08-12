@@ -176,6 +176,19 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
                     "a funded Agent Guild API key may use ordinary fetch"),
             },
             "server_derived_settlement_params": ["request_sha256"],
+            "marketplace_transport": {
+                "method": "POST",
+                "body": {"request": "<exact payment decision request>",
+                         "caller_proof": "<proof over RFC 8785 JCS(request)>"},
+                "client": "/sdk/agentguild_envelope_client.mjs",
+                "helper": "paymentDecisionMarketplaceInput",
+                "discovery_guarantee": (
+                    "an empty anonymous probe returns a non-executable quote; "
+                    "an unsigned payment retry is rejected before settlement"),
+                "relay_binding": (
+                    "request.x402_resource_url must be the exact canonical "
+                    "Payan buy URL and is sealed by caller proof"),
+            },
         },
         "alternatives": {
             "free_identity_only": (

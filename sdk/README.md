@@ -161,6 +161,35 @@ Here the proof binds the exact capability, TTL and Payan buy URL before
 payment. An empty registry probe receives a non-executable quote; a payment
 retry without the same valid proof is rejected before settlement.
 
+The same marketplace transport can buy a signed decision immediately before
+an autonomous wallet pays a selected counterparty:
+
+```js
+import {
+  evmWalletCallerProofSigner,
+  paymentDecisionMarketplaceInput,
+} from "./agentguild_envelope_client.mjs";
+
+const input = await paymentDecisionMarketplaceInput({
+  signer: evmWalletCallerProofSigner(evmSigner),
+  payanOfferId: "<payment-decision-offer-id>",
+  payment: {
+    scheme: "exact",
+    network: "eip155:8453",
+    asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    amount: "25000",
+    pay_to: "0x...",
+    resource: "https://seller.example/work/42",
+  },
+  capability: "code-review",
+});
+```
+
+The returned AGPD-1 credential is a portable `allow` or `block` decision. Its
+signature seals the exact payee, chain, asset, atomic amount, resource and
+effective risk policy. The caller proof separately seals the exact Payan buy
+URL, so the marketplace cannot redirect either payment.
+
 ## CLI smoke test
 
 ```bash

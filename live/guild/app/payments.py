@@ -95,7 +95,8 @@ class PaidRequest:
         parsed = urlsplit(override)
         offer_id = parsed.path.removeprefix("/x402/")
         valid = (
-            self.operation in ("machine_envelope", "signed_decision")
+            self.operation in (
+                "machine_envelope", "signed_decision", "payment_decision")
             and parsed.scheme == "https"
             and parsed.netloc == "payanagent.com"
             and parsed.path == f"/x402/{offer_id}"
@@ -265,13 +266,17 @@ def machine_envelope_request(
         query=q, resource_url_override=x402_resource_url)
 
 
-def payment_decision_request(request_sha256: str) -> PaidRequest:
+def payment_decision_request(
+        request_sha256: str, x402_resource_url: Optional[str] = None
+        ) -> PaidRequest:
     """Paid signed decision bound to an opaque digest of every exact payment
     and policy input.  The body remains private from settlement metadata while
     any semantic mutation produces a different x402 resource."""
-    return PaidRequest.build(
-        "payment_decision", "POST", "/wallet-binding/decision",
-        {"request_sha256": request_sha256})
+    q = tuple(sorted({"request_sha256": str(request_sha256)}.items()))
+    return PaidRequest(
+        operation="payment_decision", method="POST",
+        path="/wallet-binding/decision", query=q,
+        resource_url_override=x402_resource_url)
 
 
 def search_request(capability: str, limit: int = 20,
