@@ -190,6 +190,38 @@ signature seals the exact payee, chain, asset, atomic amount, resource and
 effective risk policy. The caller proof separately seals the exact Payan buy
 URL, so the marketplace cannot redirect either payment.
 
+For marketplaces that can advertise only one fixed price per listing, use an
+exact-notional protected tier. These are the same higher-assurance policy and
+same 25 bps schedule—not a cheaper fallback. The published tiers protect exact
+Base-USDC payments of $1,000, $10,000, $100,000, $1 million, or $4 million for
+service fees of $2.50, $25, $250, $2,500, or the $10,000 cap respectively:
+
+```js
+import {
+  evmWalletCallerProofSigner,
+  protectedPaymentTierMarketplaceInput,
+} from "./agentguild_envelope_client.mjs";
+
+const input = await protectedPaymentTierMarketplaceInput({
+  signer: evmWalletCallerProofSigner(evmSigner),
+  tierId: "10000-usdc",
+  payanOfferId: "<protected-tier-offer-id>",
+  payment: {
+    scheme: "exact",
+    network: "eip155:8453",
+    asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    amount: "10000000000",
+    pay_to: "0x...",
+    resource: "https://seller.example/work/42",
+  },
+});
+```
+
+Inspect the live tier catalog at
+`GET /wallet-binding/protected-decision/tiers`. The signed credential records
+the exact tier and Payan buy URL, and verification is free at
+`POST /wallet-binding/protected-decision/tiers/{tier_id}/verify`.
+
 ## CLI smoke test
 
 ```bash

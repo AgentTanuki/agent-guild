@@ -80,6 +80,28 @@
     ]
    }
   },
+  "fixed_marketplace_tiers": {
+   "protected_payment_decision": {
+    "catalog": "/wallet-binding/protected-decision/tiers",
+    "fee_credits": {
+     "1000-usdc": 2500,
+     "10000-usdc": 25000,
+     "100000-usdc": 250000,
+     "1000000-usdc": 2500000,
+     "4000000-usdc": 10000000
+    },
+    "notionals_atomic_usdc": {
+     "1000-usdc": "1000000000",
+     "10000-usdc": "10000000000",
+     "100000-usdc": "100000000000",
+     "1000000-usdc": "1000000000000",
+     "4000000-usdc": "4000000000000"
+    },
+    "quote_rule": "same immutable 25 bps schedule",
+    "relay_binding": "exact canonical Payan buy URL in caller proof",
+    "transport": "strict JSON {request, caller_proof}"
+   }
+  },
   "mechanism": "x402",
   "offer_receipt_kid_profile": "did:web (/.well-known/did.json)",
   "priced_a2a_skills": [
@@ -870,6 +892,24 @@
   },
   {
    "methods": [
+    "GET"
+   ],
+   "path": "/wallet-binding/protected-decision/tiers"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/wallet-binding/protected-decision/tiers/{tier_id}"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/wallet-binding/protected-decision/tiers/{tier_id}/verify"
+  },
+  {
+   "methods": [
     "POST"
    ],
    "path": "/wallet-binding/protected-decision/verify"
@@ -926,6 +966,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.2.0"
+  "version": "2.2.1"
  }
 }

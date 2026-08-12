@@ -111,6 +111,28 @@ def build_contract() -> dict:
                         "request_sha256", "pricing", "fee_bps", "fee_credits"],
                 },
             },
+            "fixed_marketplace_tiers": {
+                "protected_payment_decision": {
+                    "catalog": "/wallet-binding/protected-decision/tiers",
+                    "transport": "strict JSON {request, caller_proof}",
+                    "notionals_atomic_usdc": {
+                        "1000-usdc": "1000000000",
+                        "10000-usdc": "10000000000",
+                        "100000-usdc": "100000000000",
+                        "1000000-usdc": "1000000000000",
+                        "4000000-usdc": "4000000000000",
+                    },
+                    "fee_credits": {
+                        "1000-usdc": 2500,
+                        "10000-usdc": 25000,
+                        "100000-usdc": 250000,
+                        "1000000-usdc": 2500000,
+                        "4000000-usdc": 10000000,
+                    },
+                    "quote_rule": "same immutable 25 bps schedule",
+                    "relay_binding": "exact canonical Payan buy URL in caller proof",
+                },
+            },
             "priced_mcp_tools": ["guild_check", "guild_search",
                                  "guild_best_agent", "guild_risk_score",
                                  "guild_preflight_deep",

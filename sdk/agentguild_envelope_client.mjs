@@ -457,6 +457,86 @@ export async function paymentDecisionMarketplaceInput({
   };
 }
 
+const PROTECTED_PAYMENT_TIERS = Object.freeze({
+  "1000-usdc": "1000000000",
+  "10000-usdc": "10000000000",
+  "100000-usdc": "100000000000",
+  "1000000-usdc": "1000000000000",
+  "4000000-usdc": "4000000000000",
+});
+
+/**
+ * Build the strict Payan input for one fixed-notional protected decision.
+ * The helper refuses any amount other than the tier's exact Base-USDC
+ * notional, then signs the complete request and canonical Payan buy URL.
+ */
+export async function protectedPaymentTierMarketplaceInput({
+  signer,
+  tierId,
+  host = DEFAULT_HOST,
+  paymentResourceUrl,
+  payanOfferId,
+  payment,
+  capability,
+  policy,
+  ttlSeconds = 300,
+  proofTtlSeconds = 300,
+  proofNonce: nonce,
+  now,
+}) {
+  const expectedAmount = PROTECTED_PAYMENT_TIERS[tierId];
+  if (!expectedAmount) {
+    throw new RangeError(
+      "tierId must name a published protected-payment tier",
+    );
+  }
+  if (!payment || typeof payment !== "object" || Array.isArray(payment)) {
+    throw new TypeError("payment is required");
+  }
+  if (String(payment.amount) !== expectedAmount) {
+    throw new RangeError(
+      `payment.amount must equal ${expectedAmount} for tier ${tierId}`,
+    );
+  }
+  if (String(payment.network) !== "eip155:8453") {
+    throw new RangeError("protected tiers require Base mainnet eip155:8453");
+  }
+  if (String(payment.asset).toLowerCase()
+      !== "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913") {
+    throw new RangeError("protected tiers require canonical Base mainnet USDC");
+  }
+  const ttl = Math.trunc(Number(ttlSeconds));
+  if (!Number.isFinite(ttl) || ttl < 60 || ttl > 3600) {
+    throw new RangeError("ttlSeconds must be 60..3600");
+  }
+  const relayResource = payanRelayResource({
+    paymentResourceUrl, payanOfferId,
+  });
+  const endpoint = new URL(
+    `/wallet-binding/protected-decision/tiers/${tierId}`, host,
+  );
+  const request = {
+    payment: { ...payment },
+    ttl_seconds: ttl,
+    x402_resource_url: relayResource,
+  };
+  if (capability !== undefined) request.capability = capability;
+  if (policy !== undefined) request.policy = { ...policy };
+  const proof = await createCallerProof({
+    signer,
+    method: "POST",
+    resource: endpoint.pathname + endpoint.search,
+    body: canon(request),
+    ttlSeconds: proofTtlSeconds,
+    nonce,
+    now,
+  });
+  return {
+    [MARKETPLACE_REQUEST_FIELD]: request,
+    [MARKETPLACE_PROOF_FIELD]: proof,
+  };
+}
+
 export class MachineEnvelopePurchaseError extends Error {
   constructor(message, { status = 0, detail = null } = {}) {
     super(message);

@@ -309,6 +309,25 @@ def protected_payment_decision_request(
         cost_credits_override=int(service_quote["fee_credits"]))
 
 
+def protected_payment_tier_request(
+        tier_id: str, request_sha256: str, service_quote: dict[str, Any],
+        x402_resource_url: Optional[str] = None) -> PaidRequest:
+    """Fixed-notional protected decision for one canonical marketplace tier."""
+    from . import protectedmarket
+    path = protectedmarket.tier_path(tier_id)
+    q = tuple(sorted({
+        "request_sha256": str(request_sha256),
+        "pricing": str(service_quote["contract"]),
+        "fee_bps": str(service_quote["basis_points"]),
+        "fee_credits": str(service_quote["fee_credits"]),
+        "tier": tier_id,
+    }.items()))
+    return PaidRequest(
+        operation="protected_payment_decision", method="POST", path=path,
+        query=q, resource_url_override=x402_resource_url,
+        cost_credits_override=int(service_quote["fee_credits"]))
+
+
 def search_request(capability: str, limit: int = 20,
                    min_trust: float = 0.0) -> PaidRequest:
     return PaidRequest.build("best_agent", "GET", "/search", {
