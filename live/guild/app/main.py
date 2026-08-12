@@ -46,6 +46,7 @@ from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from . import instanceid
 from . import preflight
 from . import protecteddecision
+from . import protectedmarket
 from . import pricing
 from . import trustindex
 from . import indexops
@@ -1940,6 +1941,12 @@ def wallet_protected_payment_decision_schema():
             "POST /wallet-binding/decision for the ordinary low-cost AGPD-1 "
             "policy; GET /wallet-binding/resolve for identity only"),
         "verify": "POST /wallet-binding/protected-decision/verify",
+        "fixed_marketplace_tiers": {
+            "catalog": "GET /wallet-binding/protected-decision/tiers",
+            "purpose": (
+                "exact-notional versions for fixed-price JSON marketplaces; "
+                "each uses the identical 25 bps protected-value schedule"),
+        },
         "limits": (
             "not insurance, escrow, delivery guarantee or refund guarantee"),
     }
@@ -2061,6 +2068,132 @@ async def wallet_protected_payment_decision(
         price_credits=preq.cost, decision=subject.get("decision"),
         paid=(facts["settlement_mode"] == "x402"), **facts)
     return decision
+
+
+@app.get("/wallet-binding/protected-decision/tiers")
+def wallet_protected_payment_tier_catalog():
+    """FREE exact-notional catalog for fixed-price machine marketplaces."""
+    return {
+        "contract": protectedmarket.CONTRACT,
+        "pricing": protecteddecision.schedule(),
+        "tiers": protectedmarket.catalog(),
+        "proof": (
+            "strict JSON {request, caller_proof}; Base-EVM EIP-191 proof "
+            "binds the exact tier route, request and canonical Payan buy URL; "
+            "the same EOA must fund the x402 fee"),
+        "guarantees": (
+            "every tier is the ordinary protected-value policy at one exact "
+            "USDC notional; counterparty evidence and routing gates are not "
+            "weakened for marketplace distribution"),
+        "limits": (
+            "not insurance, escrow, delivery guarantee or refund guarantee"),
+    }
+
+
+@app.post("/wallet-binding/protected-decision/tiers/{tier_id}")
+async def wallet_protected_payment_tier(
+        tier_id: str, request: Request, body: dict[str, Any],
+        response: Response):
+    """PAID fixed-notional protected decision for JSON-only marketplaces."""
+    try:
+        protectedmarket.tier_path(tier_id)
+        service_quote = protectedmarket.tier_quote(tier_id)
+    except protectedmarket.ProtectedMarketplaceRefused as exc:
+        raise HTTPException(404, str(exc))
+
+    proof_header = request.headers.get(callerproof.HTTP_HEADER.lower())
+    discovery = (
+        not body and not proof_header and not _xpay_sig.get()
+        and not _xpay_v1.get() and billing.billing_enforced() and x402.enabled())
+    will_execute = bool(_xpay_sig.get() or not billing.billing_enforced())
+    verified, caller_did, semantic = _verify_marketplace_body_caller_proof(
+        request, body, mark_nonce=will_execute)
+    if not verified:
+        if discovery:
+            preq = payments.protected_payment_tier_request(
+                tier_id, "discovery-only", service_quote)
+            challenge = PaymentChallenge(preq, extra={
+                "discovery_only": True,
+                "executable": False,
+                "detail": (
+                    "Fixed-price registry quote only. Execution requires "
+                    "strict JSON {request, caller_proof}; a Base-EVM EIP-191 "
+                    "proof must bind RFC 8785 JCS(request), this exact tier "
+                    "route and the canonical Payan buy URL."),
+                "tier": protectedmarket.catalog()[
+                    list(protectedmarket.TIERS).index(tier_id)],
+                "schema": "/wallet-binding/protected-decision/tiers",
+            })
+            try:
+                headers = {x402.PAYMENT_REQUIRED_HEADER:
+                           challenge.header_value()}
+            except Exception:
+                headers = {}
+            raise HTTPException(402, challenge.body, headers=headers)
+        raise HTTPException(401, {
+            "error": "verified_base_evm_marketplace_proof_required",
+            "detail": (
+                "present strict JSON {request, caller_proof}; the proof must "
+                "bind the exact tier route and the recovered EOA must fund "
+                "the x402 service fee"),
+            "billing": "NOT CHARGED",
+        })
+    if proof_header:
+        raise HTTPException(401, {
+            "error": "marketplace_body_transport_required",
+            "detail": "fixed protected tiers accept only strict JSON proof",
+            "billing": "NOT CHARGED",
+        })
+    if callerproof.evm_address_for_did(caller_did) is None:
+        raise HTTPException(401, {
+            "error": "base_evm_caller_proof_required",
+            "detail": "did:key proof is insufficient for payer continuity",
+            "billing": "NOT CHARGED",
+        })
+    try:
+        normalized = protectedmarket.normalise_request(semantic, tier_id)
+        digest = protectedmarket.request_sha256(
+            semantic, caller_did, tier_id)
+        decision = protectedmarket.issue(
+            store, semantic, tier_id, caller_did=caller_did)
+    except (paymentdecision.PaymentDecisionRefused,
+            protecteddecision.ProtectedDecisionRefused,
+            protectedmarket.ProtectedMarketplaceRefused) as exc:
+        raise HTTPException(422, {
+            "error": getattr(exc, "code", "invalid_request"),
+            "detail": str(exc), "billing": "NOT CHARGED"})
+
+    preq = payments.protected_payment_tier_request(
+        tier_id, digest, service_quote, normalized["x402_resource_url"])
+    facts = meter(preq, None, response)
+    subject = decision.get("credentialSubject") or {}
+    store.record_event(
+        None, "protected_payment_decision_issued", ua=_ua.get(),
+        endpoint="wallet_protected_payment_tier",
+        transport="http-marketplace", caller_did=caller_did,
+        request_sha256=digest,
+        protected_amount_atomic=normalized["payment"]["amount"],
+        protected_value_tier=service_quote["protected_value_tier"],
+        marketplace_tier=tier_id,
+        price_credits=preq.cost, decision=subject.get("decision"),
+        paid=(facts["settlement_mode"] == "x402"), **facts)
+    return decision
+
+
+@app.post("/wallet-binding/protected-decision/tiers/{tier_id}/verify")
+def wallet_protected_payment_tier_verify(
+        tier_id: str, body: dict[str, Any]):
+    """FREE verification of a fixed-tier decision and its exact buy input."""
+    decision = body.get("decision")
+    expected = body.get("request")
+    if not isinstance(decision, dict) or not isinstance(expected, dict):
+        raise HTTPException(422, "decision and request objects are required")
+    try:
+        protectedmarket.tier_path(tier_id)
+    except protectedmarket.ProtectedMarketplaceRefused as exc:
+        raise HTTPException(404, str(exc))
+    return protectedmarket.verify(
+        decision, expected_request=expected, tier_id=tier_id)
 
 
 @app.post("/wallet-binding/protected-decision/verify")
@@ -2970,6 +3103,13 @@ def _manifest() -> dict:
                     "higher-assurance AGPD-1: exact wallet identity, current "
                     "risk, fresh verified routing, value-tier evidence, and "
                     "caller EOA == x402 payer before settlement"),
+                "fixed_marketplace_tiers": {
+                    "catalog": "/wallet-binding/protected-decision/tiers",
+                    "notionals_usdc": [1000, 10000, 100000, 1000000, 4000000],
+                    "fees_usdc": [2.5, 25, 250, 2500, 10000],
+                    "factory": "protectedPaymentTierMarketplaceInput",
+                    "note": "same 25 bps policy, not a discounted fallback",
+                },
             },
             "reputation": {"method": "GET", "path": "/agents/{id}/reputation", "cost_credits": PRICING["reputation"]},
             "fraud_check": {"method": "GET", "path": "/agents/{id}/flags", "cost_credits": PRICING["fraud_check"]},
@@ -3194,6 +3334,10 @@ def _manifest() -> dict:
                         "resource, protectedValue:true, evmSigner})"),
                     "protected_decision": (
                         "/wallet-binding/protected-decision"),
+                    "protected_marketplace_tiers": (
+                        "/wallet-binding/protected-decision/tiers"),
+                    "protected_marketplace_factory": (
+                        "protectedPaymentTierMarketplaceInput"),
                 },
                 "x402": {
                     "source": "/sdk/integrations/x402_payment_policy.mjs",
@@ -3424,6 +3568,7 @@ def get_standard():
             "protected_payment_decision": (
                 "POST /wallet-binding/protected-decision · value-based "
                 "Base-USDC assurance (25 bps, $0.01 floor, $10,000 cap) · "
+                "fixed marketplace tiers at /wallet-binding/protected-decision/tiers · "
                 "free verify at /wallet-binding/protected-decision/verify"),
             "evaluation": "GET /evaluation (provenance-labelled lift)",
             "escrow": "POST /escrow (fund) + /escrow/{id}/release (settle) · MCP "

@@ -248,6 +248,13 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             },
             "server_derived_settlement_params": [
                 "request_sha256", "pricing", "fee_bps", "fee_credits"],
+            "fixed_marketplace_tiers": {
+                "catalog": "/wallet-binding/protected-decision/tiers",
+                "notionals_usdc": [1000, 10000, 100000, 1000000, 4000000],
+                "fees_usdc": [2.5, 25, 250, 2500, 10000],
+                "factory": "protectedPaymentTierMarketplaceInput",
+                "rule": "same 25 bps policy and evidence gates",
+            },
         },
         "alternatives": {
             "ordinary_agpd": "POST /wallet-binding/decision",

@@ -3,7 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.2.0"   # MINOR (machine-visible semver, 2026-08-12):
+__version__ = "2.2.1"   # PATCH (machine-visible semver, 2026-08-12):
+                        # exposes exact $1k/$10k/$100k/$1m/$4m protected-payment
+                        # tiers for fixed-price JSON marketplaces. Each tier
+                        # keeps the 2.2.0 value policy and exact 25 bps fee,
+                        # while caller proof seals the tier route, complete
+                        # payment request and canonical Payan buy URL; caller
+                        # EOA still must equal the x402 payer. History of 2.2.0:
                         # adds value-based protected payment decisions: 25 bps
                         # of exact Base-USDC value ($0.01 floor, $10,000 cap),
                         # signed into AGPD-1 with value-tier evidence, fresh

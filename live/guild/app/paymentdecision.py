@@ -174,8 +174,31 @@ def issue(store: Any, request: Any, *, now: datetime | None = None,
           ) -> dict[str, Any]:
     """Issue one short-lived, exact-payment credential.  Fails closed."""
     normalized = normalise_request(request)
+    return issue_normalized(
+        store, normalized, now=now, policy_extension=policy_extension)
+
+
+def issue_normalized(store: Any, normalized: dict[str, Any], *,
+                     now: datetime | None = None,
+                     policy_extension: Callable[..., dict[str, Any]] | None = None
+                     ) -> dict[str, Any]:
+    """Issue from already-validated canonical semantics.
+
+    Marketplace transports use this narrow entry point so they can bind an
+    exact relay URL outside the AGPD-1 core without losing the caller-selected
+    policy during a normalize → denormalize → normalize round trip.
+    """
+    if not isinstance(normalized, dict):
+        raise PaymentDecisionRefused("normalized request must be an object")
+    required = {"payment", "capability", "policy", "ttl_seconds"}
+    if set(normalized) != required:
+        raise PaymentDecisionRefused("normalized request shape is invalid")
+    payment = normalized.get("payment")
+    policy = normalized.get("policy")
+    if (not isinstance(payment, dict) or not isinstance(policy, dict)
+            or set(policy) != {"requested", "effective", "server_baseline", "rule"}):
+        raise PaymentDecisionRefused("normalized request shape is invalid")
     issued = now or _now()
-    payment = normalized["payment"]
     try:
         resolution = walletbinding.resolve_counterparty(
             store, payment["pay_to"], payment["network"])
@@ -255,13 +278,30 @@ def verify(decision: Any, *, expected_request: Any | None = None,
     """Free offline-style verification, optionally including exact binding."""
     if not isinstance(decision, dict):
         return {"valid": False, "reason": "decision must be an object"}
+    normalized = None
+    if expected_request is not None:
+        try:
+            normalized = normalise_request(expected_request)
+        except PaymentDecisionRefused:
+            normalized = {}
+    return verify_normalized(
+        decision, expected_normalized=normalized, now=now)
+
+
+def verify_normalized(decision: Any, *,
+                      expected_normalized: dict[str, Any] | None = None,
+                      now: datetime | None = None) -> dict[str, Any]:
+    """Verify against an already-canonical AGPD-1 semantic object."""
+    if not isinstance(decision, dict):
+        return {"valid": False, "reason": "decision must be an object"}
     signature_valid = vc.verify_credential(decision)
     subject = decision.get("credentialSubject") or {}
     exact = True
-    if expected_request is not None:
+    if expected_normalized is not None:
         try:
-            exact = subject.get("request_sha256") == request_sha256(expected_request)
-        except PaymentDecisionRefused:
+            exact = subject.get("request_sha256") == _normalised_sha256(
+                expected_normalized)
+        except Exception:
             exact = False
     clock = now or _now()
     try:

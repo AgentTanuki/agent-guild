@@ -14,6 +14,7 @@ import {
   machineEnvelopeMarketplaceInput,
   signedDecisionMarketplaceInput,
   paymentDecisionMarketplaceInput,
+  protectedPaymentTierMarketplaceInput,
 } from "../../../sdk/agentguild_envelope_client.mjs";
 
 const caller = didKeySigner("11".repeat(32));
@@ -210,6 +211,47 @@ assert.equal(
 assert.equal(
   paymentDecisionInput.caller_proof.payload.body_sha256,
   createHash("sha256").update(canon(paymentDecisionInput.request)).digest("hex"),
+);
+
+const protectedTierInput = await protectedPaymentTierMarketplaceInput({
+  signer: evmCaller,
+  host: "https://agent-guild.example",
+  tierId: "10000-usdc",
+  payanOfferId: "kh_protected_tier_10000",
+  payment: {
+    scheme: "exact",
+    network: "eip155:8453",
+    asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    amount: "10000000000",
+    pay_to: "0x1111111111111111111111111111111111111111",
+    resource: "https://seller.example/work/10000",
+  },
+  capability: "code-review",
+  policy: { max_risk: 25, min_confidence: 0.8 },
+  proofNonce: "protected-tier-proof-0001",
+  now: new Date("2026-08-07T10:00:00Z"),
+});
+assert.equal(
+  protectedTierInput.request.x402_resource_url,
+  "https://payanagent.com/x402/kh_protected_tier_10000",
+);
+assert.equal(protectedTierInput.request.payment.amount, "10000000000");
+assert.equal(
+  protectedTierInput.caller_proof.payload.resource,
+  "/wallet-binding/protected-decision/tiers/10000-usdc",
+);
+assert.equal(
+  protectedTierInput.caller_proof.payload.body_sha256,
+  createHash("sha256").update(canon(protectedTierInput.request)).digest("hex"),
+);
+await assert.rejects(
+  protectedPaymentTierMarketplaceInput({
+    signer: evmCaller,
+    tierId: "10000-usdc",
+    payanOfferId: "kh_protected_tier_10000",
+    payment: { ...protectedTierInput.request.payment, amount: "999" },
+  }),
+  /must equal 10000000000/,
 );
 
 const result = await issueMachineEnvelope({
