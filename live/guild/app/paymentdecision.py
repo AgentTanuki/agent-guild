@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlsplit
 
 from . import crypto, vc, walletbinding
@@ -144,8 +144,10 @@ def request_sha256(request: Any) -> str:
 
 
 def _policy_result(resolution: dict[str, Any], risk: dict[str, Any] | None,
-                   request: dict[str, Any]) -> tuple[str, str, list[str]]:
-    failures: list[str] = []
+                   request: dict[str, Any],
+                   extra_failures: list[str] | None = None
+                   ) -> tuple[str, str, list[str]]:
+    failures: list[str] = list(extra_failures or [])
     agent = resolution.get("agent") or {}
     if resolution.get("status") != "bound_registered" or not agent:
         failures.append("exact_wallet_not_bound_to_registered_agent")
@@ -167,7 +169,8 @@ def _policy_result(resolution: dict[str, Any], risk: dict[str, Any] | None,
         "agent and satisfies the signed policy thresholds"), []
 
 
-def issue(store: Any, request: Any, *, now: datetime | None = None
+def issue(store: Any, request: Any, *, now: datetime | None = None,
+          policy_extension: Callable[..., dict[str, Any]] | None = None
           ) -> dict[str, Any]:
     """Issue one short-lived, exact-payment credential.  Fails closed."""
     normalized = normalise_request(request)
@@ -180,8 +183,12 @@ def issue(store: Any, request: Any, *, now: datetime | None = None
         risk = store.risk_for(str(agent.get("id") or "")) if agent else None
         provenance = (store.provenance_summary(str(agent.get("id") or ""))
                       if agent else None)
+        protection = (policy_extension(
+            store, normalized, resolution, risk, provenance)
+            if policy_extension is not None else None)
         decision, reason, failures = _policy_result(
-            resolution, risk, normalized)
+            resolution, risk, normalized,
+            (protection or {}).get("failures"))
         gid = store.guild_identity()
         if not gid.get("did") or not gid.get("private_key"):
             raise PaymentDecisionRefused("Guild signing identity unavailable")
@@ -223,6 +230,7 @@ def issue(store: Any, request: Any, *, now: datetime | None = None
                         "head_hash") if checkpoint and checkpoint.get("checkpoint")
                         else checkpoint.get("head_hash") if checkpoint else None),
                 },
+                **({"protection": protection} if protection else {}),
                 "limits": (
                     "This credential attests to the exact evidence and policy "
                     "evaluation at validFrom. It does not guarantee future "

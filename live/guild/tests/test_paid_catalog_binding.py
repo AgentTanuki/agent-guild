@@ -25,7 +25,8 @@ from app import paidcatalog, payments  # noqa: E402
 from app.main import app  # noqa: E402
 
 client = TestClient(app, raise_server_exceptions=False)
-PAID_OPS = {"machine_envelope", "payment_decision", "deep_preflight",
+PAID_OPS = {"machine_envelope", "payment_decision",
+            "protected_payment_decision", "deep_preflight",
             "evidence_bundle", "watch_cycle"}
 
 
@@ -104,6 +105,22 @@ def test_payment_decision_binding_is_server_derived_and_exact():
     resource = op["settlement"]["canonical_resource"]
     assert "request_sha256=" in resource
     assert "pay_to" not in resource and "amount" not in resource
+
+
+def test_protected_decision_is_dynamic_and_quote_bound():
+    op = {o["operation"]: o for o in paidcatalog.operations()}[
+        "protected_payment_decision"]
+    ep = op["entrypoint"]
+    assert ep["caller_proof_required"] is True
+    assert ep["server_derived_settlement_params"] == [
+        "request_sha256", "pricing", "fee_bps", "fee_credits"]
+    assert op["dynamic_price"]["basis_points"] == 25
+    assert op["dynamic_price"]["minimum_usd"] == 0.01
+    assert op["dynamic_price"]["maximum_usd"] == 10000
+    assert op["price_credits"] == 10  # discovery floor, not a fixed price
+    resource = op["settlement"]["canonical_resource"]
+    assert "fee_bps=25" in resource and "fee_credits=10" in resource
+    assert "protected_usdc_atomic" not in resource
 
 
 def test_deep_preflight_entrypoint_actually_challenges():

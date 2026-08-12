@@ -25,5 +25,5 @@ def test_node_x402_policy_verifies_before_signing_and_fails_closed():
     result = subprocess.run(
         ["node", str(script)], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr or result.stdout
-    assert "signed allow, tamper, unpaid, local cap, recursion guard ok" \
+    assert "signed allow, protected value, tamper, unpaid, local cap, recursion guard ok" \
         in result.stdout

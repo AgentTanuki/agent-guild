@@ -26,6 +26,7 @@ function b58encode(bytes) {
 const guild = didKeySigner("55".repeat(32));
 const address = "0x" + "66".repeat(20);
 const asset = "0x" + "77".repeat(20);
+const buyerAddress = "0x" + "88".repeat(20);
 const asOf = new Date("2026-08-07T12:00:00Z");
 
 async function signed(body) {
@@ -249,6 +250,71 @@ const unpaidDecision = await createAgentGuildAcpPaymentPolicy({
 assert.equal(unpaidDecision.allow, false);
 assert.match(unpaidDecision.reason, /requires payment/);
 
+const protectedPaymentContext = {
+  ...paymentContext,
+  amount: { address: asset, rawAmount: 100_000_000n },
+};
+const protectedSigner = {
+  address: buyerAddress,
+  async signMessage() { return "0x" + "11".repeat(65); },
+};
+const protectedAcp = createAgentGuildAcpPaymentPolicy({
+  host: "https://guild.example",
+  fetchImpl: issuerFetch,
+  meteredFetch: async (url, init) => {
+    assert.equal(new URL(url).pathname, "/wallet-binding/protected-decision");
+    assert.ok(init.headers["X-Guild-Caller-Proof"]);
+    const body = JSON.parse(init.body);
+    return response(await decisionFor(body, subject => {
+      subject.protection = {
+        contract: "agent-guild/protected-value-policy/v1",
+        pricing: {
+          contract: "agent-guild/protected-value-pricing/v1",
+          basis_points: 25,
+          minimum_fee_credits: 10,
+          maximum_fee_credits: 10_000_000,
+          protected_amount_atomic: body.payment.amount,
+          fee_credits: 250,
+        },
+        required_value_tier: "medium",
+        value_at_risk: { tiers: { medium: true } },
+        reachability: { recommended_for_routing: true },
+        service_client: {
+          caller_did: `did:pkh:eip155:8453:${buyerAddress}`,
+          payer_eoa: buyerAddress,
+        },
+      };
+    }));
+  },
+  resource: "https://acp.example/jobs/42",
+  protectedValue: true,
+  evmSigner: protectedSigner,
+  now: () => asOf,
+});
+const protectedAllowed = await protectedAcp(protectedPaymentContext);
+assert.equal(protectedAllowed.allow, true);
+
+assert.throws(
+  () => createAgentGuildAcpPaymentPolicy({
+    fetchImpl: issuerFetch,
+    meteredFetch: decisionFetch,
+    resource: "https://acp.example/jobs/42",
+    protectedValue: true,
+  }),
+  /evmSigner is required/
+);
+
+assert.throws(
+  () => createAgentGuildAcpPaymentPolicy({
+    fetchImpl: issuerFetch,
+    apiKey: "sandbox-only",
+    resource: "https://acp.example/jobs/42",
+    protectedValue: true,
+    evmSigner: protectedSigner,
+  }),
+  /requires meteredFetch/
+);
+
 assert.throws(
   () => createAgentGuildAcpPaymentPolicy({
     fetchImpl: decisionFetch,
@@ -259,5 +325,5 @@ assert.throws(
 );
 
 console.log(
-  "virtuals ACP fund policy: signed identity/risk and exact AGPD-1 paths ok"
+  "virtuals ACP fund policy: signed identity/risk, exact AGPD-1 and protected value paths ok"
 );

@@ -64,6 +64,22 @@
   "guild_watch_feed"
  ],
  "payments": {
+  "dynamic_priced_operations": {
+   "protected_payment_decision": {
+    "asset": "Base mainnet USDC",
+    "basis_points": 25,
+    "entrypoint": "/wallet-binding/protected-decision",
+    "maximum_usdc_atomic": 10000000000,
+    "minimum_usdc_atomic": 10000,
+    "network": "eip155:8453",
+    "quote_binding": [
+     "request_sha256",
+     "pricing",
+     "fee_bps",
+     "fee_credits"
+    ]
+   }
+  },
   "mechanism": "x402",
   "offer_receipt_kid_profile": "did:web (/.well-known/did.json)",
   "priced_a2a_skills": [
@@ -847,6 +863,19 @@
   },
   {
    "methods": [
+    "GET",
+    "POST"
+   ],
+   "path": "/wallet-binding/protected-decision"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/wallet-binding/protected-decision/verify"
+  },
+  {
+   "methods": [
     "GET"
    ],
    "path": "/wallet-binding/resolve"
@@ -897,6 +926,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.1.9"
+  "version": "2.2.0"
  }
 }

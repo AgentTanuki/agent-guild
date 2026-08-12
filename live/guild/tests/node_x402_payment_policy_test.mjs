@@ -24,6 +24,7 @@ function b58encode(bytes) {
 const guild = didKeySigner("55".repeat(32));
 const payTo = "0x" + "66".repeat(20);
 const asset = "0x" + "77".repeat(20);
+const buyerAddress = "0x" + "88".repeat(20);
 const asOf = new Date("2026-08-07T18:00:00Z");
 
 async function secure(unsigned) {
@@ -156,9 +157,69 @@ assert.equal(tooLarge.abort, true);
 assert.match(tooLarge.reason, /maxAmountAtomic/);
 assert.equal(shouldNotPay, 0);
 
+const protectedSigner = {
+  address: buyerAddress,
+  async signMessage() { return "0x" + "11".repeat(65); },
+};
+let protectedCalls = 0;
+const protectedHook = createAgentGuildX402PaymentPolicy({
+  host: "https://guild.example",
+  fetchImpl: freeFetch,
+  meteredFetch: async (url, init) => {
+    protectedCalls += 1;
+    assert.equal(new URL(url).pathname, "/wallet-binding/protected-decision");
+    assert.ok(init.headers["X-Guild-Caller-Proof"]);
+    const body = JSON.parse(init.body);
+    return response(await decisionFor(body, subject => {
+      subject.protection = {
+        contract: "agent-guild/protected-value-policy/v1",
+        pricing: {
+          contract: "agent-guild/protected-value-pricing/v1",
+          basis_points: 25,
+          minimum_fee_credits: 10,
+          maximum_fee_credits: 10_000_000,
+          protected_amount_atomic: body.payment.amount,
+          fee_credits: 10,
+        },
+        required_value_tier: "micro",
+        value_at_risk: { tiers: { micro: true } },
+        reachability: { recommended_for_routing: true },
+        service_client: {
+          caller_did: `did:pkh:eip155:8453:${buyerAddress}`,
+          payer_eoa: buyerAddress,
+        },
+      };
+    }));
+  },
+  protectedValue: true,
+  evmSigner: protectedSigner,
+  now: () => asOf,
+});
+assert.equal(await protectedHook(context), undefined);
+assert.equal(protectedCalls, 1);
+
+assert.throws(
+  () => createAgentGuildX402PaymentPolicy({
+    fetchImpl: freeFetch,
+    meteredFetch: paidFetch,
+    protectedValue: true,
+  }),
+  /evmSigner is required/
+);
+
+assert.throws(
+  () => createAgentGuildX402PaymentPolicy({
+    fetchImpl: freeFetch,
+    apiKey: "sandbox-only",
+    protectedValue: true,
+    evmSigner: protectedSigner,
+  }),
+  /requires meteredFetch/
+);
+
 assert.throws(
   () => createAgentGuildX402PaymentPolicy({ fetchImpl: paidFetch, meteredFetch: paidFetch }),
   /separate unguarded x402 transport/
 );
 
-console.log("x402 payment policy: signed allow, tamper, unpaid, local cap, recursion guard ok");
+console.log("x402 payment policy: signed allow, protected value, tamper, unpaid, local cap, recursion guard ok");

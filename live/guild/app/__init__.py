@@ -3,7 +3,14 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.9"   # PATCH (machine-visible semver, 2026-08-12):
+__version__ = "2.2.0"   # MINOR (machine-visible semver, 2026-08-12):
+                        # adds value-based protected payment decisions: 25 bps
+                        # of exact Base-USDC value ($0.01 floor, $10,000 cap),
+                        # signed into AGPD-1 with value-tier evidence, fresh
+                        # verified routing, and pre-settlement caller EOA ==
+                        # x402 payer enforcement. x402 and Virtuals adapters
+                        # opt in with protectedValue:true. The ordinary cheap
+                        # AGPD-1 path remains compatible. History of 2.1.9:
                         # makes the $0.01 AGPD-1 pre-payment decision executable
                         # through JSON-only marketplaces. Caller proof seals
                         # the exact payee, chain, token, amount, resource,
