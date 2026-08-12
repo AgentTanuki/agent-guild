@@ -63,6 +63,7 @@ from . import demand
 from . import market
 from . import walletbinding
 from . import paymentdecision
+from . import trustdecision
 from . import x402
 from . import payments
 from .payments import (
@@ -2216,6 +2217,73 @@ def check(
                            offer="passport", endpoint="check")
         result = {"claim_passport": _passport_offer_block("check"), **result}
     return result
+
+
+@app.post("/check/decision")
+async def marketplace_signed_decision(
+        request: Request, body: dict[str, Any], response: Response,
+        x_api_key: Optional[str] = Header(None)):
+    """PAID caller-bound AGD-1 decision for JSON-only marketplaces.
+
+    The strict ``{request, caller_proof}`` transport lets an autonomous buyer
+    authenticate the exact capability, validity window and optional Payan buy
+    URL without custom headers.  A signed decision is produced before metering
+    and payment; invalid input or proof is never charged.
+    """
+    will_execute = bool(_xpay_sig.get() or x_api_key
+                        or not billing.billing_enforced())
+    verified, caller_did, semantic = _verify_marketplace_body_caller_proof(
+        request, body, mark_nonce=will_execute)
+    if not verified:
+        discovery_probe = (
+            set(body) == set() and not _xpay_sig.get() and not _xpay_v1.get()
+            and not x_api_key and billing.billing_enforced() and x402.enabled())
+        if discovery_probe:
+            challenge = PaymentChallenge(
+                payments.marketplace_signed_decision_request(
+                    "discovery-only"), extra={
+                    "discovery_only": True,
+                    "executable": False,
+                    "detail": (
+                        "Registry quote only. To execute, send strict JSON "
+                        "{request, caller_proof}; the proof binds POST "
+                        "/check/decision and RFC 8785 JCS(request). An "
+                        "anonymous payment retry is rejected before settlement."),
+                    "client": "/sdk/agentguild_envelope_client.mjs",
+                })
+            try:
+                headers = {x402.PAYMENT_REQUIRED_HEADER:
+                           challenge.header_value()}
+            except Exception:
+                headers = {}
+            raise HTTPException(402, challenge.body, headers=headers)
+        raise HTTPException(401, {
+            "error": "verified_caller_proof_required",
+            "detail": (
+                "send strict JSON {request, caller_proof}; the proof must bind "
+                "POST /check/decision and RFC 8785 JCS(request)"),
+            "billing": "NOT CHARGED",
+            "caller_proof": "/caller-proof",
+        })
+    try:
+        normalized = trustdecision.normalise_request(semantic)
+        digest = trustdecision.request_sha256(normalized, caller_did)
+        decision = store.signed_decision(
+            normalized["capability"], ttl_seconds=normalized["ttl_seconds"])
+    except trustdecision.TrustDecisionRefused as exc:
+        raise HTTPException(422, {
+            "error": exc.code, "detail": str(exc),
+            "billing": "NOT CHARGED — no valid signed decision was produced"})
+    preq = payments.marketplace_signed_decision_request(
+        digest, normalized.get("x402_resource_url"))
+    facts = meter(preq, x_api_key, response)
+    store.record_event(
+        "did:" + caller_did, "signed_decision_issued", ua=_ua.get(),
+        endpoint="marketplace_signed_decision", transport="http-marketplace",
+        capability=normalized["capability"], request_sha256=digest,
+        price_credits=preq.cost,
+        paid=(facts["settlement_mode"] == "x402"), **facts)
+    return decision
 
 
 @app.post("/demand/watch")

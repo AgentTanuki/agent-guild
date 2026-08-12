@@ -3,7 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.1.7"   # PATCH (machine-visible semver, 2026-08-12):
+__version__ = "2.1.8"   # PATCH (machine-visible semver, 2026-08-12):
+                        # makes premium AGD-1 decisions executable through
+                        # JSON-only marketplaces: caller proof signs the exact
+                        # capability, TTL and Payan buy URL; settlement binds
+                        # their opaque digest. Anonymous probes receive a
+                        # non-executable quote and paid unsigned retries fail
+                        # before settlement. History of 2.1.7 (2026-08-12):
                         # publishes named, intent-tagged x402 resource metadata
                         # and a truthful AGD-1 output contract for autonomous
                         # buyer discovery in Coinbase Bazaar after settlement.

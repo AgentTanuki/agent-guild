@@ -12,6 +12,7 @@ import {
   evmWalletCallerProofSigner,
   issueMachineEnvelope,
   machineEnvelopeMarketplaceInput,
+  signedDecisionMarketplaceInput,
 } from "../../../sdk/agentguild_envelope_client.mjs";
 
 const caller = didKeySigner("11".repeat(32));
@@ -155,6 +156,28 @@ assert.equal(
 assert.equal(
   marketplaceInput.caller_proof.payload.resource,
   "/envelopes/issue",
+);
+
+const decisionInput = await signedDecisionMarketplaceInput({
+  signer: caller,
+  host: "https://agent-guild.example",
+  payanOfferId: "kh_signed_decision_0001",
+  capability: "fact-check",
+  ttlSeconds: 3600,
+  proofTtlSeconds: 120,
+  proofNonce: "decision-proof-0001",
+  now: new Date("2026-08-07T10:00:00Z"),
+});
+assert.deepEqual(decisionInput.request, {
+  capability: "fact-check",
+  ttl_seconds: 3600,
+  x402_resource_url:
+    "https://payanagent.com/x402/kh_signed_decision_0001",
+});
+assert.equal(decisionInput.caller_proof.payload.resource, "/check/decision");
+assert.equal(
+  decisionInput.caller_proof.payload.body_sha256,
+  createHash("sha256").update(canon(decisionInput.request)).digest("hex"),
 );
 
 const result = await issueMachineEnvelope({

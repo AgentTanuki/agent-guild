@@ -339,6 +339,73 @@ export async function machineEnvelopeMarketplaceInput({
   };
 }
 
+function payanRelayResource({ paymentResourceUrl, payanOfferId }) {
+  if (paymentResourceUrl !== undefined && payanOfferId !== undefined) {
+    throw new TypeError("provide paymentResourceUrl or payanOfferId, not both");
+  }
+  const relayResource = paymentResourceUrl
+    || (payanOfferId ? `https://payanagent.com/x402/${payanOfferId}` : "");
+  let parsedRelay;
+  try { parsedRelay = new URL(relayResource); } catch { parsedRelay = null; }
+  if (!parsedRelay
+      || parsedRelay.protocol !== "https:"
+      || parsedRelay.host !== "payanagent.com"
+      || !/^\/x402\/[A-Za-z0-9_-]{8,128}$/.test(parsedRelay.pathname)
+      || parsedRelay.search || parsedRelay.hash) {
+    throw new TypeError(
+      "a canonical PayanAgent paymentResourceUrl or payanOfferId is required",
+    );
+  }
+  return relayResource;
+}
+
+/**
+ * Build the exact JSON a PayanAgent buyer sends for one premium AGD-1 trust
+ * decision. The caller proof binds capability, validity window and the exact
+ * marketplace buy URL before the relay can request settlement.
+ */
+export async function signedDecisionMarketplaceInput({
+  signer,
+  host = DEFAULT_HOST,
+  paymentResourceUrl,
+  payanOfferId,
+  capability,
+  ttlSeconds = 3600,
+  proofTtlSeconds = 300,
+  proofNonce: nonce,
+  now,
+}) {
+  if (typeof capability !== "string" || !capability.trim()) {
+    throw new TypeError("capability is required");
+  }
+  const ttl = Math.trunc(Number(ttlSeconds));
+  if (!Number.isFinite(ttl) || ttl < 60 || ttl > 604800) {
+    throw new RangeError("ttlSeconds must be 60..604800");
+  }
+  const relayResource = payanRelayResource({
+    paymentResourceUrl, payanOfferId,
+  });
+  const endpoint = new URL("/check/decision", host);
+  const request = {
+    capability: capability.trim(),
+    ttl_seconds: ttl,
+    x402_resource_url: relayResource,
+  };
+  const proof = await createCallerProof({
+    signer,
+    method: "POST",
+    resource: endpoint.pathname + endpoint.search,
+    body: canon(request),
+    ttlSeconds: proofTtlSeconds,
+    nonce,
+    now,
+  });
+  return {
+    [MARKETPLACE_REQUEST_FIELD]: request,
+    [MARKETPLACE_PROOF_FIELD]: proof,
+  };
+}
+
 export class MachineEnvelopePurchaseError extends Error {
   constructor(message, { status = 0, detail = null } = {}) {
     super(message);
