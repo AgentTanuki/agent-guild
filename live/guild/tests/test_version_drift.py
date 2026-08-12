@@ -185,14 +185,12 @@ def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():
     # --- exact-wallet payment policy is executable from the listing -------
     wallet = pp["ai.agent-guild/wallet-policy"]
     assert "fail-closed" in wallet["offer"].lower()
-    assert "EVM+CAIP-2" in wallet["offer"]
+    assert "EVM" in wallet["offer"]
     assert wallet["resolve"] == (
         "GET " + host +
         "/wallet-binding/resolve?address={0x...}&network=eip155:8453")
     assert wallet["virtuals"] == (
         host + "/sdk/integrations/virtuals_acp_fund_policy.mjs")
-    assert wallet["decision"] == (
-        "POST " + host + "/wallet-binding/decision")
     assert wallet["x402"] == (
         host + "/sdk/integrations/x402_payment_policy.mjs")
 

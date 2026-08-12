@@ -174,6 +174,12 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
                 "recursion_safety": (
                     "meteredFetch must be a separate unguarded x402 client; "
                     "a funded Agent Guild API key may use ordinary fetch"),
+                "payanagent_mcp": {
+                    "source": "/sdk/integrations/payanagent_payment_policy.mjs",
+                    "factory": "createPaymentPolicy(context)",
+                    "environment": "PAYANAGENT_PAYMENT_POLICY_MODULE",
+                    "default_mode": "protected",
+                },
             },
             "server_derived_settlement_params": ["request_sha256"],
             "marketplace_transport": {

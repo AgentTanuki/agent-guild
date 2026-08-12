@@ -273,3 +273,29 @@ the Guild's `eddsa-jcs-2022` proof and exact fields locally, then returns only
 on a sealed `allow`; every unavailable, unpaid, stale, tampered, mismatched or
 blocked path aborts before signing. `meteredFetch` must use a separate,
 unguarded x402 client so the policy cannot recurse while paying for itself.
+
+### PayanAgent MCP: protect every automatic buy with one file
+
+Download [`integrations/payanagent_payment_policy.mjs`](integrations/payanagent_payment_policy.mjs)
+and point PayanAgent MCP's pre-signature policy seam at its absolute file URL:
+
+```json
+{
+  "env": {
+    "PAYANAGENT_WALLET_PRIVATE_KEY": "0x...",
+    "PAYANAGENT_PAYMENT_POLICY_MODULE": "file:///absolute/path/payanagent_payment_policy.mjs",
+    "AGENT_GUILD_PAYAN_MAX_AMOUNT_ATOMIC": "1000000"
+  }
+}
+```
+
+The module defaults to `protected` mode. For every Payan purchase it buys and
+locally verifies one value-priced AGPD-1 decision after exact x402 terms are
+selected and before the wallet signs. The same Base EOA signs Agent Guild's
+caller proof and funds the Payan purchase. Local limits are available through
+`AGENT_GUILD_PAYAN_MAX_AMOUNT_ATOMIC`,
+`AGENT_GUILD_PAYAN_MAX_DECISION_FEE_CREDITS`,
+`AGENT_GUILD_PAYAN_MAX_RISK`, and
+`AGENT_GUILD_PAYAN_MIN_CONFIDENCE`. Set
+`AGENT_GUILD_PAYAN_POLICY_MODE=standard` only when you explicitly want the
+flat-price exact-payment decision instead of value-tier assurance.

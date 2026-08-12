@@ -3321,6 +3321,25 @@ def _manifest() -> dict:
                                "status":
                                    "/wallet-binding/status/{credential_id}"},
             "payment_policy_integrations": {
+                "payanagent_mcp": {
+                    "source": "/sdk/integrations/payanagent_payment_policy.mjs",
+                    "factory": "createPaymentPolicy(context)",
+                    "operation": (
+                        "PAYANAGENT_PAYMENT_POLICY_MODULE=file:///absolute/"
+                        "path/payanagent_payment_policy.mjs"),
+                    "decision": "/wallet-binding/protected-decision",
+                    "default_mode": "protected",
+                    "note": ("single-file PayanAgent MCP policy: one value-priced "
+                             "AGPD-1 credential is bought and locally verified "
+                             "after exact x402 terms are selected and before the "
+                             "same Base EOA signs the Payan purchase"),
+                    "local_caps": [
+                        "AGENT_GUILD_PAYAN_MAX_AMOUNT_ATOMIC",
+                        "AGENT_GUILD_PAYAN_MAX_DECISION_FEE_CREDITS",
+                        "AGENT_GUILD_PAYAN_MAX_RISK",
+                        "AGENT_GUILD_PAYAN_MIN_CONFIDENCE",
+                    ],
+                },
                 "virtuals_acp": {
                     "source": "/sdk/integrations/virtuals_acp_fund_policy.mjs",
                     "factory": "createAgentGuildAcpPaymentPolicy({meteredFetch, resource})",
@@ -3435,6 +3454,15 @@ def sdk_x402_payment_policy_mjs():
     return _artifact("integrations/x402_payment_policy.mjs")
 
 
+@app.get("/sdk/integrations/payanagent_payment_policy.mjs",
+         response_class=PlainTextResponse)
+def sdk_payanagent_payment_policy_mjs():
+    """Single-file PayanAgent MCP pre-signature policy. It defaults to the
+    value-priced protected AGPD-1 decision and binds the same Base EOA to caller
+    proof and subsequent Payan settlement, failing closed before signing."""
+    return _artifact("integrations/payanagent_payment_policy.mjs")
+
+
 @app.get("/standard.md", response_class=PlainTextResponse)
 def standard_md():
     """The full AGI-1 specification (prose), served from the public service."""
@@ -3490,6 +3518,9 @@ def for_agents():
         "- About to sign an x402 payment? Install /sdk/integrations/x402_payment_policy.mjs\n"
         "  to buy and verify a short-lived signed decision for the exact transaction;\n"
         "  use protectedValue:true for value-tier evidence and live-routing assurance.\n"
+        "- Buying through PayanAgent MCP? Install /sdk/integrations/payanagent_payment_policy.mjs\n"
+        "  and set PAYANAGENT_PAYMENT_POLICY_MODULE to its absolute file URL. It defaults\n"
+        "  to a value-priced protected decision before the Payan wallet signs.\n"
         "- About to fund a Virtuals ACP job? Install /sdk/integrations/virtuals_acp_fund_policy.mjs\n"
         "  and use createAgentGuildAcpPaymentPolicy({meteredFetch, resource}) as fundPolicy.\n"
         "- Asked to prove you're trustworthy? Present your passport\n"

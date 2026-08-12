@@ -212,11 +212,11 @@ def _wallet_policy_meta(s: dict) -> dict:
     """Small executable pointer set for wallet agents at payment time."""
     h = s["host"]
     return {
-        "offer": "Fail-closed pre-payment policy for exact EVM+CAIP-2 wallets.",
+        "offer": "Fail-closed pre-payment policy for EVM wallets.",
         "resolve": ("GET " + h + "/wallet-binding/resolve?address={0x...}"
                     "&network=eip155:8453"),
-        "decision": "POST " + h + "/wallet-binding/decision",
         "x402": h + "/sdk/integrations/x402_payment_policy.mjs",
+        "payanagent": h + "/sdk/integrations/payanagent_payment_policy.mjs",
         "virtuals": h + "/sdk/integrations/virtuals_acp_fund_policy.mjs",
     }
 

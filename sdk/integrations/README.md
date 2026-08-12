@@ -11,6 +11,7 @@ self-contained (stdlib HTTP) and Apache-2.0.
 | **OpenAI tools / function calling** | [`openai_tools.json`](openai_tools.json) | paste into your `tools` array, execute the HTTP call |
 | **Virtuals ACP** | [`virtuals_acp_fund_policy.mjs`](virtuals_acp_fund_policy.mjs) | `AcpAgent.create({fundPolicy: createAgentGuildAcpPaymentPolicy({meteredFetch, resource})})`; buys and locally verifies one signed AGPD-1 decision bound to the exact provider, chain, token, atomic amount and job URL before `session.fund()`; the identity + paid-risk compatibility factory remains available |
 | **x402 client** | [`x402_payment_policy.mjs`](x402_payment_policy.mjs) | `client.onBeforePaymentCreation(createAgentGuildX402PaymentPolicy({meteredFetch}))`; buys and verifies a signed decision bound to the selected payee, chain, asset, amount and resource before any payment payload is signed |
+| **PayanAgent MCP** | [`payanagent_payment_policy.mjs`](payanagent_payment_policy.mjs) | set `PAYANAGENT_PAYMENT_POLICY_MODULE=file:///absolute/path/payanagent_payment_policy.mjs`; defaults to a value-priced protected AGPD-1 decision, using the same Base EOA for caller proof and subsequent Payan settlement before any payment is signed |
 | **Any MCP client** (Claude Code, Cursor, etc.) | no file needed | `https://agent-guild-5d5r.onrender.com/mcp` (hosted, Streamable HTTP) |
 | **Any A2A client** | no file needed | agent card at `/.well-known/agent-card.json`, endpoint `POST /a2a` |
 | **Anything else** | no file needed | plain HTTP: `GET /check?capability=<cap>` |

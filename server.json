@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AgentTanuki/agent-guild",
   "description": "Signed machine messages + wallet trust gates via x402; free verifiable agent passports.",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "repository": {
     "url": "https://github.com/AgentTanuki/agent-guild",
     "source": "github"
@@ -38,10 +38,10 @@
         "custody": "Payload bytes and signer private keys stay caller-controlled."
       },
       "ai.agent-guild/wallet-policy": {
-        "offer": "Fail-closed pre-payment policy for exact EVM+CAIP-2 wallets.",
+        "offer": "Fail-closed pre-payment policy for EVM wallets.",
         "resolve": "GET https://agent-guild-5d5r.onrender.com/wallet-binding/resolve?address={0x...}&network=eip155:8453",
-        "decision": "POST https://agent-guild-5d5r.onrender.com/wallet-binding/decision",
         "x402": "https://agent-guild-5d5r.onrender.com/sdk/integrations/x402_payment_policy.mjs",
+        "payanagent": "https://agent-guild-5d5r.onrender.com/sdk/integrations/payanagent_payment_policy.mjs",
         "virtuals": "https://agent-guild-5d5r.onrender.com/sdk/integrations/virtuals_acp_fund_policy.mjs"
       },
       "ai.agent-guild/trust": {
