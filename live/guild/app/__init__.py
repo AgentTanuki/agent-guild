@@ -3,8 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.2.2"   # PATCH (machine-visible semver, 2026-08-12):
-                        # publishes a single-file PayanAgent MCP payment policy
+__version__ = "2.2.3"   # PATCH (machine-visible semver, 2026-08-12):
+                        # lets x402 directories HEAD-probe /check without
+                        # executing, recording demand/offers, or settling;
+                        # the quote still binds buyers to the exact GET.
+                        # History of 2.2.2 (2026-08-12): publishes a
+                        # single-file PayanAgent MCP payment policy
                         # that defaults to value-priced protected AGPD-1 and
                         # binds the same Base EOA before the Payan wallet signs.
                         # History of 2.2.1 (2026-08-12): exposes exact
