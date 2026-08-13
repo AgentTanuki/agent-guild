@@ -219,6 +219,13 @@ def settlement_facts(auth) -> dict:
         "settlement_network": rec.get("network"),
         "settlement_amount_atomic": rec.get("amount_atomic"),
         "settlement_tx": rec.get("transaction"),
+        # A mainnet receipt proves value moved, not that it came from an
+        # independent buyer.  Carry the settlement-time cryptographic class
+        # into the completion event so commercial analytics can fail closed
+        # instead of inferring externality from a User-Agent.
+        "payer_attribution": effective_payer_attribution(rec),
+        "first_party_payer": rec.get("first_party_payer"),
+        "externality_attestation": rec.get("externality_attestation"),
     }
 
 

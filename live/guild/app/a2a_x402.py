@@ -500,6 +500,11 @@ def _produce_for(preq: PaidRequest, settled: Any,
         "settlement_network": (settled.record or {}).get("network"),
         "settlement_amount_atomic": (settled.record or {}).get("amount_atomic"),
         "settlement_tx": (settled.record or {}).get("transaction"),
+        "payer_attribution": payments.effective_payer_attribution(
+            settled.record or {}),
+        "first_party_payer": (settled.record or {}).get("first_party_payer"),
+        "externality_attestation": (settled.record or {}).get(
+            "externality_attestation"),
     }
     params = dict(preq.query)
     # The credits QUOTED when this task was created — not today's price. A
@@ -526,6 +531,29 @@ def _produce_for(preq: PaidRequest, settled: Any,
                            target=url, paid=True, price_credits=quoted,
                            **facts)
         return out
+    if preq.operation == "best_agent":
+        capability = params.get("capability") or ""
+        out = store.check(capability, demand_recorded=True)
+        # The settled trust read is a completion like any other sold
+        # operation. Without this event a mainnet-settled A2A best_agent
+        # payment — the ONLY operation the 2026-08-13 qualified external
+        # challenges named — was invisible to every revenue read.
+        store.record_event(actor, "best_agent_served", ua=ua,
+                           endpoint="check", transport="a2a",
+                           capability=capability, paid=True,
+                           price_credits=quoted, **facts)
+        return out
+    if preq.operation == "signed_decision":
+        capability = params.get("capability") or ""
+        out = store.signed_decision(
+            capability, ttl_seconds=int(params.get("ttl_seconds") or 3600))
+        store.record_event(actor, "signed_decision_issued", ua=ua,
+                           endpoint="check_signed", transport="a2a",
+                           capability=capability, paid=True,
+                           price_credits=quoted, **facts)
+        return out
+    # Legacy fallback (pre-operation tasks only): serve the unsigned trust
+    # read. request_from_stored refuses unknown operations upstream.
     return store.check(params.get("capability") or "", demand_recorded=True)
 
 

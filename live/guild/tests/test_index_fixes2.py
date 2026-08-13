@@ -42,7 +42,9 @@ def _settled_event(store: Store, etype="deep_preflight_run", *, key="a2a:net:pay
                        settlement_confirmed=confirmed,
                        settlement_mainnet=mainnet,
                        settlement_network="eip155:8453" if mainnet else "eip155:84532",
-                       settlement_amount_atomic=usd_atomic, **extra)
+                       settlement_amount_atomic=usd_atomic,
+                       payer_attribution=(
+                           "independently_attested_external_machine"), **extra)
 
 
 # --------------------------------------------------------------------------

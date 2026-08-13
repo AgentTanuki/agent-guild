@@ -703,14 +703,18 @@ def _record_http_demand(request: Request, capability: str,
 
 
 def _meter_with_demand(preq: PaidRequest, x_api_key: Optional[str],
-                       response: Response, dem: Optional[dict]) -> None:
+                       response: Response, dem: Optional[dict]) -> dict:
     """meter(), with the FREE machine-readable `no_supply` block attached to
     a 402 challenge when exact usable supply is zero — a machine never pays
     to learn there is nothing to buy, and never pays merely to express what
     it needs. The block carries counts and free actions only, never the
-    paid shortlist/scores/evidence."""
+    paid shortlist/scores/evidence.
+
+    Returns meter()'s settlement FACTS: callers must record HOW the request
+    was paid on the completion event, or the settlement is invisible to
+    every revenue read (the exact defect that hid best_agent)."""
     try:
-        meter(preq, x_api_key, response)
+        return meter(preq, x_api_key, response)
     except HTTPException as e:
         ns = demand.no_supply_block(dem) if dem else None
         if e.status_code == 402 and ns and isinstance(e.detail, dict):
@@ -2733,11 +2737,25 @@ def check(
     contribute back. `signed=true` returns a Guild-signed, offline-verifiable
     decision for gateway caching. hire/caution/avoid is legacy presentation."""
     dem = _record_http_demand(request, capability, x_api_key)
-    _meter_with_demand(payments.check_request(capability, signed, ttl_seconds),
-                       x_api_key, response, dem)
+    preq = payments.check_request(capability, signed, ttl_seconds)
+    facts = _meter_with_demand(preq, x_api_key, response, dem)
+    # The COMPLETION event, with settlement facts. Every other sold operation
+    # records one (machine_envelope_issued, deep_preflight_run, ...); the
+    # trust read did not, so a settled /check was structurally invisible to
+    # /commercial and /funnel/paid — revenue on the very operation external
+    # actors were being challenged for would have counted as $0.
     if signed:
-        return store.signed_decision(capability, ttl_seconds=ttl_seconds)
+        decision = store.signed_decision(capability, ttl_seconds=ttl_seconds)
+        store.record_event(x_api_key, "signed_decision_issued", ua=_ua.get(),
+                           endpoint="check_signed", transport="http",
+                           capability=capability, price_credits=preq.cost,
+                           paid=(facts["settlement_mode"] == "x402"), **facts)
+        return decision
     result = store.check(capability, demand_recorded=True)
+    store.record_event(x_api_key, "best_agent_served", ua=_ua.get(),
+                       endpoint="check", transport="http",
+                       capability=capability, price_credits=preq.cost,
+                       paid=(facts["settlement_mode"] == "x402"), **facts)
     if x_api_key and result.get("best_agent"):
         store.note_recommendations(x_api_key, [r["id"] for r in result["shortlist"]])
     if not x_api_key:
@@ -3100,8 +3118,8 @@ def search(
     x_api_key: Optional[str] = Header(None),
 ):
     dem = _record_http_demand(request, capability, x_api_key)
-    _meter_with_demand(payments.search_request(capability, limit, min_trust),
-                       x_api_key, response, dem)
+    preq = payments.search_request(capability, limit, min_trust)
+    facts = _meter_with_demand(preq, x_api_key, response, dem)
     scores = store.reputation()
     items: list[SearchResultItem] = []
     for a in store.agents.values():
@@ -3122,6 +3140,12 @@ def search(
     # remember what we recommended, so a later hire can be attributed to it.
     if x_api_key:
         store.note_recommendations(x_api_key, [r.id for r in top])
+    # /search settles as operation "best_agent" (payments.search_request) —
+    # same completion discipline as /check, same reason.
+    store.record_event(x_api_key, "best_agent_served", ua=_ua.get(),
+                       endpoint="search", transport="http",
+                       capability=capability, price_credits=preq.cost,
+                       paid=(facts["settlement_mode"] == "x402"), **facts)
     return SearchResponse(capability=capability, count=len(items), results=top)
 
 

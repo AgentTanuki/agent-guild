@@ -27,7 +27,8 @@ from app.main import app  # noqa: E402
 client = TestClient(app, raise_server_exceptions=False)
 PAID_OPS = {"machine_envelope", "payment_decision",
             "protected_payment_decision", "deep_preflight",
-            "evidence_bundle", "watch_cycle"}
+            "evidence_bundle", "watch_cycle",
+            "best_agent", "signed_decision"}
 
 
 def _routes():

@@ -803,9 +803,24 @@ def guild_check(capability: str, api_key: str = "", ctx: Context = None) -> dict
     how_to_contribute}. Use guild_search / guild_risk_score for finer control.
     """
     dem = _record_mcp_demand(capability, ctx, api_key)
-    return _serve_paid(payments.check_request(capability),
-                       lambda: store.check(capability, demand_recorded=True),
-                       ctx, api_key, dem=dem)
+    preq = payments.check_request(capability)
+
+    def _produce():
+        # Completion WITH settlement facts — same discipline as
+        # guild_envelope_issue. Without it a settled MCP trust read was
+        # invisible to /commercial and /funnel/paid.
+        out = store.check(capability, demand_recorded=True)
+        facts = settlement_mode()
+        actor, distinct = _mcp_actor(ctx, api_key)
+        store.record_event(
+            actor,
+            "best_agent_served", ua=_client_ua(ctx), endpoint="check",
+            transport="mcp", capability=capability, price_credits=preq.cost,
+            actor_distinct=distinct,
+            paid=(facts.get("settlement_mode") == "x402"), **facts)
+        return out
+
+    return _serve_paid(preq, _produce, ctx, api_key, dem=dem)
 
 
 @mcp.tool
@@ -824,9 +839,21 @@ def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
     Returns a ranked list of {id, name, trust, confidence, price_per_call, rank}.
     """
     dem = _record_mcp_demand(capability, ctx, api_key)
-    return _serve_paid(payments.search_request(capability, limit, min_trust),
-                       lambda: _rank(capability, limit, min_trust), ctx,
-                       api_key, dem=dem)
+    preq = payments.search_request(capability, limit, min_trust)
+
+    def _produce():
+        out = _rank(capability, limit, min_trust)
+        facts = settlement_mode()
+        actor, distinct = _mcp_actor(ctx, api_key)
+        store.record_event(
+            actor,
+            "best_agent_served", ua=_client_ua(ctx), endpoint="search",
+            transport="mcp", capability=capability, price_credits=preq.cost,
+            actor_distinct=distinct,
+            paid=(facts.get("settlement_mode") == "x402"), **facts)
+        return out
+
+    return _serve_paid(preq, _produce, ctx, api_key, dem=dem)
 
 
 @mcp.tool
@@ -842,12 +869,22 @@ def guild_best_agent(capability: str, min_trust: float = 0.0,
     Example: guild_best_agent(capability="summarize")
     Returns one {id, name, trust, confidence, price_per_call, rank} or null.
     """
+    dem = _record_mcp_demand(capability, ctx, api_key)
+    preq = payments.search_request(capability, 1, min_trust)
+
     def _best():
         top = _rank(capability, 1, min_trust)
+        facts = settlement_mode()
+        actor, distinct = _mcp_actor(ctx, api_key)
+        store.record_event(
+            actor,
+            "best_agent_served", ua=_client_ua(ctx), endpoint="best_agent",
+            transport="mcp", capability=capability, price_credits=preq.cost,
+            actor_distinct=distinct,
+            paid=(facts.get("settlement_mode") == "x402"), **facts)
         return top[0] if top else None
-    dem = _record_mcp_demand(capability, ctx, api_key)
-    return _serve_paid(payments.search_request(capability, 1, min_trust),
-                       _best, ctx, api_key, dem=dem)
+
+    return _serve_paid(preq, _best, ctx, api_key, dem=dem)
 
 
 @mcp.tool

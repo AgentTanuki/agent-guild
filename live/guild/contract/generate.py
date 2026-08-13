@@ -280,7 +280,7 @@ def _paid_ops_meta(s: dict) -> dict:
         "operations": [op["operation"] for op in paidcatalog._OPERATIONS],
         "catalog": (f"GET {h}/.well-known/agent-guild.json"
                     "?src=paid_offer:registry"),
-        "catalog_returns": "live price, auth, entrypoint and free alternative",
+        "catalog_returns": "live price, auth, entrypoint, free alternative",
         "payment": "x402 USDC/Base mainnet (eip155:8453) per call",
         "free_alternative_exists_for_every_paid_operation": True,
     }
@@ -295,14 +295,14 @@ def _passport_meta(s: dict) -> dict:
     h = s["host"]
     return {
         "offer": ("Free, self-serve Agent Passport: register, prove control "
-                  "of your key, receive a Guild-signed portable credential, "
+                  "of your key, get a Guild-signed portable credential, "
                   "attach evidence-backed attestations, verify it offline. "
-                  "Works over MCP, HTTP and A2A. No human involved, no API "
-                  "key needed to start."),
+                  "MCP, HTTP and A2A. No human involved, no key needed to "
+                  "start."),
         "register": ("POST " + h + "/agents/register "
                      '{"name": "<you>", "capabilities": ["..."], '
                      '"src": "passport_offer:mcp_registry"} (free; returns '
-                     "your agent id + key)"),
+                     "id + key)"),
         "prove_start": "POST " + h + "/agents/{id}/prove",
         "prove_verify": ("POST " + h + "/agents/{id}/prove/verify "
                          "(success returns the full passport bundle: "

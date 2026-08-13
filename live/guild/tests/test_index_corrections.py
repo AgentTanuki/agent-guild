@@ -193,7 +193,9 @@ def test_mainnet_settlement_from_an_external_caller_counts(store):
                        ua="a2a:langchain/0.2.1", endpoint="preflight_deep",
                        paid=True, settlement_mode="x402",
                        settlement_confirmed=True, settlement_mainnet=True,
-                       settlement_amount_atomic=20000)
+                       settlement_amount_atomic=20000,
+                       payer_attribution=(
+                           "independently_attested_external_machine"))
     m = experiments.commercial_metrics(store)
     assert m["paid_decisions"] == 1
     assert m["distinct_external_payers"] == 1

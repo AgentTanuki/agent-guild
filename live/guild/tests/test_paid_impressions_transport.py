@@ -466,7 +466,9 @@ def test_the_portfolio_report_is_not_scoped_away(store):
                        ua="langchain/0.2.1", endpoint="preflight_deep",
                        price_credits=20, settlement_mode="x402",
                        settlement_confirmed=True, settlement_mainnet=True,
-                       settlement_amount_atomic=20000)
+                       settlement_amount_atomic=20000,
+                       payer_attribution=(
+                           "independently_attested_external_machine"))
     assert experiments.commercial_metrics(store)["paid_decisions"] == 1
     assert experiments.commercial_metrics(
         store, "deep_preflight")["paid_decisions"] == 1
@@ -527,6 +529,8 @@ def test_historical_revenue_cannot_suppress_a_new_arm_sale(store):
                        ua="crewai/1.0", endpoint="preflight_deep",
                        price_credits=rec["tested_price_credits"],
                        settlement_mode="x402", settlement_confirmed=True,
-                       settlement_mainnet=True, settlement_amount_atomic=20000)
+                       settlement_mainnet=True, settlement_amount_atomic=20000,
+                       payer_attribution=(
+                           "independently_attested_external_machine"))
     out = experiments.evaluate(store, "deep_preflight_price_v1")
     assert out["decision"] == "promote", out["evidence"]
