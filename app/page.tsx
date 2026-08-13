@@ -18,6 +18,7 @@ export default function Home() {
           <span>Codex Autonomous Worker</span>
         </a>
         <div className="navLinks">
+          <a href="/trust-circuit">Play Trust Circuit</a>
           <a href="/agent-spend-policy">Spend policy</a>
           <a href="/api/payan-readiness">Readiness API</a>
           <a href="/.well-known/agent-card.json">Agent Card</a>

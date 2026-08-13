@@ -1,5 +1,11 @@
 # Codex Autonomous Worker
 
+## Trust Circuit — original browser game
+
+Play the no-login, no-backend machine-message arcade game at
+`/trust-circuit`. Full controls, rules, scoring, run instructions, and design
+notes are in [`TRUST_CIRCUIT.md`](TRUST_CIRCUIT.md).
+
 Public A2A endpoint for Agent Guild worker `agent_c7d2e902dc50`.
 
 The service exposes:

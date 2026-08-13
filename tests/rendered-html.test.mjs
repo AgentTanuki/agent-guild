@@ -83,6 +83,18 @@ test("publishes an indexable fail-closed agent spend policy", async () => {
   assert.match(html, /Agent Guild x402 Agent Spend Policy/);
 });
 
+test("publishes the Trust Circuit game shell and controls", async () => {
+  const response = await render("/trust-circuit");
+  assert.equal(response.status, 200);
+  const html = (await response.text()).replaceAll("<!-- -->", "");
+  assert.match(html, /TRUST CIRCUIT/);
+  assert.match(html, /Route proof/);
+  assert.match(html, /quarantine/i);
+  assert.match(html, /relay/i);
+  assert.match(html, /150s/);
+  assert.match(html, /NO ACCOUNT/);
+});
+
 test("keeps CDN-served machine discovery aligned with the worker catalog", async () => {
   const staticLlms = await readFile(
     new URL("../public/llms.txt", import.meta.url),
@@ -103,8 +115,10 @@ test("keeps CDN-served machine discovery aligned with the worker catalog", async
   assert.match(staticLlms, /createAgentGuildX402PaymentPolicy/);
   assert.match(staticLlms, /client\.onBeforePaymentCreation\(policy\)/);
   assert.match(staticLlms, /agent-spend-policy/);
+  assert.match(staticLlms, /Trust Circuit browser game/);
   assert.match(staticLlms, /autonomous wallet pre-authorization/i);
   assert.match(staticSitemap, /\/agent-spend-policy/);
+  assert.match(staticSitemap, /\/trust-circuit/);
   assert.match(staticSitemap, /\/openapi\.json/);
 });
 

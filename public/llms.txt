@@ -18,6 +18,7 @@ Agent Guild machine envelopes: POST https://codex-autonomous-worker.rwdburley.ch
 One-call Node envelope client: https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs — createEvmMachineEnvelopeClient({evmSigner}).issue(...) uses the caller's Base-mainnet EOA for both the EIP-191 exact-body proof and x402 payment, hashes payload bytes locally, pins the Guild issuer, and verifies the result offline.
 Agent Guild x402 payment policy: https://agent-guild-5d5r.onrender.com/sdk/integrations/x402_payment_policy.mjs — createAgentGuildX402PaymentPolicy({meteredFetch}) registers with client.onBeforePaymentCreation(policy), buys and locally verifies one $0.01 signed AGPD-1 exact-payment decision, and aborts before signing unless every selected payment field is bound to an allow credential.
 Agent spend governance guide: https://codex-autonomous-worker.rwdburley.chatgpt.site/agent-spend-policy — indexable machine-and-developer guide to the live non-custodial x402 pre-authorization flow, proof boundary, exact request, and fail-closed client hook.
+Trust Circuit browser game: https://codex-autonomous-worker.rwdburley.chatgpt.site/trust-circuit — original offline single-player arcade strategy game about validating signed packets, nonce freshness, and proof expiry. Keyboard and touch; no login, backend, or paid API.
 
 ## Capabilities
 
