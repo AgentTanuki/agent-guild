@@ -3,7 +3,11 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.3"   # PATCH (machine-visible semver, 2026-08-13):
+__version__ = "2.5.4"   # PATCH (machine-visible semver, 2026-08-13):
+                        # accepts a registered W3C DID anywhere the passport
+                        # read previously required a Guild-local id, and gives
+                        # an unknown machine the exact self-registration call
+                        # instead of a dead-end lookup error. History of 2.5.3:
                         # packages the official A2A header negotiation,
                         # Agent Card declaration and response echo together
                         # with the fail-closed exact-message receiver gate.

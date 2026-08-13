@@ -6788,9 +6788,13 @@ class Store:
         ``surface``, ``ua`` and ``request_id`` are stamped so a passport event
         can be attributed to a transport and correlated with its request
         instead of being inferred later."""
-        rec = self.get_agent(agent_id)
+        # Machine callers commonly carry their stable DID, not the Guild's
+        # local ``agent_*`` identifier. Treat either as a reference to the same
+        # registered subject so a portable identity can fetch its credential.
+        rec = self.get_agent(agent_id) or self.agent_by_did(agent_id)
         if not rec:
             return None
+        agent_id = rec["id"]
         s = self.reputation().get(agent_id)
         if s is None:
             return None
