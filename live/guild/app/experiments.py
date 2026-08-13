@@ -143,6 +143,19 @@ OPERATION_EVENTS: dict[str, tuple[str, ...]] = {
     # already reporting its qualified exposure — the scope parameter and the
     # advertised catalogue disagreed about what we sell.
     "protected_payment_decision": ("protected_payment_decision_issued",),
+    # The paid trust read itself (GET /check, GET /search, guild_check /
+    # guild_search / guild_best_agent, the A2A capability ask). The x402
+    # gateway has charged for it as operation "best_agent" since the rail
+    # went live, and the ONLY qualified external paid-offer challenges in the
+    # 2026-08-13 funnel named exactly this operation — as residue, because it
+    # was missing here: unscopable, unadvertised, and a settled payment for
+    # it would have been INVISIBLE to revenue (no completion event type).
+    "best_agent": ("best_agent_served",),
+    # Sold at POST /check/decision (and GET /check?signed=true) since the
+    # marketplace decision shipped. Its completion event was ALREADY being
+    # recorded with full settlement facts — and excluded from ALL_PAID_EVENTS,
+    # so a real external mainnet settlement would have counted as $0.
+    "signed_decision": ("signed_decision_issued",),
 }
 
 ALL_PAID_EVENTS = tuple(t for v in OPERATION_EVENTS.values() for t in v)
@@ -399,7 +412,12 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
             # successful payment of nothing
             testnet_settlements += 1
             continue
-        if not _is_external(e):
+        # A framework-looking caller is evidence of demand, not proof of an
+        # independent payer.  Revenue uses the same closed, cryptographic
+        # attribution class as /billing/revenue and fails closed for legacy,
+        # merely wallet-bound, unverified and first-party settlements.
+        if e.get("payer_attribution") != \
+                "independently_attested_external_machine":
             unattributed_settled += 1
             continue
         paid_decisions += 1
@@ -435,7 +453,9 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
             "settlement_confirmed (chain receipt verified, not the "
             "facilitator's word), settlement_mainnet (the rail defaults to "
             "Base Sepolia, where a successful settlement is a successful "
-            "payment of nothing), AND a genuinely external caller. Sandbox "
+            "payment of nothing), AND payer_attribution == "
+            "'independently_attested_external_machine' from a separate "
+            "trusted attestor. Sandbox "
             "credits, testnet settlements, unconfirmed settlements and "
             "unattributable callers are reported separately and can never "
             "promote an experiment."),

@@ -50,6 +50,16 @@ DEFAULTS: dict[str, int] = {
     "watch_cycle": 5,
     # Provisioning is free — see RATIONALE.
     "watch_provision": 0,
+    # The trust read itself (GET /check, GET /search, guild_check /
+    # guild_search / guild_best_agent, the A2A capability ask). Priced at one
+    # cent in billing.PRICING since the rail went live; listed here so the
+    # catalogue, the OpenAPI storefront and the gateway all read ONE source
+    # (pricing.price returned 0 for it before, so a catalogue entry would
+    # have advertised $0 for a request the gateway bills).
+    "best_agent": 10,
+    # Guild-SIGNED offline-verifiable AGD-1 decision (GET /check?signed=true,
+    # POST /check/decision). Same reasoning.
+    "signed_decision": 1000,
 }
 
 #: Hard ceiling per operation. An experiment may move a price WITHIN these
@@ -62,6 +72,8 @@ CEILINGS: dict[str, int] = {
     "evidence_bundle": 2000,    # $2.00
     "watch_cycle": 100,         # $0.10
     "watch_provision": 100,
+    "best_agent": 1000,         # $1.00
+    "signed_decision": 5000,    # $5.00
 }
 
 RATIONALE: dict[str, str] = {
@@ -89,6 +101,15 @@ RATIONALE: dict[str, str] = {
     "watch_provision": (
         "free — taking money before any observation exists would be charging "
         "for a promise"),
+    "best_agent": (
+        "the trust read every other product hangs off: one cent answers WHICH "
+        "agent to delegate to, over the whole graph, before the caller risks "
+        "the task or the payment; the unchanged price the gateway has charged "
+        "since the rail went live, now readable from one source"),
+    "signed_decision": (
+        "a Guild-signed, offline-verifiable AGD-1 decision a THIRD party can "
+        "re-verify without calling us; priced two orders above the unsigned "
+        "read because the artefact is portable and the liability is ours"),
 }
 
 

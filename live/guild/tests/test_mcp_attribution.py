@@ -33,9 +33,14 @@ def _search_as(client_info):
 
 def test_mcp_call_records_connecting_client_identity():
     _search_as(mt.Implementation(name="cursor", version="1.2"))
-    last = store.events[-1]
-    assert last["type"] == "query"
-    assert last["ua"] == "mcp:cursor/1.2"  # not the old hardcoded "mcp/remote"
+    # The paid trust read now records a best_agent_served COMPLETION after the
+    # query event, so select by type instead of position — and both events
+    # must carry the connecting client's identity.
+    queries = [e for e in store.events if e["type"] == "query"]
+    assert queries, "the search must record a query event"
+    assert queries[-1]["ua"] == "mcp:cursor/1.2"  # not hardcoded "mcp/remote"
+    served = [e for e in store.events if e["type"] == "best_agent_served"]
+    assert served and served[-1]["ua"] == "mcp:cursor/1.2"
 
 
 def test_client_ua_falls_back_safely_without_client_info():

@@ -3,8 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.7"   # PATCH (machine-visible semver, 2026-08-13):
-                        # gives every paid OpenAPI operation explicit
+__version__ = "2.5.8"   # PATCH (machine-visible semver, 2026-08-13):
+                        # makes the paid best-agent and signed-decision reads
+                        # discoverable, measurable and completion-attributed
+                        # on HTTP, MCP and A2A, while requiring independently
+                        # attested externality before settlement is revenue.
+                        # History of 2.5.7: gives every paid OpenAPI operation explicit
                         # machine-buyer intent, proof value and use cases for
                         # semantic x402 registries. History of 2.5.6:
                         # publishes live-price OpenAPI x-payment-info so

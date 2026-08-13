@@ -301,6 +301,81 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
         "dynamic_pricing": True,
     },
     {
+        # The trust read itself — the operation the x402 gateway has charged
+        # for since the rail went live, and the FIRST operation qualified
+        # external actors were challenged for (2026-08-13 funnel). It was
+        # sold at the gateway and absent here: a price real buyers were
+        # quoted that no catalogue reader could discover.
+        "operation": "best_agent",
+        "entrypoint": {
+            "protocol": "http",
+            "method": "GET",
+            "path": "/check",
+            "query_params": {"capability": "<capability to vet>",
+                             "signed": "false", "ttl_seconds": 3600},
+            "body": None,
+            "auth": "none required — pay per call from the 402 challenge, "
+                    "or send X-API-Key to draw on a credit balance",
+            "key_required": False,
+            "directly_callable": True,
+        },
+        "alternatives": {
+            "mcp": ("guild_check(capability=\"<capability>\") / "
+                    "guild_best_agent(...) / guild_search(...)"),
+            "a2a": "ask for a capability in a message — the payment-required "
+                   "task quotes this exact operation",
+        },
+        "what_you_get": (
+            "The AGD-1 decision contract for one capability: the single "
+            "safest agent to delegate to right now, a ranked shortlist, "
+            "identity and reachability checks, estimate AND confidence, and "
+            "provenance-labelled proof — evidence, never an endorsement."),
+        "why_it_is_worth_it": (
+            "One trust read before delegating costs a cent; delegating to "
+            "the wrong agent costs the task, the payment, or both. This is "
+            "the read every other Guild product hangs off."),
+        "free_alternative": (
+            "GET /preflight?url=<endpoint> is free live verification of one "
+            "endpoint you already chose. The paid read answers the earlier "
+            "question — WHICH agent to choose — over the whole graph."),
+    },
+    {
+        # Sold at POST /check/decision (marketplace transport) and GET
+        # /check?signed=true since the trust plane shipped, with completion
+        # events already recorded — but not listed here, so its revenue
+        # could not be attributed to an advertised product.
+        "operation": "signed_decision",
+        "entrypoint": {
+            "protocol": "http",
+            "method": "GET",
+            "path": "/check",
+            "query_params": {"capability": "<capability to vet>",
+                             "signed": "true", "ttl_seconds": 3600},
+            "body": None,
+            "auth": "none required — pay per call from the 402 challenge, "
+                    "or send X-API-Key to draw on a credit balance",
+            "key_required": False,
+            "directly_callable": True,
+        },
+        "alternatives": {
+            "http_marketplace": (
+                "POST /check/decision {request, caller_proof} — the "
+                "caller-bound variant for JSON-only marketplaces"),
+        },
+        "what_you_get": (
+            "A Guild-SIGNED, offline-verifiable AGD-1 decision "
+            "(eddsa-jcs-2022 proof, validity window, checkpoint pin) you can "
+            "cache at a gateway and re-verify without trusting or re-calling "
+            "the Guild."),
+        "why_it_is_worth_it": (
+            "The unsigned read answers you once; the signed decision is a "
+            "portable cryptographic object a THIRD party can verify — the "
+            "unit of the trust plane, priced accordingly."),
+        "free_alternative": (
+            "The verifiers are free and open: /sdk and /verifiers re-verify "
+            "any issued decision offline. Only issuance is priced."),
+    },
+    {
         "operation": "deep_preflight",
         "entrypoint": {
             "protocol": "http",
@@ -417,6 +492,10 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
 #: exactly that.
 def _settlement_request(operation: str):
     from . import payments
+    if operation == "best_agent":
+        return payments.check_request("<capability>")
+    if operation == "signed_decision":
+        return payments.check_request("<capability>", signed=True)
     if operation == "deep_preflight":
         return payments.deep_preflight_request("<url>")
     if operation == "evidence_bundle":
@@ -447,7 +526,13 @@ def price_usd(operation: str) -> str:
         from . import protecteddecision
         credits = protecteddecision.discovery_quote()["fee_credits"]
     else:
-        credits = pricing.price(operation)
+        # Read the price from the SAME property the gateway charges
+        # (PaidRequest.cost): pricing.price() for engine-priced operations,
+        # the legacy PRICING table otherwise. Asking pricing.price() directly
+        # returned 0 for legacy-priced operations (best_agent,
+        # signed_decision) — a $0 advertisement for a request the gateway
+        # bills, which is the exact drift this module exists to prevent.
+        credits = _settlement_request(operation).cost
     return f"${credits / 1000:.3f}".rstrip("0").rstrip(".") or "$0"
 
 
@@ -488,8 +573,9 @@ def operations(base: Optional[str] = None) -> list[dict[str, Any]]:
         out.append({
             "operation": name,
             "price_usd": price_usd(name),
-            "price_credits": (preq.cost if name == "protected_payment_decision"
-                              else pricing.price(name)),
+            # Always the gateway's own figure — see price_usd for why asking
+            # the pricing engine directly under-advertised legacy-priced ops.
+            "price_credits": preq.cost,
             **({"dynamic_price": {
                     "pricing_contract": protected_schedule["contract"],
                     "formula": (
