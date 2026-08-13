@@ -21,7 +21,12 @@ def test_every_declared_payment_operation_is_live_and_structured():
     assert set(paid) == openapi_payment_discovery.advertised_operations()
     for operation in paid.values():
         info = operation["x-payment-info"]
+        product = operation["x-agent-guild-product"]
         assert operation["security"] == []
+        assert len(operation["summary"]) >= 70
+        assert operation["description"].startswith(operation["summary"])
+        assert len(product["use_cases"]) >= 2
+        assert product["output"]
         assert info["price"]["mode"] in {"fixed", "dynamic"}
         assert info["price"]["currency"] == "USD"
         assert info["protocols"] == [{"x402": {"version": 2}}]
@@ -36,12 +41,33 @@ def test_every_declared_payment_operation_is_live_and_structured():
     assert schema["info"]["termsOfService"].endswith("/terms.json")
     assert "Payable machine utilities are ordered first" in schema["info"][
         "x-guidance"]
+    assert "payment-safety APIs for autonomous agents" in schema["info"][
+        "description"]
     first_paths = list(schema["paths"])[:len({
         path for path, _ in openapi_payment_discovery.advertised_operations()
     })]
     assert set(first_paths) == {
         path for path, _ in openapi_payment_discovery.advertised_operations()
     }
+
+
+def test_machine_product_language_names_the_purchase_decision_and_proof():
+    paths = TestClient(app).get("/openapi.json").json()["paths"]
+
+    signed = paths["/check/decision"]["post"]
+    assert "signed AGD-1 trust decision" in signed["summary"]
+    assert "offline-verifiable" in signed["summary"]
+
+    payment = paths["/wallet-binding/decision"]["post"]
+    for term in ("payee wallet", "chain", "token", "amount", "resource"):
+        assert term in payment["summary"]
+
+    envelope = paths["/envelopes/issue"]["post"]
+    assert "machine-to-machine message" in envelope["summary"]
+    assert "replay protection" in envelope["summary"]
+
+    protected = paths["/wallet-binding/protected-decision"]["post"]
+    assert "25 bps" in protected["summary"]
 
 
 def test_runtime_prices_are_not_stale_in_fastapi_openapi_cache():
