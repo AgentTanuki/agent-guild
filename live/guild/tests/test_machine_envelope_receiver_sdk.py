@@ -33,6 +33,9 @@ def test_served_receiver_is_reviewed_and_machine_discoverable():
         assert receiver["source"] == \
             "/sdk/integrations/machine_envelope_receiver.mjs"
         assert receiver["free_discovery"] is True
+        assert receiver["a2a_extension"] == \
+            "/extensions/machine-envelope/v1"
+        assert receiver["activation_header"] == "A2A-Extensions"
         assert receiver["consequential_messages"] == \
             "paid envelope required"
         assert receiver["replay"] == "atomic consume before side effects"
