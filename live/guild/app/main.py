@@ -3711,7 +3711,10 @@ def machine_envelope_a2a_extension():
             "http_header": "A2A-Extensions",
             "http_header_member": MACHINE_ENVELOPE_A2A_EXTENSION_URI,
             "message_field": "extensions[]",
-            "required_both": True,
+            "message_field_role": (
+                "optional descriptive declaration; when present it remains "
+                "inside the signed semantic Message"),
+            "required_both": False,
             "response_echo": "A2A-Extensions",
         },
         "message": {

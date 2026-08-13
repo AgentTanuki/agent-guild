@@ -43,14 +43,17 @@ Clients MUST use the exact values published by the receiver.
 
 ## Activation
 
-A request activates the extension only when both conditions hold:
+A request activates the extension when the HTTP `A2A-Extensions` header contains
+the canonical URI as a comma-separated member, following the A2A extension
+negotiation contract.
 
-1. The HTTP `A2A-Extensions` header contains the canonical URI as a
-   comma-separated member.
-2. The A2A Message `extensions` array contains the same canonical URI.
+The A2A Message `extensions` array SHOULD also contain the same canonical URI to
+describe the extension data contributed to that Message. Receivers MUST NOT make
+this Message field a second activation precondition: official A2A clients activate
+extensions with the HTTP header. When present, `Message.extensions` remains part of
+the exact signed semantic Message.
 
-Requiring both makes transport negotiation and signed message intent agree. A
-receiver that accepts the activation MUST echo the canonical URI in its
+A receiver that accepts the activation MUST echo the canonical URI in its
 `A2A-Extensions` response header, including on an envelope-acquisition response.
 
 ## Message metadata and exact binding
@@ -115,7 +118,8 @@ payment artifact is never a substitute for a valid caller-bound envelope.
 4. Acquire an envelope for the RFC 8785 JCS bytes of that semantic Message and
    the exact published recipient, kind, protocol, and message id.
 5. Attach the envelope under `params.metadata_key`.
-6. Send with the `A2A-Extensions` header.
+6. Send with the `A2A-Extensions` header. Include the URI in
+   `Message.extensions` when the client supports that descriptive field.
 7. Verify the response echoed the extension URI before trusting the result.
 
 Reference receiver:

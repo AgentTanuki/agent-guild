@@ -121,7 +121,9 @@ def test_machine_envelope_a2a_extension_is_public_and_machine_readable():
         "extensions/machine-envelope/v1")
     assert body["agent_card"]["location"] == "capabilities.extensions[]"
     assert body["agent_card"]["required"] is True
-    assert body["activation"]["required_both"] is True
+    assert body["activation"]["required_both"] is False
+    assert "optional descriptive" in \
+        body["activation"]["message_field_role"]
     assert body["activation"]["response_echo"] == "A2A-Extensions"
     assert "RFC 8785" in body["message"]["semantic_payload"]
     assert body["verification"]["before_side_effects"] is True
