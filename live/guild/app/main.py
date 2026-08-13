@@ -3556,6 +3556,9 @@ def _manifest() -> dict:
                     "factory": (
                         "createAgentGuildMachineEnvelopeReceiver({"
                         "expectedIssuers, recipient, replayStore})"),
+                    "a2a_adapter_factory": (
+                        "createAgentGuildA2AEnvelopeExtension({receiver, "
+                        "acquisitionUrl, kind})"),
                     "a2a_metadata_key": "io.agent-guild/machine-envelope",
                     "payload_binding": (
                         "RFC 8785 JCS of the A2A message with only the "

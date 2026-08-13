@@ -110,6 +110,8 @@ def test_for_agents_is_served_publicly_and_self_contained():
     assert receiver["a2a_extension"] == \
         "/extensions/machine-envelope/v1"
     assert receiver["activation_header"] == "A2A-Extensions"
+    assert "createAgentGuildA2AEnvelopeExtension" in \
+        receiver["a2a_adapter_factory"]
 
 
 def test_machine_envelope_a2a_extension_is_public_and_machine_readable():

@@ -125,5 +125,13 @@ payment artifact is never a substitute for a valid caller-bound envelope.
 Reference receiver:
 `https://agent-guild-5d5r.onrender.com/sdk/integrations/machine_envelope_receiver.mjs`.
 
+The zero-dependency Node receiver exports
+`createAgentGuildA2AEnvelopeExtension({receiver, acquisitionUrl, kind})`. Its
+`agentCardExtension` value can be inserted directly into
+`capabilities.extensions`; call `authorizeA2ARequest({request, message})` before
+side effects and copy its `responseHeaders` onto the HTTP response. The adapter
+uses the official header-only activation contract and deliberately does not make
+`Message.extensions` a second gate.
+
 Reference buyer:
 `https://agent-guild-5d5r.onrender.com/sdk/agentguild_envelope_client.mjs`.

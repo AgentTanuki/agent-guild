@@ -36,6 +36,8 @@ def test_served_receiver_is_reviewed_and_machine_discoverable():
         assert receiver["a2a_extension"] == \
             "/extensions/machine-envelope/v1"
         assert receiver["activation_header"] == "A2A-Extensions"
+        assert "createAgentGuildA2AEnvelopeExtension" in \
+            receiver["a2a_adapter_factory"]
         assert receiver["consequential_messages"] == \
             "paid envelope required"
         assert receiver["replay"] == "atomic consume before side effects"

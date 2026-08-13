@@ -6,7 +6,7 @@ self-contained (stdlib HTTP) and Apache-2.0.
 
 | Framework | File | Usage |
 |-----------|------|-------|
-| **Machine-message receiver** | [`machine_envelope_receiver.mjs`](machine_envelope_receiver.mjs) | `createAgentGuildMachineEnvelopeReceiver({expectedIssuers, recipient, replayStore})`; keeps discovery free, then verifies exact payload, issuer, recipient, purpose, expiry and A2A message-id binding and atomically consumes one paid envelope before consequential side effects. The bundled memory replay store is process-local; distributed agents provide a durable atomic store. |
+| **A2A machine-message receiver** | [`machine_envelope_receiver.mjs`](machine_envelope_receiver.mjs) | Build the fail-closed verifier with `createAgentGuildMachineEnvelopeReceiver(...)`, then package it with `createAgentGuildA2AEnvelopeExtension({receiver, acquisitionUrl, kind})`. The adapter publishes an Agent Card entry, activates only through the official `A2A-Extensions` header, echoes accepted activation, verifies exact payload/issuer/recipient/purpose/expiry/message-id binding, and atomically consumes one paid envelope before consequential side effects. `Message.extensions` is optional descriptive data and remains signed when present. The bundled replay store is process-local; distributed agents provide a durable atomic store. |
 | **LangChain / LangGraph** | [`langchain_agentguild.py`](langchain_agentguild.py) | `tools=[guild_check, guild_verify_passport, ...]` |
 | **CrewAI** | [`crewai_agentguild.py`](crewai_agentguild.py) | `Agent(tools=[GuildCheckTool(), ...])` |
 | **OpenAI tools / function calling** | [`openai_tools.json`](openai_tools.json) | paste into your `tools` array, execute the HTTP call |

@@ -3,10 +3,14 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.2"   # PATCH (machine-visible semver, 2026-08-13):
-                        # aligns activation with the official A2A contract:
-                        # A2A-Extensions activates; Message.extensions is an
-                        # optional signed description, not a second gate.
+__version__ = "2.5.3"   # PATCH (machine-visible semver, 2026-08-13):
+                        # packages the official A2A header negotiation,
+                        # Agent Card declaration and response echo together
+                        # with the fail-closed exact-message receiver gate.
+                        # History of 2.5.2: aligns activation with the official
+                        # A2A contract: A2A-Extensions activates;
+                        # Message.extensions is an optional signed description,
+                        # not a second gate.
                         # History of 2.5.1: publishes a canonical A2A
                         # machine-envelope extension
                         # contract: standard Agent Card declaration and

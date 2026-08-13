@@ -35,6 +35,8 @@ export const MACHINE_ENVELOPE_METADATA_KEY =
   "io.agent-guild/machine-envelope";
 export const A2A_ENVELOPE_CONTEXT_PROTOCOL =
   "agent-guild/a2a-message-binding/v1";
+export const A2A_MACHINE_ENVELOPE_EXTENSION_URI =
+  `${DEFAULT_HOST}/extensions/machine-envelope/v1`;
 
 const DEFAULT_KINDS = Object.freeze([
   "intent",
@@ -84,7 +86,10 @@ function requiredOutcome({ recipient, purchaseUrl, marketplaceUrl }) {
       schema: `${normalizeHost(DEFAULT_HOST)}/envelopes`,
       buyer: `${normalizeHost(DEFAULT_HOST)}/sdk/agentguild_envelope_client.mjs`,
       recipient,
-      payload: "RFC 8785 JCS of the A2A message with metadata omitted",
+      payload: (
+        "RFC 8785 JCS of the A2A message with only the envelope metadata "
+        + "entry omitted"
+      ),
       verification: "local signature + binding checks, then atomic replay consume",
     },
   };
@@ -117,6 +122,34 @@ export function a2aEnvelopeContext(message) {
     protocol: A2A_ENVELOPE_CONTEXT_PROTOCOL,
     message_id: exactNonEmptyString(message?.messageId, "message.messageId"),
   };
+}
+
+function headerValue(source, name) {
+  const headers = source?.headers || source;
+  if (headers && typeof headers.get === "function") {
+    return headers.get(name) || "";
+  }
+  if (!headers || typeof headers !== "object" || Array.isArray(headers)) {
+    return "";
+  }
+  const match = Object.entries(headers).find(
+    ([key]) => key.toLowerCase() === name.toLowerCase(),
+  );
+  const value = match?.[1];
+  return Array.isArray(value) ? value.join(",") : String(value || "");
+}
+
+/** True only when the official A2A activation header contains this exact URI. */
+export function a2aExtensionActivated(
+  requestOrHeaders,
+  extensionUri = A2A_MACHINE_ENVELOPE_EXTENSION_URI,
+) {
+  const expected = exactNonEmptyString(extensionUri, "extensionUri");
+  return headerValue(requestOrHeaders, "A2A-Extensions")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .includes(expected);
 }
 
 /** Bounded, process-local replay store. Distributed receivers should replace it. */
@@ -283,5 +316,82 @@ export function createAgentGuildMachineEnvelopeReceiver({
     authorize,
     authorizeA2AMessage,
     requirement: structuredClone(missing),
+  });
+}
+
+/**
+ * Package the receiver gate as an A2A extension adapter.
+ *
+ * The HTTP `A2A-Extensions` header is the sole activation signal defined by
+ * A2A. `Message.extensions` may describe contributed data and remains inside
+ * the exact signed Message, but is deliberately not a second activation gate.
+ * Callers copy `responseHeaders` onto every activated HTTP response and perform
+ * no consequential side effect unless `authorized` is true.
+ */
+export function createAgentGuildA2AEnvelopeExtension({
+  receiver,
+  acquisitionUrl,
+  extensionUri = A2A_MACHINE_ENVELOPE_EXTENSION_URI,
+  required = true,
+  kind = "offer",
+} = {}) {
+  if (!receiver || typeof receiver.authorizeA2AMessage !== "function") {
+    throw new TypeError("receiver.authorizeA2AMessage must be a function");
+  }
+  const uri = exactNonEmptyString(extensionUri, "extensionUri");
+  const acquisition = exactNonEmptyString(acquisitionUrl, "acquisitionUrl");
+  const purpose = exactNonEmptyString(kind, "kind");
+  const recipient = exactNonEmptyString(
+    receiver.requirement?.acquisition?.recipient,
+    "receiver recipient",
+  );
+  const responseHeaders = Object.freeze({ "A2A-Extensions": uri });
+  const card = Object.freeze({
+    uri,
+    description: (
+      "A signed exact-message provenance envelope is required before "
+      + "consequential actions."
+    ),
+    required: Boolean(required),
+    params: Object.freeze({
+      metadata_key: MACHINE_ENVELOPE_METADATA_KEY,
+      recipient,
+      kind: purpose,
+      context_protocol: A2A_ENVELOPE_CONTEXT_PROTOCOL,
+      acquisition,
+      activation_header: "A2A-Extensions",
+      message_field_role: "optional descriptive declaration; signed when present",
+      free_discovery: true,
+    }),
+  });
+
+  async function authorizeA2ARequest({ request = null, headers = null, message } = {}) {
+    if (!a2aExtensionActivated(headers || request, uri)) {
+      return {
+        authorized: false,
+        activated: false,
+        code: "machine_envelope_extension_required",
+        extension: { uri, acquisition },
+        responseHeaders: {},
+        retry: (
+          "Send the identical Message with the exact extension URI in the "
+          + "A2A-Extensions header, then attach its exact-message envelope."
+        ),
+      };
+    }
+    const result = await receiver.authorizeA2AMessage(message);
+    return {
+      ...result,
+      activated: true,
+      extension: uri,
+      responseHeaders,
+    };
+  }
+
+  return Object.freeze({
+    uri,
+    agentCardExtension: card,
+    authorizeA2ARequest,
+    activated: (requestOrHeaders) => a2aExtensionActivated(requestOrHeaders, uri),
   });
 }
