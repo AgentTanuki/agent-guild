@@ -3,8 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.5"   # PATCH (machine-visible semver, 2026-08-13):
-                        # publishes the canonical /.well-known/x402 fan-out
+__version__ = "2.5.6"   # PATCH (machine-visible semver, 2026-08-13):
+                        # publishes live-price OpenAPI x-payment-info so
+                        # OpenAPI-first machines can discover every payable
+                        # HTTP utility and inspect x402 v2 before execution.
+                        # History of 2.5.5: publishes the canonical
+                        # /.well-known/x402 fan-out
                         # so directories discover every paid product and
                         # obtain price/schema from its own live 402 instead of
                         # reusing stale cross-product metadata. History of
