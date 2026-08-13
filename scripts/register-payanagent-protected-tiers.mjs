@@ -17,11 +17,11 @@ const KEYCHAIN_BRIDGE = process.env.AG_KEYCHAIN_BRIDGE || join(
   homedir(), "Library", "Application Support", "Agent Guild", "keychain-bridge",
 );
 const TIERS = [
-  { id: "1000-usdc", notional: "1000", amount: "1000000000", fee: "$2.50" },
-  { id: "10000-usdc", notional: "10,000", amount: "10000000000", fee: "$25" },
-  { id: "100000-usdc", notional: "100,000", amount: "100000000000", fee: "$250" },
-  { id: "1000000-usdc", notional: "1,000,000", amount: "1000000000000", fee: "$2,500" },
-  { id: "4000000-usdc", notional: "4,000,000", amount: "4000000000000", fee: "$10,000" },
+  { id: "1000-usdc", notional: "1000", amount: "1000000000", fee: "$2.50", offerId: "kh73ayftag0772zh0rx5f0rrp58cbkcc" },
+  { id: "10000-usdc", notional: "10,000", amount: "10000000000", fee: "$25", offerId: "kh7cn16zdkhdk56rn51sbmv5yx8cavrk" },
+  { id: "100000-usdc", notional: "100,000", amount: "100000000000", fee: "$250", offerId: "kh71s9j5932pebjq596egk93558cbxjk" },
+  { id: "1000000-usdc", notional: "1,000,000", amount: "1000000000000", fee: "$2,500", offerId: "kh782cngmpkmx1jxnwf7v5hdyx8cbrzr" },
+  { id: "4000000-usdc", notional: "4,000,000", amount: "4000000000000", fee: "$10,000", offerId: "kh743b8n09qnxq2tqnwyb4bc6d8camnh" },
 ];
 
 function recoverCredential() {
@@ -179,8 +179,18 @@ function outputSchema(tier) {
 
 async function registerTier(credential, tier) {
   const externalUrl = `${GUILD}/wallet-binding/protected-decision/tiers/${tier.id}`;
-  const registration = await jsonRequest("/api/v1/offers", credential.api_key, {
-    method: "POST",
+  const detail = await jsonRequest(`/api/v1/offers/${tier.offerId}`, credential.api_key);
+  const existing = detail?.offer;
+  if (!existing || String(existing._id) !== tier.offerId) {
+    throw new Error(`canonical PayanAgent offer is missing for ${tier.id}`);
+  }
+  if (String(existing.sellerId) !== SELLER_ID) {
+    throw new Error(`canonical PayanAgent offer is not treasury-owned for ${tier.id}`);
+  }
+  const offerId = tier.offerId;
+  const buyUrl = `${PAYAN}/x402/${offerId}`;
+  await jsonRequest(`/api/v1/offers/${offerId}`, credential.api_key, {
+    method: "PATCH",
     body: {
       title: `Protect Exact ${tier.notional} USDC Agent Payment — Agent Guild`,
       description: (
@@ -191,19 +201,11 @@ async function registerTier(credential, tier) {
         + `high value at risk. The ${tier.fee} fee is the standard 25 bps—not `
         + "insurance, escrow or a delivery guarantee."
       ),
-      category: "Security",
       tags: [
         "wallet-security", "payment-policy", "high-value-payment", "x402",
         "USDC", "Base", "AGPD-1", "signed-proof", "agent-guild",
       ],
-      offerType: "api",
-      externalUrl,
-      httpMethod: "POST",
-      verificationBody: {},
-      inputSchema: JSON.stringify({
-        type: "object", required: ["request", "caller_proof"],
-        description: "Exact Payan buy URL is schema-pinned after registration.",
-      }),
+      inputSchema: inputSchema(tier, buyUrl),
       outputSchema: outputSchema(tier),
       estimatedDurationSeconds: 3,
       previewDescription: (
@@ -211,13 +213,6 @@ async function registerTier(credential, tier) {
         + `service fee ${tier.fee}, with free verification and no API key.`
       ),
     },
-  });
-  const offerId = String(registration?.offerId || "");
-  if (!offerId) throw new Error(`PayanAgent did not return an offerId for ${tier.id}`);
-  const buyUrl = `${PAYAN}/x402/${offerId}`;
-  await jsonRequest(`/api/v1/offers/${offerId}`, credential.api_key, {
-    method: "PATCH",
-    body: { inputSchema: inputSchema(tier, buyUrl), outputSchema: outputSchema(tier) },
   });
   return {
     tierId: tier.id, offerId, buyUrl,
@@ -234,7 +229,7 @@ async function main() {
     }
     process.stdout.write(JSON.stringify({
       ready: true, sellerId: SELLER_ID,
-      tiers: TIERS.map(({ id, notional, fee }) => ({ id, notional, fee })),
+      tiers: TIERS.map(({ id, notional, fee, offerId }) => ({ id, notional, fee, offerId })),
       credentialSource: "macOS Keychain",
     }) + "\n");
     return;

@@ -63,6 +63,24 @@ def test_tier_catalog_is_exact_ordinary_schedule(
     })
 
 
+def test_tier_catalog_publishes_exact_purchasable_marketplace_bindings():
+    rows = {row["tier_id"]: row for row in protectedmarket.catalog()}
+    assert set(rows) == set(protectedmarket.TIERS)
+    assert set(protectedmarket.PAYAN_TIER_OFFERS) == set(protectedmarket.TIERS)
+    for tier_id, offer_id in protectedmarket.PAYAN_TIER_OFFERS.items():
+        marketplace = rows[tier_id]["marketplace"]
+        buy_url = f"https://payanagent.com/x402/{offer_id}"
+        assert marketplace == {
+            "provider": "PayanAgent",
+            "seller_id": protectedmarket.PAYAN_SELLER_ID,
+            "offer_id": offer_id,
+            "offer_url": (
+                f"https://payanagent.com/marketplace/offers/{offer_id}"),
+            "buy_url": buy_url,
+            "request_binding": {"x402_resource_url": buy_url},
+        }
+
+
 def test_tier_normalizer_binds_exact_amount_and_canonical_relay():
     relay = "https://payanagent.com/x402/kh_protected_tier_1000"
     request = _request("0x" + "33" * 20, "1000-usdc", relay)
@@ -114,6 +132,9 @@ def test_http_discovery_quotes_fixed_fee_and_unsigned_retry_never_settles(
         catalog = client.get("/wallet-binding/protected-decision/tiers")
         assert catalog.status_code == 200
         assert len(catalog.json()["tiers"]) == 5
+        assert catalog.json()["tiers"][1]["marketplace"]["buy_url"] == (
+            "https://payanagent.com/x402/"
+            + protectedmarket.PAYAN_TIER_OFFERS["10000-usdc"])
         quote = client.post(endpoint, json={})
         assert quote.status_code == 402, quote.text
         detail = quote.json()["detail"]

@@ -27,6 +27,22 @@ TIERS: dict[str, str] = {
     "4000000-usdc": "4000000000000",
 }
 
+# Canonical PayanAgent relay listings owned by Agent Guild's treasury seller.
+# A marketplace buyer must sign the exact buy URL into caller_proof, so omitting
+# these identifiers from the free catalog made an otherwise-live product hard
+# to purchase programmatically.  Keep the mapping explicit and release-bound:
+# silently discovering a replacement at request time would let a third party
+# change the URL that buyers are asked to sign.
+PAYAN_SELLER_ID = "j5745s1y3cy11gbz8592yagyn18c1b12"
+PAYAN_TIER_OFFERS: dict[str, str] = {
+    "1000-usdc": "kh73ayftag0772zh0rx5f0rrp58cbkcc",
+    "10000-usdc": "kh7cn16zdkhdk56rn51sbmv5yx8cavrk",
+    "100000-usdc": "kh71s9j5932pebjq596egk93558cbxjk",
+    "1000000-usdc": "kh782cngmpkmx1jxnwf7v5hdyx8cbrzr",
+    "4000000-usdc": "kh743b8n09qnxq2tqnwyb4bc6d8camnh",
+}
+PAYAN_ORIGIN = "https://payanagent.com"
+
 
 class ProtectedMarketplaceRefused(ValueError):
     code = "protected_marketplace_tier_refused"
@@ -57,14 +73,27 @@ def tier_quote(tier_id: str) -> dict[str, Any]:
 
 
 def catalog() -> list[dict[str, Any]]:
-    return [{
-        "tier_id": tier_id,
-        "path": tier_path(tier_id),
-        "protected_amount_atomic": amount,
-        "protected_amount_usdc": int(amount) // 1_000_000,
-        "service_quote": tier_quote(tier_id),
-        "marketplace_transport": "strict JSON {request, caller_proof}",
-    } for tier_id, amount in TIERS.items()]
+    rows = []
+    for tier_id, amount in TIERS.items():
+        offer_id = PAYAN_TIER_OFFERS[tier_id]
+        buy_url = f"{PAYAN_ORIGIN}/x402/{offer_id}"
+        rows.append({
+            "tier_id": tier_id,
+            "path": tier_path(tier_id),
+            "protected_amount_atomic": amount,
+            "protected_amount_usdc": int(amount) // 1_000_000,
+            "service_quote": tier_quote(tier_id),
+            "marketplace_transport": "strict JSON {request, caller_proof}",
+            "marketplace": {
+                "provider": "PayanAgent",
+                "seller_id": PAYAN_SELLER_ID,
+                "offer_id": offer_id,
+                "offer_url": f"{PAYAN_ORIGIN}/marketplace/offers/{offer_id}",
+                "buy_url": buy_url,
+                "request_binding": {"x402_resource_url": buy_url},
+            },
+        })
+    return rows
 
 
 def normalise_request(body: Any, tier_id: str) -> dict[str, Any]:

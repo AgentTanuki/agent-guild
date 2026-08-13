@@ -3,7 +3,11 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.4.0"   # MINOR (machine-visible semver, 2026-08-13):
+__version__ = "2.4.1"   # PATCH (machine-visible semver, 2026-08-13):
+                        # makes every protected-payment tier directly buyable
+                        # from its free machine catalog by publishing the
+                        # canonical Payan offer, buy URL, treasury seller and
+                        # exact caller-proof request binding. History of 2.4.0:
                         # adds a non-custodial Taskmarket requester adapter:
                         # exact task/reward/deadline/deliverables preview,
                         # fresh approval, paid signed delegation envelope,
