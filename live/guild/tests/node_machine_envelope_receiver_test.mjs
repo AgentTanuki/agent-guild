@@ -3,9 +3,12 @@ import { createHash } from "node:crypto";
 import { canon } from "../../../sdk/agentguild_verify.mjs";
 import { didKeySigner } from "../../../sdk/agentguild_envelope_client.mjs";
 import {
+  A2A_MACHINE_ENVELOPE_EXTENSION_URI,
   MACHINE_ENVELOPE_METADATA_KEY,
   a2aEnvelopeContext,
+  a2aExtensionActivated,
   a2aMessageBytes,
+  createAgentGuildA2AEnvelopeExtension,
   createAgentGuildMachineEnvelopeReceiver,
   createMemoryEnvelopeReplayStore,
 } from "../../../sdk/integrations/machine_envelope_receiver.mjs";
@@ -127,6 +130,69 @@ wrongIssuerMessage.metadata = {
 };
 const wrongIssuer = await wrongIssuerGate.authorizeA2AMessage(wrongIssuerMessage);
 assert.equal(wrongIssuer.code, "machine_envelope_untrusted_issuer");
+
+assert.equal(a2aExtensionActivated({
+  "A2A-Extensions": `https://example.test/other, ${A2A_MACHINE_ENVELOPE_EXTENSION_URI}`,
+}), true);
+assert.equal(a2aExtensionActivated({ "A2A-Extensions": "https://example.test/other" }), false);
+
+let adapterVerificationCalls = 0;
+const adapterReceiver = createAgentGuildMachineEnvelopeReceiver({
+  recipient,
+  verifyEnvelope: async (envelope) => {
+    adapterVerificationCalls += 1;
+    return {
+      valid: true,
+      issuer: envelope.issuer,
+      senderDid: envelope.sender.did,
+    };
+  },
+  replayStore: createMemoryEnvelopeReplayStore({ now: () => now.getTime() }),
+  now: () => now,
+});
+const adapter = createAgentGuildA2AEnvelopeExtension({
+  receiver: adapterReceiver,
+  acquisitionUrl: "https://receiver.test/a2a/extensions/machine-envelope/v1/acquire",
+  kind: "delegation",
+});
+assert.equal(adapter.agentCardExtension.uri, A2A_MACHINE_ENVELOPE_EXTENSION_URI);
+assert.equal(adapter.agentCardExtension.params.activation_header, "A2A-Extensions");
+assert.match(adapter.agentCardExtension.params.message_field_role, /optional/);
+
+const headerOnlyMessage = baseMessage("header-only-0001");
+const inactive = await adapter.authorizeA2ARequest({
+  headers: {},
+  message: headerOnlyMessage,
+});
+assert.equal(inactive.code, "machine_envelope_extension_required");
+assert.equal(inactive.activated, false);
+assert.deepEqual(inactive.responseHeaders, {});
+assert.equal(adapterVerificationCalls, 0, "inactive extension must not verify an envelope");
+
+const activatedMissing = await adapter.authorizeA2ARequest({
+  headers: { "a2a-extensions": A2A_MACHINE_ENVELOPE_EXTENSION_URI },
+  message: headerOnlyMessage,
+});
+assert.equal(activatedMissing.code, "machine_envelope_required");
+assert.equal(activatedMissing.activated, true);
+assert.equal(
+  activatedMissing.responseHeaders["A2A-Extensions"],
+  A2A_MACHINE_ENVELOPE_EXTENSION_URI,
+);
+assert.equal(adapterVerificationCalls, 0);
+
+headerOnlyMessage.metadata = {
+  [MACHINE_ENVELOPE_METADATA_KEY]: await issueFor(headerOnlyMessage),
+};
+const activatedAllowed = await adapter.authorizeA2ARequest({
+  request: new Request("https://receiver.test/a2a", {
+    headers: { "A2A-Extensions": A2A_MACHINE_ENVELOPE_EXTENSION_URI },
+  }),
+  message: headerOnlyMessage,
+});
+assert.equal(activatedAllowed.authorized, true);
+assert.equal(activatedAllowed.activated, true);
+assert.equal(adapterVerificationCalls, 1);
 
 const boundedStore = createMemoryEnvelopeReplayStore({
   maxEntries: 1,
