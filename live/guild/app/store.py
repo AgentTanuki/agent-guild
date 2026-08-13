@@ -67,6 +67,17 @@ def _iso_age_seconds(ts: Optional[str]) -> float:
 KEEPALIVE_EVENT_WINDOW_S = float(
     os.environ.get("GUILD_KEEPALIVE_EVENT_WINDOW_S", "21600"))
 
+# A public caller may refresh the Guild's observation of an ALREADY declared
+# endpoint, but cannot choose or change that endpoint. Persist the cooldown on
+# the agent so a fleet of callers (or multiple web workers) cannot turn this
+# utility into an outbound probe amplifier. A short lease prevents concurrent
+# probes without making a crashed process suppress refreshes for the full
+# cooldown.
+PUBLIC_ENDPOINT_REFRESH_COOLDOWN_S = max(300.0, min(
+    float(os.environ.get("GUILD_PUBLIC_ENDPOINT_REFRESH_COOLDOWN_S", "43200")),
+    86400.0))
+PUBLIC_ENDPOINT_REFRESH_LEASE_S = max(30.0, _reach.PROBE_TIMEOUT_S * 4)
+
 
 def endpoint_fingerprint(endpoint: Optional[str]) -> Optional[str]:
     """Stable fingerprint of a routed endpoint URL. Carried in both the AGD-1
@@ -1439,7 +1450,8 @@ class Store:
              single SSRF-safe, bounded probe. Its result is recorded honestly
              (recently_reachable / currently_unreachable); the declaration
              stands regardless.
-        The verifier NEVER runs from any read path — only here, owner-initiated."""
+        The verifier NEVER runs from a read path. It runs here owner-initiated,
+        or from the public write-only refresh crank for this already-stored URL."""
         ok, reason = url_policy_check(str(endpoint))
         if not ok:
             raise ValueError(f"endpoint policy: {reason}")
@@ -1537,6 +1549,177 @@ class Store:
         fields = reachability_fields(endpoint, (agent or {}).get("reachability"))
         return {"agent_id": agent_id, "endpoint": endpoint,
                 "declared_at": _now(), **fields}
+
+    def refresh_agent_endpoint(self, agent_id: str) -> dict[str, Any]:
+        """Re-observe the public endpoint already declared for ``agent_id``.
+
+        This is deliberately not an identity or declaration operation: the
+        caller supplies no URL, no credential, and cannot mutate the endpoint.
+        It only lets a scheduler or prospective buyer restore stale routing
+        evidence for public supply. The stored endpoint is rechecked against
+        the SSRF policy, probes are concurrency-capped/deduplicated, and a
+        durable cooldown prevents distributed callers from amplifying traffic.
+        """
+        now = datetime.now(timezone.utc)
+        with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)
+            agent = self.agents.get(agent_id)
+            if agent is None:
+                raise ValueError("agent not found")
+            endpoint = str((agent.get("metadata") or {}).get("endpoint") or "")
+            if not endpoint:
+                raise ValueError("agent has no declared endpoint")
+            ok, reason = url_policy_check(endpoint)
+            if not ok:
+                raise ValueError(f"endpoint policy: {reason}")
+
+            fingerprint = _reach.endpoint_fingerprint(endpoint)
+            record = agent.get("reachability") or {}
+            marker = agent.get("reachability_public_refresh") or {}
+            marker_matches = marker.get("endpoint_fingerprint") == fingerprint
+            lease_until = marker.get("lease_until") if marker_matches else None
+            try:
+                lease_active = bool(
+                    lease_until and now < datetime.fromisoformat(lease_until))
+            except (ValueError, TypeError):
+                lease_active = False
+
+            # Owner and public probes share one durable cooldown.
+            recent_ages: list[float] = []
+            if marker_matches:
+                recent_ages.append(_iso_age_seconds(marker.get("completed_at")))
+            if record.get("endpoint_fingerprint") == fingerprint:
+                recent_ages.append(_iso_age_seconds(record.get("checked_at")))
+            last_age = min(recent_ages, default=float("inf"))
+            current_fields = reachability_fields(endpoint, record)
+            if lease_active:
+                return {
+                    "agent_id": agent_id, "endpoint": endpoint,
+                    "refresh_performed": False, "reason": "refresh_in_progress",
+                    "retry_after_seconds": max(
+                        1, int(PUBLIC_ENDPOINT_REFRESH_LEASE_S)),
+                    **current_fields,
+                }
+            if last_age < PUBLIC_ENDPOINT_REFRESH_COOLDOWN_S:
+                retry = max(1, int(
+                    PUBLIC_ENDPOINT_REFRESH_COOLDOWN_S - last_age + 0.999))
+                return {
+                    "agent_id": agent_id, "endpoint": endpoint,
+                    "refresh_performed": False, "reason": "recent_probe",
+                    "retry_after_seconds": retry, **current_fields,
+                }
+
+            agent["reachability_public_refresh"] = {
+                "endpoint_fingerprint": fingerprint,
+                "lease_until": (now + timedelta(
+                    seconds=PUBLIC_ENDPOINT_REFRESH_LEASE_S)).isoformat(),
+                "started_at": now.isoformat(),
+                "completed_at": (
+                    marker.get("completed_at") if marker_matches else None),
+            }
+            if self.backend is not None:
+                self._persist_agent(agent_id)
+            self._save()
+
+        key = f"{agent_id}|{endpoint}"
+        with _reach._inflight_lock:
+            duplicate = key in _reach._inflight
+            if not duplicate:
+                _reach._inflight.add(key)
+        probe_record = None
+        inconclusive_reason = None
+        if duplicate:
+            inconclusive_reason = "identical verification already in flight"
+        else:
+            try:
+                if _reach._probe_sem.acquire(timeout=_reach.PROBE_TIMEOUT_S * 2):
+                    try:
+                        probe_record = _reach.liveness_probe(endpoint)
+                    finally:
+                        _reach._probe_sem.release()
+                else:
+                    inconclusive_reason = "probe capacity saturated; try later"
+            finally:
+                with _reach._inflight_lock:
+                    _reach._inflight.discard(key)
+
+        with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)
+            agent = self.agents.get(agent_id)
+            if agent is None:
+                raise ValueError("agent not found")
+            current_endpoint = str(
+                (agent.get("metadata") or {}).get("endpoint") or "")
+            marker = agent.get("reachability_public_refresh") or {}
+
+            # Never apply a probe across an endpoint replacement.
+            if current_endpoint != endpoint:
+                if marker.get("endpoint_fingerprint") == fingerprint:
+                    agent.pop("reachability_public_refresh", None)
+                    if self.backend is not None:
+                        self._persist_agent(agent_id)
+                    self._save()
+                fields = reachability_fields(
+                    current_endpoint, agent.get("reachability"))
+                return {
+                    "agent_id": agent_id, "endpoint": current_endpoint,
+                    "refresh_performed": False, "reason": "endpoint_changed",
+                    "retry_after_seconds": 0, **fields,
+                }
+
+            if probe_record is None:
+                # Inconclusive capacity/dedup outcomes are not evidence and do
+                # not consume the 12-hour cooldown.
+                agent.pop("reachability_public_refresh", None)
+                if self.backend is not None:
+                    self._persist_agent(agent_id)
+                self._save()
+                fields = reachability_fields(endpoint, agent.get("reachability"))
+                return {
+                    "agent_id": agent_id, "endpoint": endpoint,
+                    "refresh_performed": False,
+                    "reason": "verification_inconclusive",
+                    "detail": inconclusive_reason,
+                    "retry_after_seconds": max(
+                        1, int(PUBLIC_ENDPOINT_REFRESH_LEASE_S)),
+                    **fields,
+                }
+
+            previous_status = (
+                agent.get("reachability_event_meta") or {}).get("status")
+            agent["reachability"] = probe_record
+            completed_at = _now()
+            agent["reachability_public_refresh"] = {
+                "endpoint_fingerprint": fingerprint,
+                "lease_until": None,
+                "started_at": marker.get("started_at"),
+                "completed_at": completed_at,
+            }
+            status = probe_record["status"]
+            event_age = _iso_age_seconds(
+                (agent.get("reachability_event_meta") or {}).get("at"))
+            if status != previous_status or event_age >= KEEPALIVE_EVENT_WINDOW_S:
+                self.record_event(
+                    self.account_for_agent(agent_id),
+                    "endpoint_verification", agent_id=agent_id,
+                    reachability_status=status,
+                    evidence_level=probe_record["evidence_level"],
+                    refresh_source="public_crank")
+                agent["reachability_event_meta"] = {
+                    "endpoint": endpoint, "status": status,
+                    "at": completed_at}
+            if self.backend is not None:
+                self._persist_agent(agent_id)
+            self._save()
+            fields = reachability_fields(endpoint, probe_record)
+            return {
+                "agent_id": agent_id, "endpoint": endpoint,
+                "refresh_performed": True, "reason": "probe_completed",
+                "probe_status": status,
+                "retry_after_seconds": int(
+                    PUBLIC_ENDPOINT_REFRESH_COOLDOWN_S),
+                **fields,
+            }
 
     # --- trusted AG-ORIGINATED invocation flow (the ONLY path to
     #     invocation_verified). Dormant: AG has no production outbound-invocation

@@ -323,6 +323,12 @@
   },
   {
    "methods": [
+    "POST"
+   ],
+   "path": "/agents/{agent_id}/endpoint/refresh"
+  },
+  {
+   "methods": [
     "GET"
    ],
    "path": "/agents/{agent_id}/evidence"
@@ -1044,6 +1050,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.5.11"
+  "version": "2.5.12"
  }
 }

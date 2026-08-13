@@ -1117,6 +1117,28 @@ def declare_endpoint(agent_id: str, body: dict[str, Any],
     return out
 
 
+@app.post("/agents/{agent_id}/endpoint/refresh")
+def refresh_declared_endpoint(agent_id: str,
+                              body: Optional[dict[str, Any]] = None):
+    """Publicly re-check the endpoint already declared for an agent. Free.
+
+    This route accepts no endpoint and no credential: a scheduler or buyer can
+    refresh stale routing evidence, but cannot redirect the agent, alter its
+    identity, or create reputation. Successful and failed probes are recorded
+    honestly; a durable 12-hour cooldown prevents outbound probe amplification.
+    """
+    if body is not None:
+        raise HTTPException(
+            422, "request body must be empty; this route can only refresh "
+            "the already-declared endpoint")
+    if not store.get_agent(agent_id):
+        raise HTTPException(404, "agent not found")
+    try:
+        return store.refresh_agent_endpoint(agent_id)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
 @app.post("/agents/{agent_id}/key/rotate")
 def rotate_key(agent_id: str, x_api_key: Optional[str] = Header(None),
                x_admin_token: Optional[str] = Header(None)):

@@ -214,6 +214,97 @@ def test_duplicate_inflight_verification_is_deduped():
         R._inflight.discard(f"{a['id']}|https://busy.example/a2a")
 
 
+# --- public refresh crank: stored endpoint only, durable cooldown ------------
+def test_public_refresh_reobserves_only_the_stored_endpoint():
+    s = _fresh(); a = s.register_agent("Crank", ["x"], {})
+    s.set_agent_endpoint(a["id"], "https://worker.example/a2a")
+    card = b'{"protocolVersion":"0.3.0","skills":[{"id":"x"}]}'
+    with mock.patch.object(R.socket, "getaddrinfo",
+                           return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", return_value=(200, card)):
+        out = s.refresh_agent_endpoint(a["id"])
+    assert out["refresh_performed"] is True
+    assert out["endpoint"] == "https://worker.example/a2a"
+    assert out["probe_status"] == "recently_reachable"
+    assert out["recommended_for_routing"] is True
+    assert s.get_agent(a["id"])["metadata"]["endpoint"] == out["endpoint"]
+
+
+def test_public_refresh_cooldown_is_durable_and_skips_network():
+    s = _fresh(); a = s.register_agent("Cool", ["x"], {})
+    s.set_agent_endpoint(a["id"], "https://worker.example/a2a")
+    card = b'{"protocolVersion":"0.3.0","skills":[]}'
+    with mock.patch.object(R.socket, "getaddrinfo",
+                           return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", return_value=(200, card)):
+        assert s.refresh_agent_endpoint(a["id"])["refresh_performed"] is True
+    with mock.patch.object(R, "liveness_probe",
+                           side_effect=AssertionError("cooldown performed a probe")):
+        out = s.refresh_agent_endpoint(a["id"])
+    assert out["refresh_performed"] is False
+    assert out["reason"] == "recent_probe"
+    assert out["retry_after_seconds"] > 0
+    assert out["recommended_for_routing"] is True
+
+
+def test_public_refresh_records_failure_honestly_and_cools_down():
+    s = _fresh(); a = s.register_agent("Down", ["x"], {})
+    s.set_agent_endpoint(a["id"], "https://worker.example/a2a")
+    with mock.patch.object(R.socket, "getaddrinfo",
+                           return_value=_ai("93.184.216.34")), \
+         mock.patch.object(R, "_http_request_pinned", side_effect=socket.timeout()):
+        out = s.refresh_agent_endpoint(a["id"])
+    assert out["refresh_performed"] is True
+    assert out["probe_status"] == "currently_unreachable"
+    assert out["recommended_for_routing"] is False
+    assert s.get_agent(a["id"])["reachability"]["status"] == "currently_unreachable"
+    assert s.refresh_agent_endpoint(a["id"])["reason"] == "recent_probe"
+
+
+def test_public_refresh_inconclusive_preserves_prior_evidence_and_cooldown():
+    s = _fresh(); a = s.register_agent("Busy", ["x"], {})
+    endpoint = "https://busy.example/a2a"
+    s.set_agent_endpoint(a["id"], endpoint)
+    R._inflight.add(f"{a['id']}|{endpoint}")
+    try:
+        out = s.refresh_agent_endpoint(a["id"])
+    finally:
+        R._inflight.discard(f"{a['id']}|{endpoint}")
+    assert out["refresh_performed"] is False
+    assert out["reason"] == "verification_inconclusive"
+    assert s.get_agent(a["id"]).get("reachability") is None
+    assert "reachability_public_refresh" not in s.get_agent(a["id"])
+
+
+def test_public_refresh_discards_result_if_owner_changes_endpoint_mid_probe():
+    s = _fresh(); a = s.register_agent("Race", ["x"], {})
+    old = "https://old.example/a2a"
+    new = "https://new.example/a2a"
+    s.set_agent_endpoint(a["id"], old)
+
+    def owner_changes_endpoint(_endpoint):
+        s.set_agent_endpoint(a["id"], new)
+        return R.make_record(
+            "recently_reachable", "protocol_probe", "protocol_handshake", old)
+
+    with mock.patch.object(R, "liveness_probe", side_effect=owner_changes_endpoint):
+        out = s.refresh_agent_endpoint(a["id"])
+    assert out["refresh_performed"] is False
+    assert out["reason"] == "endpoint_changed"
+    assert out["endpoint"] == new
+    assert out["recommended_for_routing"] is False
+    current = s.get_agent(a["id"])
+    assert current["metadata"]["endpoint"] == new
+    assert "reachability" not in current
+    assert "reachability_public_refresh" not in current
+
+
+def test_public_refresh_requires_existing_policy_valid_declaration():
+    s = _fresh(); a = s.register_agent("None", ["x"], {})
+    with pytest.raises(ValueError, match="no declared endpoint"):
+        s.refresh_agent_endpoint(a["id"])
+
+
 # --- HTTPS pinning: SNI + cert-hostname validation (integration) -------------
 def _self_signed(cn="localhost"):
     from cryptography import x509
