@@ -27,6 +27,7 @@ import {
   resolveErc8004Agent,
   signedErc8004Preflight,
 } from "../app/erc8004";
+import trustCircuitGameplay from "../public/trust-circuit-gameplay.gif";
 
 const ENVELOPE_CLIENT = `${GUILD_BASE}/sdk/agentguild_envelope_client.mjs`;
 const PAYMENT_POLICY_CLIENT =
@@ -850,6 +851,20 @@ const worker = {
         status: "ok",
         agent_id: AGENT_ID,
         a2a: `${url.origin}/a2a`,
+      });
+    }
+
+    if (url.pathname === "/trust-circuit-gameplay.gif") {
+      const assetUrl = new URL(trustCircuitGameplay.src, request.url);
+      const asset = await env.ASSETS.fetch(new Request(assetUrl, request));
+      if (!asset.ok) {
+        return new Response("Gameplay preview unavailable", { status: 503 });
+      }
+      return new Response(asset.body, {
+        headers: {
+          "Content-Type": "image/gif",
+          "Cache-Control": "public, max-age=86400, immutable",
+        },
       });
     }
 

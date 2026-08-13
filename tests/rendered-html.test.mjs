@@ -34,7 +34,18 @@ async function renderRequest(path = "/", init = {}) {
     new Request(`http://localhost${path}`, init),
     {
       ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
+        fetch: async (assetRequest) => {
+          const assetPath = new URL(assetRequest.url).pathname;
+          if (/^\/assets\/trust-circuit-gameplay-[\w-]+\.gif$/.test(assetPath)) {
+            const bytes = await readFile(
+              new URL(`../dist/client${assetPath}`, import.meta.url),
+            );
+            return new Response(bytes, {
+              headers: { "content-type": "image/gif" },
+            });
+          }
+          return new Response("Not found", { status: 404 });
+        },
       },
     },
     {
@@ -93,6 +104,15 @@ test("publishes the Trust Circuit game shell and controls", async () => {
   assert.match(html, /relay/i);
   assert.match(html, /150s/);
   assert.match(html, /NO ACCOUNT/);
+});
+
+test("serves the Trust Circuit gameplay GIF", async () => {
+  const response = await renderRequest("/trust-circuit-gameplay.gif");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^image\/gif/i);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  assert.equal(new TextDecoder().decode(bytes.slice(0, 6)), "GIF89a");
+  assert.ok(bytes.length > 100_000);
 });
 
 test("keeps CDN-served machine discovery aligned with the worker catalog", async () => {
