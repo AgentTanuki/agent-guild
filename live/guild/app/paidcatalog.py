@@ -80,6 +80,11 @@ SOURCE_IDS = (
 _OPERATIONS: tuple[dict[str, Any], ...] = (
     {
         "operation": "machine_envelope",
+        "buyer_intents": (
+            "sign a machine-to-machine message",
+            "prove which agent authorized an instruction",
+            "create an offline-verifiable receipt for a private payload",
+        ),
         "entrypoint": {
             "protocol": "http",
             "method": "POST",
@@ -154,6 +159,11 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "operation": "payment_decision",
+        "buyer_intents": (
+            "is this wallet safe to pay",
+            "authorize an x402 payment before signing",
+            "verify an agent payee on Base",
+        ),
         "entrypoint": {
             "protocol": "http",
             "method": "POST",
@@ -229,6 +239,11 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "operation": "protected_payment_decision",
+        "buyer_intents": (
+            "protect a high-value USDC payment",
+            "screen a counterparty before a large transfer",
+            "bind agent evidence to an exact payment",
+        ),
         "entrypoint": {
             "protocol": "http",
             "method": "POST",
@@ -307,6 +322,11 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
         # sold at the gateway and absent here: a price real buyers were
         # quoted that no catalogue reader could discover.
         "operation": "best_agent",
+        "buyer_intents": (
+            "which agent should I hire for this capability",
+            "find the safest agent to delegate this task",
+            "rank agents by trust evidence",
+        ),
         "entrypoint": {
             "protocol": "http",
             "method": "GET",
@@ -345,6 +365,11 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
         # events already recorded — but not listed here, so its revenue
         # could not be attributed to an advertised product.
         "operation": "signed_decision",
+        "buyer_intents": (
+            "get a signed trust decision for an agent hire",
+            "prove why an agent was selected",
+            "cache and verify a delegation decision offline",
+        ),
         "entrypoint": {
             "protocol": "http",
             "method": "GET",
@@ -377,6 +402,11 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "operation": "deep_preflight",
+        "buyer_intents": (
+            "is this agent endpoint safe to call",
+            "verify an MCP or A2A endpoint before delegation",
+            "detect endpoint identity or behavior drift",
+        ),
         "entrypoint": {
             "protocol": "http",
             "method": "GET",
@@ -412,6 +442,11 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "operation": "evidence_bundle",
+        "buyer_intents": (
+            "get offline-verifiable evidence for an agent endpoint",
+            "audit an agent before delegation",
+            "retain signed endpoint evidence",
+        ),
         "entrypoint": {
             "protocol": "http",
             "method": "POST",
@@ -442,6 +477,11 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "operation": "watch_cycle",
+        "buyer_intents": (
+            "monitor an agent endpoint for changes",
+            "recheck endpoint trust continuously",
+            "alert on agent endpoint drift",
+        ),
         "entrypoint": {
             "protocol": "http",
             "method": "POST",
@@ -536,6 +576,20 @@ def price_usd(operation: str) -> str:
     return f"${credits / 1000:.3f}".rstrip("0").rstrip(".") or "$0"
 
 
+def buyer_intents(operation: str) -> list[str]:
+    """Literal buyer jobs used by semantic tool and service selectors.
+
+    These are truthful retrieval phrases, not hidden instructions or keyword
+    stuffing.  Keeping them beside the product contract makes the same intent
+    visible on MCP, A2A, OpenAPI, x402 and plain-text discovery without the
+    surfaces drifting into different promises.
+    """
+    for op in _OPERATIONS:
+        if op["operation"] == operation:
+            return list(op["buyer_intents"])
+    return []
+
+
 def operations(base: Optional[str] = None) -> list[dict[str, Any]]:
     """The catalog, priced live and BOUND LIVE.
 
@@ -610,6 +664,7 @@ def operations(base: Optional[str] = None) -> list[dict[str, Any]]:
             "directly_callable": ep.get("directly_callable", True),
             "callable_note": ep.get("callable_note"),
             "alternatives": op.get("alternatives") or {},
+            "buyer_intents": list(op["buyer_intents"]),
             "what_you_get": op["what_you_get"],
             "why_it_is_worth_it": op["why_it_is_worth_it"],
             "free_alternative": op["free_alternative"],
@@ -680,6 +735,7 @@ def llms_txt_section(base: Optional[str] = None) -> str:
              "it answers your question.", ""]
     for op in operations(base):
         lines.append(f"- {op['operation']} — {op['price_usd']} per call")
+        lines.append("  use when: " + "; ".join(op["buyer_intents"]))
         if op["directly_callable"]:
             lines.append(f"  call:     {op['entrypoint']['call']}")
             if op["entrypoint"].get("body_example"):
@@ -739,6 +795,10 @@ def mcp_discovery_meta(base: Optional[str] = None) -> dict[str, Any]:
             "human_in_the_loop": False,
             "account_required": False,
             "operations": [op["operation"] for op in _OPERATIONS],
+            "buyer_intents": {
+                op["operation"]: list(op["buyer_intents"])
+                for op in _OPERATIONS
+            },
             "free_alternative_exists_for_every_operation": True,
             "price_source": {
                 "note": ("Prices are LIVE and are not published here — this "
@@ -748,9 +808,9 @@ def mcp_discovery_meta(base: Optional[str] = None) -> dict[str, Any]:
                 "http_catalog": (f"{root}/.well-known/agent-guild.json"
                                  "?src=paid_offer:registry"),
             },
-            "returns": ("per operation: current price, exact callable "
-                        "entrypoint, canonical x402 settlement resource, and "
-                        "the free alternative"),
+            "returns": ("per operation: literal buyer intents, current price, "
+                        "exact callable entrypoint, canonical x402 settlement "
+                        "resource, and the free alternative"),
         }
     }
 
@@ -781,6 +841,14 @@ def mcp_discovery_output_schema() -> dict[str, Any]:
                                       "description": "current, live"},
                         "price_credits": {"type": "integer"},
                         "payment": {"type": "string"},
+                        "buyer_intents": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "minItems": 2,
+                            "description": (
+                                "literal jobs autonomous buyers can match "
+                                "semantically to this operation"),
+                        },
                         "entrypoint": {
                             "type": "object", "additionalProperties": True,
                             "description": ("how to CALL it: method, path, "

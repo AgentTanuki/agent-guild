@@ -19,7 +19,7 @@ from typing import Any, Callable
 
 from fastapi import FastAPI
 
-from . import billing, pricing, protecteddecision, protectedmarket, x402
+from . import billing, paidcatalog, pricing, protecteddecision, protectedmarket, x402
 
 
 _CREDIT_USD = Decimal(str(billing.CREDIT_USD))
@@ -230,6 +230,31 @@ _PRODUCTS: dict[tuple[str, str], dict[str, Any]] = {
 }
 
 
+_CANONICAL_INTENT_OPERATIONS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("/check", "get"): ("best_agent", "signed_decision"),
+    ("/check/decision", "post"): ("signed_decision",),
+    ("/search", "get"): ("best_agent",),
+    ("/preflight/deep", "get"): ("deep_preflight",),
+    ("/evidence/bundle", "post"): ("evidence_bundle",),
+    ("/envelopes/issue", "post"): ("machine_envelope",),
+    ("/wallet-binding/decision", "post"): ("payment_decision",),
+    ("/wallet-binding/protected-decision", "post"):
+        ("protected_payment_decision",),
+    ("/wallet-binding/protected-decision/tiers/{tier_id}", "post"):
+        ("protected_payment_decision",),
+}
+
+
+def _buyer_intents(path: str, method: str, product: dict[str, Any]) -> list[str]:
+    """Use canonical catalog language where a route maps to a paid product."""
+    found: list[str] = []
+    for name in _CANONICAL_INTENT_OPERATIONS.get((path, method), ()):
+        for intent in paidcatalog.buyer_intents(name):
+            if intent not in found:
+                found.append(intent)
+    return found or list(product["use_cases"])
+
+
 def apply(schema: dict[str, Any]) -> dict[str, Any]:
     """Apply the live payment projection to a fresh OpenAPI schema copy."""
     host = x402.public_host()
@@ -266,11 +291,12 @@ def apply(schema: dict[str, Any]) -> dict[str, Any]:
             continue
         operation["security"] = []
         operation["x-payment-info"] = factory()
-        product = _PRODUCTS[(path, method)]
+        product = copy.deepcopy(_PRODUCTS[(path, method)])
+        product["buyer_intents"] = _buyer_intents(path, method, product)
         operation["summary"] = product["summary"]
         operation["description"] = (
-            product["summary"] + " Use this when you need to "
-            + " or ".join(product["use_cases"]) + ". Returns "
+            product["summary"] + " Match this operation when the buyer asks: "
+            + "; ".join(product["buyer_intents"]) + ". Returns "
             + product["output"] + "."
         )
         operation["x-agent-guild-product"] = product

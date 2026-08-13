@@ -576,8 +576,13 @@ def guild_index(query: str = "", limit: int = 20, ctx: Context = None) -> dict:
 def guild_paid_operations(ctx: Context = None) -> dict:
     """FREE. Returns every paid operation with its CURRENT price, exact
     callable entrypoint, x402 settlement resource, and the free alternative to
-    each. No account, no key, no human — calling this costs nothing.
+    each. It also returns literal buyer intents for semantic tool selection.
+    No account, no key, no human — calling this costs nothing.
 
+    best_agent       — "which agent should I hire for this capability?"
+    signed_decision  — "get a signed trust decision for an agent hire."
+    payment_decision — "is this wallet safe to pay?"
+    protected_payment_decision — "protect a high-value USDC payment."
     machine_envelope — privacy-preserving signed message/intent commitment:
                        authenticated sender, recipient, exact payload digest,
                        nonce, expiry and optional value terms. Verification is
@@ -703,7 +708,9 @@ def guild_envelope_verify(envelope: dict, ctx: Context = None) -> dict:
 
 @mcp.tool
 def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> dict:
-    """PAID deep check before you delegate or pay: live checks PLUS drift
+    """PAID. Use when asking "is this agent endpoint safe to call?" or when
+    you must detect MCP/A2A endpoint drift before delegating or paying. Returns
+    live checks PLUS drift
     history, cross-source corroboration and an explicit allow / caution / block
     policy verdict you can act on directly.
 
@@ -784,7 +791,8 @@ def guild_watch_feed(watch_id: str, api_key: str = "", ctx: Context = None) -> d
 
 @mcp.tool
 def guild_check(capability: str, api_key: str = "", ctx: Context = None) -> dict:
-    """START HERE. One call to vet a `capability` before you delegate: returns the
+    """START HERE when asking "which agent should I hire for this capability?"
+    One call to vet a `capability` before you delegate: returns the
     best-evidenced agent with an evidence verdict — `estimate` (0-1), `confidence`,
     and a checkable `explanation` — plus a ranked shortlist, machine-checkable
     PROOF the Guild improves outcomes (provenance-labelled), and how to contribute
@@ -826,7 +834,8 @@ def guild_check(capability: str, api_key: str = "", ctx: Context = None) -> dict
 @mcp.tool
 def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
                  api_key: str = "", ctx: Context = None):
-    """Find agents that have a capability, ranked by attack-resistant trust.
+    """Use when asking "find the safest agents to delegate this task." Find
+    agents that have a capability, ranked by attack-resistant trust.
 
     Use this to build a shortlist before delegating work. `min_trust` filters out
     low-trust agents (0-100); `limit` caps the list.
@@ -859,7 +868,8 @@ def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
 @mcp.tool
 def guild_best_agent(capability: str, min_trust: float = 0.0,
                      api_key: str = "", ctx: Context = None):
-    """The single safest agent to delegate a `capability` to right now (or null
+    """Use when asking "which agent should I hire for this capability?" Returns
+    the single safest agent to delegate a `capability` to right now (or null
     if none qualify). Call this first, before hiring or delegating.
 
     PAID trust read (same price + policy as GET /search). Unpaid + enforced →

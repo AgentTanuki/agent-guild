@@ -61,6 +61,23 @@ def test_catalog_prices_come_from_the_gateway_not_a_copy(monkeypatch):
     assert moved["watch_cycle"]["price_usd"] == "$4.242"
 
 
+def test_catalog_publishes_literal_buyer_intents_from_one_source():
+    """Semantic selectors match buyer language, not Python function names."""
+    ops = {o["operation"]: o for o in paidcatalog.operations()}
+    for name, op in ops.items():
+        assert len(op["buyer_intents"]) >= 2, name
+        assert op["buyer_intents"] == paidcatalog.buyer_intents(name)
+        assert all(isinstance(text, str) and len(text) >= 20
+                   for text in op["buyer_intents"])
+
+    assert "which agent should I hire for this capability" in \
+        ops["best_agent"]["buyer_intents"]
+    assert "sign a machine-to-machine message" in \
+        ops["machine_envelope"]["buyer_intents"]
+    assert "is this wallet safe to pay" in \
+        ops["payment_decision"]["buyer_intents"]
+
+
 def test_every_surface_carries_the_paid_catalog():
     """agent card, manifest, llms.txt — all three, or an agent has to trip a
     402 on a route it had no reason to call in order to learn we sell
@@ -69,15 +86,20 @@ def test_every_surface_carries_the_paid_catalog():
     block = card["x-agent-guild-paid-operations"]
     assert block["source"] == "paid_offer:agent_card"
     assert {o["operation"] for o in block["operations"]} == PAID_OPS
+    assert all(o["buyer_intents"] for o in block["operations"])
 
     man = client.get("/.well-known/agent-guild.json").json()
     assert man["paid_operations"]["source"] == "paid_offer:manifest"
     assert {o["operation"] for o in man["paid_operations"]["operations"]} == PAID_OPS
+    assert all(o["buyer_intents"]
+               for o in man["paid_operations"]["operations"])
 
     txt = client.get("/llms.txt").text
     for name in PAID_OPS:
         assert name in txt, f"{name} missing from llms.txt"
     assert "free instead:" in txt
+    assert "use when:" in txt
+    assert "which agent should I hire for this capability" in txt
     assert "paid_offer:llms_txt" in txt
 
 

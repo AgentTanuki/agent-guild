@@ -26,6 +26,7 @@ def test_every_declared_payment_operation_is_live_and_structured():
         assert len(operation["summary"]) >= 70
         assert operation["description"].startswith(operation["summary"])
         assert len(product["use_cases"]) >= 2
+        assert len(product["buyer_intents"]) >= 2
         assert product["output"]
         assert info["price"]["mode"] in {"fixed", "dynamic"}
         assert info["price"]["currency"] == "USD"
@@ -68,6 +69,13 @@ def test_machine_product_language_names_the_purchase_decision_and_proof():
 
     protected = paths["/wallet-binding/protected-decision"]["post"]
     assert "25 bps" in protected["summary"]
+
+    assert "which agent should I hire for this capability" in \
+        paths["/check"]["get"]["x-agent-guild-product"]["buyer_intents"]
+    assert "sign a machine-to-machine message" in \
+        envelope["x-agent-guild-product"]["buyer_intents"]
+    assert "is this wallet safe to pay" in \
+        payment["x-agent-guild-product"]["buyer_intents"]
 
 
 def test_runtime_prices_are_not_stale_in_fastapi_openapi_cache():
