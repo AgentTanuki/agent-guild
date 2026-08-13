@@ -259,6 +259,10 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
                 "notionals_usdc": [1000, 10000, 100000, 1000000, 4000000],
                 "fees_usdc": [2.5, 25, 250, 2500, 10000],
                 "factory": "protectedPaymentTierMarketplaceInput",
+                "purchase_links": (
+                    "GET /wallet-binding/protected-decision/tiers returns each "
+                    "canonical Payan offer_id, offer_url, buy_url and the exact "
+                    "request.x402_resource_url binding"),
                 "rule": "same 25 bps policy and evidence gates",
             },
         },
