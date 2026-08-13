@@ -944,6 +944,34 @@ def x402_readiness():
     return x402.readiness()
 
 
+@app.get("/.well-known/x402")
+def x402_discovery():
+    """Canonical fan-out for autonomous x402 buyers and directories.
+
+    It lists concrete, probeable products but intentionally carries no shared
+    price: every product's live 402 is the authority for its own quote and
+    Bazaar input/output contract.
+    """
+    from . import protecteddecision, protectedmarket
+
+    example_target = x402.public_host() + "/a2a"
+    resources = [
+        payments.check_request("fact-check", signed=True, ttl_seconds=3600),
+        payments.marketplace_signed_decision_request("discovery-only"),
+        payments.machine_envelope_request("discovery-only"),
+        payments.payment_decision_request("discovery-only"),
+        payments.deep_preflight_request(example_target),
+        payments.protected_payment_decision_request(
+            "discovery-only", protecteddecision.discovery_quote()),
+    ]
+    resources.extend(
+        payments.protected_payment_tier_request(
+            tier_id, "discovery-only", protectedmarket.tier_quote(tier_id))
+        for tier_id in protectedmarket.TIERS
+    )
+    return x402.discovery_document(resources)
+
+
 # --- identity ---------------------------------------------------------------
 @app.post("/agents/register", response_model=RegisterResponse)
 def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
