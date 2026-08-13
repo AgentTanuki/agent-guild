@@ -3,7 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.3.0"   # MINOR (machine-visible semver, 2026-08-13):
+__version__ = "2.4.0"   # MINOR (machine-visible semver, 2026-08-13):
+                        # adds a non-custodial Taskmarket requester adapter:
+                        # exact task/reward/deadline/deliverables preview,
+                        # fresh approval, paid signed delegation envelope,
+                        # AGSM-1 pre-signature cap, read-only submission review,
+                        # and reconcile-before-retry handling. History of 2.3.0:
                         # adds free AGSM-1 cumulative spend mandates: a Base
                         # EOA signs persistent total/per-payee/count caps and
                         # each exact budget authorization atomically advances

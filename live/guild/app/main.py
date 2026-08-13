@@ -3513,6 +3513,23 @@ def _manifest() -> dict:
                     "protected_marketplace_factory": (
                         "protectedPaymentTierMarketplaceInput"),
                 },
+                "taskmarket": {
+                    "source": "/sdk/integrations/taskmarket_requester.mjs",
+                    "factory": (
+                        "createAgentGuildTaskmarketRequester({evmSigner, "
+                        "mandateId, approve})"),
+                    "operation": "prepare exact plan; create after fresh approval; review read-only",
+                    "signed_approval": "/envelopes/issue",
+                    "budget_authorization": "/mandates/authorize",
+                    "marketplace": "https://taskmarket.dev",
+                    "note": (
+                        "non-custodial requester flow: the caller previews exact "
+                        "description, deliverables, reward, deadline and maximum "
+                        "spend; a fresh approval buys a signed delegation envelope; "
+                        "the same AGSM-1 mandate caps Taskmarket funding; ambiguous "
+                        "responses are reconciled before retry and submissions are "
+                        "never accepted automatically"),
+                },
                 "x402": {
                     "source": "/sdk/integrations/x402_payment_policy.mjs",
                     "marketplace_client": "/sdk/agentguild_envelope_client.mjs",
@@ -3612,6 +3629,15 @@ def sdk_x402_payment_policy_mjs():
     return _artifact("integrations/x402_payment_policy.mjs")
 
 
+@app.get("/sdk/integrations/taskmarket_requester.mjs",
+         response_class=PlainTextResponse)
+def sdk_taskmarket_requester_mjs():
+    """Non-custodial Taskmarket requester adapter. It binds a fresh approval
+    to a paid signed envelope and applies AGSM-1 before the caller-owned wallet
+    funds the exact external task; review remains read-only."""
+    return _artifact("integrations/taskmarket_requester.mjs")
+
+
 @app.get("/sdk/integrations/payanagent_payment_policy.mjs",
          response_class=PlainTextResponse)
 def sdk_payanagent_payment_policy_mjs():
@@ -3681,6 +3707,9 @@ def for_agents():
         "  to a value-priced protected decision before the Payan wallet signs.\n"
         "- About to fund a Virtuals ACP job? Install /sdk/integrations/virtuals_acp_fund_policy.mjs\n"
         "  and use createAgentGuildAcpPaymentPolicy({meteredFetch, resource}) as fundPolicy.\n"
+        "- Delegating a task through Taskmarket? Install /sdk/integrations/taskmarket_requester.mjs\n"
+        "  for exact task/reward/deadline preview, fresh approval, signed intent and\n"
+        "  AGSM-1 pre-signature spend enforcement; review stays read-only.\n"
         "- Asked to prove you're trustworthy? Present your passport\n"
         "  (GET /agents/{id}/passport) — a Guild-signed credential anyone can verify.\n"
         "- Handed a passport? Verify it (POST /credentials/verify) — check the signature,\n"

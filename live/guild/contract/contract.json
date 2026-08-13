@@ -839,6 +839,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/sdk/integrations/taskmarket_requester.mjs"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/sdk/integrations/virtuals_acp_fund_policy.mjs"
   },
   {
@@ -1002,6 +1008,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.3.0"
+  "version": "2.4.0"
  }
 }
