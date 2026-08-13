@@ -54,6 +54,11 @@ services:
       # external-unknown).
       - key: GUILD_FIRST_PARTY_TOKEN
         sync: false
+      # Public Base payer addresses used by Guild-operated canaries.  Read-time
+      # classification ensures they can never count as external adoption or
+      # revenue, even when a canary omits the token-gated source header.
+      - key: GUILD_X402_FIRST_PARTY_PAYERS
+        value: "0x6904b3E1a5007C94b195d054CF2ca06B43a5C45c"
       # --- autonomous discovery scout (2026-07-15) ---------------------------
       # GUILD_SCOUT_AUTORUN=1 runs the demand-driven scout on a jittered,
       # lease-guarded schedule inside the service (app/swarm/runner.py) and

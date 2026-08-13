@@ -3,8 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.2.3"   # PATCH (machine-visible semver, 2026-08-12):
-                        # lets x402 directories HEAD-probe /check without
+__version__ = "2.3.0"   # MINOR (machine-visible semver, 2026-08-13):
+                        # adds free AGSM-1 cumulative spend mandates: a Base
+                        # EOA signs persistent total/per-payee/count caps and
+                        # each exact budget authorization atomically advances
+                        # durable state before an x402 client may sign.
+                        # History of 2.2.3: lets x402 directories HEAD-probe
+                        # /check without
                         # executing, recording demand/offers, or settling;
                         # the quote still binds buyers to the exact GET.
                         # History of 2.2.2 (2026-08-12): publishes a

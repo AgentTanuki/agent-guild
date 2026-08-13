@@ -239,6 +239,22 @@ class Store:
         # (immutable after signing) so revocation/supersession never breaks
         # a credential's offline signature. Transitions are one-way.
         self.wallet_binding_status: dict[str, dict[str, Any]] = {}
+        # AGSM-1 buyer-owned spend authority. Mandates are keyed state rather
+        # than events because each authorization must atomically consume a
+        # cumulative cap across threads, processes and restarts.
+        self.spend_mandates: dict[str, dict[str, Any]] = {}
+        # Privacy-preserving, bounded AGSM-1 falsification observations. The
+        # actor is a keyed digest and this collection never stores a raw DID,
+        # EOA, payment, payee, or authorization identifier.
+        self.spend_mandate_metrics: dict[str, dict[str, Any]] = {}
+        # Stable keyed-digest secret for the experiment cohort. Separate from
+        # the issuer key so an ordinary signing-key rotation cannot split one
+        # payer into two actors. Never returned by an API.
+        self.spend_mandate_metric_secret: str = ""
+        # Fixed AGSM-1 experiment clock, deliberately outside the autonomous
+        # price engine's `experiments` registry so unrelated portfolio metrics
+        # can never generate a false promote/kill verdict for this treatment.
+        self.spend_mandate_experiment: dict[str, Any] = {}
         # independent externality attestations (app/externality.py):
         # attestation_id -> signed attestation. Re-validated at READ time
         # against the (default-empty) issuer allowlist — storing a document
@@ -564,6 +580,10 @@ class Store:
             b.put_kv("wallet_binding_challenges",
                      self.wallet_binding_challenges)
             b.put_kv("wallet_binding_status", self.wallet_binding_status)
+            b.put_kv("spend_mandate_metric_secret",
+                     self.spend_mandate_metric_secret)
+            b.put_kv("spend_mandate_experiment",
+                     self.spend_mandate_experiment)
             b.put_kv("externality_attestations",
                      self.externality_attestations)
             b.put_kv("guild_inbox", self.guild_inbox)
@@ -626,6 +646,14 @@ class Store:
             b.put_kv("wallet_binding_challenges",
                      self.wallet_binding_challenges)
             b.put_kv("wallet_binding_status", self.wallet_binding_status)
+            for r in self.spend_mandates.values():
+                b.put_spend_mandate(r)
+            for r in self.spend_mandate_metrics.values():
+                b.put_spend_mandate_metric(r)
+            b.put_kv("spend_mandate_metric_secret",
+                     self.spend_mandate_metric_secret)
+            b.put_kv("spend_mandate_experiment",
+                     self.spend_mandate_experiment)
             b.put_kv("externality_attestations",
                      self.externality_attestations)
             b.put_kv("guild_inbox", self.guild_inbox)
@@ -788,6 +816,12 @@ class Store:
             "wallet_binding_challenges", {}) or {}
         self.wallet_binding_status = self.backend.fetch_kv(
             "wallet_binding_status", {}) or {}
+        self.spend_mandates = d.get("spend_mandates", {}) or {}
+        self.spend_mandate_metrics = d.get("spend_mandate_metrics", {}) or {}
+        self.spend_mandate_metric_secret = self.backend.fetch_kv(
+            "spend_mandate_metric_secret", "") or ""
+        self.spend_mandate_experiment = self.backend.fetch_kv(
+            "spend_mandate_experiment", {}) or {}
         self.externality_attestations = self.backend.fetch_kv(
             "externality_attestations", {}) or {}
         self.guild_inbox = self.backend.fetch_kv("guild_inbox", {}) or {}
@@ -843,6 +877,12 @@ class Store:
                 "wallet_binding_challenges", {})
             self.wallet_binding_status = data.get(
                 "wallet_binding_status", {})
+            self.spend_mandates = data.get("spend_mandates", {})
+            self.spend_mandate_metrics = data.get("spend_mandate_metrics", {})
+            self.spend_mandate_metric_secret = data.get(
+                "spend_mandate_metric_secret", "")
+            self.spend_mandate_experiment = data.get(
+                "spend_mandate_experiment", {})
             self.externality_attestations = data.get(
                 "externality_attestations", {})
             self.guild_inbox = data.get("guild_inbox", {})
@@ -970,6 +1010,12 @@ class Store:
                        "wallet_binding_challenges":
                            self.wallet_binding_challenges,
                        "wallet_binding_status": self.wallet_binding_status,
+                       "spend_mandates": self.spend_mandates,
+                       "spend_mandate_metrics": self.spend_mandate_metrics,
+                       "spend_mandate_metric_secret":
+                           self.spend_mandate_metric_secret,
+                       "spend_mandate_experiment":
+                           self.spend_mandate_experiment,
                        "externality_attestations":
                            self.externality_attestations,
                        "guild_inbox": self.guild_inbox,
@@ -2518,6 +2564,64 @@ class Store:
         verified = bool((agent.get("milestones") or {}).get("key_proof")
                         or agent.get("proof_of_conduct"))
         return _attr.caller_class(ev, member=member, verified=verified)
+
+    def spend_mandate_falsification(self) -> dict[str, Any]:
+        """Honest AGSM-1 repeat-use signal for the predeclared 21-day test.
+
+        The source is the bounded dedicated metric row, not the truncating
+        global event log. A success requires a cryptographically verified EOA
+        that was not first-party at creation or authorization time to consume
+        two new authorization ids on one mandate inside the fixed window.
+        Public output is aggregate-only: no wallet, actor digest, mandate id,
+        payee, payment, amount, resource or cadence is disclosed.
+        """
+        from . import spendmandate as _sm
+        experiment = self.spend_mandate_experiment or {}
+        first_party_actors = _sm.first_party_metric_actors(self)
+        eligible = [
+            rec for rec in self.spend_mandate_metrics.values()
+            if (rec.get("external_eligible") is True
+                and rec.get("actor_hmac") not in first_party_actors)]
+        successes = [
+            rec for rec in eligible
+            if int(rec.get("external_authorizations") or 0) >= 2]
+        eligible_actors = {
+            str(rec.get("actor_hmac")) for rec in eligible
+            if rec.get("actor_hmac")}
+        try:
+            from datetime import datetime, timezone
+            closed = bool(experiment.get("ends_at")) and datetime.now(
+                timezone.utc) >= datetime.fromisoformat(experiment["ends_at"])
+        except (TypeError, ValueError):
+            closed = False
+        metric_count = len(self.spend_mandate_metrics)
+        capacity_reached = metric_count >= _sm.MAX_METRIC_ROWS
+        enrollment_open = not closed and not capacity_reached
+        return {
+            "contract": _sm.CONTRACT,
+            "hypothesis": experiment.get("hypothesis"),
+            "started_at": experiment.get("started_at"),
+            "ends_at": experiment.get("ends_at"),
+            "window_days": experiment.get(
+                "window_days", _sm.EXPERIMENT_WINDOW_DAYS),
+            "status": "closed" if closed else "running",
+            "enrollment_open": enrollment_open,
+            "enrollment_block_reason": (
+                "experiment_closed" if closed else
+                "metric_capacity_reached" if capacity_reached else None),
+            "mandates_created_total": metric_count,
+            "measurement_capacity": _sm.MAX_METRIC_ROWS,
+            "eligible_external_mandates": len(eligible),
+            "eligible_external_actors": len(eligible_actors),
+            "successful_external_actors": len({
+                rec.get("actor_hmac") for rec in successes}),
+            "successful_mandates": len(successes),
+            "signal_detected": bool(successes),
+            "honesty": (
+                "aggregate-only; every counted call had a valid Base-EVM EIP-191 "
+                "caller proof, first-party EOAs/tokens and replays are excluded, "
+                "and no raw or recomputable wallet identifier is published"),
+        }
 
     def record_internal_event(self, etype: str, origin: str, **meta) -> None:
         """Record an event this PROCESS produced (scout loop, index observer,

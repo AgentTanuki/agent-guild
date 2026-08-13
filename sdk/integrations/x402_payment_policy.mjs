@@ -6,7 +6,13 @@
 // payment field locally, and aborts before a payment payload is signed unless
 // the sealed decision is `allow`.
 //
-// IMPORTANT: when paying Agent Guild with x402, `meteredFetch` must use a
+// Optional AGSM-1 mode adds `mandateId` and `evmSigner`; it creates a unique
+// authorization id by default, or accepts `mandateAuthorizationId(context)`.
+// The same hook then seals
+// and enforces cumulative, per-counterparty and authorization-count caps across
+// processes and restarts before it allows the x402 client to sign.
+//
+// IMPORTANT: for ordinary paid AGPD-1, `meteredFetch` must use a
 // separate, unguarded x402 client.  Reusing the protected client would invoke
 // this hook recursively while trying to pay for its own decision.  A funded
 // Agent Guild `apiKey` may instead use ordinary `fetchImpl`.
@@ -21,6 +27,11 @@ import {
   encodeCallerProof,
   evmWalletCallerProofSigner,
 } from "../agentguild_envelope_client.mjs";
+import { createHash, randomUUID } from "node:crypto";
+
+function sha256Hex(value) {
+  return createHash("sha256").update(String(value), "utf8").digest("hex");
+}
 
 function normalizeHost(host) {
   return String(host || DEFAULT_HOST).replace(/\/$/, "");
@@ -83,6 +94,7 @@ async function buyDecision({
   const headers = {
     accept: "application/json",
     "content-type": "application/json",
+    "user-agent": "agent-guild-x402-payment-policy/2.3.0",
   };
   if (apiKey) headers["X-API-Key"] = apiKey;
   if (callerSigner) {
@@ -105,8 +117,9 @@ async function buyDecision({
 /**
  * Create an official x402 `onBeforePaymentCreation` hook.
  *
- * `meteredFetch` is deliberately required unless `apiKey` is supplied.  This
- * prevents accidental recursion through the same guarded x402 client.
+ * `meteredFetch` is deliberately required for ordinary paid AGPD-1 unless an
+ * `apiKey` is supplied. AGSM-1 mandate decisions are free and use `fetchImpl`
+ * directly, so they cannot recurse through an x402 settlement.
  */
 export function createAgentGuildX402PaymentPolicy({
   host = DEFAULT_HOST,
@@ -124,17 +137,31 @@ export function createAgentGuildX402PaymentPolicy({
   protectedValue = false,
   evmSigner = null,
   maxDecisionFeeCredits = 10_000_000,
+  mandateId = null,
+  mandateAuthorizationId = null,
 } = {}) {
   if (typeof fetchImpl !== "function") {
     throw new TypeError("fetchImpl must be a function");
   }
-  const decisionFetch = meteredFetch || (apiKey ? fetchImpl : null);
-  if (typeof decisionFetch !== "function") {
+  const mandateConfigured = mandateId !== null;
+  if (!mandateConfigured && mandateAuthorizationId !== null) {
+    throw new TypeError(
+      "mandateAuthorizationId cannot be configured without mandateId"
+    );
+  }
+  if (mandateAuthorizationId !== null
+      && typeof mandateAuthorizationId !== "function") {
+    throw new TypeError(
+      "mandateAuthorizationId must be a per-invocation function or omitted"
+    );
+  }
+  const paidDecisionFetch = meteredFetch || (apiKey ? fetchImpl : null);
+  if (!mandateConfigured && typeof paidDecisionFetch !== "function") {
     throw new TypeError(
       "meteredFetch is required unless a funded Agent Guild apiKey is supplied"
     );
   }
-  if (meteredFetch === fetchImpl && !apiKey) {
+  if (meteredFetch === fetchImpl && !apiKey && !mandateConfigured) {
     throw new TypeError(
       "meteredFetch must be a separate unguarded x402 transport to avoid recursion"
     );
@@ -146,9 +173,19 @@ export function createAgentGuildX402PaymentPolicy({
   if (protectedValue && typeof meteredFetch !== "function") {
     throw new TypeError("protectedValue requires meteredFetch; API keys cannot buy this mainnet-only product");
   }
-  const callerSigner = protectedValue
+  if (mandateConfigured && !evmSigner) {
+    throw new TypeError("evmSigner is required for AGSM-1 spend mandates");
+  }
+  if (mandateConfigured && protectedValue) {
+    throw new TypeError(
+      "AGSM-1 mandates and protectedValue cannot be combined in version 1"
+    );
+  }
+  const callerSigner = (protectedValue || mandateConfigured)
     ? evmWalletCallerProofSigner(evmSigner)
     : null;
+  const usedAuthorizationIds = new Set();
+  const usedAuthorizationIdOrder = [];
 
   return async function agentGuildX402PaymentPolicy(context) {
     try {
@@ -176,6 +213,81 @@ export function createAgentGuildX402PaymentPolicy({
         };
       }
 
+      if (mandateConfigured) {
+        const selectedMandateId = resolveOption(mandateId, context);
+        const selectedAuthorizationId = mandateAuthorizationId === null
+          ? `agsm-auth-${randomUUID()}`
+          : resolveOption(mandateAuthorizationId, context);
+        if (!selectedMandateId || !selectedAuthorizationId) {
+          throw new Error("mandate configuration resolved to an empty value");
+        }
+        const authorizationKey = String(selectedAuthorizationId);
+        if (usedAuthorizationIds.has(authorizationKey)) {
+          throw new Error(
+            "mandateAuthorizationId was reused; every payment attempt needs a unique id"
+          );
+        }
+        usedAuthorizationIds.add(authorizationKey);
+        usedAuthorizationIdOrder.push(authorizationKey);
+        if (usedAuthorizationIdOrder.length > 2048) {
+          usedAuthorizationIds.delete(usedAuthorizationIdOrder.shift());
+        }
+        const authorization = await buyDecision({
+          base,
+          endpointPath: "/mandates/authorize",
+          decisionFetch: fetchImpl,
+          apiKey: null,
+          body: {
+            mandate_id: String(selectedMandateId),
+            authorization_id: String(selectedAuthorizationId),
+            payment: expected,
+          },
+          callerSigner,
+        });
+        const expectedIssuer = pinIssuer
+          ? (await getJson(
+              fetchImpl,
+              `${base}/.well-known/agent-guild-did.json`,
+              { headers: { accept: "application/json" } },
+              "issuer DID discovery"
+            )).did
+          : null;
+        const subject = authorization?.credentialSubject || {};
+        const validFrom = new Date(authorization?.validFrom);
+        const validUntil = new Date(authorization?.validUntil);
+        const clock = now();
+        const fresh = Number.isFinite(validFrom.getTime())
+          && Number.isFinite(validUntil.getTime())
+          && validFrom <= clock && clock <= validUntil;
+        const proofValid = verifyCredential(authorization)
+          && (!expectedIssuer || authorization.issuer === expectedIssuer);
+        const permitted = proofValid && fresh
+          && subject.contract === "AGSM-1/1.0"
+          && subject.mandate_id === String(selectedMandateId)
+          && subject.authorization_id_sha256 === sha256Hex(
+            String(selectedAuthorizationId))
+          && subject.id === callerSigner.did
+          && samePayment(subject.payment, expected)
+          && subject.authorized === true
+          && subject.decision === "allow"
+          && subject.idempotent_replay === false;
+        if (typeof onDecision === "function") {
+          await onDecision(authorization, context);
+        }
+        if (!permitted) {
+          return {
+            abort: true,
+            reason: subject.decision === "block" && subject.failures?.length
+              ? subject.failures.join("; ")
+              : "signed spend authorization was invalid, stale, inexact, replayed, or blocked",
+          };
+        }
+        // Budget-only mode is useful by itself.  If an existing paid AGPD-1
+        // transport/key is also configured, compose both gates: authority AND
+        // counterparty trust must allow before the client signs.
+        if (typeof paidDecisionFetch !== "function") return undefined;
+      }
+
       const requestedCapability = resolveOption(capability, context) || null;
       const body = {
         payment: expected,
@@ -199,7 +311,8 @@ export function createAgentGuildX402PaymentPolicy({
         ? "/wallet-binding/protected-decision"
         : "/wallet-binding/decision";
       const decision = await buyDecision({
-        base, endpointPath, decisionFetch, apiKey, body, callerSigner,
+        base, endpointPath, decisionFetch: paidDecisionFetch,
+        apiKey, body, callerSigner,
       });
       const expectedIssuer = pinIssuer
         ? (await getJson(

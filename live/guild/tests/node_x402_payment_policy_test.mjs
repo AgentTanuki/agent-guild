@@ -100,6 +100,31 @@ async function decisionFor(body, mutate = null) {
   });
 }
 
+async function spendAuthorizationFor(body, mutate = null) {
+  const subject = {
+    id: `did:pkh:eip155:8453:${buyerAddress}`,
+    contract: "AGSM-1/1.0",
+    mandate_id: body.mandate_id,
+    authorization_id_sha256: createHash("sha256")
+      .update(body.authorization_id, "utf8").digest("hex"),
+    payment: body.payment,
+    authorized: true,
+    decision: "allow",
+    failures: [],
+    idempotent_replay: false,
+  };
+  if (mutate) mutate(subject);
+  return secure({
+    "@context": ["https://www.w3.org/ns/credentials/v2"],
+    id: "urn:agent-guild:spend-authorization:test",
+    type: ["VerifiableCredential", "AgentGuildSpendAuthorization"],
+    issuer: guild.did,
+    validFrom: "2026-08-07T17:59:00.000Z",
+    validUntil: "2026-08-07T18:04:00.000Z",
+    credentialSubject: subject,
+  });
+}
+
 const freeFetch = async url => {
   assert.equal(new URL(url).pathname, "/.well-known/agent-guild-did.json");
   return response({ did: guild.did });
@@ -123,6 +148,103 @@ const hook = createAgentGuildX402PaymentPolicy({
 });
 assert.equal(await hook(context), undefined);
 assert.equal(paidCalls, 1);
+
+let mandateCalls = 0;
+const mandateSigner = {
+  address: buyerAddress,
+  async signMessage() { return "0x" + "12".repeat(65); },
+};
+const mandateHook = createAgentGuildX402PaymentPolicy({
+  host: "https://guild.example",
+  fetchImpl: async (url, init) => {
+    if (new URL(url).pathname === "/.well-known/agent-guild-did.json") {
+      return response({ did: guild.did });
+    }
+    mandateCalls += 1;
+    assert.equal(new URL(url).pathname, "/mandates/authorize");
+    assert.ok(init.headers["X-Guild-Caller-Proof"]);
+    assert.equal(init.headers["user-agent"],
+      "agent-guild-x402-payment-policy/2.3.0");
+    const body = JSON.parse(init.body);
+    assert.equal(body.mandate_id, "agsm_12345678");
+    assert.equal(body.authorization_id, "payment-attempt-1234");
+    return response(await spendAuthorizationFor(body));
+  },
+  evmSigner: mandateSigner,
+  mandateId: "agsm_12345678",
+  mandateAuthorizationId: () => "payment-attempt-1234",
+  now: () => asOf,
+});
+assert.equal(await mandateHook(context), undefined);
+assert.equal(mandateCalls, 1);
+
+const reused = await mandateHook(context);
+assert.equal(reused.abort, true);
+assert.match(reused.reason, /was reused/);
+
+const generatedIds = [];
+const generatedIdHook = createAgentGuildX402PaymentPolicy({
+  host: "https://guild.example",
+  fetchImpl: async (url, init) => {
+    if (new URL(url).pathname === "/.well-known/agent-guild-did.json") {
+      return response({ did: guild.did });
+    }
+    const body = JSON.parse(init.body);
+    generatedIds.push(body.authorization_id);
+    return response(await spendAuthorizationFor(body));
+  },
+  evmSigner: mandateSigner,
+  mandateId: "agsm_12345678",
+  now: () => asOf,
+});
+assert.equal(await generatedIdHook(context), undefined);
+assert.equal(await generatedIdHook(context), undefined);
+assert.equal(new Set(generatedIds).size, 2);
+
+assert.throws(
+  () => createAgentGuildX402PaymentPolicy({
+    fetchImpl: freeFetch,
+    evmSigner: mandateSigner,
+    mandateAuthorizationId: () => "payment-attempt-1234",
+  }),
+  /without mandateId/
+);
+
+assert.throws(
+  () => createAgentGuildX402PaymentPolicy({
+    fetchImpl: freeFetch,
+    meteredFetch: paidFetch,
+    mandateId: "agsm_12345678",
+    mandateAuthorizationId: "payment-attempt-1234",
+  }),
+  /per-invocation function/
+);
+
+let composedBudgetCalls = 0;
+let composedTrustCalls = 0;
+const composedHook = createAgentGuildX402PaymentPolicy({
+  host: "https://guild.example",
+  fetchImpl: async (url, init) => {
+    if (new URL(url).pathname === "/.well-known/agent-guild-did.json") {
+      return response({ did: guild.did });
+    }
+    composedBudgetCalls += 1;
+    return response(await spendAuthorizationFor(JSON.parse(init.body)));
+  },
+  meteredFetch: async (_url, init) => {
+    composedTrustCalls += 1;
+    return response(await decisionFor(JSON.parse(init.body)));
+  },
+  evmSigner: mandateSigner,
+  mandateId: "agsm_12345678",
+  capability: "fact-check",
+  maxRisk: 40,
+  minConfidence: 0.7,
+  now: () => asOf,
+});
+assert.equal(await composedHook(context), undefined);
+assert.equal(composedBudgetCalls, 1);
+assert.equal(composedTrustCalls, 1);
 
 const tamperedHook = createAgentGuildX402PaymentPolicy({
   host: "https://guild.example",
