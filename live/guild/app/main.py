@@ -2346,10 +2346,12 @@ def get_passport(agent_id: str, request: Request, response: Response):
     store.record_event(actor, "passport_requested", ua=ua,
                        endpoint="passport", subject_id=agent_id,
                        transport="http", request_id=request_id)
+    subject = store.get_agent(agent_id) or store.agent_by_did(agent_id)
+    canonical_id = subject["id"] if subject else agent_id
     cred = store.issue_passport(
-        agent_id,
+        canonical_id,
         verify_url=f"{base}/credentials/verify",
-        explore_url=f"{base}/agents/{agent_id}/reputation",
+        explore_url=f"{base}/agents/{canonical_id}/reputation",
         actor_key=actor, surface="http", ua=ua, request_id=request_id,
     )
     if cred is None:
@@ -2360,13 +2362,13 @@ def get_passport(agent_id: str, request: Request, response: Response):
         raise HTTPException(404, "agent not found or no reputation computed")
     # The response body IS the signed credential — adding keys to it would
     # break offline signature verification. Journey guidance rides the headers.
-    rec = store.get_agent(agent_id)
+    rec = store.get_agent(canonical_id)
     if rec:
         step = journey_engine.next_actions(store, rec)[0]
         journey_engine.note_stage(store, rec)
         # headers must be latin-1; keep them to the action slug + journey URL
         response.headers["X-Guild-Next"] = step["action"]
-        response.headers["X-Guild-Journey"] = f"{base}/agents/{agent_id}/journey"
+        response.headers["X-Guild-Journey"] = f"{base}/agents/{canonical_id}/journey"
     return cred
 
 

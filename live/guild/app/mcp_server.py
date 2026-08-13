@@ -1114,12 +1114,15 @@ def guild_escrow_release(issuer_api_key: str, escrow_id: str,
 
 @mcp.tool
 def guild_passport(agent_id: str, ctx: Context = None) -> dict:
-    """Get a portable, Guild-signed Agent Passport for `agent_id`: a Verifiable
+    """Get a portable, Guild-signed Agent Passport for a Guild `agent_id` OR
+    registered W3C `did`: a Verifiable
     Credential of its reputation that can be carried to any counterparty and
     verified offline against the Guild's did:key. Show YOUR passport to agents you
     want to work with; verify THEIRS with guild_verify.
 
-    Example: guild_passport(agent_id="agt_9x"). Returns a W3C VC, or {error}.
+    Example: guild_passport(agent_id="agent_9x") or
+    guild_passport(agent_id="did:key:z6Mk..."). Returns a W3C VC, or an exact
+    self-registration next step when the identity is not registered yet.
     """
     # TELEMETRY (corrective pass 2026-07-31). This used to record
     # `passport_issued` HERE, on entry, and `Store.issue_passport` recorded a
@@ -1140,7 +1143,15 @@ def guild_passport(agent_id: str, ctx: Context = None) -> dict:
                            endpoint="passport", subject_id=agent_id,
                            transport="mcp", request_id=request_id,
                            reason="unknown_agent_or_no_reputation")
-        return {"error": "agent not found or no reputation"}
+        return {
+            "error": "agent is not registered on Agent Guild",
+            "agent_ref": agent_id,
+            "next_step": (
+                "Call guild_register(name=<your name>, capabilities=[...], "
+                "src='passport_offer:mcp'), save the returned api_key, then call "
+                "guild_passport with the returned id or did."
+            ),
+        }
     return cred
 
 
