@@ -4039,14 +4039,18 @@ def _serve_paid_offer(source: str, actor: Optional[str] = _SENTINEL):
 #: open-ended parameter would let any caller mint any source id and forge the
 #: leading metric; a closed allowlist means an unrecognised value is simply
 #: ignored, not recorded.
-_MANIFEST_ALLOWED_SRC = {"paid_offer:registry"}
+_MANIFEST_ALLOWED_SRC = {
+    "paid_offer:registry",
+    "paid_offer:clawhub_skill",
+}
 
 
 @app.get("/.well-known/agent-guild.json")
 def wellknown_manifest(src: Optional[str] = Query(
-        None, description="attribution source; only 'paid_offer:registry' "
-                          "is recognised (the MCP Registry listing links "
-                          "here). Any other value is ignored.")):
+        None, description="closed attribution source; recognised values are "
+                          "'paid_offer:registry' and "
+                          "'paid_offer:clawhub_skill'. Any other value is "
+                          "ignored.")):
     # the manifest leads with the passport claim — count the offer per serve.
     store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
                        endpoint="manifest")
@@ -4059,8 +4063,8 @@ def wellknown_manifest(src: Optional[str] = Query(
     # produces an attributable impression on that source. Only the allowlisted
     # value is honoured; anything else falls back to the manifest's own source
     # rather than minting a caller-supplied one.
-    source = ("paid_offer:registry"
-              if src in _MANIFEST_ALLOWED_SRC else "paid_offer:manifest")
+    source = (src if src in _MANIFEST_ALLOWED_SRC
+              else "paid_offer:manifest")
     man["paid_operations"] = _serve_paid_offer(source)
     return man
 

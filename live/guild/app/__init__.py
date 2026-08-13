@@ -3,8 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.9"   # PATCH (machine-visible semver, 2026-08-13):
-                        # publishes literal machine-buyer intents from one
+__version__ = "2.5.10"  # PATCH (machine-visible semver, 2026-08-13):
+                        # prepares the authenticated ClawHub one-file policy
+                        # and measures its first paid-catalog follow-through
+                        # with a closed source id once independent registry
+                        # publication clears; payment and proof policy do not
+                        # change. History of 2.5.9: publishes literal
+                        # machine-buyer intents from one
                         # product catalog across MCP, A2A, OpenAPI, llms.txt
                         # and x402; corrects Bazaar examples to real response
                         # shapes without changing payment or proof policy.
