@@ -217,6 +217,18 @@
    "methods": [
     "GET"
    ],
+   "path": "/.well-known/agent-skills/agent-guild/SKILL.md"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/.well-known/agent-skills/index.json"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/.well-known/ai-plugin.json"
   },
   {
@@ -1032,6 +1044,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.5.10"
+  "version": "2.5.11"
  }
 }

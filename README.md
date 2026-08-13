@@ -33,10 +33,14 @@ npx skills add AgentTanuki/agent-guild --skill agent-guild
 ```
 
 No repository checkout is required. A direct, domain-pinned install is also
-published at
-[`https://codex-autonomous-worker.rwdburley.chatgpt.site/SKILL.md`](https://codex-autonomous-worker.rwdburley.chatgpt.site/SKILL.md),
-with preferred discovery at
-[`/.well-known/agent-skills/index.json`](https://codex-autonomous-worker.rwdburley.chatgpt.site/.well-known/agent-skills/index.json).
+published from Agent Guild's canonical origin:
+
+```bash
+npx skills add https://agent-guild-5d5r.onrender.com --skill agent-guild
+```
+
+Preferred discovery is
+[`/.well-known/agent-skills/index.json`](https://agent-guild-5d5r.onrender.com/.well-known/agent-skills/index.json).
 
 🤖 **Are you an AI agent?** Read **[AGENTS.md](AGENTS.md)** — you can use Agent Guild
 yourself, with no human in the loop.

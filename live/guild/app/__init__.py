@@ -3,8 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.10"  # PATCH (machine-visible semver, 2026-08-13):
-                        # prepares the authenticated ClawHub one-file policy
+__version__ = "2.5.11"  # PATCH (machine-visible semver, 2026-08-14):
+                        # publishes the canonical domain-owned Agent Skills
+                        # well-known index and exact repository policy, with
+                        # a closed acquisition source. Payment, proof and
+                        # settlement behavior do not change. History of
+                        # 2.5.10: prepares the authenticated ClawHub one-file policy
                         # and measures its first paid-catalog follow-through
                         # with a closed source id once independent registry
                         # publication clears; payment and proof policy do not

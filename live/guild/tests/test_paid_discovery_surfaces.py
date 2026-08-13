@@ -164,6 +164,17 @@ def test_clawhub_skill_source_is_closed_and_attributable():
         "paid_offer:manifest"
 
 
+def test_agent_skills_source_is_closed_and_attributable():
+    assert "paid_offer:agent_skills" in paidcatalog.SOURCE_IDS
+
+    tagged = client.get(
+        "/.well-known/agent-guild.json",
+        params={"src": "paid_offer:agent_skills"},
+    ).json()
+    assert tagged["paid_operations"]["source"] == \
+        "paid_offer:agent_skills"
+
+
 # --------------------------------------------------------------------------
 # telemetry
 # --------------------------------------------------------------------------
