@@ -3676,6 +3676,66 @@ def _artifact(name: str) -> str:
         return f.read()
 
 
+def _agent_skills_policy() -> str:
+    """Return the repository policy served to standards-aware agent clients.
+
+    The container copies the root SKILL.md into the artifacts directory. The
+    fallback keeps local source-checkout tests honest without maintaining a
+    second policy copy. Only the closed acquisition tag differs on the wire.
+    """
+    try:
+        policy = _artifact("agent-guild.SKILL.md")
+    except FileNotFoundError:
+        source = os.path.abspath(os.path.join(
+            _ARTIFACTS_DIR, "../../../../SKILL.md"
+        ))
+        with open(source, "r", encoding="utf-8") as f:
+            policy = f.read()
+    return policy.replace(
+        "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json",
+        "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json"
+        "?src=paid_offer:agent_skills",
+        1,
+    )
+
+
+def _agent_skills_description(policy: str) -> str:
+    for line in policy.splitlines():
+        if line.startswith("description: "):
+            return line.removeprefix("description: ").strip()
+    raise RuntimeError("Agent Skills policy is missing its description")
+
+
+@app.get("/.well-known/agent-skills/index.json")
+def agent_skills_index():
+    """Standard domain-owned discovery for Agent Skills clients."""
+    policy = _agent_skills_policy()
+    return {
+        "skills": [{
+            "name": "agent-guild",
+            "description": _agent_skills_description(policy),
+            "files": ["SKILL.md"],
+        }],
+    }
+
+
+@app.get("/.well-known/agent-skills/agent-guild/SKILL.md",
+         response_class=PlainTextResponse)
+def agent_skills_policy():
+    """Installable fail-closed policy from Agent Guild's canonical origin."""
+    return PlainTextResponse(
+        _agent_skills_policy(),
+        media_type="text/markdown",
+        headers={
+            "Cache-Control": "public, max-age=300, s-maxage=300",
+            "Link": (
+                "<https://agent-guild-5d5r.onrender.com/"
+                ".well-known/agent-skills/index.json>; rel=\"service-desc\""
+            ),
+        },
+    )
+
+
 @app.get("/sdk/agentguild_verify.py", response_class=PlainTextResponse)
 def sdk_verify_py():
     """The Python drop-in AGI-1 verifier (single file). Verify a Guild passport
@@ -4042,6 +4102,7 @@ def _serve_paid_offer(source: str, actor: Optional[str] = _SENTINEL):
 _MANIFEST_ALLOWED_SRC = {
     "paid_offer:registry",
     "paid_offer:clawhub_skill",
+    "paid_offer:agent_skills",
 }
 
 
@@ -4049,7 +4110,8 @@ _MANIFEST_ALLOWED_SRC = {
 def wellknown_manifest(src: Optional[str] = Query(
         None, description="closed attribution source; recognised values are "
                           "'paid_offer:registry' and "
-                          "'paid_offer:clawhub_skill'. Any other value is "
+                          "'paid_offer:clawhub_skill' and "
+                          "'paid_offer:agent_skills'. Any other value is "
                           "ignored.")):
     # the manifest leads with the passport claim — count the offer per serve.
     store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",

@@ -16,6 +16,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY live/guild/app ./app
 
+# Domain-owned Agent Skills discovery. Keep the source of truth at the repository
+# root; the runtime serves this exact file from /.well-known/agent-skills/.
+COPY SKILL.md ./app/artifacts/agent-guild.SKILL.md
+
 # THE CANONICAL FLOOR PIN. One file, copied — not duplicated: the single
 # authoritative copy stays at docs/checkpoints/latest.json in the repo and is
 # regenerated there. It is issuer-scoped at runtime, so it only ever constrains
