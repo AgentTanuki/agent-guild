@@ -137,6 +137,12 @@ OPERATION_EVENTS: dict[str, tuple[str, ...]] = {
     "deep_preflight": ("deep_preflight_run",),
     "evidence_bundle": ("evidence_bundle_issued",),
     "watch_cycle": ("watch_provisioned",),
+    # Advertised in paidcatalog._OPERATIONS and priced on the x402 rail
+    # since #70. Omitting it here made `?operation=protected_payment_decision`
+    # a 400 on /commercial and /funnel/paid while the unscoped funnel was
+    # already reporting its qualified exposure — the scope parameter and the
+    # advertised catalogue disagreed about what we sell.
+    "protected_payment_decision": ("protected_payment_decision_issued",),
 }
 
 ALL_PAID_EVENTS = tuple(t for v in OPERATION_EVENTS.values() for t in v)
@@ -236,6 +242,12 @@ def qualified_exposure(store: Any, operation: Optional[str] = None,
     events = 0
     challenged = 0
     completed = 0
+    # Challenges naming an operation NOBODY can scope to. Reported, never
+    # folded into the headline — see the portfolio branch below. The labels
+    # are kept so the residue can be NAMED in one read instead of being an
+    # unexplained number the next pass has to go hunting for.
+    unattributed = 0
+    unattributed_ops: dict[str, int] = {}
 
     if operation:
         completion_types = set(OPERATION_EVENTS.get(operation, ()))
@@ -292,9 +304,24 @@ def qualified_exposure(store: Any, operation: Optional[str] = None,
             # Same two definitions as the scoped branch, unioned over every
             # operation — deliberately NOT a looser rule, so the portfolio
             # number and the sum of the scoped numbers cannot disagree.
+            #
+            # "Unioned over every operation" has to mean every operation a
+            # reader can ASK for. `/commercial` accepts exactly the keys of
+            # OPERATION_EVENTS and rejects anything else as an unknown
+            # operation, so a challenge naming `watch_provision`, a future
+            # operation, or no operation at all is scopeable by nobody: adding
+            # it here made the portfolio larger than the sum of its parts, and
+            # larger in the flattering direction. It is counted as RESIDUE
+            # instead — visible, and outside the leading indicator.
             if (etype in ("paid_offer_shown", "paid_offer_challenged")
                     and e.get("actor_distinct") is not False):
-                challenged += 1
+                op = e.get("challenged_operation")
+                if op in OPERATION_EVENTS:
+                    challenged += 1
+                else:
+                    unattributed += 1
+                    label = op if isinstance(op, str) and op else "(none)"
+                    unattributed_ops[label] = unattributed_ops.get(label, 0) + 1
             elif (etype in ALL_PAID_EVENTS
                     and e.get("settlement_mode") in
                     ("x402", "credits_sandbox")):
@@ -312,6 +339,9 @@ def qualified_exposure(store: Any, operation: Optional[str] = None,
         "qualified_actors": len(actors),
         "qualified_events": events,
         "paid_offers_shown": challenged,
+        # Always present, so its absence can never be read as zero.
+        "unattributed_paid_offers_shown": unattributed,
+        "unattributed_paid_offer_operations": unattributed_ops,
         "paid_completions": completed,
         "rule": rule,
     }
