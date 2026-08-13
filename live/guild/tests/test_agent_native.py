@@ -107,6 +107,31 @@ def test_for_agents_is_served_publicly_and_self_contained():
     assert receiver["source"] == \
         "/sdk/integrations/machine_envelope_receiver.mjs"
     assert receiver["free_discovery"] is True
+    assert receiver["a2a_extension"] == \
+        "/extensions/machine-envelope/v1"
+    assert receiver["activation_header"] == "A2A-Extensions"
+
+
+def test_machine_envelope_a2a_extension_is_public_and_machine_readable():
+    extension = client.get("/extensions/machine-envelope/v1")
+    assert extension.status_code == 200
+    body = extension.json()
+    assert body["uri"] == (
+        "https://agent-guild-5d5r.onrender.com/"
+        "extensions/machine-envelope/v1")
+    assert body["agent_card"]["location"] == "capabilities.extensions[]"
+    assert body["agent_card"]["required"] is True
+    assert body["activation"]["required_both"] is True
+    assert body["activation"]["response_echo"] == "A2A-Extensions"
+    assert "RFC 8785" in body["message"]["semantic_payload"]
+    assert body["verification"]["before_side_effects"] is True
+    assert body["discovery"]["free"] is True
+
+    doc = client.get("/extensions/machine-envelope/v1.md")
+    assert doc.status_code == 200
+    assert "A2A Machine Envelope Extension v1" in doc.text
+    assert "machine_envelope_extension_required" in doc.text
+    assert "Atomically consume" in doc.text
 
 
 def test_standard_endpoint_is_machine_readable():

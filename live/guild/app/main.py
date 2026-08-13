@@ -3550,6 +3550,9 @@ def _manifest() -> dict:
             "receiver_integrations": {
                 "machine_envelope": {
                     "source": "/sdk/integrations/machine_envelope_receiver.mjs",
+                    "a2a_extension": "/extensions/machine-envelope/v1",
+                    "a2a_extension_doc": "/extensions/machine-envelope/v1.md",
+                    "activation_header": "A2A-Extensions",
                     "factory": (
                         "createAgentGuildMachineEnvelopeReceiver({"
                         "expectedIssuers, recipient, replayStore})"),
@@ -3676,6 +3679,87 @@ def sdk_machine_envelope_receiver_mjs():
     machine-message side effects. Distributed receivers provide a durable
     atomic replay store; the included store is process-local."""
     return _artifact("integrations/machine_envelope_receiver.mjs")
+
+
+MACHINE_ENVELOPE_A2A_EXTENSION_URI = (
+    "https://agent-guild-5d5r.onrender.com/extensions/machine-envelope/v1")
+
+
+@app.get("/extensions/machine-envelope/v1")
+def machine_envelope_a2a_extension():
+    """Canonical, machine-readable A2A vendor-extension contract for a
+    consequential-message receiver using Agent Guild machine envelopes."""
+    return {
+        "uri": MACHINE_ENVELOPE_A2A_EXTENSION_URI,
+        "name": "Agent Guild A2A Machine Envelope",
+        "version": "1.0",
+        "status": "stable",
+        "scope": "A2A vendor extension; not part of the core A2A specification",
+        "documentation": "/extensions/machine-envelope/v1.md",
+        "agent_card": {
+            "location": "capabilities.extensions[]",
+            "required": True,
+            "fields": ["uri", "description", "required", "params"],
+            "params": {
+                "required": ["metadata_key", "recipient", "kind",
+                             "context_protocol", "acquisition",
+                             "free_discovery"],
+                "receiver_policy": ["recipient", "kind", "context_protocol"],
+            },
+        },
+        "activation": {
+            "http_header": "A2A-Extensions",
+            "http_header_member": MACHINE_ENVELOPE_A2A_EXTENSION_URI,
+            "message_field": "extensions[]",
+            "required_both": True,
+            "response_echo": "A2A-Extensions",
+        },
+        "message": {
+            "metadata_key_parameter": "params.metadata_key",
+            "default_metadata_key": "io.agent-guild/machine-envelope",
+            "semantic_payload": (
+                "RFC 8785 JCS of the complete A2A Message after removing only "
+                "the declared envelope metadata entry"),
+            "bound_fields": (
+                "all Message fields including extensions and all other metadata"),
+        },
+        "verification": {
+            "before_side_effects": True,
+            "requirements": [
+                "pinned issuer and valid signature",
+                "exact SHA-256 semantic-payload digest",
+                "exact Agent Card recipient and kind",
+                "context protocol and A2A messageId",
+                "current validity window",
+                "durable atomic consume before side effects",
+            ],
+            "proof_boundary": (
+                "provenance and authorization, not payload truth or policy safety"),
+            "reference_receiver": (
+                "/sdk/integrations/machine_envelope_receiver.mjs"),
+            "reference_buyer": "/sdk/agentguild_envelope_client.mjs",
+        },
+        "errors": {
+            "machine_envelope_extension_required": (
+                "activation absent or incomplete"),
+            "machine_envelope_required": (
+                "activation accepted but envelope absent"),
+            "machine_envelope_rejected": (
+                "signature, binding, policy, validity, or replay failure"),
+        },
+        "discovery": {
+            "free": True,
+            "acquisition": "receiver-specific params.acquisition",
+            "unsigned_retry_never_authorizes": True,
+        },
+    }
+
+
+@app.get("/extensions/machine-envelope/v1.md",
+         response_class=PlainTextResponse)
+def machine_envelope_a2a_extension_md():
+    """Normative prose companion to the canonical extension URI."""
+    return _artifact("A2A_MACHINE_ENVELOPE_EXTENSION.md")
 
 
 @app.get("/standard.md", response_class=PlainTextResponse)
