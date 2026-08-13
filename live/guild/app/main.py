@@ -173,6 +173,11 @@ app = FastAPI(
     title="Agent Guild",
     version=__version__,
     description="Costly, evidence-backed reputation for autonomous AI agents.",
+    contact={
+        "name": "Agent Guild public issue tracker",
+        "url": "https://github.com/AgentTanuki/agent-guild/issues",
+    },
+    terms_of_service=x402.public_host() + "/terms.json",
     # seed the evaluation proof-point, then share the MCP session-manager lifespan.
     lifespan=_lifespan,
 )
@@ -5103,3 +5108,10 @@ def get_self_eval_history(limit: int = Query(90, ge=1, le=1000)):
     snaps = store.health_history(limit)
     return HealthHistoryResponse(count=len(snaps),
                                  snapshots=[HealthSnapshot(**s) for s in snaps])
+
+
+# Install last, after every HTTP route exists.  The wrapper preserves
+# FastAPI's structural schema cache but projects current bounded prices into a
+# fresh copy on every /openapi.json read for OpenAPI-first machine buyers.
+from . import openapi_payment_discovery as _openapi_payment_discovery  # noqa: E402
+_openapi_payment_discovery.install(app)
