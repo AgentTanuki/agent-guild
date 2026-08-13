@@ -144,6 +144,26 @@ def test_unknown_source_id_is_rejected():
         paidcatalog.offer_block("paid_offer:not_a_real_surface")
 
 
+def test_clawhub_skill_source_is_closed_and_attributable():
+    """An installed registry skill can identify its own acquisition channel,
+    but an arbitrary caller cannot mint new source buckets."""
+    assert "paid_offer:clawhub_skill" in paidcatalog.SOURCE_IDS
+
+    tagged = client.get(
+        "/.well-known/agent-guild.json",
+        params={"src": "paid_offer:clawhub_skill"},
+    ).json()
+    assert tagged["paid_operations"]["source"] == \
+        "paid_offer:clawhub_skill"
+
+    untrusted = client.get(
+        "/.well-known/agent-guild.json",
+        params={"src": "paid_offer:made_up"},
+    ).json()
+    assert untrusted["paid_operations"]["source"] == \
+        "paid_offer:manifest"
+
+
 # --------------------------------------------------------------------------
 # telemetry
 # --------------------------------------------------------------------------
