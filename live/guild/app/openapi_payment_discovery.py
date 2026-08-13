@@ -104,10 +104,143 @@ _PROFILES: dict[tuple[str, str], Callable[[], dict[str, Any]]] = {
 }
 
 
+# Product language is part of the machine storefront, not decorative copy.
+# Semantic registries commonly index an operation's summary (and may ignore
+# its Python function name or longer description), so every paid operation is
+# explicit about the buyer's job, the returned proof and the decision point it
+# improves.  Keep the claims narrower than the underlying route guarantees.
+_PRODUCTS: dict[tuple[str, str], dict[str, Any]] = {
+    ("/check", "get"): {
+        "summary": (
+            "Rank trustworthy AI agents for a capability and optionally return "
+            "an offline-verifiable signed AGD-1 hire decision."),
+        "use_cases": ["choose an agent before delegation",
+                      "shortlist agents by capability and trust evidence"],
+        "output": "ranked candidates, hire/caution/avoid verdict and evidence",
+    },
+    ("/check/decision", "post"): {
+        "summary": (
+            "Buy a signed AGD-1 trust decision for an AI-agent capability, "
+            "with ranked candidates, evidence and an offline-verifiable proof."),
+        "use_cases": ["authorize an autonomous hire",
+                      "retain proof of the trust policy used for delegation"],
+        "output": "short-lived signed AGD-1 decision credential",
+    },
+    ("/search", "get"): {
+        "summary": (
+            "Search and rank AI agents by capability, trust score and evidence "
+            "before delegating work."),
+        "use_cases": ["discover a capable agent", "compare agent trust signals"],
+        "output": "ranked matching agents with trust evidence",
+    },
+    ("/agents/{agent_id}/reputation", "get"): {
+        "summary": (
+            "Retrieve an AI agent's trust score, reputation tier, confidence "
+            "and provenance before hiring or paying it."),
+        "use_cases": ["screen an agent before hiring",
+                      "inspect reputation before payment"],
+        "output": "current reputation score, tier, confidence and provenance",
+    },
+    ("/agents/{agent_id}/journey", "get"): {
+        "summary": (
+            "Inspect an AI agent's reputation history and outcome trajectory "
+            "to detect drift before delegation."),
+        "use_cases": ["detect reputation drift", "audit an agent's track record"],
+        "output": "time-ordered reputation and outcome history",
+    },
+    ("/agents/{agent_id}/evidence", "get"): {
+        "summary": (
+            "Retrieve provenance evidence supporting an AI agent's reputation "
+            "score and trust decision."),
+        "use_cases": ["audit a trust score", "inspect evidence before delegation"],
+        "output": "reputation evidence and provenance records",
+    },
+    ("/agents/{agent_id}/flags", "get"): {
+        "summary": (
+            "Check an AI agent for fraud, manipulation and suspicious-behaviour "
+            "flags before hiring or payment."),
+        "use_cases": ["screen an agent for fraud",
+                      "block suspicious counterparties before payment"],
+        "output": "current fraud and manipulation flags",
+    },
+    ("/agents/{agent_id}/risk-score", "get"): {
+        "summary": (
+            "Get an explainable AI-agent counterparty risk score and confidence "
+            "before delegating or settling payment."),
+        "use_cases": ["set a counterparty risk gate",
+                      "compare agents before funding work"],
+        "output": "risk score, confidence and contributing signals",
+    },
+    ("/flags", "get"): {
+        "summary": (
+            "List current fraud and reputation-manipulation signals across the "
+            "Agent Guild trust graph."),
+        "use_cases": ["monitor systemic agent fraud",
+                      "exclude manipulated reputations from routing"],
+        "output": "current trust-graph flags above the requested threshold",
+    },
+    ("/preflight/deep", "get"): {
+        "summary": (
+            "Audit an agent endpoint before delegation for identity, protocol, "
+            "drift and corroboration, with an allow/caution/block verdict."),
+        "use_cases": ["vet an unfamiliar agent endpoint",
+                      "gate delegation on live endpoint evidence"],
+        "output": "deep endpoint checks, corroboration and policy verdict",
+    },
+    ("/evidence/bundle", "post"): {
+        "summary": (
+            "Buy a signed, checkpoint-anchored evidence bundle for an AI-agent "
+            "endpoint that can be verified offline."),
+        "use_cases": ["retain audit evidence for an agent endpoint",
+                      "prove which endpoint evidence existed before delegation"],
+        "output": "signed offline-verifiable evidence bundle",
+    },
+    ("/envelopes/issue", "post"): {
+        "summary": (
+            "Seal an authenticated machine-to-machine message as a short-lived "
+            "signed envelope with route binding and replay protection."),
+        "use_cases": ["authenticate inter-agent instructions",
+                      "bind a machine message to sender, recipient and route"],
+        "output": "signed machine envelope with exact body hash and expiry",
+    },
+    ("/wallet-binding/decision", "post"): {
+        "summary": (
+            "Buy a signed AGPD-1 allow/block decision bound to the exact payee "
+            "wallet, chain, token, amount and resource before payment."),
+        "use_cases": ["gate an autonomous crypto payment",
+                      "screen a payee wallet before x402 settlement"],
+        "output": "short-lived signed exact-payment policy decision",
+    },
+    ("/wallet-binding/protected-decision", "post"): {
+        "summary": (
+            "Protect an autonomous USDC payment with a signed AGPD-1 decision "
+            "priced at 25 bps of the exact value at risk."),
+        "use_cases": ["gate a high-value autonomous payment",
+                      "bind counterparty evidence to exact payment semantics"],
+        "output": "signed protected-payment decision and exact service quote",
+    },
+    ("/wallet-binding/protected-decision/tiers/{tier_id}", "post"): {
+        "summary": (
+            "Buy a fixed-notional protected-payment decision for JSON-only agent "
+            "marketplaces, binding the relay, caller wallet and USDC amount."),
+        "use_cases": ["protect a marketplace-routed agent payment",
+                      "buy exact-notional payment safety through PayanAgent"],
+        "output": "signed fixed-tier AGPD-1 protected-payment decision",
+    },
+}
+
+
 def apply(schema: dict[str, Any]) -> dict[str, Any]:
     """Apply the live payment projection to a fresh OpenAPI schema copy."""
     host = x402.public_host()
     info = schema.setdefault("info", {})
+    info["description"] = (
+        "Machine-payable trust and payment-safety APIs for autonomous agents: "
+        "rank counterparties before delegation, screen wallets before USDC "
+        "settlement, buy signed AGD-1/AGPD-1 decisions, seal authenticated "
+        "machine messages, and retain offline-verifiable evidence. Pay per call "
+        "through x402 v2 on Base; verification and catalogs remain free."
+    )
     info["x-guidance"] = (
         "Payable machine utilities are ordered first in paths. Budget from "
         "x-payment-info, then treat the live HTTP 402 PAYMENT-REQUIRED header "
@@ -133,6 +266,14 @@ def apply(schema: dict[str, Any]) -> dict[str, Any]:
             continue
         operation["security"] = []
         operation["x-payment-info"] = factory()
+        product = _PRODUCTS[(path, method)]
+        operation["summary"] = product["summary"]
+        operation["description"] = (
+            product["summary"] + " Use this when you need to "
+            + " or ".join(product["use_cases"]) + ". Returns "
+            + product["output"] + "."
+        )
+        operation["x-agent-guild-product"] = product
         operation["x-agent-guild-payment"] = {
             "settlement": "USDC via x402 v2",
             "network": x402.network(),
