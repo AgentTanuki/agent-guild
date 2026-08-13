@@ -59,6 +59,10 @@ def test_sdk_and_spec_served_from_public_service_not_private_repo():
         "/sdk/integrations/payanagent_payment_policy.mjs")
     assert payan_policy.status_code == 200
     assert "createPaymentPolicy" in payan_policy.text
+    receiver = client.get(
+        "/sdk/integrations/machine_envelope_receiver.mjs")
+    assert receiver.status_code == 200
+    assert "createAgentGuildMachineEnvelopeReceiver" in receiver.text
     assert "verifyMachineEnvelope" in mjs.text
     buyer = client.get("/sdk/agentguild_envelope_client.mjs")
     assert buyer.status_code == 200
@@ -99,6 +103,10 @@ def test_for_agents_is_served_publicly_and_self_contained():
     assert integrations["payanagent_mcp"]["source"] == \
         "/sdk/integrations/payanagent_payment_policy.mjs"
     assert integrations["payanagent_mcp"]["default_mode"] == "protected"
+    receiver = m["discovery"]["receiver_integrations"]["machine_envelope"]
+    assert receiver["source"] == \
+        "/sdk/integrations/machine_envelope_receiver.mjs"
+    assert receiver["free_discovery"] is True
 
 
 def test_standard_endpoint_is_machine_readable():

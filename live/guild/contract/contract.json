@@ -833,6 +833,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/sdk/integrations/machine_envelope_receiver.mjs"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/sdk/integrations/payanagent_payment_policy.mjs"
   },
   {
@@ -1008,6 +1014,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.4.1"
+  "version": "2.5.0"
  }
 }

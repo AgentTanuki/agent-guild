@@ -115,6 +115,17 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
                     "Payload bytes and signer private keys remain under "
                     "caller control and are never uploaded or persisted."),
             },
+            "receiver": {
+                "language": "javascript/typescript (node)",
+                "source": "/sdk/integrations/machine_envelope_receiver.mjs",
+                "factory": (
+                    "createAgentGuildMachineEnvelopeReceiver({"
+                    "expectedIssuers, recipient, replayStore})"),
+                "operation": "await gate.authorizeA2AMessage(message)",
+                "policy": (
+                    "keep discovery free; require, verify and atomically "
+                    "consume one exact envelope before consequential work"),
+            },
             # The exact settlement binding is an opaque server-derived hash of
             # normalized body + authenticated sender DID. It is deliberately
             # not a caller-supplied body field.

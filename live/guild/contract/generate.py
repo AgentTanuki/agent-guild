@@ -232,20 +232,20 @@ def _machine_envelope_meta(s: dict) -> dict:
     """
     h = s["host"]
     return {
-        "offer": ("Guild-signed machine message envelope binding an authenticated "
-                  "sender DID to a private payload digest, recipient, purpose, "
-                  "nonce and expiry; payload bytes are never uploaded."),
+        "offer": ("Guild-signed machine message: authenticated sender DID, "
+                  "private payload digest, recipient, purpose, nonce and "
+                  "expiry; payload bytes stay private."),
         "client": h + "/sdk/agentguild_envelope_client.mjs",
         "factory": "createEvmMachineEnvelopeClient({evmSigner})",
         "issue": "client.issue({payload, kind, recipient, nonce, ...})",
-        "identity_payment": ("One caller-owned Base EOA signs the exact request "
-                             "with EIP-191 and pays x402; no registration or "
-                             "second identity key is required."),
+        "identity_payment": ("One caller-owned Base EOA signs the request and "
+                             "pays x402; no registration or second key."),
         "payment": "x402 USDC on Base mainnet; current price comes from catalog",
         "catalog": (h + "/.well-known/agent-guild.json"
                     "?src=paid_offer:registry"),
         "verify": (h + "/envelopes/verify or offline with the published verifier"),
-        "custody": "Payload bytes and signer private keys stay caller-controlled.",
+        "receiver": h + "/sdk/integrations/machine_envelope_receiver.mjs",
+        "custody": "Payload/keys caller-controlled.",
     }
 
 
