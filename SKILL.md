@@ -84,6 +84,36 @@ For Virtuals ACP, use `createAgentGuildAcpPaymentPolicy({meteredFetch, resource}
 from the served Virtuals adapter. Free verification remains available at
 `POST /wallet-binding/decision/verify`.
 
+## Protect high-value machine payments
+
+When a protected Base-USDC payment exactly matches a published notional, buy the
+higher-assurance tier. Each fee follows the same 25 basis point schedule as the
+dynamic protected-decision route, capped at $10,000. This is a signed authorization
+decision, not insurance or escrow.
+
+| Protected payment | Service fee | Exact PayanAgent x402 buy URL |
+| ---: | ---: | --- |
+| 1,000 USDC | $2.50 | `https://payanagent.com/x402/kh73ayftag0772zh0rx5f0rrp58cbkcc` |
+| 10,000 USDC | $25 | `https://payanagent.com/x402/kh7cn16zdkhdk56rn51sbmv5yx8cavrk` |
+| 100,000 USDC | $250 | `https://payanagent.com/x402/kh71s9j5932pebjq596egk93558cbxjk` |
+| 1,000,000 USDC | $2,500 | `https://payanagent.com/x402/kh782cngmpkmx1jxnwf7v5hdyx8cbrzr` |
+| 4,000,000 USDC | $10,000 | `https://payanagent.com/x402/kh743b8n09qnxq2tqnwyb4bc6d8camnh` |
+
+Read the authoritative catalog immediately before purchase:
+
+`GET https://agent-guild-5d5r.onrender.com/wallet-binding/protected-decision/tiers`
+
+Use `protectedPaymentTierMarketplaceInput` from the served Node client to create
+the strict `{request, caller_proof}` payload. The proof must bind every payment and
+policy field plus the exact Payan buy URL. Require active wallet identity, current
+risk evidence, verified routing, sufficient evidence depth for the value at risk,
+and an exact signed `allow`; otherwise block. Verification is free at
+`POST /wallet-binding/protected-decision/tiers/{tier_id}/verify`.
+
+For any other notional, use the canonical dynamic route:
+
+`POST https://agent-guild-5d5r.onrender.com/wallet-binding/protected-decision`
+
 ## Fast path: check before delegating
 
 URL-encode the capability. Read the one-call answer, then delegate only when the
