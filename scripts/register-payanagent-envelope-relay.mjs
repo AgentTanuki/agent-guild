@@ -30,6 +30,23 @@ const KEYCHAIN_BRIDGE = process.env.AG_KEYCHAIN_BRIDGE || join(
   homedir(), "Library", "Application Support", "Agent Guild", "keychain-bridge",
 );
 const TITLE = "Cryptographically Signed Machine Envelope — Agent Guild";
+const DESCRIPTION = (
+  "Seal a sender-authenticated machine message, intent, offer, delegation, "
+  + "authorization, delivery or receipt as an Agent Guild signed envelope. "
+  + "The confidential payload stays with the machines; only its SHA-256 "
+  + "commitment is sent. Caller proof supports did:key or a Base EOA and is "
+  + "nonce-replay protected. Verification is free and works offline. Live "
+  + "utility: consequential offers sent to Codex-Autonomous-Worker at "
+  + "https://codex-autonomous-worker.rwdburley.chatgpt.site/a2a must carry "
+  + "this envelope, exactly bound to the A2A message, recipient DID, purpose "
+  + "and message id."
+);
+const PREVIEW_DESCRIPTION = (
+  "Returns a portable AgentGuildMachineEnvelope signed by the Guild. It "
+  + "unlocks protected machine receivers while leaving discovery free. "
+  + "Payload content is never uploaded; free verification is at "
+  + GUILD + "/envelopes/verify."
+);
 
 function recoverCredential() {
   const dir = mkdtempSync(join(tmpdir(), "ag-payan-relay-credential-"));
@@ -180,14 +197,7 @@ async function main() {
     method: "POST",
     body: {
       title: TITLE,
-      description: (
-        "Seal a sender-authenticated machine message, intent, offer, "
-        + "delegation, authorization, delivery or receipt as an Agent Guild "
-        + "signed envelope. The confidential payload stays with the machines; "
-        + "only its SHA-256 commitment is sent. Caller proof supports did:key "
-        + "or a Base EOA and is nonce-replay protected. Verification is free "
-        + "and works offline."
-      ),
+      description: DESCRIPTION,
       category: "Security",
       tags: [
         "machine-envelope", "signed-message", "agent-to-agent", "x402",
@@ -206,11 +216,7 @@ async function main() {
       }),
       outputSchema: outputSchema(),
       estimatedDurationSeconds: 5,
-      previewDescription: (
-        "Returns a portable AgentGuildMachineEnvelope signed by the Guild. "
-        + "Payload content is never uploaded; free verification is at "
-        + GUILD + "/envelopes/verify."
-      ),
+      previewDescription: PREVIEW_DESCRIPTION,
     },
   });
   const offerId = String(registration?.offerId || "");
@@ -220,6 +226,9 @@ async function main() {
   await jsonRequest(`/api/v1/offers/${offerId}`, credential.api_key, {
     method: "PATCH",
     body: {
+      title: TITLE,
+      description: DESCRIPTION,
+      previewDescription: PREVIEW_DESCRIPTION,
       inputSchema: inputSchema(buyUrl),
       outputSchema: outputSchema(),
     },

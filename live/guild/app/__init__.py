@@ -3,8 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.4.1"   # PATCH (machine-visible semver, 2026-08-13):
-                        # makes every protected-payment tier directly buyable
+__version__ = "2.5.0"   # MINOR (machine-visible semver, 2026-08-13):
+                        # adds a zero-dependency receiver-side gate that keeps
+                        # discovery free, then pins issuer, recipient, exact
+                        # payload, purpose, expiry and A2A message id and
+                        # atomically consumes a paid envelope before side
+                        # effects. History of 2.4.1: makes every
+                        # protected-payment tier directly buyable
                         # from its free machine catalog by publishing the
                         # canonical Payan offer, buy URL, treasury seller and
                         # exact caller-proof request binding. History of 2.4.0:

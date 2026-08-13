@@ -257,6 +257,9 @@ def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():
         assert adapter.status_code == 200
         assert "createAgentGuildFundPolicy" in adapter.text
         assert "createAgentGuildAcpPaymentPolicy" in adapter.text
+        receiver = c.get("/sdk/integrations/machine_envelope_receiver.mjs")
+        assert receiver.status_code == 200
+        assert "createAgentGuildMachineEnvelopeReceiver" in receiver.text
 
     for advertised in ("/agents/register", "/agents/{agent_id}/prove",
                        "/agents/{agent_id}/prove/verify",

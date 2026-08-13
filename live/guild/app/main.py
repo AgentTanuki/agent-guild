@@ -3547,6 +3547,27 @@ def _manifest() -> dict:
                         "/wallet-binding/protected-decision"),
                 },
             },
+            "receiver_integrations": {
+                "machine_envelope": {
+                    "source": "/sdk/integrations/machine_envelope_receiver.mjs",
+                    "factory": (
+                        "createAgentGuildMachineEnvelopeReceiver({"
+                        "expectedIssuers, recipient, replayStore})"),
+                    "a2a_metadata_key": "io.agent-guild/machine-envelope",
+                    "payload_binding": (
+                        "RFC 8785 JCS of the A2A message with only the "
+                        "envelope metadata entry omitted"),
+                    "free_discovery": True,
+                    "consequential_messages": "paid envelope required",
+                    "replay": "atomic consume before side effects",
+                    "note": (
+                        "receiver-side fail-closed gate: pin a Guild issuer, "
+                        "verify signature, exact payload, recipient, purpose, "
+                        "expiry and A2A message id, then atomically consume "
+                        "the envelope before executing; provenance does not "
+                        "attest payload truth or policy safety"),
+                },
+            },
             "badges": {"generic": "/badge.svg", "per_agent": "/agents/{id}/badge.svg"},
             "openapi": "/openapi.json",
             "ai_plugin": "/.well-known/ai-plugin.json",
@@ -3645,6 +3666,16 @@ def sdk_payanagent_payment_policy_mjs():
     value-priced protected AGPD-1 decision and binds the same Base EOA to caller
     proof and subsequent Payan settlement, failing closed before signing."""
     return _artifact("integrations/payanagent_payment_policy.mjs")
+
+
+@app.get("/sdk/integrations/machine_envelope_receiver.mjs",
+         response_class=PlainTextResponse)
+def sdk_machine_envelope_receiver_mjs():
+    """Standalone receiver-side gate. It keeps discovery free, then verifies
+    and atomically consumes one exact Guild envelope before consequential
+    machine-message side effects. Distributed receivers provide a durable
+    atomic replay store; the included store is process-local."""
+    return _artifact("integrations/machine_envelope_receiver.mjs")
 
 
 @app.get("/standard.md", response_class=PlainTextResponse)
