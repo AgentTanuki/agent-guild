@@ -332,6 +332,48 @@ def example_resource_url(endpoint: str) -> str:
         endpoint, f"/x402/resources/{endpoint}")
 
 
+def discovery_document(resources: list["PaidRequest"]) -> dict[str, Any]:
+    """Return the origin-level x402 discovery document.
+
+    ``/.well-known/x402`` is a fan-out document, not a price quote.  Prices,
+    payment recipients and input schemas are deliberately learned from each
+    resource's live 402 challenge.  Publishing one top-level ``accepts`` (or
+    one representative payment) would let a generic crawler apply the first
+    product's price to every other product on this origin — exactly the stale
+    catalogue failure this document exists to prevent.
+
+    Version 1 + ``resources`` is the compatibility contract consumed by
+    x402scan/AgentCash.  The additive x402 v2 fields tell simpler crawlers what
+    protocol they will find and where to learn the current commercial facts.
+    """
+    urls: list[str] = []
+    seen: set[str] = set()
+    for preq in resources:
+        url = preq.resource_url
+        if url not in seen:
+            seen.add(url)
+            urls.append(url)
+    return {
+        "version": 1,
+        "x402Version": X402_VERSION,
+        "name": "Agent Guild",
+        "description": (
+            "Paid, signed trust decisions, wallet payment policies and "
+            "authenticated machine-message envelopes. Verification is free."
+        ),
+        "resources": urls,
+        "instructions": (
+            "Probe each exact resource without payment. Its HTTP 402 and "
+            "PAYMENT-REQUIRED header are authoritative for the current price, "
+            "Base-mainnet USDC recipient, method, input schema and output "
+            "contract. Never reuse one resource's quote for another resource."
+        ),
+        "pricing": public_host() + "/pricing",
+        "readiness": public_host() + "/x402/readiness",
+        "payment_requirements_source": "per-resource HTTP 402 challenge",
+    }
+
+
 def requirements(credits_cost: int) -> PaymentRequirements:
     """The v2 payment requirements the Guild quotes for one priced request."""
     net = network()
