@@ -1,8 +1,11 @@
 """High-quality x402 Bazaar metadata for autonomous buyers."""
+from jsonschema import Draft202012Validator
+
 from app import x402
 from app import protecteddecision
 from app.payments import (
-    check_request, payment_decision_request,
+    check_request, deep_preflight_request, evidence_bundle_request,
+    machine_envelope_request, payment_decision_request,
     protected_payment_decision_request,
 )
 from x402.extensions.bazaar import (
@@ -57,8 +60,41 @@ def test_other_paid_products_receive_operation_specific_tags_without_schema_drif
 
     ordinary = check_request("code-review")
     output = x402.bazaar_extension(ordinary)["info"]["output"]
-    assert output["example"]["verdict"] == "hire"
-    assert "schema" not in output
+    # The unpaid 402 declares only a truthful outer response prefix. The paid
+    # recommendation, shortlist and proof never ride inside discovery metadata.
+    assert output["example"] == {
+        "schema_version": 2, "capability": "fact-check", "status": "supply"}
+    assert output["schema"]["properties"]["schema_version"]["const"] == 2
+    assert "shortlist" not in str(output)
+    assert "decision" not in str(output)
+
+
+def test_flagship_bazaar_examples_match_declared_schemas_and_official_sdk():
+    requests = [
+        check_request("fact-check"),
+        check_request("fact-check", signed=True, ttl_seconds=3600),
+        machine_envelope_request("a" * 64),
+        payment_decision_request("b" * 64),
+        protected_payment_decision_request(
+            "c" * 64, protecteddecision.discovery_quote()),
+        deep_preflight_request("https://agent.example/a2a"),
+        evidence_bundle_request("https://agent.example/a2a"),
+    ]
+    for preq in requests:
+        extension = x402.bazaar_extension(preq)
+        assert validate_discovery_extension(extension).valid, preq.operation
+        assert validate_discovery_extension_spec(extension).valid, preq.operation
+        output = extension["info"]["output"]
+        assert output["example"], preq.operation
+        assert output["schema"], preq.operation
+        Draft202012Validator(output["schema"]).validate(output["example"])
+
+
+def test_x402_resource_copy_contains_literal_machine_selection_intent():
+    best = x402.resource_info(check_request("fact-check"))
+    assert "which agent should I hire for this capability" in best.description
+    payment = x402.resource_info(payment_decision_request("a" * 64))
+    assert "is this wallet safe to pay" in payment.description
 
 
 def test_protected_value_decision_has_value_at_risk_discovery_metadata():

@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AgentTanuki/agent-guild",
-  "description": "Signed machine messages + wallet trust gates via x402; free verifiable agent passports.",
-  "version": "2.5.8",
+  "description": "Rank agents; signed machine messages + wallet gates via x402; free verifiable agent passports.",
+  "version": "2.5.9",
   "repository": {
     "url": "https://github.com/AgentTanuki/agent-guild",
     "source": "github"
@@ -69,7 +69,7 @@
           "watch_cycle"
         ],
         "catalog": "GET https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json?src=paid_offer:registry",
-        "catalog_returns": "live price, auth, entrypoint, free alternative",
+        "catalog_returns": "intent, price, auth, call, free alternative",
         "payment": "x402 USDC/Base mainnet (eip155:8453) per call",
         "free_alternative_exists_for_every_paid_operation": true
       }

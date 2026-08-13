@@ -179,7 +179,7 @@ def derived_server_json(contract: dict) -> dict:
         # Machine buyers search this field. The old passport-only copy made
         # the paid signed-message product invisible even after it was live.
         # Keep both propositions under the registry's 100-character cap.
-        "description": ("Signed machine messages + wallet trust gates via "
+        "description": ("Rank agents; signed machine messages + wallet gates via "
                         "x402; free verifiable agent passports."),
         "version": s["version"],
         "repository": {"url": s["repository"], "source": "github"},
@@ -280,7 +280,7 @@ def _paid_ops_meta(s: dict) -> dict:
         "operations": [op["operation"] for op in paidcatalog._OPERATIONS],
         "catalog": (f"GET {h}/.well-known/agent-guild.json"
                     "?src=paid_offer:registry"),
-        "catalog_returns": "live price, auth, entrypoint, free alternative",
+        "catalog_returns": "intent, price, auth, call, free alternative",
         "payment": "x402 USDC/Base mainnet (eip155:8453) per call",
         "free_alternative_exists_for_every_paid_operation": True,
     }

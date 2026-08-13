@@ -398,10 +398,16 @@ def resource_info(preq: "PaidRequest") -> ResourceInfo:
     Bazaar surfaces use — one source, so the three cannot describe different
     products for the same quote."""
     from .a2a_x402 import operation_label
+    from .paidcatalog import buyer_intents
+    intents = buyer_intents(preq.operation)
+    selection_copy = (
+        " Use when an autonomous agent needs to: " + "; ".join(intents) + "."
+        if intents else ""
+    )
     return ResourceInfo(
         url=preq.resource_url,
         description=(f"Agent Guild paid read ({preq.operation}): "
-                     + operation_label(preq.operation)),
+                     + operation_label(preq.operation) + selection_copy),
         mime_type="application/json",
         # These official x402 v2 fields are carried into CDP Bazaar after an
         # independent settlement.  Without them the resource is searchable
@@ -416,7 +422,11 @@ def resource_info(preq: "PaidRequest") -> ResourceInfo:
 # readable endpoint specifications inside the 402 challenge, so facilitator
 # catalogues can index the Guild's paid trust operations without a human.
 _BAZAAR_OUTPUT = {
-    "best_agent": {"verdict": "hire", "best": {"agent_id": "…", "score": 0.93}},
+    "best_agent": {
+        "schema_version": 2,
+        "capability": "fact-check",
+        "status": "supply",
+    },
     "signed_decision": {
         "type": "AgentGuildDecision",
         "contract": "AGD-1/1.0",
@@ -457,6 +467,55 @@ _BAZAAR_OUTPUT = {
     "reputation": {"score": 0.9, "confidence": 0.8},
     "evidence": {"attestations": [], "receipts": []},
     "risk_score": {"risk": 12, "recommendation": "hire"},
+    "machine_envelope": {
+        "type": "AgentGuildMachineEnvelope",
+        "version": 1,
+        "id": "urn:sha256:example",
+        "protocol": "agent-guild/machine-envelope/v1",
+        "issuer": "did:key:z6MkExampleAgentGuildIssuer",
+        "issued_at": "2026-08-13T08:00:00+00:00",
+        "valid_until": "2026-08-13T09:00:00+00:00",
+        "sender": {
+            "did": "did:key:z6MkExampleCaller",
+            "authentication": "agent-guild/caller-proof/v1",
+            "caller_proof_verified": True,
+        },
+        "message": {
+            "kind": "delegation",
+            "recipient": "did:key:z6MkExampleRecipient",
+            "payload_sha256": "ab" * 32,
+            "nonce": "example-unique-nonce",
+        },
+        "proof": "example-ed25519-proof",
+        "envelope_sha256": "cd" * 32,
+    },
+    "deep_preflight": {
+        "tier": "deep",
+        "verdict": "pass",
+        "checks": [],
+        "failed": [],
+        "unknowns": [],
+        "policy": {"decision": "allow", "reasons": []},
+        "history": {"observations": 4, "drift": []},
+        "corroboration": {"independent_sources": 2, "sources": []},
+        "index_status": "recently_reachable",
+    },
+    "evidence_bundle": {
+        "type": "AgentGuildEvidenceBundle",
+        "version": 1,
+        "subject_endpoint": "https://agent.example/a2a",
+        "subject_id": "sha256:example",
+        "issued_at": "2026-08-13T08:00:00+00:00",
+        "valid_until": "2026-08-13T09:00:00+00:00",
+        "observation": {"verdict": "pass", "checks": [], "failed": []},
+        "policy": {"decision": "allow"},
+        "history": {"observations": 4, "drift": []},
+        "corroboration": {"independent_sources": 2},
+        "issuer": "did:key:z6MkExampleAgentGuildIssuer",
+        "ledger_anchor": {"checkpoint_index": 123, "head_hash": "sha256:example"},
+        "proof": "example-ed25519-proof",
+        "bundle_sha256": "ef" * 32,
+    },
     "payment_decision": {
         "type": ["VerifiableCredential", "AgentGuildPaymentDecision"],
         "credentialSubject": {"contract": "AGPD-1/1.0", "decision": "allow"},
@@ -494,6 +553,15 @@ _BAZAAR_TAGS = {
 }
 
 _BAZAAR_OUTPUT_SCHEMAS = {
+    "best_agent": {
+        "type": "object",
+        "properties": {
+            "schema_version": {"type": "integer", "const": 2},
+            "capability": {"type": "string"},
+            "status": {"type": "string"},
+        },
+        "required": ["schema_version", "capability", "status"],
+    },
     "signed_decision": {
         "type": "object",
         "properties": {
@@ -521,6 +589,81 @@ _BAZAAR_OUTPUT_SCHEMAS = {
             "type", "contract", "issuer", "capability", "status",
             "issued_at", "valid_until", "decision", "routing",
             "checkpoint", "proof",
+        ],
+    },
+    "machine_envelope": {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "const": "AgentGuildMachineEnvelope"},
+            "version": {"type": "integer", "const": 1},
+            "protocol": {"type": "string", "const": "agent-guild/machine-envelope/v1"},
+            "issuer": {"type": "string", "pattern": "^did:key:"},
+            "sender": {"type": "object"},
+            "message": {"type": "object"},
+            "proof": {"type": "string"},
+            "envelope_sha256": {"type": "string"},
+        },
+        "required": [
+            "type", "version", "protocol", "issuer", "sender", "message",
+            "proof", "envelope_sha256",
+        ],
+    },
+    "payment_decision": {
+        "type": "object",
+        "properties": {
+            "type": {"type": "array"},
+            "credentialSubject": {
+                "type": "object",
+                "properties": {
+                    "contract": {"type": "string", "const": "AGPD-1/1.0"},
+                    "decision": {"type": "string", "enum": ["allow", "block"]},
+                },
+                "required": ["contract", "decision"],
+            },
+        },
+        "required": ["type", "credentialSubject"],
+    },
+    "protected_payment_decision": {
+        "type": "object",
+        "properties": {
+            "type": {"type": "array"},
+            "credentialSubject": {
+                "type": "object",
+                "properties": {
+                    "contract": {"type": "string", "const": "AGPD-1/1.0"},
+                    "decision": {"type": "string", "enum": ["allow", "block"]},
+                    "protection": {"type": "object"},
+                },
+                "required": ["contract", "decision", "protection"],
+            },
+        },
+        "required": ["type", "credentialSubject"],
+    },
+    "deep_preflight": {
+        "type": "object",
+        "properties": {
+            "tier": {"type": "string", "const": "deep"},
+            "policy": {"type": "object"},
+            "history": {"type": "object"},
+            "corroboration": {"type": "object"},
+            "index_status": {"type": "string"},
+        },
+        "required": ["tier", "policy", "history", "corroboration", "index_status"],
+    },
+    "evidence_bundle": {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "const": "AgentGuildEvidenceBundle"},
+            "version": {"type": "integer", "const": 1},
+            "subject_endpoint": {"type": "string", "format": "uri"},
+            "issuer": {"type": "string", "pattern": "^did:key:"},
+            "ledger_anchor": {"type": "object"},
+            "proof": {"type": "string"},
+            "bundle_sha256": {"type": "string"},
+        },
+        "required": [
+            "type", "version", "subject_endpoint", "issuer", "ledger_anchor",
+            "proof", "bundle_sha256",
         ],
     },
 }
