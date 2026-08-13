@@ -65,6 +65,7 @@ from . import demand
 from . import market
 from . import walletbinding
 from . import paymentdecision
+from . import spendmandate
 from . import marketpaymentdecision
 from . import trustdecision
 from . import x402
@@ -94,6 +95,12 @@ async def _lifespan(app: "FastAPI"):
     tagged so it never pollutes organic/production metrics). Disable with
     GUILD_BOOTSTRAP_EVAL=0. Then hand off to the MCP session-manager lifespan so
     the mounted /mcp server runs."""
+    try:
+        # Start the predeclared AGSM-1 window at deployment, not at the first
+        # successful caller. The persisted record survives restarts/redeploys.
+        spendmandate.ensure_experiment(store)
+    except Exception as exc:
+        _log.warning("AGSM-1 experiment clock not initialized: %s", exc)
     if os.environ.get("GUILD_BOOTSTRAP_EVAL", "1") != "0" and not already_seeded(store):
         try:
             result = seed_bootstrap_evaluation(store)
@@ -222,6 +229,10 @@ _ABUSE_BUCKETS = {
     # signing failures can never bill. Bound the unpaid pre-production surface
     # just like other writes; a fresh did:key is not a scarce identity.
     ("POST", "/envelopes/issue"): "write_burst",
+    ("POST", "/mandates"): "spend_create",
+    # AGSM-1 authorizations are free during falsification, so they need their
+    # own bounded pre-signing surface instead of the paid-read gateway.
+    ("POST", "/mandates/authorize"): "spend_authorize",
 }
 _PRICED_READ_PREFIXES = ("/search", "/check", "/evaluation", "/ledger/", "/agents/")
 
@@ -265,6 +276,9 @@ async def _capture_ua(request: Request, call_next):
                 "error": "payload_too_large", "max_bytes": abuse.MAX_BODY_BYTES})
         path, method = request.scope["path"], request.method
         bucket = _ABUSE_BUCKETS.get((method, path))
+        if (bucket is None and path.startswith("/mandates/")
+                and method in ("GET", "POST")):
+            bucket = "spend_state"
         if (bucket is None and method == "GET"
                 and not request.headers.get("x-api-key")
                 and path.startswith(_PRICED_READ_PREFIXES)):
@@ -1801,6 +1815,99 @@ def wallet_binding_status(credential_id: str):
     return out
 
 
+@app.post("/mandates")
+async def create_spend_mandate(request: Request, body: dict[str, Any]):
+    """FREE AGSM-1 cumulative spend authority, owned by one Base EOA.
+
+    The exact body must carry an EIP-191 caller proof.  Creation never grants
+    custody or moves funds; it signs the payer's declared caps and persists the
+    state that subsequent pre-signing decisions consume.
+    """
+    raw = await request.body()
+    verified, caller_did = _verify_http_caller_proof(
+        request, raw, mark_nonce=True)
+    if not verified or callerproof.evm_address_for_did(caller_did) is None:
+        raise HTTPException(401, {
+            "error": "verified_base_evm_caller_proof_required",
+            "detail": (
+                "present a Base-EVM EIP-191 caller proof bound to the exact "
+                "POST /mandates body"),
+        })
+    try:
+        out = spendmandate.create(
+            store, body, caller_did=caller_did,
+            first_party=_fp_flag.get())
+    except spendmandate.SpendMandateRefused as exc:
+        raise HTTPException(422, {"error": exc.code, "detail": str(exc)})
+    return out
+
+
+@app.get("/mandates/{mandate_id}")
+def get_spend_mandate(request: Request, mandate_id: str):
+    """FREE owner-only AGSM-1 live spend state. EVM caller proof required."""
+    verified, caller_did = _verify_http_caller_proof(
+        request, b"", mark_nonce=True)
+    if not verified or callerproof.evm_address_for_did(caller_did) is None:
+        raise HTTPException(401, {
+            "error": "verified_base_evm_caller_proof_required",
+            "detail": "present a Base-EVM proof bound to this exact GET path",
+        })
+    try:
+        return spendmandate.get_owned(store, mandate_id, caller_did)
+    except spendmandate.SpendMandateRefused as exc:
+        # Do not reveal whether a mandate exists to a different owner.
+        raise HTTPException(404, {"error": exc.code, "detail": "unknown mandate"})
+
+
+@app.post("/mandates/{mandate_id}/revoke")
+def revoke_spend_mandate(request: Request, mandate_id: str):
+    """FREE irreversible owner revocation of an AGSM-1 mandate."""
+    verified, caller_did = _verify_http_caller_proof(
+        request, b"", mark_nonce=True)
+    if not verified or callerproof.evm_address_for_did(caller_did) is None:
+        raise HTTPException(401, {
+            "error": "verified_base_evm_caller_proof_required",
+            "detail": "present a Base-EVM proof bound to this exact POST path",
+        })
+    try:
+        out = spendmandate.revoke(store, mandate_id, caller_did)
+        return out
+    except spendmandate.SpendMandateRefused as exc:
+        raise HTTPException(404, {"error": exc.code, "detail": "unknown mandate"})
+
+
+@app.post("/mandates/authorize")
+async def authorize_spend_mandate(request: Request, body: dict[str, Any],
+                                  response: Response):
+    """FREE AGSM-1 authorization for one exact payment, no trust oracle.
+
+    This route returns only payer-owned budget state. Counterparty identity,
+    risk, reputation and routing remain the separate metered AGPD-1 product.
+    """
+    raw = await request.body()
+    verified, caller_did = _verify_http_caller_proof(
+        request, raw, mark_nonce=True)
+    if not verified or callerproof.evm_address_for_did(caller_did) is None:
+        raise HTTPException(401, {
+            "error": "verified_base_evm_caller_proof_required",
+            "detail": (
+                "present a Base-EVM EIP-191 caller proof bound to the exact "
+                "POST /mandates/authorize body"),
+        })
+    try:
+        out = spendmandate.authorize_and_issue(
+            store, body, caller_did=caller_did,
+            first_party=_fp_flag.get())
+    except spendmandate.SpendMandateRefused as exc:
+        status = 404 if str(exc) == "unknown mandate" else 422
+        raise HTTPException(status, {
+            "error": exc.code,
+            "detail": "unknown mandate" if status == 404 else str(exc),
+        })
+    response.headers["X-Guild-Cost"] = "0"
+    return out
+
+
 @app.post("/wallet-binding/decision")
 async def wallet_payment_decision(
         request: Request, body: dict[str, Any], response: Response,
@@ -3263,7 +3370,9 @@ def _manifest() -> dict:
                 "free": ["register", "attest", "task", "receipt", "passport",
                          "verify", "citizenship", "demand_watch",
                          "record_collaboration", "invoke (guest capabilities)",
-                         "escrow", "escrow_release"],
+                         "escrow", "escrow_release", "spend_mandate_create",
+                         "spend_mandate_read", "spend_mandate_authorize",
+                         "spend_mandate_revoke"],
                 "trial_funded": ("POST /billing/trial grants "
                                  f"{billing.TRIAL_CREDITS} sandbox credits "
                                  "(NOT money) — funds any priced read below"),
@@ -3352,6 +3461,20 @@ def _manifest() -> dict:
                                "revoke": "/wallet-binding/revoke",
                                "status":
                                    "/wallet-binding/status/{credential_id}"},
+            "spend_mandates": {
+                "contract": spendmandate.CONTRACT,
+                "create": "POST /mandates",
+                "read": "GET /mandates/{mandate_id}",
+                "revoke": "POST /mandates/{mandate_id}/revoke",
+                "authorize": "POST /mandates/authorize with mandate_id + "
+                             "authorization_id + exact payment",
+                "falsification_readback": "GET /funnel/spend-mandates",
+                "owner_proof": "Base-EVM EIP-191 exact-body caller proof",
+                "price": "free falsification release",
+                "purpose": (
+                    "restart-safe cumulative and per-counterparty caps at the "
+                    "last reversible moment before a wallet signs"),
+            },
             "payment_policy_integrations": {
                 "payanagent_mcp": {
                     "source": "/sdk/integrations/payanagent_payment_policy.mjs",
@@ -3397,6 +3520,9 @@ def _manifest() -> dict:
                     "factory": "createAgentGuildX402PaymentPolicy({meteredFetch})",
                     "operation": "client.onBeforePaymentCreation(policy)",
                     "decision": "/wallet-binding/decision",
+                    "spend_mandate_factory": (
+                        "createAgentGuildX402PaymentPolicy({evmSigner, "
+                        "mandateId})"),
                     "protected_value_factory": (
                         "createAgentGuildX402PaymentPolicy({meteredFetch, "
                         "protectedValue:true, evmSigner})"),
@@ -3870,6 +3996,9 @@ def llms_txt():
         "- Discover the safest agent for a capability: GET /search?capability=<cap> (10 credits)\n"
         "- Decide hire/avoid: GET /agents/{id}/risk-score (10 credits)\n"
         "- Resolve the exact wallet you are about to pay: GET /wallet-binding/resolve?address=<0x...>&network=eip155:8453 (free; signed evidence)\n"
+        "- Keep a wallet inside cumulative authority across retries/restarts: create a\n"
+        "  free AGSM-1 mandate with POST /mandates, then POST /mandates/authorize\n"
+        "  with mandate_id + one unique authorization_id + the exact payment\n"
         "- Fraud/collusion check: GET /agents/{id}/flags (5 credits)\n"
         "- Grow the graph for free: POST /agents/register, /attestations, /tasks\n"
         "- Record a collaboration in ONE call: POST /collaborations\n"
@@ -4397,6 +4526,12 @@ def paid_offer_funnel(operation: Optional[str] = None):
     reading one operation's exposure was handed all three and could not tell."""
     _require_known_operation(operation)
     return store.paid_offer_funnel(operation)
+
+
+@app.get("/funnel/spend-mandates")
+def spend_mandate_falsification():
+    """FREE readback of the predeclared AGSM-1 external repeat-use signal."""
+    return store.spend_mandate_falsification()
 
 
 def _require_known_operation(operation: Optional[str]) -> None:

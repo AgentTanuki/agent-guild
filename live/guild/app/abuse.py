@@ -36,6 +36,9 @@ _DEFAULTS = {
     "read_burst": (240, 60, "READ_BURST"),     # unfunded priced reads per IP/min
     "write_burst": (120, 3600, "WRITE_BURST"), # collaborations/attestations per IP/hr
     "demand_watch": (60, 3600, "DEMAND_WATCH"),
+    "spend_authorize": (120, 60, "SPEND_AUTHORIZE"),
+    "spend_create": (10, 3600, "SPEND_CREATE"),
+    "spend_state": (120, 60, "SPEND_STATE"),
 }
 
 MAX_BODY_BYTES = int(os.environ.get("GUILD_MAX_BODY_BYTES", 262144))        # 256 KiB

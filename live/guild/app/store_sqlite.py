@@ -176,6 +176,29 @@ CREATE TABLE IF NOT EXISTS outbound_invocations (
 );
 CREATE INDEX IF NOT EXISTS oinv_agent ON outbound_invocations (agent_id);
 
+-- AGSM-1 is latency-critical mutable authorization state. One row per mandate
+-- keeps an authorization O(size of that mandate), never O(entire corpus).
+CREATE TABLE IF NOT EXISTS spend_mandates (
+    id         TEXT PRIMARY KEY,
+    owner_did  TEXT NOT NULL,
+    status     TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    json       TEXT NOT NULL,
+    version    INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS spend_mandates_owner ON spend_mandates (owner_did);
+CREATE INDEX IF NOT EXISTS spend_mandates_expiry ON spend_mandates (expires_at);
+
+-- Bounded, privacy-preserving experiment observations.  One row per mandate;
+-- the JSON never contains a raw DID, EOA, payment, payee or authorization id.
+CREATE TABLE IF NOT EXISTS spend_mandate_metrics (
+    mandate_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    json       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS spend_mandate_metrics_created
+    ON spend_mandate_metrics (created_at);
+
 -- singletons + transient registers: identity, swarm_state, guild_revenue.
 -- Whole-value blobs keyed by name. (outbound_invocations is now its own table.)
 CREATE TABLE IF NOT EXISTS kv (
@@ -506,6 +529,61 @@ class SqliteBackend:
             "SELECT json FROM outbound_invocations WHERE id=?", (invocation_id,)).fetchone()
         return json.loads(row[0]) if row else None
 
+    # --- AGSM-1 spend mandates (dedicated row per mandate) -----------------
+    def put_spend_mandate(self, rec: dict[str, Any]) -> None:
+        self._exec(
+            "INSERT INTO spend_mandates"
+            " (id,owner_did,status,expires_at,json,version) VALUES (?,?,?,?,?,0)"
+            " ON CONFLICT(id) DO UPDATE SET owner_did=excluded.owner_did,"
+            " status=excluded.status, expires_at=excluded.expires_at,"
+            " json=excluded.json, version=spend_mandates.version+1",
+            (rec.get("mandate_id"), rec.get("owner_did"), rec.get("status"),
+             rec.get("expires_at"), _j(rec)))
+
+    def fetch_spend_mandate(self, mandate_id: str):
+        row = self.conn().execute(
+            "SELECT json FROM spend_mandates WHERE id=?", (mandate_id,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def count_spend_mandates(self, owner_did: str, now_iso: str) -> int:
+        row = self.conn().execute(
+            "SELECT COUNT(*) FROM spend_mandates WHERE owner_did=? "
+            "AND status='active' AND expires_at>?",
+            (owner_did, now_iso)).fetchone()
+        return int(row[0]) if row else 0
+
+    def count_spend_mandates_total(self) -> int:
+        row = self.conn().execute(
+            "SELECT COUNT(*) FROM spend_mandates").fetchone()
+        return int(row[0]) if row else 0
+
+    def prune_spend_mandates(self, now_iso: str) -> int:
+        before = self.conn().total_changes
+        self._exec("DELETE FROM spend_mandates WHERE expires_at<=?", (now_iso,))
+        return int(self.conn().total_changes - before)
+
+    def all_spend_mandates(self) -> dict[str, dict[str, Any]]:
+        return {r[0]: json.loads(r[1]) for r in self.conn().execute(
+            "SELECT id,json FROM spend_mandates").fetchall()}
+
+    def put_spend_mandate_metric(self, rec: dict[str, Any]) -> None:
+        self._exec(
+            "INSERT INTO spend_mandate_metrics (mandate_id,created_at,json)"
+            " VALUES (?,?,?) ON CONFLICT(mandate_id) DO UPDATE SET"
+            " created_at=excluded.created_at,json=excluded.json",
+            (rec.get("mandate_id"), rec.get("created_at"), _j(rec)))
+
+    def fetch_spend_mandate_metric(self, mandate_id: str):
+        row = self.conn().execute(
+            "SELECT json FROM spend_mandate_metrics WHERE mandate_id=?",
+            (mandate_id,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def count_spend_mandate_metrics(self) -> int:
+        row = self.conn().execute(
+            "SELECT COUNT(*) FROM spend_mandate_metrics").fetchone()
+        return int(row[0]) if row else 0
+
     def fetch_kv(self, name: str, default: Any = None):
         """Authoritative singleton value straight from the DB (e.g. the
         guild_revenue counter, read inside an escrow-release transaction so
@@ -663,7 +741,8 @@ class SqliteBackend:
     def is_empty(self) -> bool:
         con = self.conn()
         for t in ("agents", "accounts", "tasks", "attestations", "escrows",
-                  "ledger", "events", "outbound_invocations"):
+                  "ledger", "events", "outbound_invocations", "spend_mandates",
+                  "spend_mandate_metrics"):
             if con.execute(f"SELECT 1 FROM {t} LIMIT 1").fetchone():
                 return False
         # kv singletons alone (e.g. identity) also count as non-empty.
@@ -692,6 +771,10 @@ class SqliteBackend:
         # outbound_invocations now has its OWN table (keyed by invocation id).
         invocations = {r["id"]: r for r in
                        rows("SELECT json FROM outbound_invocations ORDER BY started_at")}
+        spend_mandates = {r["mandate_id"]: r for r in
+                          rows("SELECT json FROM spend_mandates ORDER BY rowid")}
+        spend_mandate_metrics = {r["mandate_id"]: r for r in rows(
+            "SELECT json FROM spend_mandate_metrics ORDER BY rowid")}
         kv = {r[0]: json.loads(r[1]) for r in
               con.execute("SELECT k,json FROM kv").fetchall()}
         return {
@@ -705,6 +788,8 @@ class SqliteBackend:
             # DERIVED (idempotent by escrow_id), not the vestigial kv counter.
             "guild_revenue": self.guild_revenue_total(),
             "outbound_invocations": invocations,
+            "spend_mandates": spend_mandates,
+            "spend_mandate_metrics": spend_mandate_metrics,
         }
 
     # --- ops helpers --------------------------------------------------------
