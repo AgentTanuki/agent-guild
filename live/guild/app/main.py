@@ -2370,30 +2370,20 @@ async def wallet_protected_payment_tier(
 
     The ``tier_id`` path parameter advertises both OpenAPI's singular example
     and JSON Schema's examples array.  This keeps standards-compliant clients
-    precise. Registry probes that substitute a non-product placeholder receive
-    a canonical, non-executable discovery quote for the smallest real tier;
-    an unknown tier still fails closed (404) before settlement whenever a body,
-    proof or payment credential is present.
+    precise while letting registry probes that implement only the older
+    singular field substitute a valid tier and reach the priced 402 quote; an
+    unknown tier still fails closed (404) for an executing caller.
     """
-    proof_header = request.headers.get(callerproof.HTTP_HEADER.lower())
-    discovery = (
-        not body and not proof_header and not _payment_attempt_present()
-        and billing.billing_enforced() and x402.enabled())
-    requested_tier_id = tier_id
     try:
         protectedmarket.tier_path(tier_id)
         service_quote = protectedmarket.tier_quote(tier_id)
     except protectedmarket.ProtectedMarketplaceRefused as exc:
-        if not discovery:
-            raise HTTPException(404, str(exc))
-        # Some registries intentionally substitute opaque path placeholders
-        # rather than OpenAPI examples.  Quote the smallest real tier at its
-        # canonical resource, never the unknown path.  The response is marked
-        # non-executable below; any retry carries a payment/body/proof signal,
-        # re-enters the strict branch above and fails 404 before settlement.
-        tier_id = next(iter(protectedmarket.TIERS))
-        service_quote = protectedmarket.tier_quote(tier_id)
+        raise HTTPException(404, str(exc))
 
+    proof_header = request.headers.get(callerproof.HTTP_HEADER.lower())
+    discovery = (
+        not body and not proof_header and not _payment_attempt_present()
+        and billing.billing_enforced() and x402.enabled())
     will_execute = bool(
         _executable_payment_present() or not billing.billing_enforced())
     verified, caller_did, semantic = _verify_marketplace_body_caller_proof(
@@ -2410,8 +2400,6 @@ async def wallet_protected_payment_tier(
                     "strict JSON {request, caller_proof}; a Base-EVM EIP-191 "
                     "proof must bind RFC 8785 JCS(request), this exact tier "
                     "route and the canonical Payan buy URL."),
-                "requested_tier": requested_tier_id,
-                "quoted_tier": tier_id,
                 "tier": protectedmarket.catalog()[
                     list(protectedmarket.TIERS).index(tier_id)],
                 "schema": "/wallet-binding/protected-decision/tiers",
