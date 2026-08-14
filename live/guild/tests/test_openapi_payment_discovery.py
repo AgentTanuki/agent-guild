@@ -1,7 +1,7 @@
 """OpenAPI-first machines can find and budget every payable HTTP utility."""
 from fastapi.testclient import TestClient
 
-from app import billing, openapi_payment_discovery, pricing
+from app import billing, mpp, openapi_payment_discovery, pricing, x402
 from app.main import app
 
 
@@ -30,7 +30,12 @@ def test_every_declared_payment_operation_is_live_and_structured():
         assert product["output"]
         assert info["price"]["mode"] in {"fixed", "dynamic"}
         assert info["price"]["currency"] == "USD"
-        assert info["protocols"] == [{"x402": {"version": 2}}]
+        assert info["protocols"][0] == {"x402": {"version": 2}}
+        if mpp.enabled():
+            assert info["protocols"][1] == {"mpp": {
+                "method": "evm", "intent": "charge",
+                "currency": x402.asset(),
+            }}
         assert "402" in operation["responses"]
         assert operation["x-agent-guild-payment"][
             "live_quote_authoritative"] is True
@@ -125,3 +130,41 @@ def test_free_verification_and_catalog_routes_are_not_marked_paid():
         ("/pricing", "get"),
     ):
         assert "x-payment-info" not in schema["paths"][path][method]
+
+
+def test_mpp_discovery_is_complete_when_acceptance_is_live(monkeypatch):
+    monkeypatch.setenv("GUILD_MPP_ENABLED", "1")
+    monkeypatch.setenv("GUILD_MPP_SECRET", "s" * 32)
+    monkeypatch.setenv("GUILD_X402_ENABLED", "1")
+    monkeypatch.setenv("GUILD_X402_PAY_TO", "0x" + "11" * 20)
+
+    schema = TestClient(app).get("/openapi.json").json()
+    paid = _paid(schema)
+    assert paid
+    for operation in paid.values():
+        assert operation["x-payment-info"]["protocols"] == [
+            {"x402": {"version": 2}},
+            {"mpp": {
+                "method": "evm", "intent": "charge",
+                "currency": x402.asset(),
+            }},
+        ]
+        payment = operation["x-agent-guild-payment"]
+        assert payment["mpp_authorization_header"] == \
+            "Authorization: Payment"
+        assert payment["mpp_receipt_header"] == "Payment-Receipt"
+
+
+def test_mpp_kill_switch_removes_only_mpp_advertisement(monkeypatch):
+    monkeypatch.setenv("GUILD_MPP_ENABLED", "0")
+    monkeypatch.setenv("GUILD_X402_ENABLED", "1")
+    monkeypatch.setenv("GUILD_X402_PAY_TO", "0x" + "11" * 20)
+
+    schema = TestClient(app).get("/openapi.json").json()
+    for operation in _paid(schema).values():
+        assert operation["x-payment-info"]["protocols"] == [
+            {"x402": {"version": 2}},
+        ]
+        payment = operation["x-agent-guild-payment"]
+        assert payment["mpp_authorization_header"] is None
+        assert payment["mpp_receipt_header"] is None

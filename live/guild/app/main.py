@@ -42,6 +42,7 @@ from .models import (
 )
 from . import __version__
 from . import billing
+from . import mpp
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from . import instanceid
 from . import preflight
@@ -213,6 +214,10 @@ _caller_did: contextvars.ContextVar[str] = contextvars.ContextVar(
     "caller_did", default="")
 _xpay_settled_holder: contextvars.ContextVar[Optional[list]] = \
     contextvars.ContextVar("xpay_settled_holder", default=None)
+#: Raw Authorization header for the MPP "Payment" scheme (app/mpp.py).
+#: Captured unconditionally; consulted only when MPP readiness is live.
+_mpp_auth: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "mpp_auth", default="")
 
 
 def _b64json(obj: Any) -> str:
@@ -268,6 +273,7 @@ async def _capture_ua(request: Request, call_next):
         _req_actor.set(None)
     _xpay_sig.set(request.headers.get("payment-signature", ""))
     _xpay_v1.set(request.headers.get("x-payment", ""))
+    _mpp_auth.set(request.headers.get("authorization", ""))
     _fp_flag.set(_is_first_party(request.headers.get("x-guild-source"),
                                  request.headers.get(
                                      "x-agent-guild-first-party")))
@@ -395,9 +401,21 @@ async def _cached_paid_result_handler(request: Request,
                                       exc: CachedPaidResult):
     """Official payment-identifier semantics: same id + same request returns
     the SAME cached result without another settlement."""
+    headers = payments.cached_reply_headers(exc)
+    # MPP idempotent replay: an MPP retry must also receive a valid
+    # Payment-Receipt, derived from the ALREADY-CONFIRMED cached settlement —
+    # zero new facilitator call (pure header derivation from stored data).
+    if mpp.enabled() and mpp.is_mpp_authorization(_mpp_auth.get()):
+        try:
+            settlement = exc.settle_record or {}
+            if (settlement.get("confirmed") is True
+                    and settlement.get("transaction")):
+                headers[mpp.PAYMENT_RECEIPT_HEADER] = \
+                    mpp.receipt_header_value(settlement)
+        except Exception:
+            pass
     return Response(content=exc.record["result_body"],
-                    media_type="application/json",
-                    headers=payments.cached_reply_headers(exc))
+                    media_type="application/json", headers=headers)
 
 
 # Hosted remote MCP: any agent connects to <host>/mcp with no install.
@@ -558,6 +576,20 @@ def _challenge_http(exc: PaymentChallenge,
         hdrs = {x402.PAYMENT_REQUIRED_HEADER: exc.header_value()}
     except Exception:                                    # never mask the 402
         hdrs = {}
+    # MPP dual-advertise — STRICTLY tied to acceptance being live (same
+    # readiness gate drives meter()'s credential path), so a Payment
+    # challenge is never advertised that the service would not settle: no
+    # catalogue drift. The explicit kill switch restores byte-identical x402-
+    # only 402s without changing the treasury or payment-gateway settings.
+    if mpp.enabled() and x402.enabled():
+        try:
+            preq_ = getattr(exc, "preq", None)
+            if preq_ is not None:
+                hdrs[mpp.WWW_AUTHENTICATE] = \
+                    mpp.mint_challenge(preq_, preq_.cost).header_value()
+                hdrs["Cache-Control"] = "no-store"
+        except Exception:                                # never mask the 402
+            pass
     return HTTPException(status, exc.body, headers=hdrs)
 
 
@@ -742,6 +774,17 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
     """
     response.headers["X-Guild-Cost"] = str(preq.cost)
     xsig, xp1 = _xpay_sig.get(), _xpay_v1.get()
+    # ONE PROTOCOL PER REQUEST — decided BEFORE any credential is decoded and
+    # before the v1-rejection path. A request carrying ANY x402 signal header
+    # (v2 PAYMENT-SIGNATURE or v1 X-PAYMENT) together with an MPP
+    # "Authorization: Payment" credential is ambiguous about which rail to
+    # settle and is refused outright: ambiguity must never risk two charges.
+    _mpp_hdr = _mpp_auth.get()
+    if (xsig or xp1) and mpp.is_mpp_authorization(_mpp_hdr):
+        raise HTTPException(400, mpp.MppError(
+            "malformed-credential",
+            "both an x402 payment header and an MPP Authorization: Payment "
+            "credential present — send exactly one payment protocol").problem)
     if xp1 and not xsig:
         # v1 cannot echo the resource, so it cannot be bound to the actual
         # request — fail closed with the exact migration path.
@@ -762,13 +805,32 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
         except Exception as e:
             raise _challenge_http(PaymentChallenge(preq, extra={
                 "error": "x402_payment_invalid", "detail": str(e)[:200]}))
+    _protocol = "v2"
+    if payment is None and mpp.enabled() and \
+            mpp.is_mpp_authorization(_mpp_hdr) and x402.enabled():
+        # MPP acceptance: authenticate the MPP envelope against THIS
+        # request's HMAC-bound challenge, convert the EIP-3009 authorization
+        # into the official x402 PaymentPayload, and settle it through the
+        # SAME path as a PAYMENT-SIGNATURE payment. No second settlement
+        # implementation exists; the payment-identifier durability, replay,
+        # facilitator and independent-confirmation logic below is shared.
+        try:
+            payment, _mpp_source = mpp.credential_to_payment(
+                _mpp_hdr, preq, preq.cost)
+            _protocol = "mpp_evm"
+        except mpp.MppError as e:
+            if e.status == 402:
+                raise _challenge_http(PaymentChallenge(preq, extra={
+                    "error": "mpp_payment_invalid", "reason": e.slug,
+                    "detail": str(e)[:300]}))
+            raise HTTPException(e.status, e.problem)
     try:
         # Payer attribution is True-or-UNKNOWN, never affirmatively False:
         # a request without valid first-party headers is UNCLASSIFIED (our
         # own tooling has forgotten the header before) — recording False
         # would let the funnel claim it as external revenue.
         auth = payments.authorize(preq, api_key=x_api_key, payment=payment,
-                                  protocol="v2", ua=_ua.get(),
+                                  protocol=_protocol, ua=_ua.get(),
                                   transport="http",
                                   first_party=(True if _fp_flag.get()
                                                else None),
@@ -786,6 +848,13 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
         # finalize middleware replaces it with the receipt-bearing one.
         response.headers[x402.PAYMENT_RESPONSE_HEADER] = \
             x402.settle_response_header_value(auth.settled.record)
+        if _protocol == "mpp_evm" and \
+                auth.settled.record.get("confirmed") is True:
+            # MPP wire receipt with the confirmed tx reference; the x402
+            # PAYMENT-RESPONSE / evidence finalisation above remains as
+            # additional, unchanged machinery.
+            response.headers[mpp.PAYMENT_RECEIPT_HEADER] = \
+                mpp.receipt_header_value(auth.settled.record)
         holder = _xpay_settled_holder.get()
         if holder is not None:
             holder[0] = auth.settled
