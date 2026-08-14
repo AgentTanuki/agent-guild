@@ -184,6 +184,9 @@ def test_search_bare_registry_probe_is_non_executable(client, settle_spy):
     assert response.headers.get("PAYMENT-REQUIRED")
     challenge = json.loads(base64.b64decode(
         response.headers["PAYMENT-REQUIRED"]))
+    assert response.json()["accepts"] == challenge["accepts"]
+    assert response.json()["resource"] == challenge["resource"]
+    assert response.json()["extensions"] == challenge["extensions"]
     output_schema = challenge["extensions"]["bazaar"]["info"][
         "output"]["schema"]
     assert set(output_schema["required"]) == {

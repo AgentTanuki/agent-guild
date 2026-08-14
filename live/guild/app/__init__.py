@@ -3,8 +3,14 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.25"  # PATCH (machine-visible semver, 2026-08-14):
-                        # makes every HTTP POST Bazaar extension conform to
+__version__ = "2.5.26"  # PATCH (machine-visible semver, 2026-08-15):
+                        # mirrors every canonical PAYMENT-REQUIRED challenge
+                        # at the top level of the JSON 402 body for
+                        # header-limited autonomous clients, while preserving
+                        # the prior FastAPI detail body and changing no
+                        # pricing, binding, settlement or telemetry path.
+                        # History of 2.5.25: makes every HTTP POST Bazaar
+                        # extension conform to
                         # the official body-method contract (bodyType + body)
                         # and limits /.well-known/x402 reusable resources to
                         # requests that can actually execute after payment;
