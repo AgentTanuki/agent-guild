@@ -6,7 +6,7 @@ from app import protecteddecision
 from app.payments import (
     check_request, deep_preflight_request, evidence_bundle_request,
     machine_envelope_request, payment_decision_request,
-    protected_payment_decision_request,
+    protected_payment_decision_request, search_request,
 )
 from x402.extensions.bazaar import (
     extract_discovery_info_from_extension,
@@ -69,9 +69,26 @@ def test_other_paid_products_receive_operation_specific_tags_without_schema_drif
     assert "decision" not in str(output)
 
 
+def test_search_declares_its_ranked_result_contract_without_changing_check():
+    search_output = x402.bazaar_extension(
+        search_request("fact-check"))["info"]["output"]
+    check_output = x402.bazaar_extension(
+        check_request("fact-check"))["info"]["output"]
+
+    assert set(search_output["schema"]["required"]) == {
+        "capability", "count", "results"}
+    assert set(search_output["schema"]["properties"]["results"][
+        "items"]["required"]) >= {
+            "id", "did", "name", "capabilities", "trust", "rank",
+            "confidence", "attestations_received"}
+    assert set(check_output["schema"]["required"]) == {
+        "schema_version", "capability", "status"}
+
+
 def test_flagship_bazaar_examples_match_declared_schemas_and_official_sdk():
     requests = [
         check_request("fact-check"),
+        search_request("fact-check"),
         check_request("fact-check", signed=True, ttl_seconds=3600),
         machine_envelope_request("a" * 64),
         payment_decision_request("b" * 64),

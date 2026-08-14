@@ -670,14 +670,77 @@ _BAZAAR_OUTPUT_SCHEMAS = {
     },
 }
 
+# Some HTTP resources deliberately share a billing operation while returning
+# different wire contracts.  In particular, GET /check and GET /search both
+# settle as ``best_agent`` but /search returns a ranked SearchResponse rather
+# than the check response.  A paying machine must be able to validate the
+# response against the exact schema advertised before payment, so route-level
+# contracts take precedence over the operation-level discovery fallback.
+_BAZAAR_ROUTE_OUTPUTS = {
+    ("best_agent", "/search"): {
+        "capability": "fact-check",
+        "count": 1,
+        "results": [{
+            "id": "agent_example",
+            "did": "did:key:z6MkExampleAgent",
+            "name": "Example Agent",
+            "capabilities": ["fact-check"],
+            "metadata": {},
+            "trust": 0.93,
+            "rank": 1,
+            "confidence": 0.82,
+            "attestations_received": 4,
+        }],
+    },
+}
+
+_BAZAAR_ROUTE_OUTPUT_SCHEMAS = {
+    ("best_agent", "/search"): {
+        "type": "object",
+        "properties": {
+            "capability": {"type": "string"},
+            "count": {"type": "integer", "minimum": 0},
+            "results": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "did": {"type": "string", "pattern": "^did:"},
+                        "name": {"type": "string"},
+                        "capabilities": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "metadata": {"type": "object"},
+                        "trust": {"type": "number"},
+                        "rank": {"type": "integer"},
+                        "confidence": {"type": "number"},
+                        "attestations_received": {"type": "integer"},
+                    },
+                    "required": [
+                        "id", "did", "name", "capabilities", "metadata",
+                        "trust", "rank", "confidence",
+                        "attestations_received",
+                    ],
+                },
+            },
+        },
+        "required": ["capability", "count", "results"],
+    },
+}
+
 
 def bazaar_extension(preq: "PaidRequest") -> dict[str, Any]:
     query = dict(preq.query)
+    route_key = (preq.operation, preq.path)
     output: dict[str, Any] = {
         "type": "json",
-        "example": _BAZAAR_OUTPUT.get(preq.operation, {}),
+        "example": _BAZAAR_ROUTE_OUTPUTS.get(
+            route_key, _BAZAAR_OUTPUT.get(preq.operation, {})),
     }
-    output_schema = _BAZAAR_OUTPUT_SCHEMAS.get(preq.operation)
+    output_schema = _BAZAAR_ROUTE_OUTPUT_SCHEMAS.get(
+        route_key, _BAZAAR_OUTPUT_SCHEMAS.get(preq.operation))
     if output_schema:
         output["schema"] = output_schema
     info: dict[str, Any] = {
