@@ -2361,13 +2361,17 @@ def wallet_protected_payment_tier_catalog():
 async def wallet_protected_payment_tier(
         request: Request, body: dict[str, Any], response: Response,
         tier_id: str = Path(
-            ..., examples=["1000-usdc"],
+            ...,
+            example="1000-usdc",
+            examples=["1000-usdc"],
             description="canonical tier id from GET "
                         "/wallet-binding/protected-decision/tiers")):
     """PAID fixed-notional protected decision for JSON-only marketplaces.
 
-    The ``tier_id`` path parameter advertises a real example so a discovery
-    probe substitutes a valid tier and reaches the priced 402 quote; an
+    The ``tier_id`` path parameter advertises both OpenAPI's singular example
+    and JSON Schema's examples array.  This keeps standards-compliant clients
+    precise while letting registry probes that implement only the older
+    singular field substitute a valid tier and reach the priced 402 quote; an
     unknown tier still fails closed (404) for an executing caller.
     """
     try:
