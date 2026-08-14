@@ -1069,15 +1069,28 @@ def x402_discovery():
     """
     from . import protecteddecision, protectedmarket
 
+    example_agent = "discovery-only"
     example_target = x402.public_host() + "/a2a"
     resources = [
-        payments.check_request("fact-check", signed=True, ttl_seconds=3600),
-        payments.marketplace_signed_decision_request("discovery-only"),
+        # Cheapest, low-commitment counterparty reads first.  x402scan and
+        # similar autonomous buyers preserve this order when deciding which
+        # resource to probe or purchase first.
+        payments.reputation_request(example_agent),
+        payments.journey_request(example_agent),
+        payments.evidence_request(example_agent),
+        payments.agent_flags_request(example_agent),
+        payments.flags_request(),
+        payments.search_request("fact-check"),
+        payments.check_request("fact-check"),
+        payments.risk_score_request(example_agent),
         payments.machine_envelope_request("discovery-only"),
         payments.payment_decision_request("discovery-only"),
-        payments.deep_preflight_request(example_target),
         payments.protected_payment_decision_request(
             "discovery-only", protecteddecision.discovery_quote()),
+        payments.deep_preflight_request(example_target),
+        payments.evidence_bundle_request("discovery-only"),
+        payments.check_request("fact-check", signed=True, ttl_seconds=3600),
+        payments.marketplace_signed_decision_request("discovery-only"),
     ]
     resources.extend(
         payments.protected_payment_tier_request(
