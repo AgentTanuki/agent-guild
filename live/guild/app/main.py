@@ -12,6 +12,7 @@ that drive evidence weighting. Usable entirely over HTTP.
 """
 from __future__ import annotations
 
+import base64
 import html
 import json
 import os
@@ -21,10 +22,12 @@ from urllib.parse import quote
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Header, Path, Query, Request, Response
+from fastapi.exception_handlers import http_exception_handler
 from datetime import datetime, timezone
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .models import (
     RegisterRequest, RegisterResponse, AgentProfile,
@@ -399,6 +402,44 @@ async def _canonical_write_refused_handler(request: Request,
         "note": ("the write did NOT happen. Re-read the authoritative feed "
                  "(/ledger/checkpoints, /diagnostics/state) before retrying."),
     })
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _machine_payment_required_handler(request: Request,
+                                            exc: StarletteHTTPException):
+    """Make x402 challenges legible to both canonical and JSON-only buyers.
+
+    x402 v2 defines ``PAYMENT-REQUIRED`` as the authoritative HTTP carrier.
+    Some autonomous clients nevertheless inspect only the JSON body.  FastAPI's
+    default ``HTTPException`` handler nests every detail object under
+    ``{"detail": ...}``, hiding ``accepts`` and ``resource`` from those clients.
+
+    For an actual x402 challenge only, mirror the exact header payload at the
+    top level while retaining the former nested body under ``detail`` for
+    backwards compatibility.  The header remains authoritative and no pricing,
+    binding, verification, settlement or telemetry path changes here.
+    """
+    headers = dict(exc.headers or {})
+    payment_required = next((value for key, value in headers.items()
+                             if key.lower()
+                             == x402.PAYMENT_REQUIRED_HEADER.lower()), None)
+    if exc.status_code != 402 or not payment_required \
+            or not isinstance(exc.detail, dict):
+        return await http_exception_handler(request, exc)
+    try:
+        canonical = json.loads(base64.b64decode(payment_required).decode())
+    except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        return await http_exception_handler(request, exc)
+    if not isinstance(canonical, dict) or "detail" in canonical:
+        return await http_exception_handler(request, exc)
+
+    content = dict(canonical)
+    # JSON-only buyers get the exact payable protocol object without being
+    # steered toward the sandbox rail. Existing clients retain every prior
+    # Guild-specific field under the unchanged FastAPI detail envelope.
+    content["detail"] = exc.detail  # legacy FastAPI body, intentionally exact
+    return JSONResponse(status_code=exc.status_code, content=content,
+                        headers=headers)
 
 
 @app.exception_handler(PaymentIdConflict)

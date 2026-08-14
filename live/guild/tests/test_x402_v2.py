@@ -22,6 +22,7 @@ x402 SDK clients, EVM signers) live in tests_x402_interop/ and run in their
 own clean CI environment.
 """
 import base64
+import asyncio
 import json
 import time
 import uuid
@@ -30,8 +31,10 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.requests import Request
 
-from x402.schemas import PaymentPayload, ResourceInfo
+from x402.schemas import PaymentPayload, PaymentRequired, ResourceInfo
 
 from app import payments, x402
 
@@ -135,9 +138,61 @@ def test_402_challenge_carries_payment_required_header(monkeypatch):
         assert challenge["x402Version"] == 2
         assert challenge["accepts"][0]["network"] == "eip155:84532"
         assert challenge["accepts"][0]["payTo"] == PAY_TO
-        body = r.json()["detail"]
-        assert body["x402Version"] == 2
-        assert body["sandbox"]["unit"] == "credits_sandbox"
+        body = r.json()
+        # PAYMENT-REQUIRED remains the canonical transport.  The JSON body
+        # mirrors it at top level for autonomous clients that cannot inspect
+        # response headers, while preserving the legacy FastAPI detail shape.
+        for field in ("x402Version", "error", "resource", "accepts",
+                      "extensions"):
+            assert body[field] == challenge[field]
+        parsed_body = PaymentRequired.model_validate(body)
+        assert parsed_body.model_dump(by_alias=True, exclude_none=True) == \
+            challenge
+        assert "detail" not in challenge
+        assert "sandbox" not in body
+        assert body["detail"]["sandbox"]["unit"] == "credits_sandbox"
+        assert body["detail"]["accepts"] == challenge["accepts"]
+        assert r.headers["cache-control"] == "no-store"
+
+
+def test_non_x402_http_errors_keep_fastapi_shape(monkeypatch):
+    """The compatibility handler is scoped by the canonical x402 header."""
+    from app.main import app
+    with TestClient(app) as client:
+        response = client.get("/definitely-not-a-route")
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Not Found"}
+
+
+def test_malformed_payment_required_header_falls_back_safely():
+    """A malformed challenge cannot make the exception handler fail."""
+    from app.main import _machine_payment_required_handler
+    request = Request({"type": "http", "method": "GET", "path": "/x",
+                       "headers": [], "query_string": b"",
+                       "server": ("test", 80), "client": ("test", 1),
+                       "scheme": "http"})
+    exc = StarletteHTTPException(
+        status_code=402, detail={"error": "legacy"},
+        headers={"PAYMENT-REQUIRED": "not-base64"})
+    response = asyncio.run(_machine_payment_required_handler(request, exc))
+    assert response.status_code == 402
+    assert json.loads(response.body) == {"detail": {"error": "legacy"}}
+
+    valid_header = base64.b64encode(json.dumps({
+        "x402Version": 2, "error": "payment required",
+        "resource": {"url": "https://example.test/x", "description": "x",
+                     "mimeType": "application/json"},
+        "accepts": [], "extensions": {},
+    }).encode()).decode()
+    string_detail = StarletteHTTPException(
+        status_code=402, detail="legacy-string",
+        headers={"PAYMENT-REQUIRED": valid_header,
+                 "Cache-Control": "no-store"})
+    response = asyncio.run(_machine_payment_required_handler(
+        request, string_detail))
+    assert response.status_code == 402
+    assert json.loads(response.body) == {"detail": "legacy-string"}
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_402_resource_is_the_actual_request_not_a_template(monkeypatch):
@@ -157,6 +212,7 @@ def test_402_resource_is_the_actual_request_not_a_template(monkeypatch):
         # effective defaults are canonicalized in, so the binding is total
         assert "limit=20" in url and "min_trust=0" in url
         # body and header agree
+        assert r.json()["resource"]["url"] == url
         assert r.json()["detail"]["resource"]["url"] == url
         # a different concrete request quotes a different resource
         r2 = client.get("/check?capability=code-review")
@@ -244,6 +300,9 @@ def test_failed_settlement_never_serves_the_result(monkeypatch):
                        headers={"PAYMENT-SIGNATURE": sig_header(
                            make_payload(SEARCH))})
         assert r.status_code == 402
+        quoted = json.loads(base64.b64decode(r.headers["PAYMENT-REQUIRED"]))
+        assert r.json()["accepts"] == quoted["accepts"]
+        assert r.json()["resource"] == quoted["resource"]
         assert r.json()["detail"]["error"] == "x402_payment_rejected"
 
 

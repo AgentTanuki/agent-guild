@@ -90,9 +90,9 @@ class TestDualAdvertiseWhenEnabled:
         assert www
         quote = _b64url_json(_parse_payment_challenge(www)["request"])
         body = response.json()
-        detail = body.get("detail", body)
-        accepts = detail.get("accepts") or []
+        accepts = body.get("accepts") or []
         assert accepts, "x402 402 body lost its accepts[]"
+        assert body["detail"]["accepts"] == accepts
         assert quote["amount"] == accepts[0]["amount"]
         assert quote["currency"].lower() == accepts[0]["asset"].lower()
         assert quote["recipient"].lower() == accepts[0]["payTo"].lower()
