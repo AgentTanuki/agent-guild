@@ -3,7 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.20"  # PATCH (machine-visible semver, 2026-08-14):
+__version__ = "2.5.21"  # PATCH (machine-visible semver, 2026-08-14):
+                        # lets an explicitly marked, entirely unpaid and
+                        # unauthenticated machine-catalogue probe obtain the
+                        # authoritative x402 quote without fabricating a buyer
+                        # impression; payment, authentication, settlement and
+                        # the quote itself are unchanged. History of 2.5.20:
                         # makes the x402 Bazaar output contract for /search
                         # match its paid ranked SearchResponse, so validating
                         # autonomous buyers can accept the result after
