@@ -416,6 +416,24 @@ def test_readiness_endpoint_is_public_and_secretless(mainnet_env):
         assert j["facilitator_host"] == "api.cdp.coinbase.com"
         assert j["recipient"] == x402.MAINNET_TREASURY
         assert j["recipient_is_pinned_treasury"] is True
+        assert "_meta['x402/payment']" in j["transports"]["mcp"]
+        assert "x402_payment" in j["transports"]["mcp"]
+        assert j["mcp_payment_retry"] == {
+            "challenge": "payment-required tool error",
+            "preferred": {
+                "location": "request_meta",
+                "key": "x402/payment",
+            },
+            "fallback": {
+                "location": "tool_arguments",
+                "key": "x402_payment",
+                "accepted_types": ["object", "string"],
+            },
+            "tool_schema_source": (
+                "https://agent-guild-5d5r.onrender.com/"
+                ".well-known/mcp/server-card.json"
+            ),
+        }
 
 
 # --- preflight script (secret-silent credential loading) ------------------------
