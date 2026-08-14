@@ -3,8 +3,14 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.21"  # PATCH (machine-visible semver, 2026-08-14):
-                        # lets an explicitly marked, entirely unpaid and
+__version__ = "2.5.22"  # PATCH (machine-visible semver, 2026-08-14):
+                        # lets schema-driven MCP agents retry paid reads with
+                        # the official x402 PaymentPayload in a visible tool
+                        # argument when their adapter cannot set request
+                        # metadata; the official _meta carrier remains
+                        # preferred and both use the identical settlement
+                        # gate. History of 2.5.21: lets an explicitly marked,
+                        # entirely unpaid and
                         # unauthenticated machine-catalogue probe obtain the
                         # authoritative x402 quote without fabricating a buyer
                         # impression; payment, authentication, settlement and

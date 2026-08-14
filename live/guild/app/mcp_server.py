@@ -281,33 +281,83 @@ def _rank(capability: str, limit: int, min_trust: float):
 # and retry automatically — proven in tests/test_mcp_x402.py.
 
 
-def _mcp_payment(ctx: "Context | None") -> Optional[PaymentPayload]:
-    """Extract a v2 PaymentPayload from the MCP request _meta['x402/payment']
-    (the official x402 MCP meta key). Returns None when absent/unusable."""
-    if ctx is None or not x402.enabled():
+def _parse_mcp_payment(value: Any, *, source: str,
+                       strict: bool = False) -> Optional[PaymentPayload]:
+    """Parse one MCP payment carrier without ever treating it as authority.
+
+    ``params._meta['x402/payment']`` remains the official transport.  A
+    schema-visible tool argument is also accepted because many agent/tool
+    adapters let the model populate tool arguments but expose no API for
+    request metadata.  Both carriers still enter the same binding, verify,
+    settlement and replay checks in :mod:`payments`; this helper only decodes
+    the already-signed payment payload.
+    """
+    if value is None:
         return None
     try:
-        meta = ctx.request_context.meta
-    except Exception:
+        if isinstance(value, PaymentPayload):
+            return value
+        if isinstance(value, dict):
+            return PaymentPayload(**value)
+        if isinstance(value, str):
+            return PaymentPayload(**_json.loads(value))
+    except Exception as exc:
+        if strict:
+            raise x402.PaymentBindingError(
+                "invalid_mcp_payment_argument",
+                f"{source} is not a valid x402 v2 PaymentPayload: {exc}") from exc
         return None
-    if meta is None:
+    if strict:
+        raise x402.PaymentBindingError(
+            "invalid_mcp_payment_argument",
+            f"{source} must be a JSON object")
+    return None
+
+
+def _mcp_payment(ctx: "Context | None",
+                 tool_payment: Any = None) -> Optional[PaymentPayload]:
+    """Extract a v2 payment from either supported MCP carrier.
+
+    The official request ``_meta['x402/payment']`` path is preferred.  The
+    optional ``x402_payment`` tool argument is an additive compatibility
+    bridge for schema-driven agents.  A valid official carrier takes priority
+    over a malformed compatibility field; if both carriers decode, their
+    normalized PaymentPayloads must match or ambiguity fails closed before
+    settlement.
+    """
+    if not x402.enabled():
         return None
     data = None
-    extra = getattr(meta, "model_extra", None)
-    if isinstance(extra, dict):
-        data = extra.get(MCP_PAYMENT_META_KEY)
-    if data is None:
-        return None
-    try:
-        if isinstance(data, PaymentPayload):
-            return data
-        if isinstance(data, dict):
-            return PaymentPayload(**data)
-        if isinstance(data, str):
-            return PaymentPayload(**_json.loads(data))
-    except Exception:
-        return None
-    return None
+    if ctx is not None:
+        try:
+            meta = ctx.request_context.meta
+        except Exception:
+            meta = None
+        if meta is not None:
+            extra = getattr(meta, "model_extra", None)
+            if isinstance(extra, dict):
+                data = extra.get(MCP_PAYMENT_META_KEY)
+    meta_payment = _parse_mcp_payment(
+        data, source=f"_meta[{MCP_PAYMENT_META_KEY!r}]", strict=False)
+    argument_payment = _parse_mcp_payment(
+        tool_payment, source="x402_payment",
+        strict=(tool_payment is not None and meta_payment is None))
+    if data is not None and meta_payment is None and argument_payment is not None:
+        raise x402.PaymentBindingError(
+            "conflicting_mcp_payment",
+            "invalid _meta['x402/payment'] accompanied x402_payment")
+    if argument_payment is None:
+        return meta_payment
+    if meta_payment is None:
+        return argument_payment
+    argument_wire = argument_payment.model_dump(by_alias=True,
+                                                exclude_none=True)
+    meta_wire = meta_payment.model_dump(by_alias=True, exclude_none=True)
+    if argument_wire != meta_wire:
+        raise x402.PaymentBindingError(
+            "conflicting_mcp_payment",
+            "x402_payment and _meta['x402/payment'] differ")
+    return meta_payment
 
 
 def _mcp_actor(ctx, api_key: str = "") -> tuple[str, bool]:
@@ -412,18 +462,23 @@ def _with_inbox(result: Any, presented_key: str) -> Any:
 def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
                 ctx: "Context | None", api_key: str = "",
                 structured: bool = True,
-                dem: "dict | None" = None) -> ToolResult:
+                dem: "dict | None" = None,
+                x402_payment: Any = None) -> ToolResult:
     """Run one priced MCP read through the shared gateway. Returns the result
     ONLY on free/sandbox/settled authorization; an unpaid enforced call gets
     the challenge; a settled call carries the signed receipt + evidence in the
     result _meta under 'x402/payment-response'."""
-    payment = _mcp_payment(ctx)
     ua = _client_ua(ctx)
     # the call's SINGLE caller-proof verification (middleware): its DID
     # feeds settlement attribution — the nonce is already consumed, never
     # re-verified here.
     verified, caller_did = _caller_proof_state()
     try:
+        # Preserve the long-standing one-argument helper call for ordinary
+        # clients (and integrations that instrument it); use the new carrier
+        # only when it is actually present.
+        payment = (_mcp_payment(ctx, x402_payment)
+                   if x402_payment is not None else _mcp_payment(ctx))
         if payment is not None:
             # decode already done; authorize settles + binds to preq.
             # first_party: True for the token-authenticated canary, None
@@ -790,7 +845,9 @@ def guild_watch_feed(watch_id: str, api_key: str = "", ctx: Context = None) -> d
 
 
 @mcp.tool
-def guild_check(capability: str, api_key: str = "", ctx: Context = None) -> dict:
+def guild_check(capability: str, api_key: str = "",
+                x402_payment: Optional[dict[str, Any] | str] = None,
+                ctx: Context = None) -> dict:
     """START HERE when asking "which agent should I hire for this capability?"
     One call to vet a `capability` before you delegate: returns the
     best-evidenced agent with an evidence verdict — `estimate` (0-1), `confidence`,
@@ -802,9 +859,10 @@ def guild_check(capability: str, api_key: str = "", ctx: Context = None) -> dict
     This is a PAID trust read (same price + policy as GET /check on every
     transport). When the rail is active, an unpaid call returns a complete
     x402 payment challenge for the canonical HTTP resource; retry with the
-    payment in the request _meta['x402/payment'] (official x402 MCP meta key),
-    or pass a funded `api_key` for SANDBOX credits (never revenue). Free while
-    the service is in soft-launch.
+    payment in the request _meta['x402/payment'] (official x402 MCP meta key).
+    Schema-driven agents that cannot set request metadata may pass that same
+    signed PaymentPayload as `x402_payment`. Or pass a funded `api_key` for
+    SANDBOX credits (never revenue). Free while the service is in soft-launch.
 
     Example: guild_check(capability="fact-check")
     Returns {capability, best_agent, verdict, shortlist, proof, why_trust_this,
@@ -828,12 +886,15 @@ def guild_check(capability: str, api_key: str = "", ctx: Context = None) -> dict
             paid=(facts.get("settlement_mode") == "x402"), **facts)
         return out
 
-    return _serve_paid(preq, _produce, ctx, api_key, dem=dem)
+    return _serve_paid(preq, _produce, ctx, api_key, dem=dem,
+                       x402_payment=x402_payment)
 
 
 @mcp.tool
 def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
-                 api_key: str = "", ctx: Context = None):
+                 api_key: str = "",
+                 x402_payment: Optional[dict[str, Any] | str] = None,
+                 ctx: Context = None):
     """Use when asking "find the safest agents to delegate this task." Find
     agents that have a capability, ranked by attack-resistant trust.
 
@@ -841,8 +902,9 @@ def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
     low-trust agents (0-100); `limit` caps the list.
 
     PAID trust read (same price + policy as GET /search). Unpaid + enforced →
-    x402 challenge for the canonical resource; pay via _meta['x402/payment'] or
-    a funded `api_key` (sandbox credits). Free in soft-launch.
+    x402 challenge for the canonical resource; pay via _meta['x402/payment'],
+    pass the same payload as `x402_payment` when the client cannot set request
+    metadata, or use a funded `api_key` (sandbox credits). Free in soft-launch.
 
     Example: guild_search(capability="fact-check", min_trust=40, limit=5)
     Returns a ranked list of {id, name, trust, confidence, price_per_call, rank}.
@@ -862,19 +924,23 @@ def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
             paid=(facts.get("settlement_mode") == "x402"), **facts)
         return out
 
-    return _serve_paid(preq, _produce, ctx, api_key, dem=dem)
+    return _serve_paid(preq, _produce, ctx, api_key, dem=dem,
+                       x402_payment=x402_payment)
 
 
 @mcp.tool
 def guild_best_agent(capability: str, min_trust: float = 0.0,
-                     api_key: str = "", ctx: Context = None):
+                     api_key: str = "",
+                     x402_payment: Optional[dict[str, Any] | str] = None,
+                     ctx: Context = None):
     """Use when asking "which agent should I hire for this capability?" Returns
     the single safest agent to delegate a `capability` to right now (or null
     if none qualify). Call this first, before hiring or delegating.
 
     PAID trust read (same price + policy as GET /search). Unpaid + enforced →
-    x402 challenge; pay via _meta['x402/payment'] or a funded `api_key`
-    (sandbox credits). Free in soft-launch.
+    x402 challenge; pay via _meta['x402/payment'], the schema-visible
+    `x402_payment` fallback, or a funded `api_key` (sandbox credits). Free in
+    soft-launch.
 
     Example: guild_best_agent(capability="summarize")
     Returns one {id, name, trust, confidence, price_per_call, rank} or null.
@@ -894,11 +960,13 @@ def guild_best_agent(capability: str, min_trust: float = 0.0,
             paid=(facts.get("settlement_mode") == "x402"), **facts)
         return top[0] if top else None
 
-    return _serve_paid(preq, _best, ctx, api_key, dem=dem)
+    return _serve_paid(preq, _best, ctx, api_key, dem=dem,
+                       x402_payment=x402_payment)
 
 
 @mcp.tool
 def guild_risk_score(agent_id: str, api_key: str = "",
+                     x402_payment: Optional[dict[str, Any] | str] = None,
                      ctx: Context = None):
     """The evidence view for one agent before trusting it with a task or payment:
     `estimate` (0-1 expected quality), `confidence` (how much trusted evidence
@@ -906,8 +974,9 @@ def guild_risk_score(agent_id: str, api_key: str = "",
     threshold — the Guild presents evidence; the asker decides.
 
     PAID trust read (same price + policy as GET /agents/{id}/risk-score). Unpaid
-    + enforced → x402 challenge; pay via _meta['x402/payment'] or a funded
-    `api_key` (sandbox credits). Free in soft-launch.
+    + enforced → x402 challenge; pay via _meta['x402/payment'], the
+    schema-visible `x402_payment` fallback, or a funded `api_key` (sandbox
+    credits). Free in soft-launch.
 
     Example: guild_risk_score(agent_id="agt_1a2b3c")
     Deprecated v1 fields (`risk`, `recommendation`, `trust`) are still returned.
@@ -923,7 +992,7 @@ def guild_risk_score(agent_id: str, api_key: str = "",
         v["name"] = rec["name"]
         return v
     return _serve_paid(payments.risk_score_request(agent_id), _risk, ctx,
-                       api_key)
+                       api_key, x402_payment=x402_payment)
 
 
 @mcp.tool
