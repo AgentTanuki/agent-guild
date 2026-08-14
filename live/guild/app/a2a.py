@@ -45,7 +45,33 @@ from .state import store
 
 router = APIRouter()
 
-_CAP_RE = re.compile(r"(?:capability|check|hire|vet)\s*[:=]?\s*([a-z0-9][a-z0-9_\-]{1,63})", re.I)
+_CAP_RE = re.compile(
+    r"(?<![a-z0-9_\-])(?:capability|check|hire|vet)\b\s*[:=]?\s*"
+    r"([a-z0-9][a-z0-9_\-]{1,63})", re.I)
+# Conservative natural-language capability asks. This requires an explicit
+# agent/someone plus a for/to connective, so ordinary conversation does not
+# fabricate demand or trigger a payment challenge.
+_NL_CAP_RE = re.compile(
+    r"\b(?:need|find|looking\s+for|recommend|want|get\s+me|who\s+can)\b"
+    r"[^.\n]{0,40}?\b(?:an?\s+)?(?:agent|someone)\b[^.\n]{0,20}?"
+    r"\b(?:for|to(?:\s+do)?|who\s+can(?:\s+do)?)\s+"
+    r"([a-z0-9][a-z0-9_\-]{1,63})\b", re.I)
+_NL_CAP_STOPWORDS = frozenset({
+    "hire", "check", "vet", "capability", "the", "a", "an", "this", "that",
+    "me", "my", "it", "them", "task", "job", "work", "help", "do", "doing",
+    "hire-", "agent", "someone", "something", "anything"})
+
+
+def _natural_capability(text: str) -> str | None:
+    match = _NL_CAP_RE.search(text)
+    if match is None:
+        return None
+    capability = match.group(1).lower()
+    if capability in _NL_CAP_STOPWORDS:
+        return None
+    return capability
+
+
 # Prove-intent: an agent asking HOW to complete the proving rung. Live lesson
 # (2026-07-06, agent_f58dc48bbe24 "pathtoAGI"): it registered off this surface,
 # then came back and asked "how do I complete prove_key_control? give me the
@@ -736,7 +762,9 @@ async def a2a_endpoint(request: Request):
     # indistinguishable from a `ping` — which is why engagement could not be
     # read off the caller's own traffic.
     lowered = text.lower().strip()
-    m = _CAP_RE.search(text)
+    explicit_capability = _CAP_RE.search(text)
+    natural_capability = (
+        None if explicit_capability is not None else _natural_capability(text))
     _adv_url = None
     _inv = re.match(r"^\s*invoke:\s*([a-z0-9_.\-]+)\s*(\{.*\})?\s*$", text, re.S | re.I)
     _inv_intent = bool(re.match(r"^\s*invoke\b", text, re.I))
@@ -806,8 +834,11 @@ async def a2a_endpoint(request: Request):
         caller_kind, caller_cap = "swarm_invoke_malformed", None
     elif lowered in ("capabilities", "capability map", "supply", "demand"):
         caller_kind, caller_cap = "capabilities_map", None
-    elif m:
-        caller_kind, caller_cap = "capability_ask", m.group(1)
+    elif explicit_capability is not None or natural_capability is not None:
+        caller_kind = "capability_ask"
+        caller_cap = (explicit_capability.group(1)
+                      if explicit_capability is not None
+                      else natural_capability)
     elif _PROVE_INTENT_RE.search(text):
         caller_kind, caller_cap = "prove_howto", None
     elif (_adv_url := _advertised_url(text)):
