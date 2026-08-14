@@ -42,12 +42,44 @@ def _protocols() -> list[dict[str, Any]]:
     return out
 
 
+def _spec_offers(amount: str | None, description: str) -> dict[str, Any]:
+    """draft-payment-discovery-00 §4.4 multi-offer form, emitted ONLY while
+    MPP acceptance is live (same readiness gate as the Payment challenge).
+
+    Generic spec-compliant discovery clients recognise only ``offers[]`` (or
+    the single-offer shorthand) inside ``x-payment-info`` — the ``protocols``
+    member is an unknown extension to them, so before this projection they
+    parsed ZERO payable offers from this document.  ``protocols`` stays for
+    the readers that use it (MPPScan); ``offers`` is strictly additive.
+
+    Per §4.4.1 an offer's ``amount`` MUST be a string of ASCII digits in the
+    token's smallest denomination, or ``null`` when priced dynamically; the
+    live 402 challenge is always authoritative (§5), so the fixed amount here
+    is read from the SAME ``x402.requirements`` source that mints both the
+    x402 ``accepts[]`` entry and the MPP challenge quote — the three surfaces
+    cannot disagree.
+    """
+    if not mpp.enabled():
+        return {}
+    return {"offers": [{
+        "intent": "charge",
+        "method": "evm",
+        "amount": amount,
+        "currency": x402.asset(),
+        "description": description,
+    }]}
+
+
 def _fixed(credits: int) -> dict[str, Any]:
     return {
         "price": {
             "mode": "fixed", "currency": "USD", "amount": _usd(credits),
         },
         "protocols": _protocols(),
+        **_spec_offers(
+            x402.requirements(int(credits)).amount,
+            f"{_usd(credits)} USD per call, USDC on Base; "
+            "the live 402 challenge is authoritative"),
     }
 
 
@@ -58,6 +90,10 @@ def _dynamic(min_credits: int, max_credits: int) -> dict[str, Any]:
             "min": _usd(min_credits), "max": _usd(max_credits),
         },
         "protocols": _protocols(),
+        **_spec_offers(
+            None,
+            f"dynamic {_usd(min_credits)}-{_usd(max_credits)} USD per call, "
+            "USDC on Base; the live 402 challenge quotes the exact amount"),
     }
 
 
@@ -284,6 +320,17 @@ def apply(schema: dict[str, Any]) -> dict[str, Any]:
         "require caller proof may return a non-executable discovery quote to "
         "an empty probe; an unsigned paid retry is rejected before settlement."
     )
+    # draft-payment-discovery-00 §4.3: optional top-level service metadata.
+    # Static, truthful, protocol-neutral; categories mirror the upstream
+    # tempoxyz/mpp catalogue entry (its enum has no "trust" category).
+    schema["x-service-info"] = {
+        "categories": ["ai", "data"],
+        "docs": {
+            "homepage": host,
+            "apiReference": host + "/openapi.json",
+            "llms": host + "/llms.txt",
+        },
+    }
     schema["x-agentcash-provenance"] = {
         "ownershipProofs": [
             host + "/.well-known/agent-guild-did.json",
