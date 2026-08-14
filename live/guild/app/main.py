@@ -558,6 +558,30 @@ def _record_price_impression(actor: Optional[str], operation: str,
         pass
 
 
+def _challenge_headers(exc: PaymentChallenge) -> dict:
+    """Return the complete protocol header set for one 402 challenge.
+
+    Discovery-only 402s must advertise the same x402 and MPP protocols as
+    executable challenges, without recording an offer impression or entering
+    authorization/settlement.  One builder prevents catalogue/challenge drift
+    while preserving the MPP kill switch and the x402 fail-open quote.
+    """
+    try:
+        headers = {x402.PAYMENT_REQUIRED_HEADER: exc.header_value()}
+    except Exception:  # never mask the 402
+        headers = {}
+    if mpp.enabled() and x402.enabled():
+        try:
+            preq = getattr(exc, "preq", None)
+            if preq is not None:
+                headers[mpp.WWW_AUTHENTICATE] = \
+                    mpp.mint_challenge(preq, preq.cost).header_value()
+                headers["Cache-Control"] = "no-store"
+        except Exception:  # never mask the x402 challenge
+            pass
+    return headers
+
+
 def _challenge_http(exc: PaymentChallenge,
                     status: int = 402) -> HTTPException:
     """One PaymentChallenge → one HTTP 402 with the PAYMENT-REQUIRED header."""
@@ -572,25 +596,7 @@ def _challenge_http(exc: PaymentChallenge,
     # price nobody was ever offered.
     _record_paid_offer(getattr(exc, "preq", None), _ua.get(), "http",
                        actor=_req_actor.get())
-    try:
-        hdrs = {x402.PAYMENT_REQUIRED_HEADER: exc.header_value()}
-    except Exception:                                    # never mask the 402
-        hdrs = {}
-    # MPP dual-advertise — STRICTLY tied to acceptance being live (same
-    # readiness gate drives meter()'s credential path), so a Payment
-    # challenge is never advertised that the service would not settle: no
-    # catalogue drift. The explicit kill switch restores byte-identical x402-
-    # only 402s without changing the treasury or payment-gateway settings.
-    if mpp.enabled() and x402.enabled():
-        try:
-            preq_ = getattr(exc, "preq", None)
-            if preq_ is not None:
-                hdrs[mpp.WWW_AUTHENTICATE] = \
-                    mpp.mint_challenge(preq_, preq_.cost).header_value()
-                hdrs["Cache-Control"] = "no-store"
-        except Exception:                                # never mask the 402
-            pass
-    return HTTPException(status, exc.body, headers=hdrs)
+    return HTTPException(status, exc.body, headers=_challenge_headers(exc))
 
 
 #: Prefixes that mean "this string is a live credential". A value carrying one
@@ -2112,11 +2118,7 @@ async def wallet_payment_decision(
                             "settlement."),
                         "client": "/sdk/agentguild_envelope_client.mjs",
                     })
-                try:
-                    headers = {x402.PAYMENT_REQUIRED_HEADER:
-                               challenge.header_value()}
-                except Exception:
-                    headers = {}
+                headers = _challenge_headers(challenge)
                 raise HTTPException(402, challenge.body, headers=headers)
             raise HTTPException(401, {
                 "error": "verified_caller_proof_required",
@@ -2261,11 +2263,7 @@ async def wallet_protected_payment_decision(
                         "pricing": protecteddecision.schedule(),
                         "schema": "/wallet-binding/protected-decision",
                     })
-            try:
-                headers = {x402.PAYMENT_REQUIRED_HEADER:
-                           challenge.header_value()}
-            except Exception:
-                headers = {}
+            headers = _challenge_headers(challenge)
             raise HTTPException(402, challenge.body, headers=headers)
         raise HTTPException(401, {
             "error": "verified_base_evm_caller_proof_required",
@@ -2416,11 +2414,7 @@ async def wallet_protected_payment_tier(
                     list(protectedmarket.TIERS).index(tier_id)],
                 "schema": "/wallet-binding/protected-decision/tiers",
             })
-            try:
-                headers = {x402.PAYMENT_REQUIRED_HEADER:
-                           challenge.header_value()}
-            except Exception:
-                headers = {}
+            headers = _challenge_headers(challenge)
             raise HTTPException(402, challenge.body, headers=headers)
         raise HTTPException(401, {
             "error": "verified_base_evm_marketplace_proof_required",
@@ -2888,10 +2882,7 @@ def check_discovery_quote(
                    "GET resource named in PAYMENT-REQUIRED; HEAD never "
                    "settles or returns the trust decision."),
     })
-    try:
-        headers = {x402.PAYMENT_REQUIRED_HEADER: challenge.header_value()}
-    except Exception:  # never mask the quote when header serialization fails
-        headers = {}
+    headers = _challenge_headers(challenge)
     # Do not use _challenge_http here: a registry liveness probe is not a
     # commercial offer impression and must not affect conversion analytics.
     raise HTTPException(402, challenge.body, headers=headers)
@@ -2980,11 +2971,7 @@ async def marketplace_signed_decision(
                         "anonymous payment retry is rejected before settlement."),
                     "client": "/sdk/agentguild_envelope_client.mjs",
                 })
-            try:
-                headers = {x402.PAYMENT_REQUIRED_HEADER:
-                           challenge.header_value()}
-            except Exception:
-                headers = {}
+            headers = _challenge_headers(challenge)
             raise HTTPException(402, challenge.body, headers=headers)
         raise HTTPException(401, {
             "error": "verified_caller_proof_required",
@@ -4670,11 +4657,7 @@ async def machine_envelope_issue_route(
                         "retries are rejected before settlement."),
                     "schema": "/envelopes",
                 })
-            try:
-                headers = {x402.PAYMENT_REQUIRED_HEADER:
-                           challenge.header_value()}
-            except Exception:
-                headers = {}
+            headers = _challenge_headers(challenge)
             raise HTTPException(402, challenge.body, headers=headers)
         raise HTTPException(401, {
             "error": "verified_caller_proof_required",
