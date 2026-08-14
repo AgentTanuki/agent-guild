@@ -48,6 +48,7 @@ def settle_spy(monkeypatch):
 
 
 FAILING_ROUTES = [
+    ("GET", "/search", {}),
     ("GET", "/agents/{agent_id}/reputation", {"agent_id": "agent_probe_x"}),
     ("GET", "/agents/{agent_id}/journey", {"agent_id": "agent_probe_x"}),
     ("GET", "/agents/{agent_id}/evidence", {"agent_id": "agent_probe_x"}),
@@ -157,6 +158,32 @@ def test_api_key_caller_is_not_treated_as_a_probe(client):
         "/agents/definitely_not_a_real_agent/reputation",
         headers={"user-agent": "buyer", "X-API-Key": "sk_probe"})
     assert response.status_code == 404
+
+
+@pytest.mark.parametrize("headers", [
+    {"PAYMENT-SIGNATURE": "AAAA"},
+    {"Authorization": "Payment invalid"},
+    {"X-API-Key": "sk_probe"},
+])
+def test_search_missing_capability_payment_or_key_fails_before_settlement(
+        client, settle_spy, headers):
+    response = client.get("/search", headers=headers)
+    assert response.status_code == 422
+    assert settle_spy == []
+    assert "payment-response" not in {
+        key.lower() for key in response.headers}
+
+
+def test_search_bare_registry_probe_is_non_executable(client, settle_spy):
+    response = client.get(
+        "/search", headers={"user-agent": "AgenticMarket/1.0"})
+    assert response.status_code == 402
+    detail = response.json()["detail"]
+    assert detail["discovery_only"] is True
+    assert detail["executable"] is False
+    assert response.headers.get("PAYMENT-REQUIRED")
+    assert response.headers.get("WWW-Authenticate", "").startswith("Payment ")
+    assert settle_spy == []
 
 
 @pytest.mark.parametrize(
