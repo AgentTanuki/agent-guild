@@ -29,6 +29,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 
 from x402.schemas import PaymentPayload, ResourceInfo
 
@@ -202,10 +203,17 @@ def test_paid_request_end_to_end_serves_result_and_settlement(monkeypatch):
     monkeypatch.setattr(x402, "_facilitator", lambda: fac)
     from app.main import app
     with TestClient(app) as client:
+        quote = client.get("/search?capability=anything")
+        assert quote.status_code == 402
+        quoted = json.loads(base64.b64decode(
+            quote.headers["PAYMENT-REQUIRED"]))
+        output_schema = quoted["extensions"]["bazaar"]["info"][
+            "output"]["schema"]
         p = make_payload(SEARCH)
         r = client.get("/search?capability=anything",
                        headers={"PAYMENT-SIGNATURE": sig_header(p)})
         assert r.status_code == 200
+        Draft202012Validator(output_schema).validate(r.json())
         resp_hdr = r.headers.get("PAYMENT-RESPONSE")
         assert resp_hdr, "success must carry the PAYMENT-RESPONSE header"
         settled = json.loads(base64.b64decode(resp_hdr))
