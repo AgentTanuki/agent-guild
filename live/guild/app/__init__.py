@@ -3,8 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.16"  # PATCH (machine-visible semver, 2026-08-14):
-                        # lets generic registries safely probe a parameterized
+__version__ = "2.5.17"  # PATCH (machine-visible semver, 2026-08-14):
+                        # publishes draft-payment-discovery-00 offers[] and
+                        # x-service-info from the live quote source so generic
+                        # Payment Auth registries can discover every payable
+                        # operation without weakening 402 authority. History
+                        # of 2.5.16: lets generic registries safely probe a
+                        # parameterized
                         # protected tier with an opaque placeholder while any
                         # executing retry still fails before settlement.
                         # History of 2.5.15: adds the singular OpenAPI path
