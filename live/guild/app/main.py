@@ -20,7 +20,7 @@ import contextvars
 from urllib.parse import quote
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException, Header, Query, Request, Response
+from fastapi import FastAPI, HTTPException, Header, Path, Query, Request, Response
 from datetime import datetime, timezone
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -752,6 +752,37 @@ def _meter_with_demand(preq: PaidRequest, x_api_key: Optional[str],
         if e.status_code == 402 and ns and isinstance(e.detail, dict):
             e.detail["no_supply"] = ns
         raise
+
+
+def _mpp_payment_present() -> bool:
+    """Whether this request carries an enabled native MPP credential.
+
+    ``Authorization: Payment`` is only a payment signal while MPP acceptance
+    is enabled.  Keeping the feature gate here preserves the kill switch: a
+    disabled MPP header must not alter the ordinary x402 discovery path.
+    """
+    return bool(
+        mpp.enabled() and mpp.is_mpp_authorization(_mpp_auth.get()))
+
+
+def _payment_attempt_present() -> bool:
+    """Whether any supported/legacy payment credential was presented.
+
+    This is the discovery guard.  A malformed or legacy retry is still a
+    payment attempt and must never be mistaken for an anonymous registry
+    probe that is eligible for a non-executable quote.
+    """
+    return bool(_xpay_sig.get() or _xpay_v1.get()
+                or _mpp_payment_present())
+
+
+def _executable_payment_present() -> bool:
+    """Whether a credential can reach settlement on this request.
+
+    Caller-proof nonces are consumed only on an executing retry.  Native MPP
+    and x402 v2 both reach the same settlement path; legacy x402 v1 cannot.
+    """
+    return bool(_xpay_sig.get() or _mpp_payment_present())
 
 
 def meter(preq: PaidRequest, x_api_key: Optional[str],
@@ -2053,17 +2084,17 @@ async def wallet_payment_decision(
                       callerproof.HTTP_BODY_PROOF_KEY}
     marketplace = set(body) == wrapper_fields
     marketplace_discovery = (
-        not body and not _xpay_sig.get() and not _xpay_v1.get()
+        not body and not _payment_attempt_present()
         and not x_api_key and billing.billing_enforced() and x402.enabled())
     caller_did = ""
     relay_url = None
     semantic = body
     marketplace_candidate = (
         marketplace or bool(set(body) & wrapper_fields)
-        or (not body and bool(_xpay_sig.get() or _xpay_v1.get()))
+        or (not body and _payment_attempt_present())
         or marketplace_discovery)
     if marketplace_candidate:
-        will_execute = bool(_xpay_sig.get() or x_api_key
+        will_execute = bool(_executable_payment_present() or x_api_key
                             or not billing.billing_enforced())
         verified, caller_did, semantic = _verify_marketplace_body_caller_proof(
             request, body, mark_nonce=will_execute)
@@ -2202,9 +2233,10 @@ async def wallet_protected_payment_decision(
     marketplace = set(body) == marketplace_fields
     proof_header = request.headers.get(callerproof.HTTP_HEADER.lower())
     discovery = (
-        not body and not proof_header and not _xpay_sig.get()
-        and not _xpay_v1.get() and billing.billing_enforced() and x402.enabled())
-    will_execute = bool(_xpay_sig.get() or not billing.billing_enforced())
+        not body and not proof_header and not _payment_attempt_present()
+        and billing.billing_enforced() and x402.enabled())
+    will_execute = bool(
+        _executable_payment_present() or not billing.billing_enforced())
     if proof_header:
         raw = await request.body()
         verified, caller_did = _verify_http_caller_proof(
@@ -2327,9 +2359,17 @@ def wallet_protected_payment_tier_catalog():
 
 @app.post("/wallet-binding/protected-decision/tiers/{tier_id}")
 async def wallet_protected_payment_tier(
-        tier_id: str, request: Request, body: dict[str, Any],
-        response: Response):
-    """PAID fixed-notional protected decision for JSON-only marketplaces."""
+        request: Request, body: dict[str, Any], response: Response,
+        tier_id: str = Path(
+            ..., examples=["1000-usdc"],
+            description="canonical tier id from GET "
+                        "/wallet-binding/protected-decision/tiers")):
+    """PAID fixed-notional protected decision for JSON-only marketplaces.
+
+    The ``tier_id`` path parameter advertises a real example so a discovery
+    probe substitutes a valid tier and reaches the priced 402 quote; an
+    unknown tier still fails closed (404) for an executing caller.
+    """
     try:
         protectedmarket.tier_path(tier_id)
         service_quote = protectedmarket.tier_quote(tier_id)
@@ -2338,9 +2378,10 @@ async def wallet_protected_payment_tier(
 
     proof_header = request.headers.get(callerproof.HTTP_HEADER.lower())
     discovery = (
-        not body and not proof_header and not _xpay_sig.get()
-        and not _xpay_v1.get() and billing.billing_enforced() and x402.enabled())
-    will_execute = bool(_xpay_sig.get() or not billing.billing_enforced())
+        not body and not proof_header and not _payment_attempt_present()
+        and billing.billing_enforced() and x402.enabled())
+    will_execute = bool(
+        _executable_payment_present() or not billing.billing_enforced())
     verified, caller_did, semantic = _verify_marketplace_body_caller_proof(
         request, body, mark_nonce=will_execute)
     if not verified:
@@ -2565,6 +2606,33 @@ def _is_self_read(agent: dict, x_api_key: Optional[str]) -> bool:
     return bool(acct and acct.get("owner_agent_id") == agent["id"])
 
 
+def _is_unpaid_probe(x_api_key: Optional[str]) -> bool:
+    """Whether this enforced request carries no usable payment signal.
+
+    Discovery crawlers are unpaid by design.  Parameterized paid operations
+    must therefore expose their 402 before resource/body validation or a
+    synthetic path/query/body makes a live product look unpayable.  Any x402,
+    MPP, or billing credential suppresses this path so malformed paid retries
+    still fail before settlement.
+    """
+    if not (billing.billing_enforced() and x402.enabled()):
+        return False
+    if x_api_key or _payment_attempt_present():
+        return False
+    return True
+
+
+def _probe_challenge_or_none(
+        preq: PaidRequest, x_api_key: Optional[str], *,
+        discovery_only: bool = False) -> None:
+    """Expose one payment quote to an unpaid registry probe, or return."""
+    if not _is_unpaid_probe(x_api_key):
+        return
+    extra = ({"discovery_only": True, "executable": False}
+             if discovery_only else None)
+    raise _challenge_http(PaymentChallenge(preq, extra=extra))
+
+
 def _meter_unless_self(preq: PaidRequest, agent: dict, x_api_key: Optional[str],
                        response: Response) -> None:
     if _is_self_read(agent, x_api_key):
@@ -2576,6 +2644,7 @@ def _meter_unless_self(preq: PaidRequest, agent: dict, x_api_key: Optional[str],
 
 @app.get("/agents/{agent_id}/reputation", response_model=ReputationResponse)
 def get_reputation(agent_id: str, response: Response, x_api_key: Optional[str] = Header(None)):
+    _probe_challenge_or_none(payments.reputation_request(agent_id), x_api_key)
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
@@ -2612,6 +2681,7 @@ def get_journey(agent_id: str, response: Response,
     ladder of next actions, and the counterfactuals that would most improve
     standing. FREE to the subject reading its own journey — this is the
     curriculum; third-party reads are metered like reputation."""
+    _probe_challenge_or_none(payments.journey_request(agent_id), x_api_key)
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
@@ -2681,6 +2751,7 @@ def post_inbox(agent_id: str, body: InboxPost, response: Response,
 
 @app.get("/agents/{agent_id}/evidence", response_model=EvidenceResponse)
 def get_evidence(agent_id: str, response: Response, x_api_key: Optional[str] = Header(None)):
+    _probe_challenge_or_none(payments.evidence_request(agent_id), x_api_key)
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
@@ -2704,6 +2775,7 @@ def get_evidence(agent_id: str, response: Response, x_api_key: Optional[str] = H
 
 @app.get("/agents/{agent_id}/flags", response_model=FlagResponse)
 def get_flag(agent_id: str, response: Response, x_api_key: Optional[str] = Header(None)):
+    _probe_challenge_or_none(payments.agent_flags_request(agent_id), x_api_key)
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
@@ -2721,6 +2793,7 @@ def get_risk_score(agent_id: str, response: Response, x_api_key: Optional[str] =
     read `estimate` + `confidence` + `explanation` and apply YOUR thresholds —
     the Guild presents evidence; the asker decides. The single `risk` number and
     `recommendation` verdict remain for v1 callers and are deprecated."""
+    _probe_challenge_or_none(payments.risk_score_request(agent_id), x_api_key)
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
@@ -2870,13 +2943,13 @@ async def marketplace_signed_decision(
     URL without custom headers.  A signed decision is produced before metering
     and payment; invalid input or proof is never charged.
     """
-    will_execute = bool(_xpay_sig.get() or x_api_key
+    will_execute = bool(_executable_payment_present() or x_api_key
                         or not billing.billing_enforced())
     verified, caller_did, semantic = _verify_marketplace_body_caller_proof(
         request, body, mark_nonce=will_execute)
     if not verified:
         discovery_probe = (
-            set(body) == set() and not _xpay_sig.get() and not _xpay_v1.get()
+            set(body) == set() and not _payment_attempt_present()
             and not x_api_key and billing.billing_enforced() and x402.enabled())
         if discovery_probe:
             challenge = PaymentChallenge(
@@ -4444,7 +4517,8 @@ def delegation_preflight(request: Request, url: str = Query(
 
 @app.get("/preflight/deep")
 def deep_preflight_route(request: Request, response: Response,
-                         url: str = Query(..., description="endpoint to check"),
+                         url: Optional[str] = Query(
+                             None, description="endpoint to check"),
                          x_api_key: Optional[str] = Header(None)):
     """PAID deep preflight: live checks **plus** drift history, cross-source
     corroboration and an explicit allow / caution / block policy verdict.
@@ -4455,6 +4529,11 @@ def deep_preflight_route(request: Request, response: Response,
 
     The free tier (`GET /preflight`) is not degraded to make this attractive:
     it returns the full live check set and verdict, and always will."""
+    _probe_challenge_or_none(
+        payments.deep_preflight_request(url or "discovery-only"),
+        x_api_key, discovery_only=not bool(url))
+    if not url:
+        raise HTTPException(422, "url is required")
     _preq = payments.deep_preflight_request(url)
     _quoted = _preq.cost
     facts = meter(_preq, x_api_key, response)
@@ -4478,6 +4557,10 @@ def evidence_bundle_route(body: dict[str, Any], response: Response,
     charged** — the meter runs only after issuance succeeds. Selling a degraded
     evidence object is worse than selling nothing, because the buyer would rely
     on it exactly when it is weakest."""
+    _probe_challenge_or_none(
+        payments.evidence_bundle_request(
+            "discovery-only", deepcheck.DEFAULT_TTL_S),
+        x_api_key, discovery_only=not bool(body))
     url = str(body.get("url") or "").strip()
     if not url:
         raise HTTPException(422, "url is required")
@@ -4535,7 +4618,7 @@ async def machine_envelope_issue_route(
     # quote, but do not consume its single-use nonce until a request can
     # actually execute.  This preserves replay protection while allowing the
     # official x402 fetch/axios clients to resend the original headers.
-    will_execute = bool(_xpay_sig.get() or x_api_key
+    will_execute = bool(_executable_payment_present() or x_api_key
                         or not billing.billing_enforced())
     proof_header = request.headers.get(callerproof.HTTP_HEADER.lower())
     body_proof_present = callerproof.HTTP_BODY_PROOF_KEY in body
@@ -4555,7 +4638,7 @@ async def machine_envelope_issue_route(
         # so discovery can never buy an anonymous Guild stamp.
         discovery_probe = (
             not proof_header and not body_proof_present
-            and not _xpay_sig.get() and not _xpay_v1.get()
+            and not _payment_attempt_present()
             and not x_api_key and billing.billing_enforced()
             and x402.enabled())
         if discovery_probe:
