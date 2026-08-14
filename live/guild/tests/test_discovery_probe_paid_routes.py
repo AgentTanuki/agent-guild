@@ -101,14 +101,12 @@ def test_openapi_declares_a_real_tier_example(client):
         "/wallet-binding/protected-decision/tiers/{tier_id}"]["post"]
     parameter = next(
         item for item in operation["parameters"] if item["name"] == "tier_id")
-    schema_examples = (parameter.get("schema") or {}).get("examples") or []
-    parameter_examples = [
-        item.get("value")
-        for item in (parameter.get("examples") or {}).values()]
+    parameter_schema = parameter.get("schema") or {}
+    assert "1000-usdc" in (parameter_schema.get("examples") or [])
     assert (
-        "1000-usdc" in schema_examples
-        or "1000-usdc" in parameter_examples
-        or parameter.get("example") == "1000-usdc")
+        parameter.get("example") == "1000-usdc"
+        or parameter_schema.get("example") == "1000-usdc"
+    ), "registry compatibility requires the singular OpenAPI example field"
 
 
 def test_x402_retry_for_unknown_agent_fails_before_settlement(
