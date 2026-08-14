@@ -1,0 +1,94 @@
+"""Public MCP server-card discovery stays truthful and non-attributing."""
+from __future__ import annotations
+
+import asyncio
+import json
+
+from fastapi.testclient import TestClient
+from mcp.types import LATEST_PROTOCOL_VERSION
+
+from app import __version__
+from app.main import app
+from app.mcp_server import mcp, public_server_card
+from app.state import store
+
+
+client = TestClient(app)
+
+
+def _paid_offer_events():
+    return [
+        event for event in store.events
+        if event.get("type") in {
+            "offer_served", "paid_offer_served", "paid_offer_shown"
+        }
+    ]
+
+
+def test_server_card_matches_live_tool_registry_without_demand_events():
+    before = list(_paid_offer_events())
+    response = client.get(
+        "/.well-known/mcp/server-card.json",
+        headers={"Origin": "https://crawler.example"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.headers["access-control-allow-origin"] == "*"
+    assert response.headers["cache-control"] == (
+        "public, max-age=300, s-maxage=300"
+    )
+    card = response.json()
+
+    expected_tools = [
+        tool.to_mcp_tool().model_dump(by_alias=True, exclude_none=True)
+        for tool in asyncio.run(mcp.list_tools())
+    ]
+    assert card["tools"] == expected_tools
+    assert "/.well-known/mcp/server-card.json" in (
+        client.get("/openapi.json").json()["paths"]
+    )
+    assert _paid_offer_events() == before
+
+
+def test_server_card_advertises_only_truthful_public_transport_metadata():
+    card = asyncio.run(public_server_card())
+    assert "$schema" not in card  # the SEP-1649 draft URL is not live
+    assert "version" not in card  # avoid ambiguity with serverInfo.version
+    assert card["protocolVersion"] == LATEST_PROTOCOL_VERSION
+    assert card["serverInfo"] == {
+        "name": "Agent Guild",
+        "title": "Agent Guild",
+        "version": __version__,
+    }
+    assert card["transport"] == {
+        "type": "streamable-http",
+        "endpoint": "/mcp/",
+    }
+    assert card["authentication"] == {"required": False, "schemes": []}
+    assert card["resources"] == [
+        resource.to_mcp_resource().model_dump(by_alias=True, exclude_none=True)
+        for resource in asyncio.run(mcp.list_resources())
+    ]
+    assert card["resourceTemplates"] == [
+        template.to_mcp_template().model_dump(by_alias=True, exclude_none=True)
+        for template in asyncio.run(mcp.list_resource_templates())
+    ]
+    assert card["prompts"] == [
+        prompt.to_mcp_prompt().model_dump(by_alias=True, exclude_none=True)
+        for prompt in asyncio.run(mcp.list_prompts())
+    ]
+
+
+def test_server_card_exposes_payment_fallback_only_on_paid_reads():
+    card = asyncio.run(public_server_card())
+    tools = {tool["name"]: tool for tool in card["tools"]}
+    for name in ("guild_check", "guild_search", "guild_best_agent",
+                 "guild_risk_score"):
+        schema = tools[name]["inputSchema"]["properties"]["x402_payment"]
+        serialized = json.dumps(schema)
+        assert '"object"' in serialized
+        assert '"string"' in serialized
+    for name in ("guild_register", "guild_attest"):
+        assert "x402_payment" not in (
+            tools[name]["inputSchema"].get("properties") or {}
+        )

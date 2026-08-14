@@ -35,7 +35,7 @@ from . import journey as journey_engine
 from . import payments
 from . import proving
 from . import x402
-from mcp.types import ToolAnnotations
+from mcp.types import LATEST_PROTOCOL_VERSION, ToolAnnotations
 
 from . import paidcatalog, pricing
 from .payments import CachedPaidResult, PaidRequest, PaymentChallenge, PaymentIdConflict
@@ -1346,6 +1346,68 @@ def _register_swarm_tools() -> None:
 
 
 _register_swarm_tools()
+
+
+async def public_server_card() -> dict[str, Any]:
+    """Return a cacheable, credential-free description of the live MCP server.
+
+    Smithery and emerging MCP crawlers support the SEP-1649 server-card shape
+    as a fallback when a registry's one-time scan has gone stale.  Generate the
+    tool entries from the same FastMCP registry that serves ``tools/list`` so a
+    release cannot hand-maintain a divergent public catalogue.  Listing tools
+    is local metadata work only: it performs no paid call, challenge, demand
+    attribution, settlement or network probe.
+    """
+    tools = [
+        tool.to_mcp_tool().model_dump(by_alias=True, exclude_none=True)
+        for tool in await mcp.list_tools()
+    ]
+    resources = [
+        resource.to_mcp_resource().model_dump(by_alias=True, exclude_none=True)
+        for resource in await mcp.list_resources()
+    ]
+    resource_templates = [
+        template.to_mcp_template().model_dump(by_alias=True, exclude_none=True)
+        for template in await mcp.list_resource_templates()
+    ]
+    prompts = [
+        prompt.to_mcp_prompt().model_dump(by_alias=True, exclude_none=True)
+        for prompt in await mcp.list_prompts()
+    ]
+    return {
+        # SEP-1649 names a schema URL that still returns 404 as of this
+        # release.  Do not advertise a nonexistent validator; Smithery's
+        # documented static-card fallback requires serverInfo and accepts the
+        # remaining MCP-native fields directly.
+        "protocolVersion": LATEST_PROTOCOL_VERSION,
+        "serverInfo": {
+            "name": "Agent Guild",
+            "title": "Agent Guild",
+            "version": __version__,
+        },
+        "description": (
+            "Attack-resistant trust and settlement infrastructure for "
+            "autonomous agents: rank and vet counterparties, carry portable "
+            "signed reputation, and settle paid machine work."
+        ),
+        "documentationUrl": (
+            "https://agent-guild-5d5r.onrender.com/"
+            ".well-known/agent-guild.json"
+        ),
+        "transport": {
+            "type": "streamable-http",
+            "endpoint": "/mcp/",
+        },
+        "capabilities": {"tools": {}},
+        "authentication": {
+            "required": False,
+            "schemes": [],
+        },
+        "tools": tools,
+        "resources": resources,
+        "resourceTemplates": resource_templates,
+        "prompts": prompts,
+    }
 
 # Streamable-HTTP ASGI app, mounted by main.py at /mcp (served at /mcp/).
 #

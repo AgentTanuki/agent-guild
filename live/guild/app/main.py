@@ -79,7 +79,7 @@ from . import journey as journey_engine
 from . import inbox as inbox_engine
 from . import proving
 from .a2a import router as a2a_router
-from .mcp_server import mcp_app
+from .mcp_server import mcp_app, public_server_card
 from .swarm.router import router as swarm_router, ensure_built as swarm_ensure_built
 from .bootstrap_eval import seed_bootstrap_evaluation, already_seeded
 
@@ -4342,6 +4342,20 @@ def wellknown_manifest(src: Optional[str] = Query(
               else "paid_offer:manifest")
     man["paid_operations"] = _serve_paid_offer(source)
     return man
+
+
+@app.get("/.well-known/mcp/server-card.json")
+async def wellknown_mcp_server_card():
+    """Static MCP discovery without initializing a session or calling tools.
+
+    The document is generated from the live FastMCP tool registry, so registry
+    crawlers see the same schemas as ``tools/list`` — including schema-visible
+    x402 retry support — without creating buyer impressions or paid offers.
+    """
+    return JSONResponse(
+        content=await public_server_card(),
+        headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
 
 
 @app.get("/.well-known/glama.json")

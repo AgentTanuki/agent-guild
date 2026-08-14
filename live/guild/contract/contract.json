@@ -247,6 +247,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/.well-known/mcp/server-card.json"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/.well-known/x402"
   },
   {
@@ -1050,6 +1056,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.5.22"
+  "version": "2.5.23"
  }
 }
