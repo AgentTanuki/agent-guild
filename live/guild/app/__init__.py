@@ -3,7 +3,11 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.13"  # PATCH (machine-visible semver, 2026-08-14):
+__version__ = "2.5.14"  # PATCH (machine-visible semver, 2026-08-14):
+                        # makes every paid route quoteable by generic machine
+                        # registries before placeholder validation, and gives
+                        # native MPP the same caller-proof nonce, discovery and
+                        # replay semantics as x402 v2. History of 2.5.13:
                         # adds native MPP evm/charge HTTP compatibility for
                         # Base-USDC buyers while preserving the single x402
                         # facilitator, durable idempotency, independent-chain
