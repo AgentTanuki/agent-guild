@@ -39,19 +39,49 @@ def test_well_known_x402_fans_out_without_cross_product_price():
     assert body["version"] == 1
     assert body["x402Version"] == 2
     assert len(body["resources"]) == len(set(body["resources"]))
-    assert len(body["resources"]) == 20
+    assert len(body["resources"]) == 5
     assert all(urlparse(url).scheme == "https" for url in body["resources"])
     assert all(url.startswith(x402.public_host() + "/")
                for url in body["resources"])
-    assert any("/envelopes/issue?request_sha256=discovery-only" in url
-               for url in body["resources"])
-    assert any("/wallet-binding/decision?request_sha256=discovery-only" in url
-               for url in body["resources"])
+    assert not any("discovery-only" in url for url in body["resources"])
     assert any("/check?capability=fact-check" in url
                for url in body["resources"])
     assert "Recommended first purchase: GET /search" in body["instructions"]
-    assert {_operation(url) for url in body["resources"]} == \
+    reusable = {_operation(url) for url in body["resources"]}
+    assert reusable == {
+        ("/flags", "get"),
+        ("/search", "get"),
+        ("/check", "get"),
+        ("/preflight/deep", "get"),
+    }
+    subject_or_body_bound = {
+        ("/agents/{agent_id}/reputation", "get"),
+        ("/agents/{agent_id}/journey", "get"),
+        ("/agents/{agent_id}/evidence", "get"),
+        ("/agents/{agent_id}/flags", "get"),
+        ("/agents/{agent_id}/risk-score", "get"),
+        ("/check/decision", "post"),
+        ("/evidence/bundle", "post"),
+        ("/envelopes/issue", "post"),
+        ("/wallet-binding/decision", "post"),
+        ("/wallet-binding/protected-decision", "post"),
+        ("/wallet-binding/protected-decision/tiers/{tier_id}", "post"),
+    }
+    # Every advertised paid operation must be deliberately classified. A new
+    # OpenAPI product cannot silently disappear from reusable x402 discovery.
+    assert reusable.isdisjoint(subject_or_body_bound)
+    assert reusable | subject_or_body_bound == \
         openapi_payment_discovery.advertised_operations()
+    assert body["body_bound_products"] == {
+        "openapi": x402.public_host() + "/openapi.json",
+        "mcp_server_card": (
+            x402.public_host() + "/.well-known/mcp/server-card.json"),
+        "catalog": x402.public_host() + "/commercial",
+        "rule": (
+            "Not listed as reusable resources: the authoritative quote is "
+            "derived from the buyer's exact JSON body and, where required, "
+            "caller proof."),
+    }
 
     # The products have different prices (including dynamic value pricing).
     # A shared accepts/payment object would cause simple crawlers to apply the
@@ -73,6 +103,30 @@ def test_discovery_document_is_free_and_does_not_offer_or_settle():
     assert response.status_code == 200
     assert before["real_settlement"] == after["real_settlement"]
     assert before["settled_count"] == after["settled_count"]
+
+
+def test_body_bound_discovery_quotes_keep_canonical_prices(monkeypatch):
+    monkeypatch.setenv("GUILD_X402_ENABLED", "1")
+    monkeypatch.setenv("GUILD_X402_PAY_TO", PAY_TO)
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    monkeypatch.setenv("GUILD_X402_NETWORK", "eip155:8453")
+    monkeypatch.setenv(
+        "GUILD_X402_ASSET",
+        "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
+    pricing.load_runtime({})
+    client = TestClient(app, raise_server_exceptions=False)
+
+    envelope = client.post("/envelopes/issue", json={})
+    decision = client.post("/wallet-binding/decision", json={})
+    assert envelope.status_code == decision.status_code == 402
+    envelope_required = _required(envelope)
+    decision_required = _required(decision)
+    assert int(envelope_required["accepts"][0]["amount"]) == (
+        pricing.price("machine_envelope") * x402.ATOMIC_PER_CREDIT)
+    assert int(decision_required["accepts"][0]["amount"]) == (
+        pricing.price("payment_decision") * x402.ATOMIC_PER_CREDIT)
+    assert envelope.json()["detail"]["discovery_only"] is True
+    assert decision.json()["detail"]["discovery_only"] is True
 
 
 def test_every_published_product_is_probeable_and_has_its_own_quote(
@@ -101,10 +155,7 @@ def test_every_published_product_is_probeable_and_has_its_own_quote(
         if method == "get":
             response = client.get(parsed.path + "?" + parsed.query)
         else:
-            # Marketplace routes intentionally make an empty anonymous POST
-            # a non-executable discovery quote. A payment-bearing retry still
-            # fails before settlement; their existing route suites enforce it.
-            response = client.post(parsed.path, json={})
+            raise AssertionError("the reusable resource fan-out is GET-only")
         assert response.status_code == 402, (url, response.text)
         assert response.headers[mpp.WWW_AUTHENTICATE].startswith("Payment ")
         required = _required(response)
@@ -116,8 +167,6 @@ def test_every_published_product_is_probeable_and_has_its_own_quote(
         observed.setdefault(path, []).append(amount)
 
     assert amounts == sorted(amounts)
-    assert observed["/envelopes/issue"] == [10000]
-    assert observed["/wallet-binding/decision"] == [10000]
     assert observed["/check"] == [10000, 1000000]
     revenue_after = client.get("/billing/revenue").json()
     assert revenue_before["real_settlement"] == revenue_after["real_settlement"]

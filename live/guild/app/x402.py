@@ -374,8 +374,10 @@ def discovery_document(resources: list["PaidRequest"]) -> dict[str, Any]:
         "x402Version": X402_VERSION,
         "name": "Agent Guild",
         "description": (
-            "Paid, signed trust decisions, wallet payment policies and "
-            "authenticated machine-message envelopes. Verification is free."
+            "Executable x402 trust search and endpoint preflight, plus "
+            "Guild-signed trust decisions. Body-bound payment policies, "
+            "evidence and machine "
+            "envelopes are described in OpenAPI and MCP; verification is free."
         ),
         "resources": urls,
         "instructions": (
@@ -384,8 +386,22 @@ def discovery_document(resources: list["PaidRequest"]) -> dict[str, Any]:
             "HTTP 402 and "
             "PAYMENT-REQUIRED header are authoritative for the current price, "
             "Base-mainnet USDC recipient, method, input schema and output "
-            "contract. Never reuse one resource's quote for another resource."
+            "contract. Never reuse one resource's quote for another resource. "
+            "For POST products, construct the exact body from OpenAPI or MCP, "
+            "send it once without payment, and pay only the returned request-"
+            "bound resource URL."
         ),
+        "body_bound_products": {
+            "openapi": public_host() + "/openapi.json",
+            "mcp_server_card": (
+                public_host() + "/.well-known/mcp/server-card.json"),
+            "catalog": public_host() + "/commercial",
+            "rule": (
+                "Not listed as reusable resources: the authoritative quote is "
+                "derived from the buyer's exact JSON body and, where required, "
+                "caller proof."
+            ),
+        },
         "pricing": public_host() + "/pricing",
         "readiness": public_host() + "/x402/readiness",
         "payment_requirements_source": "per-resource HTTP 402 challenge",
@@ -747,6 +763,110 @@ _BAZAAR_ROUTE_OUTPUT_SCHEMAS = {
 }
 
 
+def _caller_proof_example(path: str) -> dict[str, Any]:
+    """One truthful, non-secret marketplace-proof SHAPE for discovery.
+
+    The values are deliberately placeholders: every buyer must create a fresh
+    proof with its own EOA and nonce.  Bazaar's contract is an input example,
+    not a reusable authorization.  Publishing a real proof here would be both
+    replayable and false.
+    """
+    did = "did:pkh:eip155:8453:0x" + "22" * 20
+    return {
+        "payload": {
+            "v": "agent-guild/caller-proof-evm/v1",
+            "did": did,
+            "method": "POST",
+            "resource": path,
+            "body_sha256": "<sha256 of RFC 8785 JCS(request)>",
+            "iat": "<current unix seconds>",
+            "exp": "<iat plus at most 600 seconds>",
+            "nonce": "<fresh unique nonce>",
+            "aud": "agent-guild",
+        },
+        "signature": "<EIP-191 signature by the same Base EOA that pays>",
+        "verificationMethod": did + "#blockchainAccountId",
+    }
+
+
+def _payment_request_example(*, amount: str = "25000000",
+                             x402_resource_url: str | None = None,
+                             ) -> dict[str, Any]:
+    request: dict[str, Any] = {
+        "payment": {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "amount": amount,
+            "pay_to": "0x" + "33" * 20,
+            "resource": "https://seller.example/x402/job/42",
+        },
+        "capability": "code-review",
+        "policy": {"max_risk": 32, "min_confidence": 0.8},
+        "ttl_seconds": 300,
+    }
+    if x402_resource_url is not None:
+        request["x402_resource_url"] = x402_resource_url
+    return request
+
+
+def _bazaar_body_example(preq: "PaidRequest") -> dict[str, Any]:
+    """Standards-compliant JSON example for every payable body route.
+
+    x402 Bazaar distinguishes GET/HEAD/DELETE inputs from POST/PUT/PATCH
+    inputs.  The official body-method shape publishes ``bodyType`` and
+    ``body``; exposing the settlement URL's opaque request hash as a query
+    parameter does not tell a machine how to call the endpoint and may be
+    rejected by strict facilitators.
+    """
+    path = preq.path
+    if path == "/evidence/bundle":
+        query = dict(preq.query)
+        return {
+            "url": query.get("url", public_host() + "/a2a"),
+            "ttl_seconds": int(query.get("ttl_seconds", "3600")),
+        }
+    if path == "/watch/cycle":
+        # Internal per-cycle billing unit reconstructed from a previously
+        # provisioned watch.  It is not present in the public resources fan-
+        # out, but A2A/MCP challenge construction must remain total.
+        return {"endpoint": dict(preq.query).get(
+            "endpoint", public_host() + "/a2a")}
+    if path == "/envelopes/issue":
+        request = {
+            "kind": "intent",
+            "recipient": "did:key:z6MkRecipient",
+            "payload_sha256": "ab" * 32,
+            "nonce": "fresh-message-nonce",
+            "ttl_seconds": 3600,
+        }
+    elif path == "/check/decision":
+        request = {"capability": "fact-check", "ttl_seconds": 3600}
+    elif path == "/wallet-binding/decision":
+        # The ordinary low-cost AGPD-1 route is intentionally callable with a
+        # plain semantic body.  The {request, caller_proof} form is only its
+        # optional Payan relay transport and requires an exact relay URL.
+        return _payment_request_example()
+    elif path == "/wallet-binding/protected-decision":
+        request = _payment_request_example()
+    elif path.startswith("/wallet-binding/protected-decision/tiers/"):
+        from . import protectedmarket
+        tier_id = path.rsplit("/", 1)[-1]
+        amount = protectedmarket.TIERS.get(tier_id, "1000000000")
+        offer_id = protectedmarket.PAYAN_TIER_OFFERS.get(
+            tier_id, protectedmarket.PAYAN_TIER_OFFERS["1000-usdc"])
+        request = _payment_request_example(
+            amount=amount,
+            x402_resource_url=(
+                f"{protectedmarket.PAYAN_ORIGIN}/x402/{offer_id}"),
+        )
+    else:
+        # A future body-priced operation must add an explicit example rather
+        # than silently publishing an empty, non-executable input contract.
+        raise ValueError(f"missing Bazaar body example for {path}")
+    return {"request": request, "caller_proof": _caller_proof_example(path)}
+
+
 def bazaar_extension(preq: "PaidRequest") -> dict[str, Any]:
     query = dict(preq.query)
     route_key = (preq.operation, preq.path)
@@ -759,24 +879,51 @@ def bazaar_extension(preq: "PaidRequest") -> dict[str, Any]:
         route_key, _BAZAAR_OUTPUT_SCHEMAS.get(preq.operation))
     if output_schema:
         output["schema"] = output_schema
-    info: dict[str, Any] = {
-        "input": {"type": "http", "method": preq.method,
-                  **({"queryParams": query} if query else {})},
-        "output": output,
+    body_method = preq.method in ("POST", "PUT", "PATCH")
+    input_info: dict[str, Any] = {
+        "type": "http",
+        "method": preq.method,
     }
+    if body_method:
+        try:
+            body_example = _bazaar_body_example(preq)
+        except Exception:  # discovery metadata must never turn a 402 into 500
+            # A new/partially deployed product may not yet have an enriched
+            # example. Preserve the valid Bazaar body-method envelope and the
+            # authoritative payment challenge; focused tests require every
+            # known production POST to take the non-empty path above.
+            body_example = {}
+        input_info.update({
+            "bodyType": "json",
+            "body": body_example,
+        })
+    elif query:
+        input_info["queryParams"] = query
+    info: dict[str, Any] = {"input": input_info, "output": output}
+    input_properties: dict[str, Any] = {
+        "type": {"type": "string", "const": "http"},
+        "method": {"type": "string", "enum": [preq.method]},
+        "queryParams": {"type": "object",
+                        "additionalProperties": {"type": "string"}},
+        "headers": {"type": "object",
+                    "additionalProperties": {"type": "string"}},
+    }
+    input_required = ["type", "method"]
+    if body_method:
+        input_properties.update({
+            "bodyType": {"type": "string", "const": "json"},
+            "body": {"type": "object"},
+        })
+        input_required.extend(["bodyType", "body"])
     schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
             "input": {
                 "type": "object",
-                "properties": {
-                    "type": {"type": "string", "const": "http"},
-                    "method": {"type": "string", "enum": [preq.method]},
-                    "queryParams": {"type": "object",
-                                    "additionalProperties": {"type": "string"}},
-                },
-                "required": ["type", "method"],
+                "properties": input_properties,
+                "required": input_required,
+                "additionalProperties": False,
             },
             "output": {
                 "type": "object",
