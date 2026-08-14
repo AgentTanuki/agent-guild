@@ -15,7 +15,7 @@ Core principle: **an endpoint string is a claim, not a route.** A status may nev
 | `currently_unreachable` (reserved) | the last verification attempt failed | 24 h → `declared_unverified` | `declaration_probe` | the URL did NOT answer recently; prefer another supplier | only with failure disclosure | NO |
 | `invocation_verified` (reserved) | a guild-observed task receipt travelled through this endpoint | 7 d → `recently_reachable` | `guild_observed_receipt` | the endpoint demonstrably ACCEPTS AND COMPLETES work | YES | YES |
 
-The three verified statuses are **now producible** (reachability-verifier, 2026-07-10): and per the SSRF constraint it may only ever run: owner-initiated at declaration time; scheme+host syntactic validation first; DNS-resolved address checked against private/link-local/loopback ranges; no redirects followed; one request; ≤5 s timeout; result stored, never re-probed from read paths. Arbitrary server-side probing of registered URLs from any READ path (`/check`, `/search`, capability listing, journey/dashboard reads, demand matching) is prohibited and does not happen — those paths call the pure `reachability_fields()`. The verifier runs ONLY at endpoint declaration, owner-initiated.
+The three verified statuses are **now producible** (reachability-verifier, 2026-07-10): and per the SSRF constraint it may only ever run on the endpoint already stored by its owner; scheme+host syntactic validation first; DNS-resolved address checked against private/link-local/loopback ranges; no redirects followed; one request; ≤5 s timeout; result stored, never re-probed from read paths. Arbitrary server-side probing of caller-supplied URLs from any READ path (`/check`, `/search`, capability listing, journey/dashboard reads, demand matching) is prohibited and does not happen — those paths call the pure `reachability_fields()`. The verifier runs either owner-initiated at endpoint declaration or via the write-only public refresh crank for the unchanged stored endpoint, under its durable cooldown.
 
 ## Exposed fields (per shortlist entry and per `decision`)
 
@@ -37,8 +37,12 @@ three separated concerns:
    prohibited/invalid properties: unsupported scheme, embedded credentials,
    literal loopback/private/link-local/multicast/unspecified/reserved address,
    or a port outside {80,443,8080,8443}.
-2. `liveness_probe(url)` — a single owner-initiated network check (opt-in via
-   `verify=true` on `POST /agents/{id}/endpoint`). DNS-rebinding safe: resolve,
+2. `liveness_probe(url)` — a single network check, either owner-initiated via
+   `verify=true` on `POST /agents/{id}/endpoint` or publicly cranked for the
+   already-stored URL via `POST /agents/{id}/endpoint/refresh`. The public
+   route accepts no URL and has a durable 12-hour cooldown, so it can restore
+   stale public routing evidence but cannot redirect an identity or amplify
+   probes. DNS-rebinding safe: resolve,
    screen EVERY resolved address, connect to a PINNED screened address, send
    HEAD with the real Host header, follow NO redirects (a 3xx is a failure),
    bound the read to 4 KB, never process the body, never send an AG secret,
