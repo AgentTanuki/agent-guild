@@ -69,6 +69,23 @@ OURS_MCP_CLIENTS = {
 # never silently hide a real agent. The same UA OUTSIDE the window still counts.
 KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
     {
+        "ua_re": r"^(?:a2a:)?langchain/0\.2\.1$",
+        "from": "2026-08-14T03:11:00+00:00",
+        "to": "2026-08-14T03:16:00+00:00",
+        "reason": "Guild-operated official-client interoperability audit. "
+                  "The audit intentionally exercised the HTTP and A2A buyer "
+                  "paths against production with LangChain-shaped client "
+                  "identity, but omitted authenticated first-party tagging. "
+                  "The append-only feed proves ten challenge events from "
+                  "eight distinct actors between 03:11:16Z and 03:15:01Z; "
+                  "those calls moved /commercial "
+                  "from its 2-actor/22-event/4-offer baseline to "
+                  "10 actors/32 events/14 offers while revenue and paid "
+                  "completions stayed zero. This bounded read-time correction "
+                  "demotes only those known audit calls; the same official "
+                  "client UA outside the window remains external.",
+    },
+    {
         "ua": "crewai-tools-agentguild/1.0",
         "from": "2026-07-02T08:00:00+00:00",
         "to": "2026-07-02T09:00:00+00:00",

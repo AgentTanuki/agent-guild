@@ -123,6 +123,65 @@ def test_known_first_party_incident_excluded_inside_window_only():
     assert is_genuine_external(feed_shape) is False
 
 
+def test_official_client_audit_incident_is_narrow_and_read_time_only():
+    """The 2026-08-14 official-client audit omitted first-party tagging.
+
+    Both HTTP and A2A calls used the exact LangChain-shaped identities below.
+    They are AG_TEST only inside the evidence-bounded five-minute window; a
+    real external caller using either identity before or after still counts.
+    """
+    for ua in ("langchain/0.2.1", "a2a:langchain/0.2.1"):
+        incident = {
+            "fp": False,
+            "key": "http:audit-actor",
+            "ua": ua,
+            "at": "2026-08-14T03:14:50.953066+00:00",
+            "type": "paid_offer_shown",
+            "challenged_operation": "best_agent",
+            "actor_distinct": True,
+        }
+        assert is_genuine_external(incident) is False
+        assert attribution_class(incident) == "first_party_incident"
+        assert caller_class(incident) == "AG_TEST"
+
+        for at in ("2026-08-14T03:10:59+00:00",
+                   "2026-08-14T03:16:01+00:00",
+                   "2026-08-15T03:14:50+00:00"):
+            external = dict(incident, at=at)
+            assert is_genuine_external(external) is True, (ua, at)
+            assert attribution_class(external) == "genuine_external"
+
+
+def test_official_client_audit_incident_heals_commercial_metrics():
+    """Read-time classification removes only the ten proven audit offers.
+
+    Raw history remains append-only. A same-UA event outside the bounded
+    incident window remains in the qualified commercial denominator.
+    """
+    from app import experiments
+
+    s = Store(path="")
+    audit_uas = ["langchain/0.2.1"] * 8 + ["a2a:langchain/0.2.1"] * 2
+    for i, ua in enumerate(audit_uas):
+        s.record_event(f"audit:{i}", "paid_offer_shown", ua=ua,
+                       endpoint="x402_challenge",
+                       challenged_operation="best_agent",
+                       actor_distinct=True)
+        s.events[-1]["at"] = "2026-08-14T03:14:50.953066+00:00"
+
+    s.record_event("real:later", "paid_offer_shown", ua="langchain/0.2.1",
+                   endpoint="x402_challenge",
+                   challenged_operation="best_agent", actor_distinct=True)
+    s.events[-1]["at"] = "2026-08-14T03:16:01+00:00"
+
+    exposure = experiments.qualified_exposure(s)
+    assert exposure["qualified_actors"] == 1
+    assert exposure["qualified_events"] == 1
+    assert exposure["paid_offers_shown"] == 1
+    assert len(s.events) == 11
+    assert all(e["fp"] is False for e in s.events)
+
+
 def test_mainnet_canary_incident_read_time_correction():
     """The 2026-07-21 mainnet canary paid twice through /check (settlement
     07:26:33Z + idempotent re-serve, evidence 07:30:25Z) BEFORE first-party
