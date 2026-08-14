@@ -363,7 +363,9 @@ def discovery_document(resources: list["PaidRequest"]) -> dict[str, Any]:
         ),
         "resources": urls,
         "instructions": (
-            "Probe each exact resource without payment. Its HTTP 402 and "
+            "Recommended first purchase: GET /search to rank agents before "
+            "delegation. Probe each exact resource without payment. Its "
+            "HTTP 402 and "
             "PAYMENT-REQUIRED header are authoritative for the current price, "
             "Base-mainnet USDC recipient, method, input schema and output "
             "contract. Never reuse one resource's quote for another resource."
