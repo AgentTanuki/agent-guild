@@ -19,7 +19,7 @@ from typing import Any, Callable
 
 from fastapi import FastAPI
 
-from . import billing, paidcatalog, pricing, protecteddecision, protectedmarket, x402
+from . import billing, mpp, paidcatalog, pricing, protecteddecision, protectedmarket, x402
 
 
 _CREDIT_USD = Decimal(str(billing.CREDIT_USD))
@@ -32,12 +32,22 @@ def _usd(credits: int) -> str:
     return text or "0"
 
 
+def _protocols() -> list[dict[str, Any]]:
+    """Advertise only protocols this process will accept right now."""
+    out: list[dict[str, Any]] = [{"x402": {"version": 2}}]
+    if mpp.enabled():
+        out.append({"mpp": {
+            "method": "evm", "intent": "charge", "currency": x402.asset(),
+        }})
+    return out
+
+
 def _fixed(credits: int) -> dict[str, Any]:
     return {
         "price": {
             "mode": "fixed", "currency": "USD", "amount": _usd(credits),
         },
-        "protocols": [{"x402": {"version": 2}}],
+        "protocols": _protocols(),
     }
 
 
@@ -47,7 +57,7 @@ def _dynamic(min_credits: int, max_credits: int) -> dict[str, Any]:
             "mode": "dynamic", "currency": "USD",
             "min": _usd(min_credits), "max": _usd(max_credits),
         },
-        "protocols": [{"x402": {"version": 2}}],
+        "protocols": _protocols(),
     }
 
 
@@ -268,8 +278,9 @@ def apply(schema: dict[str, Any]) -> dict[str, Any]:
     )
     info["x-guidance"] = (
         "Payable machine utilities are ordered first in paths. Budget from "
-        "x-payment-info, then treat the live HTTP 402 PAYMENT-REQUIRED header "
-        "as authoritative. Verification and catalogs stay free. Routes that "
+        "x-payment-info, then treat the live HTTP 402 PAYMENT-REQUIRED and "
+        "WWW-Authenticate headers as authoritative. Use x402 v2 or MPP "
+        "evm/charge over Base USDC. Verification and catalogs stay free. Routes that "
         "require caller proof may return a non-executable discovery quote to "
         "an empty probe; an unsigned paid retry is rejected before settlement."
     )
@@ -301,13 +312,18 @@ def apply(schema: dict[str, Any]) -> dict[str, Any]:
         )
         operation["x-agent-guild-product"] = product
         operation["x-agent-guild-payment"] = {
-            "settlement": "USDC via x402 v2",
+            "settlement": ("USDC via x402 v2 or MPP evm/charge"
+                           if mpp.enabled() else "USDC via x402 v2"),
             "network": x402.network(),
             "asset": x402.asset(),
             "enabled": x402.enabled(),
             "live_quote_authoritative": True,
             "payment_required_header": "PAYMENT-REQUIRED",
             "payment_signature_header": "PAYMENT-SIGNATURE",
+            "mpp_authorization_header": (
+                "Authorization: Payment" if mpp.enabled() else None),
+            "mpp_receipt_header": (
+                "Payment-Receipt" if mpp.enabled() else None),
             "pricing_url": host + "/pricing",
         }
         responses = operation.setdefault("responses", {})
