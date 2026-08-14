@@ -308,8 +308,24 @@ def readiness() -> dict[str, Any]:
                     "headers (x402 v2 HTTP transport)",
             "a2a": "A2A x402 extension v0.1 "
                    "(https://github.com/google-a2a/a2a-x402/v0.1) at POST /a2a",
-            "mcp": "x402 MCP flow (payment-required tool error + "
-                   "_meta['x402/payment'] retry) at /mcp",
+            "mcp": "x402 MCP flow (payment-required tool error + retry via "
+                   "either _meta['x402/payment'] or the paid tool's "
+                   "schema-visible x402_payment argument) at /mcp",
+        },
+        "mcp_payment_retry": {
+            "challenge": "payment-required tool error",
+            "preferred": {
+                "location": "request_meta",
+                "key": "x402/payment",
+            },
+            "fallback": {
+                "location": "tool_arguments",
+                "key": "x402_payment",
+                "accepted_types": ["object", "string"],
+            },
+            "tool_schema_source": (
+                public_host() + "/.well-known/mcp/server-card.json"
+            ),
         },
         "revenue_policy": ("real revenue counts ONLY mainnet settlements "
                            "independently confirmed on-chain (receipt status, "

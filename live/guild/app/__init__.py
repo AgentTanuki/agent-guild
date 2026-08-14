@@ -3,8 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.23"  # PATCH (machine-visible semver, 2026-08-14):
-                        # publishes a cacheable SEP-1649/Smithery MCP server
+__version__ = "2.5.24"  # PATCH (machine-visible semver, 2026-08-14):
+                        # tells machine buyers that MCP payment retries may
+                        # use either official request _meta or the paid tool's
+                        # schema-visible x402_payment argument, so argument-
+                        # only adapters do not stall after a valid challenge.
+                        # History of 2.5.23: publishes a cacheable
+                        # SEP-1649/Smithery MCP server
                         # card generated from the live FastMCP tool registry,
                         # so stale crawlers can learn every current tool and
                         # its x402 retry schema without a session, payment or
