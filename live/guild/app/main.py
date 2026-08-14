@@ -1089,36 +1089,22 @@ def x402_discovery():
     price: every product's live 402 is the authority for its own quote and
     Bazaar input/output contract.
     """
-    from . import protecteddecision, protectedmarket
-
-    example_agent = "discovery-only"
     example_target = x402.public_host() + "/a2a"
     resources = [
-        # Cheapest, low-commitment counterparty reads first.  x402scan and
-        # similar autonomous buyers preserve this order when deciding which
-        # resource to probe or purchase first.
-        payments.reputation_request(example_agent),
-        payments.journey_request(example_agent),
-        payments.evidence_request(example_agent),
-        payments.agent_flags_request(example_agent),
+        # Only exact requests that can execute after payment belong here.
+        # Body-bound and subject-bound products cannot have a reusable quote:
+        # their settlement URL is derived from the buyer's exact request or a
+        # real agent id.  Publishing an opaque placeholder as an executable
+        # resource causes generic buyers to pay for a request that can only
+        # return 401/404/422.  Those products remain fully discoverable from
+        # OpenAPI, MCP and /commercial, and their REAL unpaid request returns
+        # the authoritative buyer-specific 402.
         payments.flags_request(),
         payments.search_request("fact-check"),
         payments.check_request("fact-check"),
-        payments.risk_score_request(example_agent),
-        payments.machine_envelope_request("discovery-only"),
-        payments.payment_decision_request("discovery-only"),
-        payments.protected_payment_decision_request(
-            "discovery-only", protecteddecision.discovery_quote()),
         payments.deep_preflight_request(example_target),
-        payments.evidence_bundle_request("discovery-only"),
         payments.check_request("fact-check", signed=True, ttl_seconds=3600),
-        payments.marketplace_signed_decision_request("discovery-only"),
     ]
-    resources.extend(
-        payments.protected_payment_tier_request(
-            tier_id, "discovery-only", protectedmarket.tier_quote(tier_id))
-        for tier_id in protectedmarket.TIERS
-    )
     return x402.discovery_document(resources)
 
 

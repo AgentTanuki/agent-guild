@@ -3,8 +3,15 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.24"  # PATCH (machine-visible semver, 2026-08-14):
-                        # tells machine buyers that MCP payment retries may
+__version__ = "2.5.25"  # PATCH (machine-visible semver, 2026-08-14):
+                        # makes every HTTP POST Bazaar extension conform to
+                        # the official body-method contract (bodyType + body)
+                        # and limits /.well-known/x402 reusable resources to
+                        # requests that can actually execute after payment;
+                        # body-bound products remain discoverable through
+                        # OpenAPI/MCP and return an exact request-bound quote.
+                        # History of 2.5.24: tells machine buyers that MCP
+                        # payment retries may
                         # use either official request _meta or the paid tool's
                         # schema-visible x402_payment argument, so argument-
                         # only adapters do not stall after a valid challenge.

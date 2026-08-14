@@ -1,12 +1,14 @@
 """High-quality x402 Bazaar metadata for autonomous buyers."""
 from jsonschema import Draft202012Validator
 
-from app import x402
+from app import openapi_payment_discovery, x402
 from app import protecteddecision
 from app.payments import (
+    PaidRequest,
     check_request, deep_preflight_request, evidence_bundle_request,
-    machine_envelope_request, payment_decision_request,
-    protected_payment_decision_request, search_request,
+    machine_envelope_request, marketplace_signed_decision_request,
+    payment_decision_request, protected_payment_decision_request,
+    protected_payment_tier_request, search_request, watch_cycle_request,
 )
 from x402.extensions.bazaar import (
     extract_discovery_info_from_extension,
@@ -105,6 +107,107 @@ def test_flagship_bazaar_examples_match_declared_schemas_and_official_sdk():
         assert output["example"], preq.operation
         assert output["schema"], preq.operation
         Draft202012Validator(output["schema"]).validate(output["example"])
+
+
+def test_body_routes_publish_official_bazaar_json_input_contract():
+    from app import protectedmarket
+
+    tier_id = "1000-usdc"
+    requests = [
+        marketplace_signed_decision_request("d" * 64),
+        evidence_bundle_request("https://agent.example/a2a"),
+        machine_envelope_request("a" * 64),
+        payment_decision_request("b" * 64),
+        protected_payment_decision_request(
+            "c" * 64, protecteddecision.discovery_quote()),
+        protected_payment_tier_request(
+            tier_id, "e" * 64, protectedmarket.tier_quote(tier_id)),
+        watch_cycle_request("https://agent.example/a2a"),
+    ]
+    advertised_posts = {
+        (path, method) for path, method in
+        openapi_payment_discovery.advertised_operations()
+        if method == "post"
+    }
+    covered_posts = set()
+    for preq in requests:
+        extension = x402.bazaar_extension(preq)
+        assert validate_discovery_extension(extension).valid, preq.path
+        assert validate_discovery_extension_spec(extension).valid, preq.path
+        Draft202012Validator(extension["schema"]).validate(extension["info"])
+        parsed = extract_discovery_info_from_extension(extension)
+        assert parsed.input.method == "POST"
+        assert parsed.input.body_type == "json"
+        assert parsed.input.body
+        assert "queryParams" not in extension["info"]["input"]
+        if preq.path != "/watch/cycle":
+            path = preq.path
+            if path.startswith("/wallet-binding/protected-decision/tiers/"):
+                path = "/wallet-binding/protected-decision/tiers/{tier_id}"
+            covered_posts.add((path, preq.method.lower()))
+
+    # This is the POST equivalent of the origin-manifest partition test: a
+    # newly advertised paid body route must add a non-empty Bazaar example in
+    # this release-gating matrix before it can ship.
+    assert covered_posts == advertised_posts
+
+    envelope = x402.bazaar_extension(
+        machine_envelope_request("a" * 64))["info"]["input"]["body"]
+    assert set(envelope) == {"request", "caller_proof"}
+    assert envelope["request"]["payload_sha256"] == "ab" * 32
+
+    evidence = x402.bazaar_extension(
+        evidence_bundle_request("https://agent.example/a2a"))["info"][
+            "input"]["body"]
+    assert evidence == {
+        "url": "https://agent.example/a2a", "ttl_seconds": 3600}
+
+    payment = x402.bazaar_extension(
+        payment_decision_request("b" * 64))["info"]["input"]["body"]
+    assert "payment" in payment
+    assert "caller_proof" not in payment
+
+
+def test_every_protected_tier_example_binds_its_own_amount_and_payan_offer():
+    from app import protectedmarket
+
+    assert set(protectedmarket.TIERS) == set(protectedmarket.PAYAN_TIER_OFFERS)
+    for tier_id, amount in protectedmarket.TIERS.items():
+        preq = protected_payment_tier_request(
+            tier_id, "e" * 64, protectedmarket.tier_quote(tier_id))
+        body = x402.bazaar_extension(preq)["info"]["input"]["body"]
+        request = body["request"]
+        buy_url = (
+            f"{protectedmarket.PAYAN_ORIGIN}/x402/"
+            f"{protectedmarket.PAYAN_TIER_OFFERS[tier_id]}")
+        assert request["payment"]["amount"] == amount
+        assert request["x402_resource_url"] == buy_url
+        assert body["caller_proof"]["payload"]["resource"] == preq.path
+        # These URLs MUST differ: payment.resource is the external transfer
+        # being protected; x402_resource_url is the separate Guild service-fee
+        # relay through which this decision is bought.
+        assert request["payment"]["resource"] != buy_url
+
+
+def test_get_bazaar_contract_remains_query_parameter_input():
+    extension = x402.bazaar_extension(search_request("fact-check"))
+    info = extension["info"]["input"]
+    assert info == {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {"capability": "fact-check", "limit": "20",
+                        "min_trust": "0"},
+    }
+    assert "bodyType" not in info
+
+
+def test_unknown_future_post_cannot_turn_payment_challenge_into_500():
+    extension = x402.bazaar_extension(PaidRequest(
+        operation="best_agent", method="POST", path="/future-paid-product"))
+    info = extension["info"]["input"]
+    assert info == {
+        "type": "http", "method": "POST", "bodyType": "json", "body": {}}
+    assert validate_discovery_extension_spec(extension).valid
 
 
 def test_x402_resource_copy_contains_literal_machine_selection_intent():
