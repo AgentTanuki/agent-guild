@@ -8,6 +8,8 @@ operation without any credential or settlement.
 """
 from __future__ import annotations
 
+import base64
+import json
 import os
 import sys
 
@@ -107,6 +109,36 @@ def test_openapi_declares_a_real_tier_example(client):
         parameter.get("example") == "1000-usdc"
         or parameter_schema.get("example") == "1000-usdc"
     ), "registry compatibility requires the singular OpenAPI example field"
+
+
+def test_unknown_tier_registry_placeholder_gets_canonical_safe_quote(
+        client, settle_spy):
+    response = client.post(
+        "/wallet-binding/protected-decision/tiers/not_found",
+        json={}, headers={"user-agent": "registry-probe/1.0"})
+    assert response.status_code == 402
+    payload = response.json()["detail"]
+    assert payload["discovery_only"] is True
+    assert payload["executable"] is False
+    assert payload["requested_tier"] == "not_found"
+    assert payload["quoted_tier"] == "1000-usdc"
+    challenge = json.loads(base64.b64decode(
+        response.headers["PAYMENT-REQUIRED"]))
+    assert challenge["resource"]["url"].split("?", 1)[0].endswith(
+        "/wallet-binding/protected-decision/tiers/1000-usdc")
+    assert "not_found" not in challenge["resource"]["url"]
+    assert settle_spy == []
+
+
+def test_unknown_tier_payment_retry_fails_before_settlement(
+        client, settle_spy):
+    response = client.post(
+        "/wallet-binding/protected-decision/tiers/not_found",
+        json={}, headers={"PAYMENT-SIGNATURE": "AAAA"})
+    assert response.status_code == 404
+    assert settle_spy == []
+    assert "payment-response" not in {
+        key.lower() for key in response.headers}
 
 
 def test_x402_retry_for_unknown_agent_fails_before_settlement(
