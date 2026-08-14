@@ -3,8 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.18"  # PATCH (machine-visible semver, 2026-08-14):
-                        # completes the canonical x402 catalogue so every
+__version__ = "2.5.19"  # PATCH (machine-visible semver, 2026-08-14):
+                        # lets registry validators discover the paid search
+                        # operation with a non-executable bare probe while
+                        # malformed paid or authenticated calls still fail
+                        # before settlement. History of 2.5.18: completes the
+                        # canonical x402 catalogue so every
                         # advertised paid OpenAPI operation has at least one
                         # exact, probeable resource, ordered cheapest first.
                         # History of 2.5.17: publishes

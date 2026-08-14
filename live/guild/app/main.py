@@ -3292,11 +3292,22 @@ def capabilities():
 def search(
     request: Request,
     response: Response,
-    capability: str = Query(..., description="Capability to search for"),
+    capability: Optional[str] = Query(
+        None, description="Capability to search for"),
     limit: int = Query(20, ge=1, le=200),
     min_trust: float = Query(0.0, ge=0.0, le=100.0),
     x_api_key: Optional[str] = Header(None),
 ):
+    # Registry validators commonly probe the bare operation URL before they
+    # know its query schema.  Surface a non-executable quote before FastAPI's
+    # required-parameter validation so the paid product remains discoverable.
+    # Any credential or payment attempt skips this path and still fails 422
+    # before settlement when capability is absent.
+    if not capability:
+        _probe_challenge_or_none(
+            payments.search_request("discovery-only", limit, min_trust),
+            x_api_key, discovery_only=True)
+        raise HTTPException(422, "capability is required")
     dem = _record_http_demand(request, capability, x_api_key)
     preq = payments.search_request(capability, limit, min_trust)
     facts = _meter_with_demand(preq, x_api_key, response, dem)
