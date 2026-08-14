@@ -3,8 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.15"  # PATCH (machine-visible semver, 2026-08-14):
-                        # adds the singular OpenAPI path example still used by
+__version__ = "2.5.16"  # PATCH (machine-visible semver, 2026-08-14):
+                        # lets generic registries safely probe a parameterized
+                        # protected tier with an opaque placeholder while any
+                        # executing retry still fails before settlement.
+                        # History of 2.5.15: adds the singular OpenAPI path
+                        # example still used by
                         # MPPScan so the last tier route is discoverable by
                         # generic machine registries. History of 2.5.14: makes
                         # every paid route quoteable by generic machine
