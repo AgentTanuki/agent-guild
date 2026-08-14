@@ -18,6 +18,8 @@ learned. Three specific regressions are locked:
 """
 from __future__ import annotations
 
+import base64
+import json
 import os
 import sys
 
@@ -77,6 +79,44 @@ def test_http_challenge_carries_a_real_distinct_actor(store, client, enforced):
     assert actor and actor != "anon", "the challenge must be attributable"
     assert actor.startswith("http:")
     assert "langchain" not in actor, "the actor must not embed raw caller data"
+
+
+def test_manifest_probe_gets_same_quote_without_fabricating_buyer_interest(
+        store, client, enforced):
+    """A catalogue refresh is discovery, not an autonomous buyer impression."""
+    params = {"url": "https://x.example/a2a"}
+    ordinary = client.get(
+        "/preflight/deep", params=params,
+        headers={"user-agent": "langchain/0.2.1"})
+    assert ordinary.status_code == 402
+    ordinary_header = ordinary.headers["payment-required"]
+    ordinary_quote = json.loads(base64.b64decode(ordinary_header))
+    assert len(_impressions(store, "deep_preflight")) == 1
+
+    before_passport = len([
+        event for event in store.events
+        if event.get("type") == "offer_served"
+        and event.get("endpoint") == "x402_challenge"
+    ])
+    discovery = client.get(
+        "/preflight/deep", params=params,
+        headers={
+            "user-agent": "machine-catalogue/1.0",
+            "x-agent-guild-discovery-probe": "manifest",
+        })
+    assert discovery.status_code == 402
+    assert discovery.headers["x-agent-guild-discovery-probe"] == \
+        "non-attributed"
+    discovery_quote = json.loads(base64.b64decode(
+        discovery.headers["payment-required"]))
+    assert discovery_quote["resource"] == ordinary_quote["resource"]
+    assert discovery_quote["accepts"] == ordinary_quote["accepts"]
+    assert len(_impressions(store, "deep_preflight")) == 1
+    assert len([
+        event for event in store.events
+        if event.get("type") == "offer_served"
+        and event.get("endpoint") == "x402_challenge"
+    ]) == before_passport
 
 
 def test_http_challenges_from_different_callers_are_different_actors(

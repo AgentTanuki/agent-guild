@@ -218,6 +218,12 @@ _xpay_settled_holder: contextvars.ContextVar[Optional[list]] = \
 #: Captured unconditionally; consulted only when MPP readiness is live.
 _mpp_auth: contextvars.ContextVar[str] = contextvars.ContextVar(
     "mpp_auth", default="")
+# Public, non-authorizing signal for catalogue crawlers.  It suppresses only
+# offer-impression telemetry on an unpaid 402; it never changes the quote,
+# authentication, payment verification, settlement, or response path.
+DISCOVERY_PROBE_HEADER = "X-Agent-Guild-Discovery-Probe"
+_discovery_probe: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "discovery_probe", default=False)
 
 
 def _b64json(obj: Any) -> str:
@@ -274,6 +280,18 @@ async def _capture_ua(request: Request, call_next):
     _xpay_sig.set(request.headers.get("payment-signature", ""))
     _xpay_v1.set(request.headers.get("x-payment", ""))
     _mpp_auth.set(request.headers.get("authorization", ""))
+    # A manifest may need the authoritative 402 without pretending that its
+    # own server-to-server fetch is a prospective buyer.  Honour the marker
+    # only on an entirely unauthenticated, unpaid request.  A retry carrying
+    # any payment or account material follows the ordinary measured path.
+    _discovery_probe.set(
+        request.headers.get(DISCOVERY_PROBE_HEADER, "").strip().lower()
+        == "manifest"
+        and not request.headers.get("payment-signature")
+        and not request.headers.get("x-payment")
+        and not request.headers.get("authorization")
+        and not request.headers.get("x-api-key")
+    )
     _fp_flag.set(_is_first_party(request.headers.get("x-guild-source"),
                                  request.headers.get(
                                      "x-agent-guild-first-party")))
@@ -579,6 +597,8 @@ def _challenge_headers(exc: PaymentChallenge) -> dict:
                 headers["Cache-Control"] = "no-store"
         except Exception:  # never mask the x402 challenge
             pass
+    if _discovery_probe.get():
+        headers[DISCOVERY_PROBE_HEADER] = "non-attributed"
     return headers
 
 
@@ -587,15 +607,17 @@ def _challenge_http(exc: PaymentChallenge,
     """One PaymentChallenge → one HTTP 402 with the PAYMENT-REQUIRED header."""
     # The 402 body leads with the free passport path (x402.payment_required_
     # body `claim_passport`); count the offer where it is actually served.
-    store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
-                       endpoint="x402_challenge")
+    if not _discovery_probe.get():
+        store.record_event(None, "offer_served", ua=_ua.get(), offer="passport",
+                           endpoint="x402_challenge")
     # PAID-OFFER IMPRESSION. This is the only moment a caller is actually shown
     # a price for a specific operation. An experiment on that operation's price
     # may count THIS and nothing else — a free preflight caller has never been
     # quoted the deep-preflight price, so counting them let the engine halve a
     # price nobody was ever offered.
-    _record_paid_offer(getattr(exc, "preq", None), _ua.get(), "http",
-                       actor=_req_actor.get())
+    if not _discovery_probe.get():
+        _record_paid_offer(getattr(exc, "preq", None), _ua.get(), "http",
+                           actor=_req_actor.get())
     return HTTPException(status, exc.body, headers=_challenge_headers(exc))
 
 
