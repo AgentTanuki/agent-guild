@@ -97,7 +97,7 @@ def test_breaking_payment_enforcement_never_reuses_a_published_version():
 
 def test_every_machine_surface_reports_the_same_version():
     from app.main import app
-    from app.mcp_server import mcp
+    from app.mcp_server import mcp, payment_safety_mcp
     from app.a2a import _agent_card
     with TestClient(app) as client:
         assert client.get("/release").json()["version"] == __version__
@@ -107,14 +107,43 @@ def test_every_machine_surface_reports_the_same_version():
         assert manifest["version"] == __version__
         card = client.get("/.well-known/agent-card.json").json()
         assert card["version"] == __version__
+        catalog = client.get("/.well-known/ai-catalog.json").json()
+        assert {entry["version"] for entry in catalog["entries"]} == {
+            __version__}
     assert _agent_card("https://x.example")["version"] == __version__
     # FastMCP serverInfo
     assert mcp.version == __version__
+    assert payment_safety_mcp.version == __version__
     # server.json + contract.json (committed, generated artifacts)
     server = json.loads((REPO / "server.json").read_text())
     assert server["version"] == __version__
+    focused = json.loads((
+        REPO / "registry" / "x402-payment-safety" / "server.json").read_text())
+    assert focused["version"] == __version__
     contract = json.loads((GUILD / "contract" / "contract.json").read_text())
     assert contract["service"]["version"] == __version__
+
+
+def test_focused_registry_product_is_distinct_narrow_and_price_fresh():
+    focused = json.loads((
+        REPO / "registry" / "x402-payment-safety" / "server.json").read_text())
+    assert focused["name"] == \
+        "io.github.AgentTanuki/x402-payment-safety"
+    assert focused["remotes"] == [{
+        "type": "streamable-http",
+        "url": (
+            "https://agent-guild-5d5r.onrender.com/mcp/payment-safety/"),
+    }]
+    assert len(focused["description"]) <= 100
+    assert "x402" in focused["description"].lower()
+    pp = focused["_meta"][
+        "io.modelcontextprotocol.registry/publisher-provided"]
+    product = pp["ai.agent-guild/x402-payment-safety"]
+    assert product["tool"] == "guild_x402_payment_safety"
+    assert "live_catalog" in product
+    serialized = json.dumps(product)
+    assert '"price_credits"' not in serialized
+    assert '"usdc_atomic"' not in serialized
 
 
 def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():

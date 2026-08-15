@@ -58,6 +58,7 @@ from . import deepcheck
 from . import envelopes
 from . import indexsources
 from . import experiments
+from . import ard
 from .state import store
 from . import paidcatalog
 from .store import CanonicalWriteRefused
@@ -82,7 +83,12 @@ from . import journey as journey_engine
 from . import inbox as inbox_engine
 from . import proving
 from .a2a import router as a2a_router
-from .mcp_server import mcp_app, public_server_card
+from .mcp_server import (
+    mcp_app,
+    payment_safety_mcp_app,
+    public_payment_safety_server_card,
+    public_server_card,
+)
 from .swarm.router import router as swarm_router, ensure_built as swarm_ensure_built
 from .bootstrap_eval import seed_bootstrap_evaluation, already_seeded
 
@@ -164,7 +170,8 @@ async def _lifespan(app: "FastAPI"):
         _log.warning("scout runner not started: %s", exc)
     try:
         async with mcp_app.lifespan(app):
-            yield
+            async with payment_safety_mcp_app.lifespan(app):
+                yield
     finally:
         try:
             from .swarm import runner as swarm_runner
@@ -267,6 +274,9 @@ async def _capture_ua(request: Request, call_next):
     if request.scope["path"] == "/mcp":
         request.scope["path"] = "/mcp/"
         request.scope["raw_path"] = b"/mcp/"
+    elif request.scope["path"] == "/mcp/payment-safety":
+        request.scope["path"] = "/mcp/payment-safety/"
+        request.scope["raw_path"] = b"/mcp/payment-safety/"
     _ua.set(request.headers.get("user-agent", ""))
     # Request-scoped ACTOR for paid-offer impressions. _challenge_http has no
     # request handle, so it previously recorded actor=None — every genuine
@@ -480,6 +490,8 @@ async def _cached_paid_result_handler(request: Request,
 # Hosted remote MCP: any agent connects to <host>/mcp with no install.
 app.include_router(a2a_router)
 app.include_router(swarm_router)
+# Mount the focused surface first: /mcp is a catch-all ASGI mount.
+app.mount("/mcp/payment-safety", payment_safety_mcp_app)
 app.mount("/mcp", mcp_app)
 
 ADMIN_TOKEN = os.environ.get("GUILD_ADMIN_TOKEN", "")
@@ -4383,6 +4395,24 @@ async def wellknown_mcp_server_card():
     """
     return JSONResponse(
         content=await public_server_card(),
+        headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
+@app.get("/.well-known/mcp/payment-safety-server-card.json")
+async def wellknown_payment_safety_mcp_server_card():
+    """Static discovery for the focused, one-tool payment-safety server."""
+    return JSONResponse(
+        content=await public_payment_safety_server_card(),
+        headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
+@app.get("/.well-known/ai-catalog.json")
+def wellknown_ai_catalog():
+    """Side-effect-free Agent Resource Discovery (ARD) catalogue."""
+    return JSONResponse(
+        content=ard.ai_catalog(),
         headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
     )
 

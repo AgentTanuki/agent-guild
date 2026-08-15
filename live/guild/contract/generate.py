@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate the CANONICAL machine contract (contract.json) plus the derived
-artifacts (repo-root server.json, docs/INTERFACE.md) from the running code.
+artifacts (Registry manifests and docs/INTERFACE.md) from the running code.
 
 One source of truth, enforced two ways:
   * `contract.json` is exported from the actual FastAPI routes, MCP tool
@@ -45,7 +45,7 @@ def _iter_routes(routes):
 
 def build_contract() -> dict:
     from app.main import app
-    from app.mcp_server import mcp
+    from app.mcp_server import mcp, payment_safety_mcp
     from app import __version__
     from app.billing import PRICING
     from app import pricing
@@ -60,6 +60,8 @@ def build_contract() -> dict:
                  for p, ms in sorted(rest.items())]
 
     tools = sorted(t.name for t in asyncio.run(mcp.list_tools()))
+    payment_safety_tools = sorted(
+        t.name for t in asyncio.run(payment_safety_mcp.list_tools()))
 
     # A2A: static skills are fixed contract; ag.* skills mirror the published
     # swarm capabilities (fixture-gated at boot, one per capability id).
@@ -74,6 +76,12 @@ def build_contract() -> dict:
             "version": __version__,
             "host": HOST,
             "mcp_url": f"{HOST}/mcp/",
+            "payment_safety_mcp_url": f"{HOST}/mcp/payment-safety/",
+            "payment_safety_mcp_card": (
+                f"{HOST}/.well-known/mcp/"
+                "payment-safety-server-card.json"
+            ),
+            "ard_catalog": f"{HOST}/.well-known/ai-catalog.json",
             "a2a_endpoint": f"{HOST}/a2a",
             "agent_card": f"{HOST}/.well-known/agent-card.json",
             "issuer_did_document": f"{HOST}/.well-known/agent-guild-did.json",
@@ -136,7 +144,8 @@ def build_contract() -> dict:
             "priced_mcp_tools": ["guild_check", "guild_search",
                                  "guild_best_agent", "guild_risk_score",
                                  "guild_preflight_deep",
-                                 "guild_envelope_issue"],
+                                 "guild_envelope_issue",
+                                 "guild_x402_payment_safety"],
             "priced_a2a_skills": ["guild.check", "guild.preflight.deep"],
             "offer_receipt_kid_profile": "did:web (/.well-known/did.json)",
         },
@@ -158,6 +167,7 @@ def build_contract() -> dict:
         },
         "rest": rest_list,
         "mcp_tools": tools,
+        "payment_safety_mcp_tools": payment_safety_tools,
         "a2a_skills_static": a2a_static,
         "a2a_dynamic_skills": [f"ag.{c}" for c in swarm_caps],
     }
@@ -203,6 +213,52 @@ def derived_server_json(contract: dict) -> dict:
                 # honestly challenged (x402) at call time on priced
                 # operations. Discovery metadata simply no longer leads with
                 # it.
+            },
+        },
+    }
+
+
+def derived_payment_safety_server_json(contract: dict) -> dict:
+    """Focused MCP Registry product; deliberately not an alias of /mcp/."""
+    s = contract["service"]
+    h = s["host"]
+    return {
+        "$schema": (
+            "https://static.modelcontextprotocol.io/"
+            "schemas/2025-12-11/server.schema.json"
+        ),
+        "name": "io.github.AgentTanuki/x402-payment-safety",
+        # Registry search matches server names; description remains truthful
+        # and below the Registry's 100-character maximum.
+        "description": (
+            "Authorize x402 payments before signing with request-bound, "
+            "signed safety decisions."
+        ),
+        "version": s["version"],
+        "repository": {"url": s["repository"], "source": "github"},
+        "websiteUrl": s["payment_safety_mcp_card"],
+        "remotes": [{
+            "type": "streamable-http",
+            "url": s["payment_safety_mcp_url"],
+        }],
+        "_meta": {
+            "io.modelcontextprotocol.registry/publisher-provided": {
+                "ai.agent-guild/x402-payment-safety": {
+                    "tool": "guild_x402_payment_safety",
+                    "authorization_moment": "immediately before signing",
+                    "payment_protocol": "x402",
+                    "network": "Base mainnet (eip155:8453)",
+                    "live_catalog": (
+                        h + "/.well-known/agent-guild.json"
+                        "?src=paid_offer:registry"
+                    ),
+                    "free_resolve": (
+                        h + "/wallet-binding/resolve?address={payee}"
+                        "&network=eip155:8453"
+                    ),
+                    "verify": h + "/wallet-binding/decision/verify",
+                    "price_note": "Current price is returned by the live catalog.",
+                },
             },
         },
     }
@@ -352,6 +408,8 @@ def derived_interface_md(contract: dict) -> str:
         "",
         f"- Host: {s['host']}",
         f"- MCP (streamable HTTP): {s['mcp_url']}",
+        f"- MCP x402 payment safety: {s['payment_safety_mcp_url']}",
+        f"- ARD catalogue: {s['ard_catalog']}",
         f"- A2A JSON-RPC: {s['a2a_endpoint']} · agent card: {s['agent_card']}",
         f"- Issuer DID: {s['issuer_did_document']}",
         "",
@@ -378,6 +436,9 @@ def derived_interface_md(contract: dict) -> str:
     lines += ["", "## MCP tools", ""]
     for t in contract["mcp_tools"]:
         lines.append(f"- `{t}`")
+    lines += ["", "## Focused x402 payment-safety MCP tools", ""]
+    for t in contract["payment_safety_mcp_tools"]:
+        lines.append(f"- `{t}`")
     lines += ["", "## A2A skills", ""]
     for sk in contract["a2a_skills_static"]:
         lines.append(f"- `{sk}` (static)")
@@ -393,8 +454,15 @@ def main(write: bool = True) -> dict:
             json.dumps(contract, indent=1, sort_keys=True) + "\n")
         (REPO / "server.json").write_text(
             json.dumps(derived_server_json(contract), indent=2) + "\n")
+        focused = REPO / "registry" / "x402-payment-safety" / "server.json"
+        focused.parent.mkdir(parents=True, exist_ok=True)
+        focused.write_text(
+            json.dumps(derived_payment_safety_server_json(contract), indent=2)
+            + "\n"
+        )
         (REPO / "docs" / "INTERFACE.md").write_text(derived_interface_md(contract))
-        print("wrote contract/contract.json, server.json, docs/INTERFACE.md")
+        print("wrote contract/contract.json, server.json, "
+              "registry/x402-payment-safety/server.json, docs/INTERFACE.md")
     return contract
 
 

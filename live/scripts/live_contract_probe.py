@@ -56,7 +56,23 @@ def main() -> int:
         except Exception as e:
             check(f"GET {entry['path']}", False, str(e))
 
-    # 2. agent card skills
+    # 2. the focused Registry claim is truthful about the active money rail
+    try:
+        readiness = json.load(get(HOST + "/x402/readiness"))
+        mainnet_ready = (
+            readiness.get("enabled") is True
+            and readiness.get("config_valid") is True
+            and readiness.get("mainnet") is True
+            and readiness.get("network") == "eip155:8453"
+            and str(readiness.get("asset") or "").lower()
+            == "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        )
+        check("x402 Base-mainnet rail matches focused Registry claim",
+              mainnet_ready)
+    except Exception as e:
+        check("x402 Base-mainnet readiness", False, str(e))
+
+    # 3. agent card skills
     try:
         card = json.load(get(HOST + "/.well-known/agent-card.json"))
         skills = {s["id"] for s in card.get("skills", [])}
@@ -66,10 +82,10 @@ def main() -> int:
     except Exception as e:
         check("a2a agent-card skills == contract", False, str(e))
 
-    # 3. MCP tools via JSON-RPC (streamable-http requires an initialize
+    # 4. MCP tools via JSON-RPC (streamable-http requires an initialize
     # handshake and the returned Mcp-Session-Id on subsequent calls)
     try:
-        def _rpc(method, params, session=None, id_=None):
+        def _rpc(url, method, params, session=None, id_=None):
             msg = {"jsonrpc": "2.0", "method": method, "params": params}
             if id_ is not None:
                 msg["id"] = id_
@@ -78,7 +94,7 @@ def main() -> int:
                        "X-Guild-Source": "guild-ci"}
             if session:
                 headers["Mcp-Session-Id"] = session
-            req = urllib.request.Request(CONTRACT["service"]["mcp_url"],
+            req = urllib.request.Request(url,
                                          data=json.dumps(msg).encode(),
                                          method="POST", headers=headers)
             r = urllib.request.urlopen(req, timeout=60)
@@ -89,19 +105,75 @@ def main() -> int:
                                if l.startswith("data:"))
             return r.headers.get("mcp-session-id"), (json.loads(payload) if payload.strip() else None)
 
-        session, init = _rpc("initialize", {
-            "protocolVersion": "2025-03-26",
-            "capabilities": {},
-            "clientInfo": {"name": "guild-live-conformance", "version": "1.0"}}, id_=1)
-        _rpc("notifications/initialized", {}, session=session)
-        _, resp = _rpc("tools/list", {}, session=session, id_=2)
-        tools = sorted(t["name"] for t in resp["result"]["tools"])
-        check("mcp tools == contract", tools == CONTRACT["mcp_tools"],
-              f"live={len(tools)} contract={len(CONTRACT['mcp_tools'])}")
+        surfaces = (
+            ("mcp", CONTRACT["service"]["mcp_url"],
+             CONTRACT["mcp_tools"]),
+            ("focused payment-safety mcp",
+             CONTRACT["service"]["payment_safety_mcp_url"],
+             CONTRACT["payment_safety_mcp_tools"]),
+        )
+        for label, url, expected_tools in surfaces:
+            session, _init = _rpc(url, "initialize", {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "guild-live-conformance", "version": "1.0"},
+            }, id_=1)
+            _rpc(url, "notifications/initialized", {}, session=session)
+            _, resp = _rpc(url, "tools/list", {}, session=session, id_=2)
+            tools = sorted(t["name"] for t in resp["result"]["tools"])
+            check(f"{label} tools == contract", tools == expected_tools,
+                  f"live={len(tools)} contract={len(expected_tools)}")
+            if label == "focused payment-safety mcp":
+                arguments = {
+                    "payment": {
+                        "scheme": "exact",
+                        "network": "eip155:8453",
+                        "asset": (
+                            "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"),
+                        "amount": "25000",
+                        "pay_to": "0x" + "33" * 20,
+                        "resource": "https://seller.example/research/42",
+                    },
+                    "capability": "fact-check",
+                    "policy": {"max_risk": 32.99, "min_confidence": 0.5},
+                    "ttl_seconds": 300,
+                }
+                _, called = _rpc(url, "tools/call", {
+                    "name": "guild_x402_payment_safety",
+                    "arguments": arguments,
+                }, session=session, id_=3)
+                outcome = called.get("result") or {}
+                challenge = outcome.get("structuredContent") or {}
+                accepts = challenge.get("accepts") or []
+                offer = accepts[0] if len(accepts) == 1 else {}
+                expected_resource = (
+                    HOST + "/wallet-binding/decision?request_sha256="
+                    "bb3cfe665bd76b97074e63e87d909aba556b2bd18d131f6bc024993cab0a3913"
+                )
+                required = {
+                    "scheme", "network", "asset", "amount", "payTo",
+                    "maxTimeoutSeconds",
+                }
+                complete = (
+                    outcome.get("isError") is True
+                    and challenge.get("x402Version") == 2
+                    and (challenge.get("resource") or {}).get("url")
+                    == expected_resource
+                    and len(accepts) == 1
+                    and required <= set(offer)
+                    and offer.get("scheme") == "exact"
+                    and offer.get("network") == "eip155:8453"
+                    and str(offer.get("asset") or "").lower()
+                    == "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+                    and "credentialSubject" not in challenge
+                )
+                check("focused payment-safety unpaid call returns exact "
+                      "request-bound x402 challenge", complete)
     except Exception as e:
-        check("mcp tools == contract", False, str(e))
+        check("MCP surfaces == contract", False, str(e))
 
-    # 4. ledger integrity + reconciliation on the LIVE service
+    # 5. ledger integrity + reconciliation on the LIVE service
     try:
         stats = json.load(get(HOST + "/ledger/stats"))
         check("live chain_valid", stats.get("chain_valid") is True)
@@ -113,7 +185,7 @@ def main() -> int:
     except Exception as e:
         check("live ledger checks", False, str(e))
 
-    # 5. issuer continuity
+    # 6. issuer continuity
     try:
         didd = json.load(get(HOST + "/.well-known/agent-guild-did.json"))
         issuer = json.load(get(HOST + "/ledger/issuer"))

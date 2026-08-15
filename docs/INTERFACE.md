@@ -1,9 +1,11 @@
 # Agent Guild — machine interface (GENERATED)
 
-*Generated from `live/guild/contract/contract.json` v2 (service 2.5.32). Do not edit by hand — run `make contract`.*
+*Generated from `live/guild/contract/contract.json` v2 (service 2.5.33). Do not edit by hand — run `make contract`.*
 
 - Host: https://agent-guild-5d5r.onrender.com
 - MCP (streamable HTTP): https://agent-guild-5d5r.onrender.com/mcp/
+- MCP x402 payment safety: https://agent-guild-5d5r.onrender.com/mcp/payment-safety/
+- ARD catalogue: https://agent-guild-5d5r.onrender.com/.well-known/ai-catalog.json
 - A2A JSON-RPC: https://agent-guild-5d5r.onrender.com/a2a · agent card: https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json
 - Issuer DID: https://agent-guild-5d5r.onrender.com/.well-known/agent-guild-did.json
 
@@ -25,9 +27,11 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /.well-known/agent-guild.json`
 - `GET /.well-known/agent-skills/agent-guild/SKILL.md`
 - `GET /.well-known/agent-skills/index.json`
+- `GET /.well-known/ai-catalog.json`
 - `GET /.well-known/ai-plugin.json`
 - `GET /.well-known/did.json`
 - `GET /.well-known/glama.json`
+- `GET /.well-known/mcp/payment-safety-server-card.json`
 - `GET /.well-known/mcp/server-card.json`
 - `GET /.well-known/x402`
 - `POST /adjudicators/enroll`
@@ -203,6 +207,10 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `guild_verify`
 - `guild_watch`
 - `guild_watch_feed`
+- `guild_x402_payment_safety`
+
+## Focused x402 payment-safety MCP tools
+
 - `guild_x402_payment_safety`
 
 ## A2A skills

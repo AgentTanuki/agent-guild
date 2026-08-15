@@ -9,7 +9,12 @@ from mcp.types import LATEST_PROTOCOL_VERSION
 
 from app import __version__
 from app.main import app
-from app.mcp_server import mcp, public_server_card
+from app.mcp_server import (
+    mcp,
+    payment_safety_mcp,
+    public_payment_safety_server_card,
+    public_server_card,
+)
 from app.state import store
 
 
@@ -108,3 +113,26 @@ def test_server_card_names_the_pre_signature_payment_tool_truthfully():
     }
     assert tool["_meta"]["ai.agent-guild/paid"]["operation"] == \
         "payment_decision"
+
+
+def test_focused_payment_safety_card_matches_its_exact_one_tool_registry():
+    before = list(_paid_offer_events())
+    response = client.get(
+        "/.well-known/mcp/payment-safety-server-card.json",
+        headers={"Origin": "https://crawler.example"},
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "*"
+    card = response.json()
+    expected = [
+        tool.to_mcp_tool().model_dump(by_alias=True, exclude_none=True)
+        for tool in asyncio.run(payment_safety_mcp.list_tools())
+    ]
+    assert card["tools"] == expected
+    assert [tool["name"] for tool in card["tools"]] == [
+        "guild_x402_payment_safety"]
+    assert card["transport"]["endpoint"] == "/mcp/payment-safety/"
+    assert card["serverInfo"]["name"] == \
+        "Agent Guild x402 Payment Safety"
+    assert asyncio.run(public_payment_safety_server_card()) == card
+    assert _paid_offer_events() == before

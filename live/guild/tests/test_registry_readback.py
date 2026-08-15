@@ -19,11 +19,13 @@ TRUST = {"contract": "AGD-1/1.0", "proof_suite": "eddsa-jcs-2022"}
 
 EXPECTED = {
     "name": "io.github.AgentTanuki/agent-guild",
+    "description": "Trust agents before delegating work.",
     "version": "2.0.0",
     "repository": {"url": "https://github.com/AgentTanuki/agent-guild",
                    "source": "github"},
     "remotes": [{"type": "streamable-http",
                  "url": "https://agent-guild-5d5r.onrender.com/mcp/"}],
+    "websiteUrl": "https://agent-guild-5d5r.onrender.com",
     "_meta": {PP: {"ai.agent-guild/trust": TRUST}},
 }
 
@@ -89,12 +91,32 @@ def test_wrong_repository_and_missing_remote_mismatch():
     assert any("remotes" in x for x in r.reasons)
 
 
+def test_added_remote_or_remote_configuration_mismatches():
+    extra = copy.deepcopy(EXPECTED["remotes"])
+    extra.append({"type": "streamable-http", "url": "https://evil.invalid"})
+    assert rb.verify_readback(_served(remotes=extra), EXPECTED).status == \
+        "mismatch"
+    configured = copy.deepcopy(EXPECTED["remotes"])
+    configured[0]["headers"] = [{"name": "Authorization", "value": "x"}]
+    assert rb.verify_readback(_served(remotes=configured), EXPECTED).status == \
+        "mismatch"
+
+
+def test_changed_buyer_facing_description_or_website_mismatches():
+    served = _served(
+        description="Something else", websiteUrl="https://evil.invalid")
+    result = rb.verify_readback(served, EXPECTED)
+    assert result.status == "mismatch"
+    assert any("description" in reason for reason in result.reasons)
+    assert any("websiteUrl" in reason for reason in result.reasons)
+
+
 def test_stripped_trust_meta_fails_readback():
     served = _served()
     served["server"].pop("_meta")
     r = rb.verify_readback(served, EXPECTED)
     assert r.status == "mismatch"
-    assert any("trust _meta missing" in x for x in r.reasons)
+    assert any("publisher-provided _meta missing" in x for x in r.reasons)
 
 
 def test_mutated_trust_meta_fails_readback():
@@ -105,6 +127,23 @@ def test_mutated_trust_meta_fails_readback():
     assert any("exactly" in x for x in r.reasons)
 
 
+def test_focused_product_metadata_is_exact_even_without_a_trust_key():
+    expected = copy.deepcopy(EXPECTED)
+    expected["name"] = "io.github.AgentTanuki/x402-payment-safety"
+    expected["_meta"] = {PP: {
+        "ai.agent-guild/x402-payment-safety": {
+            "tool": "guild_x402_payment_safety",
+            "verify": "https://agent-guild.example/verify",
+        },
+    }}
+    served = _served(**copy.deepcopy(expected))
+    served["server"]["_meta"][PP][
+        "ai.agent-guild/x402-payment-safety"].pop("verify")
+    result = rb.verify_readback(served, expected)
+    assert result.status == "mismatch"
+    assert any("publisher-provided" in reason for reason in result.reasons)
+
+
 def test_expected_without_trust_meta_does_not_gate_on_it():
     # if the local server.json carries no trust block, readback must not
     # invent a requirement the registry cannot satisfy
@@ -113,3 +152,17 @@ def test_expected_without_trust_meta_does_not_gate_on_it():
     served = _served()
     served["server"].pop("_meta")
     assert rb.verify_readback(served, exp).ok
+
+
+def test_search_parser_requires_the_exact_expected_name():
+    body = {"servers": [
+        _served()["server"],
+        {"server": {
+            "name": "io.github.AgentTanuki/x402-payment-safety-copy",
+            "version": "2.0.0",
+        }},
+    ]}
+    assert rb.search_contains(body, EXPECTED["name"]) is True
+    assert rb.search_contains(
+        body, "io.github.AgentTanuki/x402-payment-safety") is False
+    assert rb.search_contains({}, EXPECTED["name"]) is False

@@ -50,6 +50,9 @@ from .state import store
 from . import credentials as _creds
 
 
+PAYMENT_SAFETY_TAG = "x402-payment-safety"
+
+
 # --- Machine-readable output schemas -----------------------------------------
 # Declared return types make every tool self-describing: an AI client (or the
 # Smithery typed-SDK generator) gets a precise JSON Schema for what comes back,
@@ -703,6 +706,7 @@ def guild_paid_operations(ctx: Context = None) -> dict:
 
 
 @mcp.tool(
+    tags={PAYMENT_SAFETY_TAG},
     annotations=ToolAnnotations(
         title="Authorize an x402 payment before signing",
         # The returned policy is a read, but following the challenge settles
@@ -1472,55 +1476,60 @@ def _register_swarm_tools() -> None:
 _register_swarm_tools()
 
 
-async def public_server_card() -> dict[str, Any]:
-    """Return a cacheable, credential-free description of the live MCP server.
+# A second Registry listing may not reuse the general server's remote URL.
+# Compose the already-tested payment tool into a genuinely focused MCP server
+# rather than copying its implementation or publishing a misleading alias.
+payment_safety_mcp = FastMCP(
+    "Agent Guild x402 Payment Safety",
+    version=__version__,
+    instructions=(
+        "One job: authorize an exact x402 payment immediately before signing. "
+        "Call guild_x402_payment_safety with the scheme, CAIP-2 network, token "
+        "contract, atomic amount, payee and protected resource. The result is "
+        "a short-lived, signed allow/block decision bound to that exact request."
+    ),
+)
+payment_safety_mcp.mount(mcp)
+payment_safety_mcp.enable(tags={PAYMENT_SAFETY_TAG}, only=True)
 
-    Smithery and emerging MCP crawlers support the SEP-1649 server-card shape
-    as a fallback when a registry's one-time scan has gone stale.  Generate the
-    tool entries from the same FastMCP registry that serves ``tools/list`` so a
-    release cannot hand-maintain a divergent public catalogue.  Listing tools
-    is local metadata work only: it performs no paid call, challenge, demand
-    attribution, settlement or network probe.
-    """
+
+async def _public_server_card(
+        server: FastMCP, *, name: str, description: str,
+        endpoint: str) -> dict[str, Any]:
+    """Generate a static card from one live FastMCP registry."""
     tools = [
         tool.to_mcp_tool().model_dump(by_alias=True, exclude_none=True)
-        for tool in await mcp.list_tools()
+        for tool in await server.list_tools()
     ]
     resources = [
         resource.to_mcp_resource().model_dump(by_alias=True, exclude_none=True)
-        for resource in await mcp.list_resources()
+        for resource in await server.list_resources()
     ]
     resource_templates = [
         template.to_mcp_template().model_dump(by_alias=True, exclude_none=True)
-        for template in await mcp.list_resource_templates()
+        for template in await server.list_resource_templates()
     ]
     prompts = [
         prompt.to_mcp_prompt().model_dump(by_alias=True, exclude_none=True)
-        for prompt in await mcp.list_prompts()
+        for prompt in await server.list_prompts()
     ]
     return {
         # SEP-1649 names a schema URL that still returns 404 as of this
-        # release.  Do not advertise a nonexistent validator; Smithery's
-        # documented static-card fallback requires serverInfo and accepts the
-        # remaining MCP-native fields directly.
+        # release. Do not advertise a nonexistent validator.
         "protocolVersion": LATEST_PROTOCOL_VERSION,
         "serverInfo": {
-            "name": "Agent Guild",
-            "title": "Agent Guild",
+            "name": name,
+            "title": name,
             "version": __version__,
         },
-        "description": (
-            "Attack-resistant trust and settlement infrastructure for "
-            "autonomous agents: rank and vet counterparties, carry portable "
-            "signed reputation, and settle paid machine work."
-        ),
+        "description": description,
         "documentationUrl": (
             "https://agent-guild-5d5r.onrender.com/"
             ".well-known/agent-guild.json"
         ),
         "transport": {
             "type": "streamable-http",
-            "endpoint": "/mcp/",
+            "endpoint": endpoint,
         },
         "capabilities": {"tools": {}},
         "authentication": {
@@ -1532,6 +1541,41 @@ async def public_server_card() -> dict[str, Any]:
         "resourceTemplates": resource_templates,
         "prompts": prompts,
     }
+
+
+async def public_server_card() -> dict[str, Any]:
+    """Return a cacheable, credential-free description of the live MCP server.
+
+    Smithery and emerging MCP crawlers support the SEP-1649 server-card shape
+    as a fallback when a registry's one-time scan has gone stale.  Generate the
+    tool entries from the same FastMCP registry that serves ``tools/list`` so a
+    release cannot hand-maintain a divergent public catalogue.  Listing tools
+    is local metadata work only: it performs no paid call, challenge, demand
+    attribution, settlement or network probe.
+    """
+    return await _public_server_card(
+        mcp,
+        name="Agent Guild",
+        description=(
+            "Attack-resistant trust and settlement infrastructure for "
+            "autonomous agents: rank and vet counterparties, carry portable "
+            "signed reputation, and settle paid machine work."
+        ),
+        endpoint="/mcp/",
+    )
+
+
+async def public_payment_safety_server_card() -> dict[str, Any]:
+    """Return the exact one-tool public card for the focused MCP server."""
+    return await _public_server_card(
+        payment_safety_mcp,
+        name="Agent Guild x402 Payment Safety",
+        description=(
+            "Pre-signing x402 payment authorization: one request-bound, "
+            "Guild-signed allow/block decision for an exact payment."
+        ),
+        endpoint="/mcp/payment-safety/",
+    )
 
 # Streamable-HTTP ASGI app, mounted by main.py at /mcp (served at /mcp/).
 #
@@ -1553,15 +1597,22 @@ async def public_server_card() -> dict[str, Any]:
 # the kwargs (those versions had no guard to configure).
 PUBLIC_HOSTS = [h.strip() for h in os.environ.get(
     "GUILD_PUBLIC_HOSTS", "agent-guild-5d5r.onrender.com").split(",") if h.strip()]
-try:
-    # "auto" + explicit allowlists = the documented narrow mode: with explicit
-    # allowed_hosts, the guard validates EVERY request against
-    # PUBLIC_HOSTS + loopback DEFAULT_HOSTS + the bound server host.
-    # (fastmcp 3.4.4 setting http_host_origin_protection defaults to False,
-    # so allowed_hosts alone would configure a guard that never runs —
-    # verified empirically before this change.)
-    mcp_app = mcp.http_app(path="/", host_origin_protection="auto",
-                           allowed_hosts=PUBLIC_HOSTS,
-                           allowed_origins=[f"https://{h}" for h in PUBLIC_HOSTS])
-except TypeError:  # fastmcp < 3.x: no guard, no kwarg
-    mcp_app = mcp.http_app(path="/")
+
+
+def _http_app(server: FastMCP):
+    """Build one guarded Streamable-HTTP app with the shared public policy."""
+    try:
+        return server.http_app(
+            path="/", host_origin_protection="auto",
+            allowed_hosts=PUBLIC_HOSTS,
+            allowed_origins=[f"https://{h}" for h in PUBLIC_HOSTS],
+        )
+    except TypeError:  # fastmcp < 3.x: no guard, no kwarg
+        return server.http_app(path="/")
+
+
+# "auto" + explicit allowlists = the documented narrow mode: with explicit
+# allowed_hosts, the guard validates EVERY request against PUBLIC_HOSTS +
+# loopback DEFAULT_HOSTS + the bound server host.
+mcp_app = _http_app(mcp)
+payment_safety_mcp_app = _http_app(payment_safety_mcp)
