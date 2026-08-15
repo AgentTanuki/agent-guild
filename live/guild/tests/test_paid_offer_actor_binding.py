@@ -275,10 +275,13 @@ LIVE_READBACK_ACTORS = [
 def _seed_impressions(store, pairs, source="paid_offer:registry"):
     for ua, actor in pairs:
         for op in ("deep_preflight", "evidence_bundle", "watch_cycle"):
-            store.events.append({
+            event = {
                 "type": "paid_offer_served", "operation": op,
                 "source": source, "key": actor, "ua": ua,
-                "at": "2026-08-01T09:35:00+00:00"})
+                "at": "2026-08-01T09:35:00+00:00"}
+            store.events.append(event)
+            if store.backend is not None:
+                store.backend.append_event(event)
     return store
 
 

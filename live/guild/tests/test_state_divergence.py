@@ -30,6 +30,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app import instanceid  # noqa: E402
+from app import store as store_module  # noqa: E402
 from app.store import (  # noqa: E402
     CanonicalWriteRefused,
     CheckpointForkError,
@@ -105,6 +106,118 @@ def test_state_diagnostics_DETECTS_a_stale_in_memory_view(tmp_path):
     assert "durable_events_ahead_of_in_memory" in after["divergence"]
     assert after["consistent"] is False
     assert after["durable"]["events"] > after["in_memory"]["events"]
+
+
+def test_retained_tail_offset_is_consistent_with_durable_history(
+        tmp_path, monkeypatch):
+    """Intentional cache trimming is not stale state, but it is disclosed."""
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TRIGGER", 5)
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TARGET", 3)
+    s = _sqlite_store(tmp_path)
+    for i in range(6):
+        s.record_event(None, "query", ua=f"retained/{i}")
+
+    d = s.state_diagnostics()
+    retention = d["in_memory"]["event_retention"]
+    assert d["divergence"] == [], d
+    assert d["consistent"] is True
+    assert d["durable"]["events"] == 6
+    assert d["in_memory"]["events"] == 3
+    assert d["in_memory"]["events_omitted_by_retention"] == 3
+    assert d["in_memory"]["logical_events_seen"] == 6
+    assert retention["mode"] == "retained_tail"
+    assert retention["history_complete"] is False
+    assert retention["oldest_retained_at"] == s.events[0]["at"]
+    assert s.event_retention_coverage(s.events[0]["at"])[
+        "history_complete"] is True
+    assert s.event_retention_coverage("1970-01-01T00:00:00+00:00")[
+        "history_complete"] is False
+
+    # A restart hydrates only the bounded tail and derives the exact offset
+    # from SQLite's authoritative row count. It must not briefly load all
+    # history or misdiagnose the deliberate tail as a stale reader.
+    restarted = _sqlite_store(tmp_path)
+    rd = restarted.state_diagnostics()
+    assert len(restarted.events) == 3
+    assert restarted.events_omitted_by_retention == 3
+    assert rd["consistent"] is True
+    assert rd["in_memory"]["logical_events_seen"] == 6
+
+
+def test_retained_tail_still_detects_a_genuine_stale_reader(
+        tmp_path, monkeypatch):
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TRIGGER", 5)
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TARGET", 3)
+    writer = _sqlite_store(tmp_path)
+    for i in range(6):
+        writer.record_event(None, "query", ua=f"seed/{i}")
+    reader = _sqlite_store(tmp_path)
+    assert reader.state_diagnostics()["consistent"] is True
+
+    writer.record_event(None, "query", ua="after-reader-boot")
+    d = reader.state_diagnostics()
+    assert "durable_events_ahead_of_in_memory" in d["divergence"]
+    assert d["consistent"] is False
+
+
+def test_json_retention_offset_survives_compaction_and_restart(
+        tmp_path, monkeypatch):
+    """JSON has no all-history event table; never reset incomplete to full."""
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TRIGGER", 5)
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TARGET", 3)
+    path = tmp_path / "json-store.json"
+    s = Store(path=str(path))
+    for i in range(6):
+        s.record_event(None, "query", ua=f"json/{i}")
+    s._save()
+
+    restarted = Store(path=str(path))
+    assert len(restarted.events) == 3
+    assert restarted.events_omitted_by_retention == 3
+    coverage = restarted.event_retention_coverage()
+    assert coverage["history_complete"] is False
+    assert coverage["logical_events_seen"] == 6
+
+
+def test_lossy_json_to_sqlite_cutover_keeps_a_durable_history_floor(
+        tmp_path, monkeypatch):
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TRIGGER", 5)
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TARGET", 3)
+    path = tmp_path / "cutover.json"
+    monkeypatch.setenv("GUILD_STORE", "json")
+    source = Store(path=str(path))
+    # A future-dated row in the omitted prefix proves timestamps cannot heal
+    # a sequence-based gap after cutover.
+    source.record_event(
+        "future-buyer", "paid_offer_shown", ua="langchain/0.2.1",
+        challenged_operation="best_agent",
+        at="2099-01-01T00:00:00+00:00")
+    for i in range(5):
+        source.record_event(None, "query", ua=f"cutover/{i}")
+    source._save()
+    assert source.events_omitted_by_retention == 3
+
+    monkeypatch.setenv("GUILD_STORE", "sqlite")
+    monkeypatch.setenv("GUILD_STORE_PATH", str(tmp_path / "cutover.sqlite3"))
+    migrated = Store(path=str(path))
+    assert migrated.backend.durable_counts()["events"] == 3
+    assert migrated.events_omitted_by_retention == 0
+    assert migrated.event_history_floor["omitted_before_cutover"] == 3
+    _, all_coverage = migrated.measurement_event_snapshot(types=("query",))
+    assert all_coverage["history_complete"] is False
+    assert migrated.state_diagnostics()["consistent"] is True
+
+    floor = migrated.event_history_floor["cutover_at"]
+    migrated.record_event(None, "query", ua="after-cutover")
+    omitted, new_coverage = migrated.measurement_event_snapshot(
+        types=("paid_offer_shown",), since=floor)
+    assert omitted == []
+    assert new_coverage["history_complete"] is False
+
+    restarted = Store(path=str(path))
+    assert restarted.event_history_floor == migrated.event_history_floor
+    assert restarted.measurement_event_snapshot(types=("query",))[1][
+        "history_complete"] is False
 
 
 # --------------------------------------------------------------------------

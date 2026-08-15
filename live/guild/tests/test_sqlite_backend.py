@@ -142,6 +142,39 @@ def _store():
     return Store(path="")
 
 
+def test_filtered_event_snapshot_preserves_append_order_and_duplicates():
+    s = _store()
+    at = "2026-08-15T00:00:00+00:00"
+    rows = [
+        {"type": "paid_offer_shown", "at": at, "marker": "first"},
+        {"type": "query", "at": at, "marker": "middle"},
+        {"type": "paid_offer_shown", "at": at, "marker": "second"},
+        {"type": "paid_offer_shown",
+         "at": "2026-08-15T00:00:01+00:00", "marker": "third"},
+    ]
+    for row in rows:
+        s.backend.append_event(row)
+
+    got = s.backend.fetch_events(
+        types=("paid_offer_shown",), since=at)
+    assert [row["marker"] for row in got] == ["first", "second", "third"]
+    assert len([row for row in got if row["at"] == at]) == 2
+
+
+def test_event_tail_and_total_come_from_one_ordered_snapshot():
+    s = _store()
+    for i in range(7):
+        s.backend.append_event({
+            "type": "query", "at": f"2026-08-15T00:00:0{i}+00:00",
+            "marker": i})
+    tail, total = s.backend.fetch_event_tail(3)
+    assert total == 7
+    assert [row["marker"] for row in tail] == [4, 5, 6]
+    loaded = s.backend.load_all(event_limit=3)
+    assert loaded["events_total"] == 7
+    assert [row["marker"] for row in loaded["events"]] == [4, 5, 6]
+
+
 def _no_crash(results):
     for rc, out, err in results:
         assert rc == 0, f"worker crashed (rc={rc}): {err}"

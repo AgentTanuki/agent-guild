@@ -159,6 +159,11 @@ OPERATION_EVENTS: dict[str, tuple[str, ...]] = {
 }
 
 ALL_PAID_EVENTS = tuple(t for v in OPERATION_EVENTS.values() for t in v)
+CHALLENGE_EVENTS = ("paid_offer_shown", "paid_offer_challenged")
+PORTFOLIO_EXPOSURE_EVENTS = (
+    "preflight_run", "deep_preflight_run", "evidence_bundle_issued",
+    "watch_provisioned", "index_view", *CHALLENGE_EVENTS,
+)
 
 
 def is_revenue(event: dict) -> bool:
@@ -202,9 +207,27 @@ def _at_or_after(event: dict, since: Optional[str]) -> bool:
         return False
 
 
+def _measurement_snapshot(store: Any, *, types: tuple[str, ...],
+                          since: Optional[str]
+                          ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Obtain one immutable history cut, durable when the Store supports it."""
+    if hasattr(store, "measurement_event_snapshot"):
+        return store.measurement_event_snapshot(types=types, since=since)
+    events = [dict(event) for event in getattr(store, "events", [])
+              if event.get("type") in types and _at_or_after(event, since)]
+    coverage = (store.event_retention_coverage(since)
+                if hasattr(store, "event_retention_coverage") else {
+                    "source": "legacy_in_memory",
+                    "requested_since": since,
+                    "history_complete": True})
+    return events, coverage
+
+
 def qualified_exposure(store: Any, operation: Optional[str] = None,
                        since: Optional[str] = None,
-                       tested_price_credits: Optional[int] = None
+                       tested_price_credits: Optional[int] = None,
+                       *, event_snapshot: Optional[list[dict[str, Any]]] = None,
+                       measurement_coverage: Optional[dict[str, Any]] = None
                        ) -> dict[str, Any]:
     """Genuinely-external actors who were ACTUALLY OFFERED this paid operation.
 
@@ -262,9 +285,20 @@ def qualified_exposure(store: Any, operation: Optional[str] = None,
     unattributed = 0
     unattributed_ops: dict[str, int] = {}
 
+    exposure_types = (
+        tuple(dict.fromkeys((*CHALLENGE_EVENTS,
+                            *OPERATION_EVENTS.get(operation, ()))))
+        if operation else PORTFOLIO_EXPOSURE_EVENTS)
+    if event_snapshot is None:
+        event_snapshot, measurement_coverage = _measurement_snapshot(
+            store, types=exposure_types, since=since)
+    coverage = measurement_coverage or {
+        "source": "caller_supplied", "requested_since": since,
+        "history_complete": False}
+
     if operation:
         completion_types = set(OPERATION_EVENTS.get(operation, ()))
-        for e in getattr(store, "events", []):
+        for e in event_snapshot:
             etype = e.get("type")
             is_challenge = (etype in ("paid_offer_shown",
                                       "paid_offer_challenged")
@@ -306,10 +340,8 @@ def qualified_exposure(store: Any, operation: Optional[str] = None,
         # incremented inside the `if operation:` branch, so the unscoped
         # report published paid_offers_shown: 0 STRUCTURALLY, whatever the
         # traffic was. A counter that cannot leave zero is not a measurement.
-        surfaces = {"preflight_run", "deep_preflight_run",
-                    "evidence_bundle_issued", "watch_provisioned",
-                    "index_view", "paid_offer_shown", "paid_offer_challenged"}
-        for e in getattr(store, "events", []):
+        surfaces = set(PORTFOLIO_EXPOSURE_EVENTS)
+        for e in event_snapshot:
             etype = e.get("type")
             if etype not in surfaces or not _external(e):
                 continue
@@ -356,13 +388,16 @@ def qualified_exposure(store: Any, operation: Optional[str] = None,
         "unattributed_paid_offers_shown": unattributed,
         "unattributed_paid_offer_operations": unattributed_ops,
         "paid_completions": completed,
+        "measurement_coverage": coverage,
         "rule": rule,
     }
 
 
 def commercial_metrics(store: Any, operation: Optional[str] = None,
                        since: Optional[str] = None,
-                       tested_price_credits: Optional[int] = None
+                       tested_price_credits: Optional[int] = None,
+                       *, event_snapshot: Optional[list[dict[str, Any]]] = None,
+                       measurement_coverage: Optional[dict[str, Any]] = None
                        ) -> dict[str, Any]:
     """The primary metrics. Revenue is REAL money only.
 
@@ -383,7 +418,14 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
     unattributed_settled = 0
     testnet_settlements = 0
 
-    for e in getattr(store, "events", []):
+    if event_snapshot is None:
+        event_snapshot, measurement_coverage = _measurement_snapshot(
+            store, types=tuple(want), since=since)
+    coverage = measurement_coverage or {
+        "source": "caller_supplied", "requested_since": since,
+        "history_complete": False}
+
+    for e in event_snapshot:
         if e.get("type") not in want:
             continue
         # Same arm only. A payment QUOTED at the old price and settled late
@@ -448,6 +490,7 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
         "supporting_sandbox_distinct_actors_NOT_PAYERS": len(sandbox_actors),
         "supporting_testnet_or_unconfirmed_NOT_REVENUE": testnet_settlements,
         "settled_but_not_attributable_external": unattributed_settled,
+        "measurement_coverage": coverage,
         "settlement_rule": (
             "revenue requires ALL of: settlement_mode == 'x402', "
             "settlement_confirmed (chain receipt verified, not the "
@@ -484,10 +527,20 @@ def evaluate(store: Any, key: str) -> dict[str, Any]:
     operation = experiment_operation(rec)
     since = rec.get("started_at")
     tested = rec.get("tested_price_credits")
+    measurement_types = (tuple(dict.fromkeys(
+        (*CHALLENGE_EVENTS, *OPERATION_EVENTS.get(operation, ()))))
+        if operation else tuple(dict.fromkeys(
+            (*PORTFOLIO_EXPOSURE_EVENTS, *ALL_PAID_EVENTS))))
+    event_snapshot, coverage = _measurement_snapshot(
+        store, types=measurement_types, since=since)
     exposure = qualified_exposure(store, operation, since=since,
-                                  tested_price_credits=tested)
+                                  tested_price_credits=tested,
+                                  event_snapshot=event_snapshot,
+                                  measurement_coverage=coverage)
     metrics = commercial_metrics(store, operation, since=since,
-                                 tested_price_credits=tested)
+                                 tested_price_credits=tested,
+                                 event_snapshot=event_snapshot,
+                                 measurement_coverage=coverage)
     baseline = rec.get("baseline") or {}
     started = rec.get("started_at")
     try:
@@ -502,7 +555,19 @@ def evaluate(store: Any, key: str) -> dict[str, Any]:
     enough = exposure["qualified_actors"] >= int(
         rec.get("min_qualified", min_qualified()))
 
-    if not enough:
+    coverage_complete = bool(
+        (exposure.get("measurement_coverage") or {}).get("history_complete")
+        and (metrics.get("measurement_coverage") or {}).get(
+            "history_complete"))
+
+    if not coverage_complete:
+        decision = "insufficient_evidence" if expired else "hold"
+        reason = (
+            "measurement history is incomplete for this treatment window; "
+            "retention may have omitted earlier events, so the experiment "
+            "cannot safely promote, kill or reprice"
+            + (" before the window expired" if expired else ""))
+    elif not enough:
         decision = "insufficient_evidence" if expired else "hold"
         reason = (
             f"{exposure['qualified_actors']} qualified external actor(s) — "
@@ -796,9 +861,19 @@ def snapshot(store: Any, operation: Optional[str] = None) -> dict[str, Any]:
     a report that tells the caller to pass `operation` and then ignores it is
     worse than one that never offered the parameter, because the answer looks
     scoped and is not."""
+    measurement_types = tuple(dict.fromkeys(
+        (*CHALLENGE_EVENTS, *OPERATION_EVENTS.get(operation, ())))
+        ) if operation else tuple(dict.fromkeys(
+            (*PORTFOLIO_EXPOSURE_EVENTS, *ALL_PAID_EVENTS)))
+    event_snapshot, coverage = _measurement_snapshot(
+        store, types=measurement_types, since=None)
     return {
-        "commercial": commercial_metrics(store, operation),
-        "qualified_exposure": qualified_exposure(store, operation),
+        "commercial": commercial_metrics(
+            store, operation, event_snapshot=event_snapshot,
+            measurement_coverage=coverage),
+        "qualified_exposure": qualified_exposure(
+            store, operation, event_snapshot=event_snapshot,
+            measurement_coverage=coverage),
         "experiments": {k: {"status": v.get("status"),
                             "decision": v.get("decision"),
                             "variable": v.get("variable"),

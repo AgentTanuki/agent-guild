@@ -181,6 +181,9 @@ def test_agent_skills_source_is_closed_and_attributable():
 def _store_with(events):
     s = Store(path="")
     s.events = list(events)
+    if s.backend is not None:
+        for event in s.events:
+            s.backend.append_event(event)
     return s
 
 

@@ -750,7 +750,52 @@ class SqliteBackend:
             "SELECT 1 FROM kv WHERE k NOT LIKE '\\_%' ESCAPE '\\' LIMIT 1").fetchone()
         return row is None
 
-    def load_all(self) -> dict[str, Any]:
+    def fetch_events(self, *, types: Optional[Iterable[str]] = None,
+                     since: Optional[str] = None) -> list[dict[str, Any]]:
+        """Return one ordered, durable event snapshot.
+
+        Filters are executed by SQLite (using the existing ``(type, at)``
+        index) rather than over the bounded in-process serving cache. Bound
+        placeholders keep caller-provided event names/timestamps out of SQL,
+        and ordering by ``seq`` preserves append order when timestamps collide.
+        """
+        clauses: list[str] = []
+        args: list[Any] = []
+        wanted = tuple(dict.fromkeys(str(t) for t in (types or ()) if t))
+        if wanted:
+            clauses.append(f"type IN ({','.join('?' for _ in wanted)})")
+            args.extend(wanted)
+        if since is not None:
+            clauses.append("at >= ?")
+            args.append(str(since))
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self.conn().execute(
+            f"SELECT json FROM events{where} ORDER BY seq", tuple(args)
+        ).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
+    def fetch_event_tail(self, limit: int) -> tuple[list[dict[str, Any]], int]:
+        """Return the newest ``limit`` events and the total from one snapshot.
+
+        ``COUNT(*) OVER()`` makes the retained tail and total come from the
+        same SELECT/read snapshot. When no row exists the total is necessarily
+        zero. Results are reversed back into append order before returning.
+        """
+        bounded = max(0, int(limit))
+        if bounded == 0:
+            total = int(self.conn().execute(
+                "SELECT COUNT(*) FROM events").fetchone()[0])
+            return [], total
+        rows = self.conn().execute(
+            "SELECT json, COUNT(*) OVER() AS total "
+            "FROM events ORDER BY seq DESC LIMIT ?", (bounded,)
+        ).fetchall()
+        if not rows:
+            return [], 0
+        events = [json.loads(row[0]) for row in reversed(rows)]
+        return events, int(rows[0][1])
+
+    def load_all(self, event_limit: Optional[int] = None) -> dict[str, Any]:
         con = self.conn()
 
         def rows(sql: str) -> list[dict[str, Any]]:
@@ -762,7 +807,11 @@ class SqliteBackend:
         escrows = {r["id"]: r for r in rows("SELECT json FROM escrows")}
         attestations = rows("SELECT json FROM attestations ORDER BY rowid")
         ledger = rows("SELECT json FROM ledger ORDER BY seq")
-        events = rows("SELECT json FROM events ORDER BY seq")
+        if event_limit is None:
+            events = rows("SELECT json FROM events ORDER BY seq")
+            events_total = len(events)
+        else:
+            events, events_total = self.fetch_event_tail(event_limit)
         referrals = rows("SELECT json FROM referrals ORDER BY rowid")
         checkpoints = rows("SELECT json FROM checkpoints ORDER BY idx")
         billing_log = rows("SELECT json FROM billing_log ORDER BY seq")
@@ -780,7 +829,8 @@ class SqliteBackend:
         return {
             "agents": agents, "accounts": accounts, "tasks": tasks,
             "escrows": escrows, "attestations": attestations, "ledger": ledger,
-            "events": events, "referrals": referrals, "checkpoints": checkpoints,
+            "events": events, "events_total": events_total,
+            "referrals": referrals, "checkpoints": checkpoints,
             "billing_log": billing_log, "health_log": health_log,
             "demand_watches": demand_watches,
             "identity": kv.get("identity", {}),
