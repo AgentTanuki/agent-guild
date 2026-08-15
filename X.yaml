@@ -11,6 +11,47 @@ catalog:
   requires_adapter: false
   approval: none
 
+harness:
+  cases:
+    - name: agent-guild-vets-counterparty-before-delegation
+      operator_journeys:
+        - mode: standalone
+          confusors: [review-skill, prior-art]
+          request: Vet an unknown coding agent before delegating a security review and return the safe next action.
+          expected_outcome: Select Agent Guild for counterparty trust, call the public capability check, and gate delegation on its hire/caution/avoid verdict.
+        - mode: composed
+          request: Continue the delegation decision using the already verified Agent Guild verdict and counterparty identity.
+          expected_outcome: Reuse the supplied verdict and identity binding without rechecking reputation or repeating identity verification.
+          prior_evidence:
+            - The signed Agent Guild verdict for the coding-security capability supplied in the fixture.
+            - The verified counterparty agent id bound to that verdict.
+          must_not_repeat:
+            - Do not call the capability check again while the supplied verdict remains current.
+            - Do not repeat passport verification for the already bound counterparty identity.
+      runner: prepare
+      inputs:
+        operation: Vet an unknown agent before delegating a coding security review.
+        capability: coding-security-review
+        counterparty: agent_example
+        constraints:
+          require_verdict: hire
+          reject_collusion_suspicion: true
+      caller:
+        answers:
+          agent_task.agent-guild.output:
+            procedure:
+              decision: guild_check
+              endpoint: https://agent-guild-5d5r.onrender.com/check?capability=coding-security-review
+              gate: Delegate only when the current verdict is hire.
+              evidence_required:
+                - Signed Agent Guild verdict
+                - Counterparty identity binding
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+
 runners:
   prepare:
     default: true
