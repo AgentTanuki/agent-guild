@@ -11,6 +11,7 @@ and must never be presented as real money movement.
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import threading
 import time
@@ -26,6 +27,10 @@ CHAIN_ID = 84532
 
 app = FastAPI(title="fake-x402-facilitator")
 _settled: dict[str, str] = {}
+_bazaar_captures: dict[str, dict[str, Any] | None] = {
+    "verify": None,
+    "settle": None,
+}
 _lock = threading.Lock()
 
 
@@ -33,6 +38,25 @@ class FacilitatorRequest(BaseModel):
     x402Version: int
     paymentPayload: dict[str, Any]
     paymentRequirements: dict[str, Any]
+
+
+def reset_bazaar_captures() -> None:
+    """Clear facilitator-observed Bazaar metadata between test payments."""
+    with _lock:
+        _bazaar_captures["verify"] = None
+        _bazaar_captures["settle"] = None
+
+
+def bazaar_captures() -> dict[str, dict[str, Any] | None]:
+    """Return an isolated snapshot of metadata received on both legs."""
+    with _lock:
+        return copy.deepcopy(_bazaar_captures)
+
+
+def _capture_bazaar(leg: str, body: FacilitatorRequest) -> None:
+    extensions = body.paymentPayload.get("extensions") or {}
+    with _lock:
+        _bazaar_captures[leg] = copy.deepcopy(extensions.get("bazaar"))
 
 
 def _recover_signer(reqs: dict[str, Any], auth: dict[str, Any],
@@ -110,6 +134,7 @@ def verify(body: FacilitatorRequest):
     ok, reason, payer = _validate(body)
     if not ok:
         return {"isValid": False, "invalidReason": reason, "payer": payer or None}
+    _capture_bazaar("verify", body)
     return {"isValid": True, "payer": payer}
 
 
@@ -119,6 +144,7 @@ def settle(body: FacilitatorRequest):
     if not ok:
         return {"success": False, "errorReason": reason, "payer": payer or None,
                 "transaction": "", "network": NETWORK}
+    _capture_bazaar("settle", body)
     nonce = body.paymentPayload["payload"]["authorization"]["nonce"]
     with _lock:
         if nonce in _settled:      # EIP-3009 contracts reject nonce reuse
