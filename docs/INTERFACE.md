@@ -1,6 +1,6 @@
 # Agent Guild — machine interface (GENERATED)
 
-*Generated from `live/guild/contract/contract.json` v2 (service 2.5.30). Do not edit by hand — run `make contract`.*
+*Generated from `live/guild/contract/contract.json` v2 (service 2.5.31). Do not edit by hand — run `make contract`.*
 
 - Host: https://agent-guild-5d5r.onrender.com
 - MCP (streamable HTTP): https://agent-guild-5d5r.onrender.com/mcp/
@@ -202,6 +202,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `guild_verify`
 - `guild_watch`
 - `guild_watch_feed`
+- `guild_x402_payment_safety`
 
 ## A2A skills
 

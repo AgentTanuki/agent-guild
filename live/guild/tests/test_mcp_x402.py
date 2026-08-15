@@ -22,7 +22,7 @@ from fastmcp import Client
 
 from x402.mcp.types import MCP_PAYMENT_META_KEY, MCP_PAYMENT_RESPONSE_META_KEY
 
-from app import payments, x402
+from app import paymentdecision, payments, x402
 from app.mcp_server import mcp as guild_mcp
 
 PAY_TO = "0x" + "11" * 20
@@ -166,6 +166,121 @@ def test_deep_preflight_payment_argument_follows_same_gateway(monkeypatch):
     assert len(facilitator.settle_calls) == 1
 
 
+def _target_payment():
+    return {
+        "scheme": "exact",
+        "network": "eip155:8453",
+        "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "amount": "25000",
+        "pay_to": "0x" + "33" * 20,
+        "resource": "https://seller.example/research/42",
+    }
+
+
+def test_payment_safety_tool_is_discoverable_and_returns_bound_challenge():
+    args = {
+        "payment": _target_payment(),
+        "capability": "fact-check",
+        "policy": {"max_risk": 32.99, "min_confidence": 0.5},
+        "ttl_seconds": 300,
+    }
+    result = _call("guild_x402_payment_safety", args)
+    assert result.is_error
+    assert result.structured_content["x402Version"] == 2
+    expected = payments.payment_decision_request(
+        paymentdecision.request_sha256(args))
+    assert result.structured_content["resource"]["url"] == \
+        expected.resource_url
+    # The service-fee rail is independently configured from the exact target
+    # payment network; the production rail is Base mainnet while this fixture
+    # intentionally exercises the default test rail.
+    assert result.structured_content["accepts"][0]["network"] == x402.network()
+    assert "credentialSubject" not in result.structured_content
+
+
+def test_payment_safety_refusal_is_never_charged_or_counted(monkeypatch):
+    from app.state import store
+    from tests.test_x402_v2 import FakeFacilitator
+    facilitator = FakeFacilitator()
+    monkeypatch.setattr(x402, "_facilitator", lambda: facilitator)
+    before = [e for e in store.events if e.get("type") in {
+        "payment_decision_issued", "paid_offer_shown"
+    }]
+    invalid = _target_payment()
+    invalid["pay_to"] = "not-a-wallet"
+
+    result = _call("guild_x402_payment_safety", {"payment": invalid})
+
+    assert not result.is_error
+    assert result.structured_content["billing"].startswith("NOT CHARGED")
+    assert facilitator.verify_calls == []
+    assert facilitator.settle_calls == []
+    after = [e for e in store.events if e.get("type") in {
+        "payment_decision_issued", "paid_offer_shown"
+    }]
+    assert after == before
+
+
+def test_payment_safety_tool_official_meta_settles_once(monkeypatch):
+    from tests.test_x402_v2 import FakeFacilitator, make_payload
+    facilitator = FakeFacilitator()
+    monkeypatch.setattr(x402, "_facilitator", lambda: facilitator)
+    args = {
+        "payment": _target_payment(),
+        "capability": "fact-check",
+        "policy": {"max_risk": 32.99, "min_confidence": 0.5},
+        "ttl_seconds": 300,
+    }
+    preq = payments.payment_decision_request(
+        paymentdecision.request_sha256(args))
+    payload = make_payload(preq)
+    from x402.mcp.utils import attach_payment_to_meta
+    meta = attach_payment_to_meta({}, payload)["_meta"]
+
+    result = _call("guild_x402_payment_safety", args, meta=meta)
+    assert not result.is_error
+    assert result.meta[MCP_PAYMENT_RESPONSE_META_KEY]["success"] is True
+    subject = result.structured_content["credentialSubject"]
+    assert subject["request_sha256"] == paymentdecision.request_sha256(args)
+    assert subject["payment"] == paymentdecision.normalise_request(args)["payment"]
+    assert subject["decision"] == "block"
+    assert len(facilitator.verify_calls) == 1
+    assert len(facilitator.settle_calls) == 1
+
+
+def test_payment_safety_tool_schema_argument_settles_and_conflicts_fail_closed(
+        monkeypatch):
+    from tests.test_x402_v2 import FakeFacilitator, make_payload
+    facilitator = FakeFacilitator()
+    monkeypatch.setattr(x402, "_facilitator", lambda: facilitator)
+    args = {"payment": _target_payment(), "ttl_seconds": 300}
+    preq = payments.payment_decision_request(
+        paymentdecision.request_sha256(args))
+    meta_payload = make_payload(preq)
+    fallback = meta_payload.model_dump(by_alias=True, exclude_none=True)
+
+    paid = _call("guild_x402_payment_safety", {
+        **args, "x402_payment": fallback,
+    })
+    assert not paid.is_error
+    assert paid.meta[MCP_PAYMENT_RESPONSE_META_KEY]["success"] is True
+    assert len(facilitator.verify_calls) == 1
+    assert len(facilitator.settle_calls) == 1
+
+    conflicting = dict(fallback)
+    conflicting["payload"] = json.loads(json.dumps(fallback["payload"]))
+    conflicting["payload"]["authorization"]["nonce"] = "0x" + "ff" * 32
+    from x402.mcp.utils import attach_payment_to_meta
+    meta = attach_payment_to_meta({}, make_payload(preq))["_meta"]
+    rejected = _call("guild_x402_payment_safety", {
+        **args, "x402_payment": conflicting,
+    }, meta=meta)
+    assert rejected.is_error
+    assert rejected.structured_content["reason"] == "conflicting_mcp_payment"
+    assert len(facilitator.verify_calls) == 1
+    assert len(facilitator.settle_calls) == 1
+
+
 def test_stringified_payment_argument_follows_same_gateway(monkeypatch):
     """Generic MCP/LLM adapters frequently stringify object arguments.  The
     compatibility carrier accepts that common representation, then immediately
@@ -193,7 +308,8 @@ def test_payment_argument_is_visible_only_on_paid_read_tools():
     tools = {t.name: t.to_mcp_tool().model_dump(by_alias=True)
              for t in asyncio.run(run())}
     for name in ("guild_check", "guild_search", "guild_best_agent",
-                 "guild_risk_score", "guild_preflight_deep"):
+                 "guild_risk_score", "guild_preflight_deep",
+                 "guild_x402_payment_safety"):
         props = tools[name]["inputSchema"]["properties"]
         assert "x402_payment" in props
         carrier_schema = props["x402_payment"]
