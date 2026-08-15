@@ -33,7 +33,7 @@ from typing import Any, Mapping, Optional
 
 FRAMEWORK_RE = re.compile(
     r"(httpx|aiohttp|langchain|langgraph|openai|anthropic|claude|llamaindex|"
-    r"crewai|autogen|"
+    r"crewai|autogen|agentguild-skill|"
     r"semantic-kernel|node-fetch|undici|axios|okhttp|go-http-client|reqwest|"
     r"cursor|cline|continue|windsurf|cody|dify|n8n|flowise)", re.I)
 

@@ -224,6 +224,28 @@ _caller_did: contextvars.ContextVar[str] = contextvars.ContextVar(
     "caller_did", default="")
 _xpay_settled_holder: contextvars.ContextVar[Optional[list]] = \
     contextvars.ContextVar("xpay_settled_holder", default=None)
+
+# Machine-readable surfaces on which merely receiving a successful response
+# is evidence that a caller discovered Agent Guild.  The middleware records
+# exactly ONE row per fetch here; downstream measurement deduplicates the
+# privacy-safe actor and excludes our traffic, generic tools and crawlers.
+_DISCOVERY_RESOURCE_SURFACES = {
+    "/.well-known/ai-catalog.json": "ard_catalog",
+    "/.well-known/agent-guild.json": "guild_manifest",
+    "/.well-known/agent-card.json": "a2a_agent_card",
+    "/.well-known/agent.json": "a2a_agent_card_legacy",
+    "/.well-known/mcp/server-card.json": "mcp_server_card",
+    "/.well-known/mcp/payment-safety-server-card.json": (
+        "mcp_payment_safety_server_card"),
+    "/.well-known/agent-skills/index.json": "agent_skills_index",
+    "/.well-known/agent-skills/agent-guild/SKILL.md": "agent_skill",
+    "/.well-known/x402": "x402_catalog",
+    "/.well-known/ai-plugin.json": "openai_plugin_manifest",
+    "/llms.txt": "llms_txt",
+    "/openapi.json": "openapi",
+    "/robots.txt": "ard_agentmap",
+    "/discovery/reach": "discovery_reach_proof",
+}
 #: Raw Authorization header for the MPP "Payment" scheme (app/mpp.py).
 #: Captured unconditionally; consulted only when MPP readiness is live.
 _mpp_auth: contextvars.ContextVar[str] = contextvars.ContextVar(
@@ -339,6 +361,23 @@ async def _capture_ua(request: Request, call_next):
     holder: list[Optional[payments.Settled]] = [None]
     _xpay_settled_holder.set(holder)
     response = await call_next(request)
+    # A successful machine-document fetch is discovery evidence, independent
+    # of whether the document advertises a paid product.  Recording it here
+    # covers A2A, ARD, Agent Skills, MCP cards, x402, OpenAPI and llms.txt with
+    # one consistent actor binding.  Telemetry must never break the resource.
+    discovery_surface = _DISCOVERY_RESOURCE_SURFACES.get(request.scope["path"])
+    if (request.method == "GET" and discovery_surface
+            and 200 <= response.status_code < 300):
+        try:
+            actor = _req_actor.get()
+            store.record_event(
+                actor, "discovery_resource_fetched", ua=_ua.get(),
+                discovery_surface=discovery_surface,
+                endpoint=request.scope["path"],
+                actor_distinct=bool(actor), fp=_fp_flag.get(),
+            )
+        except Exception:  # noqa: BLE001 — observation cannot fail discovery
+            _log.exception("discovery resource telemetry failed")
     settled = holder[0]
     if settled is not None and response.status_code == 200:
         # Buffer the exact bytes served, bind the signed receipt + Guild
@@ -985,6 +1024,7 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
 
 _LANDING_HTML = """<!doctype html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
+<link rel="ai-catalog" href="/.well-known/ai-catalog.json">
 <title>Agent Guild &mdash; allow, caution or block an agent endpoint</title>
 <meta name="description" content="Free, one call, live at request time: does
 this agent endpoint actually do what it claims? 92.9% of registry-listed agents
@@ -3756,6 +3796,14 @@ def _manifest() -> dict:
         },
         "discovery": {
             "capabilities": "/capabilities",
+            "ard_catalog": "/.well-known/ai-catalog.json",
+            "ard_agentmap": "/robots.txt",
+            "discovery_census": {
+                "summary": "/discovery/reach",
+                "replay_evidence": "/discovery/reach/evidence",
+                "target": 25000,
+                "claim": "distinct attributable discovery actors, tiered",
+            },
             "demand_feed": {
                 "path": "/demand/feed",
                 "note": ("signed, cacheable (ETag), paginated feed of REAL "
@@ -4345,6 +4393,7 @@ def _serve_paid_offer(source: str, actor: Optional[str] = _SENTINEL):
                            # actor is derived from key or client+UA. Absent an
                            # actor the impression stays unlinkable.
                            actor_distinct=bool(actor),
+                           fp=_fp_flag.get(),
                            endpoint=source.split(":", 1)[-1])
     return block
 
@@ -4410,10 +4459,25 @@ async def wellknown_payment_safety_mcp_server_card():
 
 @app.get("/.well-known/ai-catalog.json")
 def wellknown_ai_catalog():
-    """Side-effect-free Agent Resource Discovery (ARD) catalogue."""
+    """Commercially side-effect-free Agent Resource Discovery catalogue.
+
+    The generic middleware records one non-commercial discovery observation;
+    it never fabricates demand, a paid-offer impression or a conversion.
+    """
     return JSONResponse(
         content=ard.ai_catalog(),
         headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots_txt():
+    """ARD Agentmap discovery hook plus ordinary crawl policy."""
+    return (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Agentmap: https://agent-guild-5d5r.onrender.com/"
+        ".well-known/ai-catalog.json\n"
     )
 
 
@@ -4461,6 +4525,9 @@ def llms_txt():
     return (
         "# Agent Guild\n"
         "Can I safely use or pay this endpoint right now? One free call.\n\n"
+        "Install the Agent Skill: npx skills add AgentTanuki/agent-guild\n"
+        "Auditable discovery census: GET /discovery/reach (signed, tiered; "
+        "replay rows at /discovery/reach/evidence)\n\n"
         "## START HERE: allow, caution or block an endpoint (free)\n"
         "GET /preflight?url=<their endpoint>   (MCP: guild_preflight;\n"
         "                                       A2A: 'preflight: <url>')\n"
@@ -5218,6 +5285,45 @@ def get_recent_activity(limit: int = Query(50, ge=1, le=500), external_only: boo
     """A live feed of recent calls — actor, endpoint, paid?, and User-Agent — so
     you can see who is actually using the service."""
     return {"events": store.recent_events(limit, external_only)}
+
+
+@app.get("/discovery/reach")
+def discovery_reach():
+    """Signed, durable progress toward 25,000 autonomous-agent discoverers.
+
+    Raw hits and catalogue rows are disclosed but cannot satisfy the target.
+    The target counter is deduplicated by privacy-safe actor and excludes
+    first-party calls, tests, generic tools, registries and unlinkable traffic.
+    """
+    return store.discovery_reach(target=25_000)
+
+
+@app.get("/discovery/reach/evidence")
+def discovery_reach_evidence(
+        offset: int = Query(0, ge=0),
+        limit: int = Query(500, ge=1, le=2_000),
+        snapshot_events: Optional[int] = Query(None, ge=0)):
+    """Replayable, double-pseudonymised actor rows committed by the proof."""
+    report = store.discovery_reach(
+        target=25_000, include_actor_evidence=True,
+        snapshot_events=snapshot_events)
+    rows = report.pop("actor_evidence")
+    page = rows[offset:offset + limit]
+    return {
+        "offset": offset,
+        "limit": limit,
+        "returned": len(page),
+        "total": len(rows),
+        "next_offset": (offset + len(page)
+                        if offset + len(page) < len(rows) else None),
+        "actor_evidence": page,
+        "actor_evidence_set_sha256": report["evidence"][
+            "actor_evidence_set_sha256"],
+        "event_snapshot_rows": report["proof"]["payload"][
+            "event_snapshot_rows"],
+        "proof": report["proof"],
+        "rules": report["proof"]["payload"]["rules"],
+    }
 
 
 # --- canonical ledger of AI-to-AI collaboration (PREVIEW / RFC) -------------

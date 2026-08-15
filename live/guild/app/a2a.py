@@ -606,8 +606,12 @@ def _record_card_offer(request: Request) -> None:
     ua_tag = f"a2a:{real_ua}" if real_ua else "a2a/json-rpc"
     client_host = request.client.host if request.client else ""
     actor = derive_a2a_actor(request.headers, client_host, "")
+    first_party = _fp_auth.is_first_party(
+        request.headers.get("x-agent-guild-first-party"),
+        request.headers.get("x-guild-source"),
+    )
     store.record_event(actor, "offer_served", ua=ua_tag, offer="passport",
-                       endpoint="agent_card")
+                       endpoint="agent_card", fp=first_party)
     # PAID-OFFER IMPRESSION, actor-linked and source-tagged. The agent card is
     # the highest-traffic machine-readable surface we serve, and until
     # 2026-08-01 it said nothing at all about the paid layer.
@@ -620,6 +624,7 @@ def _record_card_offer(request: Request) -> None:
                            # derive_a2a_actor returns a stable per-caller key
                            # (client+UA derived), so distinctness is KNOWN.
                            actor_distinct=bool(actor),
+                           fp=first_party,
                            endpoint="agent_card")
 
 
