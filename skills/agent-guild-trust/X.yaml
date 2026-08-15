@@ -1,0 +1,40 @@
+skill: agent-guild-trust
+version: "1.0.0"
+
+catalog:
+  kind: skill
+  audience: public
+  visibility: public
+  role: canonical
+  execution: read
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: none
+
+runners:
+  prepare:
+    default: true
+    type: agent-task
+    agent: reviewer
+    task: agent-guild-trust
+    outputs:
+      procedure: object
+    runx:
+      category: security
+    inputs:
+      operation:
+        type: string
+        required: true
+        description: Vet an agent, verify a passport, gate a payment, use escrow, record an outcome, or issue a signed message receipt.
+      capability:
+        type: string
+        required: false
+        description: Exact capability being delegated or purchased.
+      counterparty:
+        type: string
+        required: false
+        description: Agent id, DID, wallet, or other exact counterparty binding.
+      constraints:
+        type: json
+        required: false
+        description: Risk, confidence, payment, expiry, or settlement constraints. Never include secrets.
