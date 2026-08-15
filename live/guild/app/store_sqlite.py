@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS events (
     json TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS events_type_at ON events (type, at);
+CREATE INDEX IF NOT EXISTS events_key_seq ON events (key, seq);
 
 -- one edge per referred agent (referred_id is the natural key) so the
 -- activation update is an in-place upsert, not an append.
@@ -751,7 +752,9 @@ class SqliteBackend:
         return row is None
 
     def fetch_events(self, *, types: Optional[Iterable[str]] = None,
-                     since: Optional[str] = None) -> list[dict[str, Any]]:
+                     since: Optional[str] = None,
+                     keys: Optional[Iterable[str]] = None
+                     ) -> list[dict[str, Any]]:
         """Return one ordered, durable event snapshot.
 
         Filters are executed by SQLite (using the existing ``(type, at)``
@@ -768,6 +771,11 @@ class SqliteBackend:
         if since is not None:
             clauses.append("at >= ?")
             args.append(str(since))
+        wanted_keys = tuple(dict.fromkeys(
+            str(key) for key in (keys or ()) if key))
+        if wanted_keys:
+            clauses.append(f"key IN ({','.join('?' for _ in wanted_keys)})")
+            args.extend(wanted_keys)
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         rows = self.conn().execute(
             f"SELECT json FROM events{where} ORDER BY seq", tuple(args)

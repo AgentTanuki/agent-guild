@@ -646,6 +646,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/funnel/paid/actors"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/funnel/passports"
   },
   {
@@ -1057,6 +1063,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.5.31"
+  "version": "2.5.32"
  }
 }
