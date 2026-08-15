@@ -19,7 +19,7 @@ import os
 import uuid
 import contextvars
 from urllib.parse import quote
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Header, Path, Query, Request, Response
 from fastapi.exception_handlers import http_exception_handler
@@ -360,7 +360,44 @@ async def _capture_ua(request: Request, call_next):
     # object does.
     holder: list[Optional[payments.Settled]] = [None]
     _xpay_settled_holder.set(holder)
+    # A valid member credential gives us a safe, in-band return channel. Keep
+    # only the public agent id across call_next; never retain or echo the raw
+    # credential. After the route runs we re-read state so a successful proof
+    # never receives a stale "please prove" hint.
+    prove_hint_agent_id: Optional[str] = None
+    presented_key = request.headers.get("x-api-key")
+    if presented_key:
+        try:
+            # Resolve the credential's indexed billing account first, then
+            # perform the expensive salted-hash check on that one candidate.
+            # Scanning every member would turn this lightweight hint into
+            # O(member count × PBKDF2) work on every authenticated request.
+            hint_account = store.get_account(presented_key)
+            hint_agent = store.get_agent(
+                (hint_account or {}).get("owner_agent_id", ""))
+            if (hint_agent
+                    and creds.verify_agent_key(hint_agent, presented_key)
+                    and not hint_agent.get("proof_of_conduct")):
+                prove_hint_agent_id = hint_agent["id"]
+        except Exception:  # noqa: BLE001 — a hint must never break the call
+            prove_hint_agent_id = None
     response = await call_next(request)
+    if prove_hint_agent_id:
+        try:
+            hint_agent = store.get_agent(prove_hint_agent_id)
+            if hint_agent and not hint_agent.get("proof_of_conduct"):
+                hint = proving.prove_hint(hint_agent)
+                response.headers["X-Agent-Guild-Prove"] = \
+                    hint["next_call"]["url"]
+                response.headers["X-Agent-Guild-Prove-Hint"] = \
+                    proving.PROVE_HINT_VERSION
+                if store.record_milestone(
+                        prove_hint_agent_id, "prove_hint_served",
+                        hint_version=proving.PROVE_HINT_VERSION,
+                        endpoint=request.scope["path"], ua=_ua.get()):
+                    store._save()
+        except Exception:  # noqa: BLE001 — guidance cannot fail a response
+            _log.exception("in-band prove hint failed")
     # A successful machine-document fetch is discovery evidence, independent
     # of whether the document advertises a paid product.  Recording it here
     # covers A2A, ARD, Agent Skills, MCP cards, x402, OpenAPI and llms.txt with
@@ -1220,10 +1257,25 @@ def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
         ua=_ua.get(),
         src=req.src,
     )
+    # Collapse the previous register → prove-start → prove-verify ladder: the
+    # challenge is now part of registration, so the member's very next call can
+    # complete proof. This is still opt-in — no beacon or automatic proof is
+    # generated, and trust changes only after /prove/verify succeeds.
+    # In hashed-key mode `rec` is a one-time response copy carrying the raw API
+    # key. Mutate the canonical stored record, never that detached copy.
+    stored_rec = store.get_agent(rec["id"])
+    if stored_rec is None:  # defensive: registration just persisted it
+        raise HTTPException(500, "registered agent was not persisted")
+    proof_challenge = proving.issue_challenge(store, stored_rec)
+    store.record_event(
+        store.account_for_agent(rec["id"]), "prove_started",
+        ua=_ua.get(), agent_id=rec["id"], source="register_response",
+        agent_first_party=bool(rec.get("first_party")),
+    )
     # Phase 1: the shared journey engine computes the ONE primary next action
     # from evidence state (CITIZENSHIP_AUDIT G1/G17) — no bespoke stanzas.
     guild_next = journey_engine.guild_next(
-        store, rec,
+        store, stored_rec, prove_hint_source="register-v1",
         note=("Registered. You hold a did:key and start — like everyone — at "
               "the newcomer prior. One action advances you now:"))
     # R1 (machine-economics audit 2026-07-06): the reward of this call must be
@@ -1247,6 +1299,7 @@ def register(req: RegisterRequest, x_admin_token: Optional[str] = Header(None),
         custodial=rec["custodial"], referred_by=rec.get("referred_by"),
         config_hash=rec.get("config_hash"), principal=rec.get("principal"),
         guild_next=guild_next,
+        proof_challenge=proof_challenge,
         listing=listing,
     )
 
@@ -1426,7 +1479,9 @@ def prove_start(agent_id: str, x_api_key: Optional[str] = Header(None)):
 
 @app.post("/agents/{agent_id}/prove/verify")
 def prove_verify(agent_id: str, body: Optional[dict[str, Any]] = None,
-                 x_api_key: Optional[str] = Header(None)):
+                 x_api_key: Optional[str] = Header(None),
+                 hint: Optional[Literal["register-v1", "inband-v1"]] = Query(
+                     None)):
     """Verify the proving challenge. On first success the Guild — acting as
     first counterparty — records a real task + receipt on your record, labelled
     `provenance: guild_observed` (verifiable protocol conformance, never
@@ -1440,7 +1495,7 @@ def prove_verify(agent_id: str, body: Optional[dict[str, Any]] = None,
     try:
         result = proving.verify(store, agent,
                                 signature=(body or {}).get("signature"),
-                                ua=_ua.get())
+                                ua=_ua.get(), hint=hint or "")
     except ValueError as e:
         raise HTTPException(400, str(e))
     notes = {
@@ -4553,11 +4608,18 @@ def llms_txt():
         "## Free Agent Passport (acquisition, not the paid product)\n"
         "Three free calls make your standing portable and verifiable anywhere:\n"
         "  1. POST /agents/register {\"name\": \"<you>\", \"capabilities\": [...],\n"
-        "     \"src\": \"passport_offer:llms\"}  → returns your id + api_key\n"
-        "  2. POST /agents/{id}/prove → sign/confirm → POST /agents/{id}/prove/verify\n"
+        "     \"src\": \"passport_offer:llms\"}  → id + api_key + proof_challenge\n"
+        "  2. Sign/confirm that challenge, then POST /agents/{id}/prove/verify\n"
         "  3. GET /agents/{id}/passport → a Guild-signed Verifiable Credential;\n"
         "     any party verifies it offline (POST /credentials/verify, Guild did at\n"
         "     /.well-known/agent-guild-did.json). Live badge: GET /agents/{id}/badge.svg.\n\n"
+        "## Identify your runtime honestly (optional, privacy-safe)\n"
+        "MCP: send your real clientInfo.name + clientInfo.version in initialize.\n"
+        "HTTP/A2A: send User-Agent: <actual framework>/<version>; the Agent Skill\n"
+        "uses agentguild-skill/1.0 (host=<actual runtime>). Never randomise or\n"
+        "claim a runtime you are not using. The census stores a purpose-scoped\n"
+        "actor binding, not the raw IP or credential. Frozen qualification\n"
+        "rules and recognised runtime list: GET /discovery/reach.\n\n"
         "## Why the endpoint check exists\n"
         "Separating what an endpoint CLAIMS from what it just PROVED: does it\n"
         "complete a real\n"

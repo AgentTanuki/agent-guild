@@ -59,6 +59,7 @@ LIVENESS_DAYS = 14
 
 PROVING_TASK_TYPE = "guild.proving"
 _SYSTEM_ROLE = "proving_ground"
+PROVE_HINT_VERSION = "guild-prove/inband-v1"
 
 
 def _now() -> datetime:
@@ -132,6 +133,51 @@ def issue_challenge(store, agent: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def prove_hint(agent: dict[str, Any], *, source: str = "inband-v1"
+               ) -> dict[str, Any]:
+    """Machine-readable next call for an authenticated, unproved member.
+
+    The hint is deliberately in-band: it is served only when the caller is
+    already talking to the Guild. It never calls home, manufactures discovery,
+    changes trust, or weakens census rules. ``source`` is carried as a bounded
+    query value so a later successful proof can be causally attributed to the
+    registration response or the authenticated-response nudge.
+    """
+    aid = agent["id"]
+    challenge = agent.get("proving_challenge") or {}
+    try:
+        challenge_open = bool(
+            challenge and _parse(challenge["expires_at"]) >= _now())
+    except (KeyError, TypeError, ValueError):
+        # Legacy/corrupt challenge state must never steer a caller into a
+        # verify request that can only fail. /prove safely replaces it.
+        challenge_open = False
+    start_url = f"{BASE}/agents/{aid}/prove"
+    verify_url = f"{BASE}/agents/{aid}/prove/verify?hint={source}"
+    return {
+        "version": PROVE_HINT_VERSION,
+        "proof_class": (
+            "credential_control" if agent.get("custodial") else "key_control"),
+        "challenge_open": challenge_open,
+        "next_call": {
+            "method": "POST",
+            "url": verify_url if challenge_open else start_url,
+            "authentication": (
+                "X-API-Key" if agent.get("custodial")
+                else "ed25519 signature over the returned challenge"),
+        },
+        "why": (
+            "Complete the already-issued challenge; a successful proof moves "
+            "this member into the key-proved discovery tier."
+            if challenge_open else
+            "Request one free challenge, then verify it; trust changes only "
+            "after successful proof."),
+        "privacy": (
+            "The hint is delivered only on an existing call. It does not send "
+            "a beacon, create an identity, or count until you act."),
+    }
+
+
 def _fresh(proof: Optional[dict[str, Any]]) -> bool:
     if not proof:
         return False
@@ -142,7 +188,8 @@ def _fresh(proof: Optional[dict[str, Any]]) -> bool:
 
 
 def verify(store, agent: dict[str, Any],
-           signature: Optional[str] = None, ua: str = "") -> dict[str, Any]:
+           signature: Optional[str] = None, ua: str = "",
+           hint: str = "") -> dict[str, Any]:
     """Verify the challenge response and record the proof.
 
     Returns a dict with `status` in {proven, refreshed, already_fresh} or
@@ -229,12 +276,17 @@ def verify(store, agent: dict[str, Any],
         agent["proof_of_conduct"] = proof
         agent.pop("proving_challenge", None)
         store._save()
-    store.record_milestone(agent["id"], "key_proof", proof_class=proof_class,
-                           task_id=task["id"], ua=ua)
+    milestone_data = {
+        "proof_class": proof_class,
+        "task_id": task["id"],
+        "ua": ua,
+    }
+    if hint:
+        milestone_data["prove_hint"] = hint
+    store.record_milestone(agent["id"], "key_proof", **milestone_data)
     # Explicit funnel terminal (machine-economics audit R2): named to match the
     # measured funnel prove_offered → prove_started → prove_completed.
-    store.record_milestone(agent["id"], "prove_completed", proof_class=proof_class,
-                           task_id=task["id"], ua=ua)
+    store.record_milestone(agent["id"], "prove_completed", **milestone_data)
     store.record_event(store.account_for_agent(agent["id"]), "proof_of_conduct",
                        agent_id=agent["id"], proof_class=proof_class,
                        agent_first_party=bool(agent.get("first_party")))

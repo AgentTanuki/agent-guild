@@ -4,7 +4,7 @@ Locks the retention fix of 2026-07-06: every agent ever registered had parked
 at `registered` because the first journey instruction required a counterparty
 a cold-start network doesn't have. These tests pin the new contract:
 
-  1. A newcomer can reach journey stage 2 ALONE, in two calls, on first visit.
+  1. A newcomer can reach journey stage 2 ALONE, in one post-registration call.
   2. The evidence is honest: guild-observed provenance, one proving task per
      agent EVER (refreshes never mint new work evidence).
   3. The response carries an explicit reason + deadline to return.
@@ -42,8 +42,9 @@ def test_register_primary_action_is_completable_alone():
     action that needs no counterparty — not the old marketplace dead end."""
     reg = _register_custodial("Newcomer-Primary")
     primary = reg["guild_next"]["primary"]
-    assert primary["action"] == "prove_key_control"
-    assert "/prove" in primary["call"]
+    assert primary["action"] == "complete_key_proof"
+    assert "/prove/verify?hint=register-v1" in primary["call"]
+    assert reg["proof_challenge"]["challenge"]
 
 
 def test_custodial_prove_full_flow_reaches_stage_2():
@@ -51,11 +52,8 @@ def test_custodial_prove_full_flow_reaches_stage_2():
     aid, key = reg["id"], reg["api_key"]
     hdr = {"X-API-Key": key}
 
-    r = client.post(f"/agents/{aid}/prove", headers=hdr)
-    assert r.status_code == 200
-    assert r.json()["proof_class"] == "credential_control"
-
-    r = client.post(f"/agents/{aid}/prove/verify", headers=hdr, json={})
+    r = client.post(
+        f"/agents/{aid}/prove/verify?hint=register-v1", headers=hdr, json={})
     assert r.status_code == 200
     out = r.json()
     assert out["status"] == "proven"
@@ -89,7 +87,7 @@ def test_sovereign_prove_requires_valid_signature():
     reg, priv = _register_sovereign()
     aid = reg["id"]
 
-    ch = client.post(f"/agents/{aid}/prove").json()
+    ch = reg["proof_challenge"]
     assert ch["proof_class"] == "key_control"
 
     # a wrong signature is rejected, cleanly
@@ -164,6 +162,9 @@ def test_challenge_required_and_auth_enforced():
 
     # custodial agents must authenticate
     assert client.post(f"/agents/{aid}/prove").status_code == 401
+    # Removing the registration challenge models a legacy/corrupt record and
+    # keeps the clean missing-challenge contract pinned.
+    store.get_agent(aid).pop("proving_challenge", None)
     # verify without an open challenge is a clean 400
     r = client.post(f"/agents/{aid}/prove/verify",
                     headers={"X-API-Key": key}, json={})

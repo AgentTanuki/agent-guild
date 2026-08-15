@@ -16,6 +16,11 @@ from . import __version__
 
 HOST = "https://agent-guild-5d5r.onrender.com"
 PUBLISHER = "agent-guild-5d5r.onrender.com"
+CALLER_IDENTITY = (
+    "MCP: initialize.clientInfo{name,version}; HTTP/A2A: honest User-Agent "
+    "<actual framework>/<version>; rules: /discovery/reach; never spoof or "
+    "randomise identity."
+)
 
 
 def ai_catalog() -> dict:
@@ -41,6 +46,7 @@ def ai_catalog() -> dict:
                     "payment-safety-server-card.json"
                 ),
                 "version": __version__,
+                "metadata": {"callerIdentity": CALLER_IDENTITY},
                 "capabilities": [
                     "x402 payment safety",
                     "pre-signing wallet authorization",
@@ -62,6 +68,7 @@ def ai_catalog() -> dict:
                 "type": "application/a2a-agent-card+json",
                 "url": f"{HOST}/.well-known/agent-card.json",
                 "version": __version__,
+                "metadata": {"callerIdentity": CALLER_IDENTITY},
                 "capabilities": [
                     "agent vetting",
                     "reputation evidence",
@@ -89,6 +96,7 @@ def ai_catalog() -> dict:
                     "install": "npx skills add AgentTanuki/agent-guild",
                     "source": "https://github.com/AgentTanuki/agent-guild",
                     "discoveryProof": f"{HOST}/discovery/reach",
+                    "callerIdentity": CALLER_IDENTITY,
                 },
                 "capabilities": [
                     "counterparty trust checks",

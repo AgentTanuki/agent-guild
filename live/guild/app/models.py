@@ -61,6 +61,10 @@ class RegisterResponse(BaseModel):
     # Next-step guidance (CITIZENSHIP_AUDIT G1): registration must never be a
     # dead end. Exactly ONE primary action, plus the path to citizenship.
     guild_next: Optional[dict[str, Any]] = None
+    # The proving challenge is issued in the registration response so a new
+    # member can prove control on its very next call instead of discovering and
+    # calling a separate challenge-start route first.
+    proof_challenge: Optional[dict[str, Any]] = None
     # The immediate, same-session-verifiable reward of registering (machine-
     # economics audit R1): your public listing URL — fetchable right now — and
     # measured telemetry of how often the answer surfaces you now appear in
