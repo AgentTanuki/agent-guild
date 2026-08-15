@@ -138,6 +138,34 @@ def test_schema_visible_payment_argument_follows_same_gateway(monkeypatch):
     assert challenge["resource"]["url"] == preq.resource_url
 
 
+def test_deep_preflight_payment_argument_follows_same_gateway(monkeypatch):
+    """The highest-demand paid MCP tool exposes the documented compatibility
+    carrier and settles through the same bound gateway as official metadata."""
+    from tests.test_x402_v2 import FakeFacilitator, make_payload
+    facilitator = FakeFacilitator()
+    monkeypatch.setattr(x402, "_facilitator", lambda: facilitator)
+    monkeypatch.setattr("app.mcp_server.deepcheck.deep_preflight", lambda *_: {
+        "policy": {"decision": "allow"},
+        "checks": [],
+    })
+    url = "https://schema-driven.example/a2a"
+    challenge = _call("guild_preflight_deep", {"url": url}).structured_content
+    preq = payments.deep_preflight_request(url)
+    payload = make_payload(preq, cost=preq.cost).model_dump(
+        by_alias=True, exclude_none=True)
+
+    r = _call("guild_preflight_deep", {
+        "url": url,
+        "x402_payment": payload,
+    })
+    assert not r.is_error
+    assert r.meta[MCP_PAYMENT_RESPONSE_META_KEY]["success"] is True
+    assert r.structured_content["policy"]["decision"] == "allow"
+    assert challenge["resource"]["url"] == preq.resource_url
+    assert len(facilitator.verify_calls) == 1
+    assert len(facilitator.settle_calls) == 1
+
+
 def test_stringified_payment_argument_follows_same_gateway(monkeypatch):
     """Generic MCP/LLM adapters frequently stringify object arguments.  The
     compatibility carrier accepts that common representation, then immediately
@@ -165,7 +193,7 @@ def test_payment_argument_is_visible_only_on_paid_read_tools():
     tools = {t.name: t.to_mcp_tool().model_dump(by_alias=True)
              for t in asyncio.run(run())}
     for name in ("guild_check", "guild_search", "guild_best_agent",
-                 "guild_risk_score"):
+                 "guild_risk_score", "guild_preflight_deep"):
         props = tools[name]["inputSchema"]["properties"]
         assert "x402_payment" in props
         carrier_schema = props["x402_payment"]
@@ -195,6 +223,29 @@ def test_conflicting_payment_carriers_fail_closed_before_settlement(monkeypatch)
     assert r.is_error
     assert r.structured_content["error"] == "x402_payment_invalid"
     assert r.structured_content["reason"] == "conflicting_mcp_payment"
+
+
+def test_deep_preflight_conflicting_payment_carriers_fail_closed(monkeypatch):
+    from tests.test_x402_v2 import FakeFacilitator, make_payload
+    facilitator = FakeFacilitator()
+    monkeypatch.setattr(x402, "_facilitator", lambda: facilitator)
+    url = "https://carrier-conflict.example/a2a"
+    preq = payments.deep_preflight_request(url)
+    meta_payload = make_payload(preq, cost=preq.cost)
+    argument_payload = meta_payload.model_dump(by_alias=True, exclude_none=True)
+    argument_payload["payload"]["authorization"]["nonce"] = "0x" + "ff" * 32
+    from x402.mcp.utils import attach_payment_to_meta
+    meta = attach_payment_to_meta({}, meta_payload)["_meta"]
+
+    r = _call("guild_preflight_deep", {
+        "url": url,
+        "x402_payment": argument_payload,
+    }, meta=meta)
+    assert r.is_error
+    assert r.structured_content["error"] == "x402_payment_invalid"
+    assert r.structured_content["reason"] == "conflicting_mcp_payment"
+    assert facilitator.verify_calls == []
+    assert facilitator.settle_calls == []
 
 
 def test_malformed_payment_argument_never_degrades_to_an_unpaid_or_free_call():
