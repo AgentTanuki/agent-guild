@@ -40,6 +40,16 @@ def test_derived_server_json_matches_contract():
     assert actual == expected, "server.json drifted from the contract — run `make contract`"
 
 
+def test_derived_payment_safety_server_json_matches_contract():
+    gen = _generated()
+    committed = json.loads((HERE / "contract" / "contract.json").read_text())
+    expected = gen.derived_payment_safety_server_json(committed)
+    path = REPO / "registry" / "x402-payment-safety" / "server.json"
+    actual = json.loads(path.read_text())
+    assert actual == expected, (
+        "focused Registry manifest drifted — run `make contract`")
+
+
 def test_derived_interface_doc_matches_contract():
     gen = _generated()
     committed_contract = json.loads((HERE / "contract" / "contract.json").read_text())
@@ -80,3 +90,13 @@ def test_mcp_tools_match_contract():
     committed = json.loads((HERE / "contract" / "contract.json").read_text())
     tools = sorted(t.name for t in asyncio.run(mcp.list_tools()))
     assert tools == committed["mcp_tools"]
+
+
+def test_payment_safety_mcp_tools_match_contract():
+    import asyncio
+    from app.mcp_server import payment_safety_mcp
+    committed = json.loads((HERE / "contract" / "contract.json").read_text())
+    tools = sorted(
+        tool.name for tool in asyncio.run(payment_safety_mcp.list_tools()))
+    assert tools == committed["payment_safety_mcp_tools"]
+    assert tools == ["guild_x402_payment_safety"]

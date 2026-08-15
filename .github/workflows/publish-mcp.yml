@@ -1,6 +1,6 @@
 name: Publish to MCP Registry
 
-# Publishes server.json to the official MCP registry
+# Publishes the generated MCP manifests to the official MCP registry
 # (registry.modelcontextprotocol.io) via GitHub Actions OIDC.
 #
 # Determinism + honesty guarantees (docs/CORRECTIONS_2026-07-14.md):
@@ -16,13 +16,10 @@ name: Publish to MCP Registry
 #   * concurrency: one publish at a time, newest wins; an older run can never
 #     race a newer one into certifying the wrong version.
 
+# Publication is dispatched only after ship.yml has proved that the exact
+# merged SHA is live. A direct push trigger races the deployment and can make
+# the Registry point at a surface production does not serve yet.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "server.json"
-      - ".github/workflows/publish-mcp.yml"
-      - "live/scripts/registry_readback.py"
   workflow_dispatch:
 
 concurrency:
@@ -68,16 +65,64 @@ jobs:
             exit 1
           fi
 
-      - name: Validate server.json
-        run: ./mcp-publisher validate
+      - name: Guard — focused name and remote are distinct and OIDC-publishable
+        run: |
+          set -euo pipefail
+          path="registry/x402-payment-safety/server.json"
+          name=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['name'])" "$path")
+          remote=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['remotes'][0]['url'])" "$path")
+          expected="io.github.${{ github.repository_owner }}/x402-payment-safety"
+          if [ "$name" != "$expected" ]; then
+            echo "::error::focused name '$name' != OIDC-publishable '$expected'"
+            exit 1
+          fi
+          if [ "$remote" != "https://agent-guild-5d5r.onrender.com/mcp/payment-safety/" ]; then
+            echo "::error::focused remote is not the dedicated payment-safety surface"
+            exit 1
+          fi
+
+      - name: Hard gate — exact workflow SHA is live and both MCP surfaces conform
+        run: |
+          set -euo pipefail
+          live_sha=$(curl -fsSL https://agent-guild-5d5r.onrender.com/release | \
+            python3 -c "import json,sys;print(json.load(sys.stdin)['git_sha'])")
+          if [ "$live_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::production serves $live_sha, workflow tree is $GITHUB_SHA"
+            exit 1
+          fi
+          python3 live/scripts/live_contract_probe.py
+
+      - name: Validate both generated manifests
+        run: |
+          ./mcp-publisher validate server.json
+          ./mcp-publisher validate registry/x402-payment-safety/server.json
+
+      - name: Decide canonical publication idempotently
+        id: canonical
+        run: |
+          python3 live/scripts/registry_publish_needed.py \
+            --server-json server.json --github-output "$GITHUB_OUTPUT"
+
+      - name: Decide focused publication idempotently
+        id: focused
+        run: |
+          python3 live/scripts/registry_publish_needed.py \
+            --server-json registry/x402-payment-safety/server.json \
+            --github-output "$GITHUB_OUTPUT"
 
       - name: Authenticate (GitHub OIDC)
+        if: steps.canonical.outputs.needed == 'true' || steps.focused.outputs.needed == 'true'
         run: ./mcp-publisher login github-oidc
 
-      - name: Publish
-        run: ./mcp-publisher publish
+      - name: Publish canonical Agent Guild server
+        if: steps.canonical.outputs.needed == 'true'
+        run: ./mcp-publisher publish server.json
 
-      - name: Verify registry READBACK (hard gate)
+      - name: Publish focused x402 payment-safety server
+        if: steps.focused.outputs.needed == 'true'
+        run: ./mcp-publisher publish registry/x402-payment-safety/server.json
+
+      - name: Verify both Registry READBACKS (hard gate)
         # Not "published" until the official registry serves the exact
         # name+version+repository+remote (and the publisher-provided trust
         # _meta) back. Exit codes: 1 never served, 2 served-but-mismatched,
@@ -85,3 +130,8 @@ jobs:
         run: |
           python3 live/scripts/registry_readback.py \
             --server-json server.json --attempts 30 --interval 10
+          python3 live/scripts/registry_readback.py \
+            --server-json registry/x402-payment-safety/server.json \
+            --attempts 30 --interval 10 \
+            --search x402 --search payment --search safety \
+            --search x402-payment-safety

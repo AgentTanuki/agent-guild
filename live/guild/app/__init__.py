@@ -3,7 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.32"  # PATCH (machine-visible semver, 2026-08-15):
+__version__ = "2.5.33"  # PATCH discovery surface (2026-08-15):
+                        # publishes a focused, independently discoverable MCP
+                        # server for pre-signing x402 payment safety and an
+                        # ARD-conformant AI catalogue. The existing general
+                        # MCP server, product, price, payment, authorization,
+                        # treasury and settlement paths are unchanged.
+                        # History of 2.5.32:
                         # makes qualified paid-funnel journeys decidable from
                         # durable history without exposing IPs, credentials,
                         # bodies or payment payloads. Free catalogue entries,

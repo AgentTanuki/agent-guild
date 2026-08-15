@@ -1,0 +1,31 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.AgentTanuki/x402-payment-safety",
+  "description": "Authorize x402 payments before signing with request-bound, signed safety decisions.",
+  "version": "2.5.33",
+  "repository": {
+    "url": "https://github.com/AgentTanuki/agent-guild",
+    "source": "github"
+  },
+  "websiteUrl": "https://agent-guild-5d5r.onrender.com/.well-known/mcp/payment-safety-server-card.json",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://agent-guild-5d5r.onrender.com/mcp/payment-safety/"
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "ai.agent-guild/x402-payment-safety": {
+        "tool": "guild_x402_payment_safety",
+        "authorization_moment": "immediately before signing",
+        "payment_protocol": "x402",
+        "network": "Base mainnet (eip155:8453)",
+        "live_catalog": "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json?src=paid_offer:registry",
+        "free_resolve": "https://agent-guild-5d5r.onrender.com/wallet-binding/resolve?address={payee}&network=eip155:8453",
+        "verify": "https://agent-guild-5d5r.onrender.com/wallet-binding/decision/verify",
+        "price_note": "Current price is returned by the live catalog."
+      }
+    }
+  }
+}

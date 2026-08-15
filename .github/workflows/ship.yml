@@ -187,7 +187,9 @@ jobs:
         if: steps.release_gate.outcome == 'success'
         run: |
           python live/scripts/registry_publish_needed.py \
-            --server-json server.json --github-output "$GITHUB_OUTPUT"
+            --server-json server.json \
+            --server-json registry/x402-payment-safety/server.json \
+            --github-output "$GITHUB_OUTPUT"
       - name: dispatch registry publish (exact local version is not served)
         if: steps.registry.outputs.needed == 'true'
         env:
@@ -289,7 +291,9 @@ jobs:
         if: steps.release_gate.outcome == 'success'
         run: |
           python live/scripts/registry_publish_needed.py \
-            --server-json server.json --github-output "$GITHUB_OUTPUT"
+            --server-json server.json \
+            --server-json registry/x402-payment-safety/server.json \
+            --github-output "$GITHUB_OUTPUT"
       - name: dispatch registry publish (exact local version is not served)
         if: steps.registry.outputs.needed == 'true'
         env:

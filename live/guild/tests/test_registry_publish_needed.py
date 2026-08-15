@@ -81,3 +81,15 @@ def test_github_output_is_machine_readable(tmp_path):
         "state=version_not_found",
         "version=2.1.1",
     ]
+
+
+def test_multiple_registry_products_dispatch_when_either_is_missing():
+    current = needed.decide(_served(), EXPECTED)
+    focused = copy.deepcopy(EXPECTED)
+    focused["name"] = "io.github.AgentTanuki/x402-payment-safety"
+    missing = needed.decide({"status": 404}, focused)
+    combined = needed.combine_decisions([current, missing])
+    assert combined["needed"] is True
+    assert combined["state"] == "publication_needed"
+    assert combined["version"] == EXPECTED["version"]
+    assert combined["name"] == [EXPECTED["name"], focused["name"]]

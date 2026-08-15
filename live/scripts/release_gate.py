@@ -327,6 +327,12 @@ def main() -> int:
         "live_contract_probe",
         [sys.executable, "live/scripts/live_contract_probe.py"], REPO))
     attestation["checks"].append(run_subprocess_check(
+        "ard_official_conformance_live",
+        [sys.executable,
+         "live/third_party/ard-spec/conformance/bin/conformance-test",
+         "manifest", f"{args.host}/.well-known/ai-catalog.json"],
+        REPO))
+    attestation["checks"].append(run_subprocess_check(
         "agi1_conformance_live",
         [sys.executable, "-m", "pytest", "conformance/", "-q",
          f"--issuer-base={args.host}", f"--capability={args.capability}"],
