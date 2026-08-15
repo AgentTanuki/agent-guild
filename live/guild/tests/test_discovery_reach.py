@@ -114,6 +114,17 @@ def test_ard_has_every_free_web_discovery_hook():
         in html
 
 
+def test_402index_domain_verification_is_exact_public_text():
+    client = TestClient(main.app)
+    response = client.get("/.well-known/402index-verify.txt")
+    assert response.status_code == 200
+    assert response.text == (
+        "07302f2156b7828c1fe776c5910a0828a87be242bbc84352358745cca1a13091"
+    )
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "public" in response.headers["cache-control"]
+
+
 def test_public_reach_endpoint_is_signed_and_excludes_its_own_current_fetch():
     client = TestClient(main.app)
     response = client.get(

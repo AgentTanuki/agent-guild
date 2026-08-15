@@ -4525,6 +4525,22 @@ def wellknown_ai_catalog():
     )
 
 
+@app.get("/.well-known/402index-verify.txt",
+         response_class=PlainTextResponse, include_in_schema=False)
+def wellknown_402index_verification():
+    """Prove control of the production host to the public 402 Index.
+
+    402 Index publishes this hash as the required, non-secret well-known
+    challenge response.  Serving it lets the index approve the canonical x402
+    resources on this host without an account, wallet signature, or payment.
+    """
+    return PlainTextResponse(
+        "07302f2156b7828c1fe776c5910a0828a87be242bbc84352358745cca1a13091",
+        media_type="text/plain",
+        headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
 @app.get("/robots.txt", response_class=PlainTextResponse)
 def robots_txt():
     """ARD Agentmap discovery hook plus ordinary crawl policy."""
