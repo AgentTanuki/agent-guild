@@ -61,7 +61,8 @@
   "guild_search",
   "guild_verify",
   "guild_watch",
-  "guild_watch_feed"
+  "guild_watch_feed",
+  "guild_x402_payment_safety"
  ],
  "payments": {
   "dynamic_priced_operations": {
@@ -1056,6 +1057,6 @@
   "mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/",
   "name": "Agent Guild",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.5.30"
+  "version": "2.5.31"
  }
 }

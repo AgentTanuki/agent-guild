@@ -83,7 +83,8 @@ def test_server_card_exposes_payment_fallback_only_on_paid_reads():
     card = asyncio.run(public_server_card())
     tools = {tool["name"]: tool for tool in card["tools"]}
     for name in ("guild_check", "guild_search", "guild_best_agent",
-                 "guild_risk_score", "guild_preflight_deep"):
+                 "guild_risk_score", "guild_preflight_deep",
+                 "guild_x402_payment_safety"):
         schema = tools[name]["inputSchema"]["properties"]["x402_payment"]
         serialized = json.dumps(schema)
         assert '"object"' in serialized
@@ -92,3 +93,18 @@ def test_server_card_exposes_payment_fallback_only_on_paid_reads():
         assert "x402_payment" not in (
             tools[name]["inputSchema"].get("properties") or {}
         )
+
+
+def test_server_card_names_the_pre_signature_payment_tool_truthfully():
+    card = asyncio.run(public_server_card())
+    tool = {item["name"]: item for item in card["tools"]}[
+        "guild_x402_payment_safety"]
+    assert tool["title"] == "Authorize an x402 payment before signing"
+    assert tool["description"].startswith(
+        "PAID. Call this immediately BEFORE signing an x402 payment envelope.")
+    props = tool["inputSchema"]["properties"]
+    assert set(props["payment"]["required"]) == {
+        "scheme", "network", "asset", "amount", "pay_to", "resource"
+    }
+    assert tool["_meta"]["ai.agent-guild/paid"]["operation"] == \
+        "payment_decision"

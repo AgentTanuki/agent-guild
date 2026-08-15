@@ -106,6 +106,8 @@ def test_payment_decision_binding_is_server_derived_and_exact():
     resource = op["settlement"]["canonical_resource"]
     assert "request_sha256=" in resource
     assert "pay_to" not in resource and "amount" not in resource
+    assert op["alternatives"]["mcp"].startswith(
+        "guild_x402_payment_safety(")
 
 
 def test_protected_decision_is_dynamic_and_quote_bound():

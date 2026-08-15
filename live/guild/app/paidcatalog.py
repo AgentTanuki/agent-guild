@@ -220,6 +220,9 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             },
         },
         "alternatives": {
+            "mcp": (
+                "guild_x402_payment_safety(payment={scheme, network, asset, "
+                "amount, pay_to, resource}, capability=..., policy=...)"),
             "free_identity_only": (
                 "GET /wallet-binding/resolve?address=<payee>&network=<CAIP-2>"),
             "verify": "POST /wallet-binding/decision/verify",

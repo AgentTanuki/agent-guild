@@ -38,6 +38,7 @@ from . import x402
 from mcp.types import LATEST_PROTOCOL_VERSION, ToolAnnotations
 
 from . import paidcatalog, pricing
+from . import paymentdecision
 from .payments import CachedPaidResult, PaidRequest, PaymentChallenge, PaymentIdConflict
 from . import deepcheck
 from . import envelopes
@@ -95,6 +96,22 @@ class AttestationResult(TypedDict):
     """The receipt for a vouch written into the trust graph."""
     id: str
     verified: bool          # signature verified and counted
+
+
+class X402PaymentTarget(TypedDict):
+    """The exact target payment being authorized before wallet signing."""
+    scheme: str       # x402 payment scheme, normally ``exact``
+    network: str      # exact CAIP-2 network, e.g. ``eip155:8453``
+    asset: str        # exact EVM token contract
+    amount: str       # positive atomic-unit integer string
+    pay_to: str       # exact counterparty EVM address
+    resource: str     # exact protected HTTP(S) resource URL
+
+
+class PaymentSafetyPolicy(TypedDict, total=False):
+    """Optional caller thresholds; server baselines can only make them stricter."""
+    max_risk: float
+    min_confidence: float
 
 
 def _client_ua(ctx: "Context | None") -> str:
@@ -683,6 +700,106 @@ def guild_paid_operations(ctx: Context = None) -> dict:
                            actor_distinct=_distinct,
                            endpoint="mcp_tool", transport="mcp")
     return block
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Authorize an x402 payment before signing",
+        # The returned policy is a read, but following the challenge settles
+        # a service fee. Do not tell generic MCP hosts this tool is side-effect
+        # free merely because it leaves the target payment untouched.
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+    meta={
+        "ai.agent-guild/paid": {
+            "operation": "payment_decision",
+            "payment_protocol": "x402",
+            "network": "eip155:8453",
+            "asset": "USDC",
+            "authorization_moment": "before_signing",
+            "price_source": {
+                "mcp_tool": "guild_paid_operations",
+                "http_catalog": (
+                    "https://agent-guild-5d5r.onrender.com/"
+                    ".well-known/agent-guild.json"
+                ),
+            },
+            "free_alternative": (
+                "GET /wallet-binding/resolve?address=<payee>"
+                "&network=<CAIP-2>"
+            ),
+        }
+    },
+)
+def guild_x402_payment_safety(
+        payment: X402PaymentTarget, capability: str = "",
+        policy: Optional[PaymentSafetyPolicy] = None,
+        ttl_seconds: int = paymentdecision.DEFAULT_TTL_S,
+        api_key: str = "",
+        x402_payment: Optional[dict[str, Any] | str] = None,
+        ctx: Context = None) -> dict:
+    """PAID. Call this immediately BEFORE signing an x402 payment envelope.
+
+    Returns one short-lived, Guild-signed AGPD-1 allow/block credential bound
+    to the exact target payment: scheme, CAIP-2 network, asset contract, atomic
+    amount, payee and resource URL, plus optional capability and policy
+    thresholds. Verify it offline with POST /wallet-binding/decision/verify.
+
+    This is the native MCP transport for the existing HTTP
+    POST /wallet-binding/decision product. An unpaid call returns a complete
+    x402 v2 challenge for the exact request digest. Retry with the official
+    ``_meta['x402/payment']`` carrier; adapters that cannot set request metadata
+    may pass the identical signed PaymentPayload as ``x402_payment``. Conflicting
+    carriers fail closed before facilitator verification or settlement.
+
+    The decision is issued before metering, so malformed inputs or signing
+    failures are never charged. ``api_key`` uses sandbox credits and is never
+    external revenue. The free identity-only alternative is
+    GET /wallet-binding/resolve.
+    """
+    body: dict[str, Any] = {
+        "payment": payment,
+        "ttl_seconds": ttl_seconds,
+    }
+    if capability:
+        body["capability"] = capability
+    if policy is not None:
+        body["policy"] = policy
+    try:
+        normalized = paymentdecision.normalise_request(body)
+        digest = paymentdecision.request_sha256(body)
+        decision = paymentdecision.issue_normalized(store, normalized)
+    except paymentdecision.PaymentDecisionRefused as exc:
+        return {
+            "error": exc.code,
+            "detail": str(exc),
+            "billing": "NOT CHARGED — no complete signed decision was issued",
+        }
+
+    preq = payments.payment_decision_request(digest)
+    quoted = preq.cost
+
+    def _produce():
+        facts = settlement_mode()
+        subject = decision.get("credentialSubject") or {}
+        selected = subject.get("payment") or {}
+        actor, _distinct = _mcp_actor(ctx, api_key)
+        store.record_event(
+            actor, "payment_decision_issued", ua=_client_ua(ctx),
+            endpoint="wallet_payment_decision", transport="mcp",
+            request_sha256=digest, network=selected.get("network"),
+            decision=subject.get("decision"),
+            counterparty_agent_id=((subject.get("counterparty") or {})
+                                   .get("agent") or {}).get("id"),
+            price_credits=quoted,
+            paid=(facts.get("settlement_mode") == "x402"), **facts)
+        return decision
+
+    return _serve_paid(preq, _produce, ctx, api_key,
+                       x402_payment=x402_payment)
 
 
 @mcp.tool
