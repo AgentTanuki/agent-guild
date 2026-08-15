@@ -85,6 +85,11 @@ def ai_catalog() -> dict:
                     f"{HOST}/.well-known/agent-skills/agent-guild/SKILL.md"
                 ),
                 "version": __version__,
+                "metadata": {
+                    "install": "npx skills add AgentTanuki/agent-guild",
+                    "source": "https://github.com/AgentTanuki/agent-guild",
+                    "discoveryProof": f"{HOST}/discovery/reach",
+                },
                 "capabilities": [
                     "counterparty trust checks",
                     "portable passport verification",

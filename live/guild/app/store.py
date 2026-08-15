@@ -3013,6 +3013,230 @@ class Store:
             "measurement_coverage": coverage,
         }
 
+    def discovery_reach(self, target: int = 25_000, *,
+                        include_actor_evidence: bool = False,
+                        snapshot_events: Optional[int] = None
+                        ) -> dict[str, Any]:
+        """Durable proof of DISTINCT autonomous-agent discovery.
+
+        A catalogue hit is not an agent and six paid catalogue rows are not
+        six discoveries.  This view therefore deduplicates the durable event
+        history by its privacy-safe actor key and admits an actor only through
+        one of three pre-registered identity tiers:
+
+        * T1: a key-proved Guild member;
+        * T2: a named third-party MCP client;
+        * T3: a recognised agent-framework UA (Sybil-unresolvable).
+
+        First-party traffic, Guild tests, generic tooling, registry crawlers,
+        anonymous/unlinkable calls and repeated fetches are structurally
+        excluded.  Historical ``paid_offer_served`` rows preserve the honest
+        pre-instrumentation baseline; because those rows were emitted once per
+        catalogue operation they are used only to identify a distinct actor,
+        never as a raw fetch count.
+
+        The returned Ed25519/JCS attestation commits to a sorted,
+        double-pseudonymised actor evidence set. It makes later mutation
+        detectable without publishing serving-time network-derived actor keys.
+        """
+        from . import attribution as _attr
+
+        target = max(1, int(target))
+        # Any durable inbound origin event proves the caller has discovered the
+        # Guild.  Catalogue and machine-document events are broken out below,
+        # but the qualification/deduplication rule applies to the full history.
+        snapshot, coverage = self.measurement_event_snapshot()
+        if snapshot_events is not None:
+            snapshot_events = max(0, int(snapshot_events))
+            if snapshot_events > len(snapshot):
+                raise ValueError("requested census snapshot is newer than "
+                                 "the durable event history")
+            snapshot = snapshot[:snapshot_events]
+        selected_snapshot_events = len(snapshot)
+        coverage = {**coverage,
+                    "selected_snapshot_events": selected_snapshot_events}
+
+        actors: dict[str, dict[str, Any]] = {}
+        crawler_actors: set[str] = set()
+        excluded_actors: dict[str, set[str]] = {}
+        resource_fetches = 0
+        legacy_catalogue_rows = 0
+        latest_at: Optional[str] = None
+
+        for event in snapshot:
+            event_type = event.get("type")
+            if event_type == "paid_offer_served":
+                legacy_catalogue_rows += 1
+            if event_type == "discovery_resource_fetched":
+                resource_fetches += 1
+            discovery_surface = str(
+                event.get("discovery_surface")
+                or event.get("source")
+                or event.get("endpoint")
+                or event.get("surface")
+                or event_type
+                or "unknown")
+
+            at = str(event.get("at") or "")
+            if at and (latest_at is None or at > latest_at):
+                latest_at = at
+            actor = str(event.get("key") or "anon")
+            caller_class = self._caller_class_for(event)
+            if caller_class == "REGISTRY_CRAWLER" and actor not in (
+                    "", "anon"):
+                crawler_actors.add(actor)
+
+            unlinkable = (actor in ("", "anon")
+                          or event.get("actor_distinct") is False)
+            ua = str(event.get("ua") or "")
+            if not unlinkable and caller_class == "EXTERNAL_VERIFIED":
+                tier = "T1_key_proved_member"
+            elif (not unlinkable and _attr.is_genuine_external(event)
+                  and ua.startswith("mcp:")
+                  and _attr._mcp_client(ua) is not None):
+                tier = "T2_named_mcp_client"
+            elif not unlinkable and _attr.is_genuine_external(event):
+                tier = "T3_framework_ua_actor"
+            else:
+                tier = None
+            if tier is None:
+                if unlinkable:
+                    reason = "anonymous_unlinkable"
+                elif caller_class == "EXTERNAL_MEMBER":
+                    reason = "authenticated_but_key_unproved"
+                else:
+                    reason = _attr.attribution_class(event)
+                if actor not in ("", "anon"):
+                    excluded_actors.setdefault(reason, set()).add(actor)
+                continue
+
+            evidence = actors.setdefault(actor, {
+                "first_at": at or None,
+                "last_at": at or None,
+                "surfaces": set(),
+                "event_types": set(),
+                "caller_classes": set(),
+                "tier": tier,
+            })
+            tier_rank = {"T1_key_proved_member": 1,
+                         "T2_named_mcp_client": 2,
+                         "T3_framework_ua_actor": 3}
+            if tier_rank[tier] < tier_rank[evidence["tier"]]:
+                evidence["tier"] = tier
+            if at:
+                if not evidence["first_at"] or at < evidence["first_at"]:
+                    evidence["first_at"] = at
+                if not evidence["last_at"] or at > evidence["last_at"]:
+                    evidence["last_at"] = at
+            evidence["surfaces"].add(discovery_surface)
+            evidence["event_types"].add(str(event_type))
+            evidence["caller_classes"].add(caller_class)
+
+        committed_rows = [
+            {
+                "actor_alias_sha256": hashlib.sha256(
+                    ("agent-guild/census/v1|" + actor).encode("utf-8")
+                ).hexdigest(),
+                "tier": evidence["tier"],
+                "first_at": evidence["first_at"],
+                "last_at": evidence["last_at"],
+                "surfaces": sorted(evidence["surfaces"]),
+                "event_types": sorted(evidence["event_types"]),
+                "caller_classes": sorted(evidence["caller_classes"]),
+            }
+            for actor, evidence in sorted(actors.items())
+        ]
+        actor_set_sha256 = hashlib.sha256(
+            canonicalize(committed_rows).encode("utf-8")
+        ).hexdigest()
+        direct_actors = sum(
+            "discovery_resource_fetched" in evidence["event_types"]
+            for evidence in actors.values())
+        legacy_only_actors = len(actors) - direct_actors
+        qualified_count = len(actors)
+        tier_counter = Counter(
+            evidence["tier"] for evidence in actors.values())
+        tier_counts = {
+            "T1_key_proved_members": tier_counter["T1_key_proved_member"],
+            "T2_named_mcp_clients": tier_counter["T2_named_mcp_client"],
+            "T3_framework_ua_actors": tier_counter[
+                "T3_framework_ua_actor"],
+        }
+        gid = self.guild_identity()
+        rules_commit = (os.environ.get("RENDER_GIT_COMMIT")
+                        or os.environ.get("GUILD_GIT_SHA")
+                        or "unavailable")
+        rules_ref = rules_commit if rules_commit != "unavailable" else "main"
+        attestation = {
+            "type": "agent-guild/discovery-reach/v1",
+            "issuer": gid["did"],
+            "as_of": latest_at,
+            "target_distinct_autonomous_agents": target,
+            "qualified_distinct_autonomous_agents": qualified_count,
+            "tiers": tier_counts,
+            "target_achieved": qualified_count >= target,
+            "actor_evidence_set_sha256": actor_set_sha256,
+            "actor_evidence_rows": qualified_count,
+            "event_snapshot_rows": selected_snapshot_events,
+            "measurement_history_complete": bool(
+                coverage.get("history_complete")),
+            "qualification_rule_version": 1,
+            "rules": ("https://github.com/AgentTanuki/agent-guild/blob/"
+                      f"{rules_ref}/docs/CENSUS_RULES.md"),
+            "rules_commit": rules_commit,
+        }
+        proof = {
+            "payload": attestation,
+            "alg": "Ed25519",
+            "canonicalization": "JCS (RFC 8785)",
+            "signature": sign_jcs(attestation, gid["private_key"]),
+            "verification_key": gid["did"],
+        }
+        report = {
+            "metric": "distinct attributable autonomous-agent discoverers",
+            "target": target,
+            "qualified_distinct_autonomous_agents": qualified_count,
+            "tiers": tier_counts,
+            "remaining": max(0, target - qualified_count),
+            "target_achieved": qualified_count >= target,
+            "as_of": latest_at,
+            "evidence": {
+                "directly_instrumented_distinct_actors": direct_actors,
+                "pre_resource_instrumentation_distinct_actors": (
+                    legacy_only_actors),
+                "direct_resource_fetches": resource_fetches,
+                "legacy_catalogue_rows_not_treated_as_fetches": (
+                    legacy_catalogue_rows),
+                "registry_crawler_distinct_actors_excluded": len(
+                    crawler_actors),
+                "excluded_distinct_actors_by_reason": {
+                    reason: len(values)
+                    for reason, values in sorted(excluded_actors.items())
+                },
+                "actor_evidence_set_sha256": actor_set_sha256,
+            },
+            "qualification_rule": (
+                "One durable privacy-safe actor key counts once, across every "
+                "origin surface and repeat call, only when it is a key-proved "
+                "Guild member (T1), a named third-party MCP client (T2), or a "
+                "recognised agent-framework caller (T3). First-party traffic, Guild "
+                "tests, generic tooling, registry crawlers, anonymous or "
+                "unlinkable traffic, unproved bare members, and raw repeat "
+                "impressions never count."),
+            "identity_caveat": (
+                "Unauthenticated HTTP distinctness is a stable network + user-"
+                "agent fingerprint, not a person or device identity. Shared "
+                "egress can undercount and rotating egress can overcount; "
+                "authenticated member and signed caller identities are "
+                "stronger. The metric is intentionally named attributable "
+                "actors rather than human users."),
+            "proof": proof,
+            "measurement_coverage": coverage,
+        }
+        if include_actor_evidence:
+            report["actor_evidence"] = committed_rows
+        return report
+
     def _qualifies_as_paid_demand(self, ev: dict[str, Any], cls: str) -> bool:
         """May this impression enter the QUALIFIED denominator?
 
