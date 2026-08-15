@@ -388,6 +388,13 @@ class PaymentChallenge(Exception):
         self.body = x402.payment_required_body(preq, self.cost, model=self.model)
         if extra:
             self.body.update(extra)
+        if not x402.trial_cta_enabled():
+            acquire = self.body.get("acquire")
+            if isinstance(acquire, dict) and "trial" in acquire:
+                self.body["acquire"] = {
+                    key: value for key, value in acquire.items()
+                    if key != "trial"
+                }
         super().__init__("payment required")
 
     def header_value(self) -> str:
@@ -1163,8 +1170,10 @@ def authorize(preq: PaidRequest, *,
             if billing.billing_enforced():
                 raise PaymentChallenge(preq, extra={
                     "error": "unknown_billing_key",
-                    "detail": "unknown billing key (POST /billing/trial for "
-                              "a free starter)"})
+                    "detail": (
+                        "unknown billing key (POST /billing/trial for a free "
+                        "starter)" if x402.trial_cta_enabled()
+                        else "unknown billing key")})
             store.record_event(api_key, "query", ua=ua,
                                endpoint=preq.operation, paid=False,
                                transport=transport)

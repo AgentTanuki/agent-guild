@@ -45,6 +45,7 @@ on-chain, and the service itself enforces that definition
 | `GUILD_X402_NETWORK` | `eip155:84532` for stage 2, `eip155:8453` for stage 3+ | CAIP-2 |
 | `GUILD_X402_BASE_RPC` | e.g. `https://mainnet.base.org` (default) | independent confirmation endpoint; https required |
 | `GUILD_X402_CONFIRM_TIMEOUT` | optional, default 45 (seconds) | receipt-poll bound |
+| `GUILD_X402_TRIAL_CTA` | optional, default `0` | purchase-moment copy only: `1` restores the legacy sandbox-trial CTA inside priced 402 bodies. It never disables the trial endpoint, changes entitlement, or changes the canonical x402 quote. |
 
 `GUILD_X402_ASSET` and `GUILD_X402_FACILITATOR` are best left unset — they
 default per network to the canonical USDC contract and the correct
