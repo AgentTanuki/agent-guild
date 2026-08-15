@@ -5071,6 +5071,18 @@ def paid_offer_funnel(operation: Optional[str] = None):
     return store.paid_offer_funnel(operation)
 
 
+@app.get("/funnel/paid/actors")
+def paid_actor_journeys():
+    """Durable, privacy-safe journeys for qualified paid-funnel actors.
+
+    Joins free catalogue exposure to executable quotes and verified payment
+    completion without exposing raw IP addresses, credentials, bodies, prompts
+    or payment payloads. Some pseudonymous actor keys may be network-derived.
+    This is a diagnostic read, not a buyer event and not a revenue claim.
+    """
+    return store.paid_actor_journeys()
+
+
 @app.get("/funnel/spend-mandates")
 def spend_mandate_falsification():
     """FREE readback of the predeclared AGSM-1 external repeat-use signal."""

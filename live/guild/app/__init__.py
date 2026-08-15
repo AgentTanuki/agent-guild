@@ -3,7 +3,16 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.31"  # PATCH (machine-visible semver, 2026-08-15):
+__version__ = "2.5.32"  # PATCH (machine-visible semver, 2026-08-15):
+                        # makes qualified paid-funnel journeys decidable from
+                        # durable history without exposing IPs, credentials,
+                        # bodies or payment payloads. Free catalogue entries,
+                        # executable price challenges and verified mainnet
+                        # completions are separated per pseudonymous actor so
+                        # repeated catalogue rows cannot masquerade as buyer
+                        # attempts. Pricing, attribution, experiments,
+                        # payments and settlement are unchanged.
+                        # History of 2.5.31:
                         # exposes the existing exact-payment AGPD-1 policy as
                         # a named MCP tool at the wallet's last reversible
                         # moment before x402 signing. Stock MCP clients now

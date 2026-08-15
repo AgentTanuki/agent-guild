@@ -161,6 +161,17 @@ def test_filtered_event_snapshot_preserves_append_order_and_duplicates():
     assert len([row for row in got if row["at"] == at]) == 2
 
 
+def test_event_snapshot_filters_actor_keys_before_json_decode():
+    s = _store()
+    for key, marker in (("actor-a", 1), ("actor-b", 2), ("actor-a", 3)):
+        s.backend.append_event({
+            "key": key, "type": "query",
+            "at": "2026-08-15T00:00:00+00:00", "marker": marker})
+
+    got = s.backend.fetch_events(keys=("actor-a",))
+    assert [row["marker"] for row in got] == [1, 3]
+
+
 def test_event_tail_and_total_come_from_one_ordered_snapshot():
     s = _store()
     for i in range(7):

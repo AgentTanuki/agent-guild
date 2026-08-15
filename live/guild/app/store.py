@@ -18,6 +18,7 @@ import statistics
 import sys
 import threading
 import time
+from collections import Counter
 from contextlib import nullcontext
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
@@ -2680,7 +2681,8 @@ class Store:
 
     def measurement_event_snapshot(
             self, *, types: Optional[tuple[str, ...]] = None,
-            since: Optional[str] = None
+            since: Optional[str] = None,
+            keys: Optional[tuple[str, ...]] = None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """One immutable event cut for a funnel or experiment decision.
 
@@ -2690,12 +2692,14 @@ class Store:
         incomplete windows truthfully so the experiment engine can fail closed.
         """
         if self.backend is not None:
-            events = self.backend.fetch_events(types=types, since=since)
+            events = self.backend.fetch_events(
+                types=types, since=since, keys=keys)
             floor = self.event_history_floor or {}
             return events, {
                 "source": "sqlite_durable",
                 "requested_since": since,
                 "event_types": list(types or ()),
+                "actor_key_filter_count": len(keys or ()),
                 "snapshot_events": len(events),
                 # A lossy cutover is permanently incomplete until the missing
                 # prefix is restored. Append order, not timestamps, chose the
@@ -2706,11 +2710,13 @@ class Store:
         with self.lock:
             events = [dict(event) for event in self.events
                       if (not types or event.get("type") in types)
+                      and (not keys or event.get("key") in keys)
                       and (since is None
                            or str(event.get("at") or "") >= str(since))]
         coverage = self.event_retention_coverage(since)
         coverage = {**coverage, "source": "json_retained_memory",
                     "event_types": list(types or ()),
+                    "actor_key_filter_count": len(keys or ()),
                     "snapshot_events": len(events)}
         return events, coverage
 
@@ -2836,6 +2842,175 @@ class Store:
                            "subsystems (attribution.GUILD_INTERNAL_ORIGINS) "
                            "are excluded by CALLER CLASS, structurally"),
             "measurement_coverage": measurement_coverage,
+        }
+
+    def paid_actor_journeys(self) -> dict[str, Any]:
+        """Privacy-safe journeys for actors that qualify in ``/funnel/paid``.
+
+        The aggregate paid funnel can answer whether a qualified caller saw a
+        catalogue entry.  It cannot answer the commercially decisive next
+        question: did that same caller return, request an executable quote, or
+        pay?  This view joins those rungs by the already-stored pseudonymous
+        actor key and ordered durable event history.  It never exposes a raw
+        IP, credential, request body, payment payload or free-text prompt;
+        some pseudonymous keys can nevertheless be network-derived.
+
+        ``paid_offer_served`` is a free catalogue impression, while
+        ``paid_offer_shown`` / ``paid_offer_challenged`` are executable price
+        challenges.  Keeping both numbers prevents a multi-operation catalogue
+        read from masquerading as many purchase attempts.
+        """
+        from . import attribution as _attr
+        from . import experiments as _experiments
+
+        candidate_events, candidate_coverage = self.measurement_event_snapshot(
+            types=("paid_offer_served",))
+        qualified: set[str] = set()
+        for event in candidate_events:
+            actor = event.get("key") or "anon"
+            if actor in ("", "anon", None) or event.get("actor_distinct") is False:
+                continue
+            caller_class = self._caller_class_for(event)
+            if self._qualifies_as_paid_demand(event, caller_class):
+                qualified.add(str(actor))
+
+        if qualified:
+            snapshot, coverage = self.measurement_event_snapshot(
+                keys=tuple(sorted(qualified)))
+        else:
+            snapshot, coverage = [], candidate_coverage
+        coverage = {
+            **coverage,
+            "candidate_snapshot_events": len(candidate_events),
+            "journey_snapshot_events": len(snapshot),
+        }
+
+        grouped: dict[str, list[dict[str, Any]]] = {
+            actor: [] for actor in qualified
+        }
+        for event in snapshot:
+            actor = str(event.get("key") or "anon")
+            if actor in grouped:
+                grouped[actor].append(event)
+
+        completion_types = set(_experiments.ALL_PAID_EVENTS)
+
+        def _visit_count(events: list[dict[str, Any]]) -> int:
+            visits = 0
+            previous: Optional[datetime] = None
+            for event in events:
+                raw = event.get("at")
+                try:
+                    current = datetime.fromisoformat(str(raw))
+                except (TypeError, ValueError):
+                    continue
+                try:
+                    if (previous is None or
+                            (current - previous).total_seconds() > 1800):
+                        visits += 1
+                    previous = current
+                except TypeError:
+                    # Future imports may contain a naive timestamp among aware
+                    # production rows. Never invent a visit or 500 this view.
+                    continue
+            return visits
+
+        journeys: list[dict[str, Any]] = []
+        for actor, events in grouped.items():
+            catalogue = [event for event in events
+                         if event.get("type") == "paid_offer_served"]
+            challenges = [event for event in events
+                          if event.get("type") in
+                          ("paid_offer_shown", "paid_offer_challenged")]
+            completions = [event for event in events
+                           if event.get("type") in completion_types
+                           and event.get("settlement_mode") in
+                           ("x402", "credits_sandbox")]
+            revenue = [event for event in completions
+                       if _experiments.is_revenue(event)]
+            external_revenue = [event for event in revenue
+                                if event.get("payer_attribution") ==
+                                "independently_attested_external_machine"]
+            mcp_catalogue = [event for event in catalogue
+                             if event.get("source") == "paid_offer:mcp_tool"]
+            distinct_catalogue_ops = sorted({
+                str(event.get("operation")) for event in mcp_catalogue
+                if event.get("operation")
+            })
+            uas = sorted({str(event.get("ua") or "")[:80] for event in events
+                          if event.get("ua")})
+            classes = Counter(_attr.attribution_class(event) for event in events)
+            visits = _visit_count(events)
+            challenge_ops = Counter(
+                str(event.get("challenged_operation") or "unknown")
+                for event in challenges)
+            if external_revenue:
+                signal = "independently_attested_external_completion"
+            elif revenue:
+                signal = "verified_mainnet_unattributed_completion"
+            elif completions:
+                signal = "non_revenue_completion"
+            elif challenges:
+                signal = "quoted_no_completion"
+            else:
+                signal = "catalogue_only"
+            journeys.append({
+                "actor": actor,
+                "caller_classes": dict(sorted(classes.items())),
+                "user_agents": uas,
+                "first_at": events[0].get("at") if events else None,
+                "last_at": events[-1].get("at") if events else None,
+                "visits_30m": visits,
+                "returned": visits >= 2,
+                "event_types": dict(sorted(Counter(
+                    str(event.get("type") or "unknown")
+                    for event in events).items())),
+                "transports": dict(sorted(Counter(
+                    str(event.get("transport") or event.get("surface") or
+                        "unknown") for event in events).items())),
+                "catalogue_offer_entries": len(catalogue),
+                "catalogue_sources": dict(sorted(Counter(
+                    str(event.get("source") or "unknown")
+                    for event in catalogue).items())),
+                "catalogue_operations": dict(sorted(Counter(
+                    str(event.get("operation") or "unknown")
+                    for event in catalogue).items())),
+                "mcp_catalogue_offer_entries": len(mcp_catalogue),
+                "mcp_catalogue_distinct_operations": distinct_catalogue_ops,
+                "price_challenges": len(challenges),
+                "challenged_operations": dict(sorted(challenge_ops.items())),
+                "paid_completions": len(completions),
+                "verified_mainnet_completions": len(revenue),
+                "independently_attested_external_completions": len(
+                    external_revenue),
+                "signal": signal,
+            })
+        journeys.sort(key=lambda item: (
+            str(item.get("last_at") or ""), str(item.get("actor") or "")),
+            reverse=True)
+        return {
+            "qualified_distinct_actors": len(journeys),
+            "actors": journeys,
+            "identity_boundary": (
+                "actor is a purpose-scoped pseudonymous key already used by "
+                "the paid funnel; it is never a raw IP address, wallet or "
+                "legal identity, but some pseudonyms may be derived from a "
+                "network address. Two keys are not proof of two machines"),
+            "metric_reconciliation": {
+                "catalogue_offer_entries": (
+                    "paid_offer_served rows: free catalogue exposure, one row "
+                    "per advertised operation; catalogue width changes over "
+                    "time, so rows are not converted into an inferred call "
+                    "count and are never a payment attempt"),
+                "price_challenges": (
+                    "paid_offer_shown/paid_offer_challenged rows: an executable "
+                    "price quote for one operation; still not revenue"),
+                "verified_mainnet_completions": (
+                    "independently confirmed mainnet settlements; payer "
+                    "externality is reported separately and remains required "
+                    "before anything is revenue"),
+            },
+            "measurement_coverage": coverage,
         }
 
     def _qualifies_as_paid_demand(self, ev: dict[str, Any], cls: str) -> bool:
