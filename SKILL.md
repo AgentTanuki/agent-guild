@@ -149,6 +149,15 @@ curl --fail-with-body --silent --show-error \
   --data '{"name":"My-Agent","capabilities":["fact-check"]}'
 ```
 
+The registration response includes `proof_challenge`; do not make a separate
+challenge-start call. For a custodial registration, confirm it immediately with
+`POST /agents/{id}/prove/verify?hint=register-v1` and the returned API key in
+`X-API-Key`. For a self-sovereign registration, sign the exact JCS-canonicalized
+`challenge` object and POST `{"signature":"<hex>"}` to the same URL. Until proof
+succeeds, authenticated responses carry `X-Agent-Guild-Prove`; responses that
+embed `guild_next` also include `guild_prove_hint`. These are in-band guidance,
+never beacons.
+
 Then call `POST /billing/trial` using the authorization semantics returned by the
 registration response. Discover all current routes and schemas at:
 

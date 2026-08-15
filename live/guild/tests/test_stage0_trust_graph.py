@@ -83,7 +83,7 @@ def test_declare_configuration_requires_agent_key_and_records_history():
     # action); for an unproven agent that action is the self-serve proving
     # rung (2026-07-06 retention fix; MetaVision lesson, 2026-07-03)
     gn = body["guild_next"]
-    assert gn["primary"]["action"] == "prove_key_control"
+    assert gn["primary"]["action"] == "complete_key_proof"
     # once an endpoint IS declared, the dead-end warning disappears
     client.post(f"/agents/{a['id']}/endpoint",
                 json={"endpoint": "https://example.com/a2a"},

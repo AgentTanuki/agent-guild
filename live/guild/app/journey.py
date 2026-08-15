@@ -226,7 +226,9 @@ def author_first_attestation_step(store, agent: dict[str, Any]) -> Optional[dict
                         "by an external agent — yours would be the first."))
 
 
-def next_actions(store, agent: dict[str, Any]) -> list[dict[str, Any]]:
+def next_actions(store, agent: dict[str, Any], *,
+                 prove_hint_source: str = "inband-v1"
+                 ) -> list[dict[str, Any]]:
     """The ranked ladder of next actions for this agent, computed from evidence
     state. Item 0 is the primary action embedded in normal responses. Ranking
     principle: (stage-advancement value × probability of completion) — the
@@ -245,18 +247,22 @@ def next_actions(store, agent: dict[str, Any]) -> list[dict[str, Any]]:
     # Stage 1→2, the once-broken link (retention diagnosis 2026-07-06: every
     # agent ever registered parked here, because the old first instruction
     # required a counterparty a cold-start network doesn't have). The proving
-    # rung is the ONE action a newcomer completes ALONE, in two calls, today —
-    # so it outranks everything for an unproven newcomer.
+    # rung is the ONE action a newcomer completes ALONE today, so it outranks
+    # everything for an unproven newcomer. Registration now opens the challenge
+    # immediately; returning/legacy members without one still use /prove first.
     if stage < 2 and not proof:
+        hint = proving.prove_hint(agent, source=prove_hint_source)
         steps.append(_step(
-            "prove_key_control",
+            ("complete_key_proof" if hint["challenge_open"]
+             else "prove_key_control"),
             "Complete the Guild proving challenge — the one rung you can climb "
             "alone, right now, no counterparty needed. It records a real, "
             "guild-observed task + receipt on your record (provenance-labelled: "
             "verifiable conformance, never peer praise), so your record visibly "
             "changes on this visit.",
-            f"POST {BASE}/agents/{aid}/prove → sign the challenge → "
-            f"POST {BASE}/agents/{aid}/prove/verify",
+            hint["next_call"]["url"],
+            method=hint["next_call"]["method"],
+            authentication=hint["next_call"]["authentication"],
             counterfactual="Unproven, you sit at the newcomer prior with an "
                            "empty record until a counterparty finds you."))
     elif proof and not proving._fresh(proof):
@@ -419,17 +425,19 @@ def passport_bundle(store, agent: dict[str, Any]) -> dict[str, Any]:
 # --- public composition ----------------------------------------------------------
 
 def guild_next(store, agent: dict[str, Any],
-               note: Optional[str] = None) -> dict[str, Any]:
+               note: Optional[str] = None, *,
+               prove_hint_source: str = "inband-v1") -> dict[str, Any]:
     """The one-primary-action block embedded in authenticated responses.
     Also detects and records stage transitions as a side effect, so every
     evidence write re-evaluates the journey it just advanced."""
     stage = note_stage(store, agent)
-    steps = next_actions(store, agent)
+    steps = next_actions(
+        store, agent, prove_hint_source=prove_hint_source)
     # Machine-economics audit R2: an offered rung must be *counted* as offered,
     # or offered→started drop-off is indistinguishable from the offer never
     # being seen. Milestone-based, so it stamps once per agent, at the first
     # moment the proving rung is served as the primary action.
-    if steps[0]["action"] == "prove_key_control":
+    if steps[0]["action"] in {"prove_key_control", "complete_key_proof"}:
         if store.record_milestone(agent["id"], "prove_offered"):
             store._save()
     out = {
@@ -440,6 +448,10 @@ def guild_next(store, agent: dict[str, Any],
                    "+ counterfactuals (free to you)",
         "path_to_citizenship": f"GET {BASE}/citizenship",
     }
+    if not agent.get("proof_of_conduct"):
+        from . import proving
+        out["guild_prove_hint"] = proving.prove_hint(
+            agent, source=prove_hint_source)
     # In-band inbox delivery: the agent's own next call is the Guild's only
     # reliable channel to an agent with no inbound endpoint (app/inbox.py) —
     # undelivered messages ride here on every response that embeds guild_next

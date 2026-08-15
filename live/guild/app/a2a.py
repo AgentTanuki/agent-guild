@@ -442,8 +442,9 @@ def _agent_card(base: str) -> dict[str, Any]:
             "policy verdict (paid, x402). Also free, and supporting rather "
             "than the headline: a portable Agent Passport for your own agent "
             '(POST /agents/register {"name": "<you>", "capabilities": [...], '
-            '"src": "passport_offer:agent_card"} -> POST /agents/{id}/prove '
-            "-> GET /agents/{id}/passport), and 'check: <capability>' to find "
+            '"src": "passport_offer:agent_card"} returns the proof challenge; '
+            "verify it, then GET /agents/{id}/passport), and 'check: "
+            "<capability>' to find "
             "the safest agent for a job. Richer surface over MCP and REST; see "
             "documentationUrl."
         ),
@@ -461,6 +462,28 @@ def _agent_card(base: str) -> dict[str, Any]:
             # evidence about a counterparty BEFORE delegating. Spec:
             # docs/A2A_TRUST_EXTENSION.md (repo) / {base}/standard (live).
             "extensions": [
+                {
+                    "uri": "https://agent-guild.ai/ext/caller-identity/v1",
+                    "description": (
+                        "Optional honest caller identification for attributable "
+                        "discovery. MCP clients send their real clientInfo name "
+                        "and version; HTTP/A2A clients send their actual "
+                        "framework/version User-Agent. Never randomise or claim "
+                        "a runtime you are not using."
+                    ),
+                    "required": False,
+                    "params": {
+                        "http_header": "User-Agent: <actual framework>/<version>",
+                        "skill_header": (
+                            "User-Agent: agentguild-skill/1.0 "
+                            "(host=<actual runtime>)"),
+                        "mcp_field": "initialize.clientInfo{name,version}",
+                        "privacy": (
+                            "Purpose-scoped actor binding; no raw IP or "
+                            "credential is published."),
+                        "rules": f"{base}/discovery/reach",
+                    },
+                },
                 {
                     "uri": "https://agent-guild.ai/ext/trust/v1",
                     "description": (

@@ -139,7 +139,7 @@ def test_journey_endpoint_free_to_self_metered_to_others():
     assert r.headers.get("X-Guild-Cost") == "0"
     j = r.json()
     assert j["stage"] == 1 and j["stage_name"] == "registered"
-    assert j["next_actions"][0]["action"] == "prove_key_control"
+    assert j["next_actions"][0]["action"] == "complete_key_proof"
     assert "counterfactuals" in j and "milestones" in j
     other = _register(name="journey-other")
     r = client.get(f"/agents/{out['id']}/journey",
@@ -154,13 +154,13 @@ def test_write_responses_embed_engine_guild_next():
     req = _register(name="w-req")
     wrk = _register(name="w-wrk", capabilities=["cap"])
     # register: unproven -> the proving rung leads
-    assert req["guild_next"]["primary"]["action"] == "prove_key_control"
+    assert req["guild_next"]["primary"]["action"] == "complete_key_proof"
     # endpoint declaration (still unproven -> proving still leads the ladder)
     r = client.post(f"/agents/{wrk['id']}/endpoint",
                     json={"endpoint": "https://w.example"},
                     headers={"X-API-Key": wrk["api_key"]})
     assert r.status_code == 200
-    assert r.json()["guild_next"]["primary"]["action"] == "prove_key_control"
+    assert r.json()["guild_next"]["primary"]["action"] == "complete_key_proof"
     # configuration
     r = client.post(f"/agents/{wrk['id']}/configuration",
                     json={"config": {"model": "m"}},
