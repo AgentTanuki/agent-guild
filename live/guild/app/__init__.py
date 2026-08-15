@@ -3,7 +3,18 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.28"  # PATCH (machine-visible semver, 2026-08-15):
+__version__ = "2.5.29"  # PATCH (machine-visible semver, 2026-08-15):
+                        # repairs the canonical x402 handoff for body-bound
+                        # products: machines now learn the exact authoritative
+                        # Bazaar request template through a non-attributed,
+                        # non-executable discovery challenge instead of being
+                        # sent to metrics or generic route schemas. A materialized
+                        # evidence-bundle body now receives its own executable,
+                        # request-bound quote instead of the registry sentinel;
+                        # its opaque request digest binds the optional audience
+                        # as well as URL and TTL. Pricing, authorization,
+                        # settlement and telemetry are unchanged.
+                        # History of 2.5.28:
                         # exposes the documented schema-visible x402 payment
                         # retry carrier on guild_preflight_deep, so MCP clients
                         # that cannot set request metadata can settle the

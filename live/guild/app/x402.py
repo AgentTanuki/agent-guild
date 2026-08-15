@@ -386,8 +386,8 @@ def discovery_document(resources: list["PaidRequest"]) -> dict[str, Any]:
         "description": (
             "Executable x402 trust search and endpoint preflight, plus "
             "Guild-signed trust decisions. Body-bound payment policies, "
-            "evidence and machine "
-            "envelopes are described in OpenAPI and MCP; verification is free."
+            "evidence and machine envelopes use request-bound discovery "
+            "challenges; verification is free."
         ),
         "resources": urls,
         "instructions": (
@@ -397,15 +397,89 @@ def discovery_document(resources: list["PaidRequest"]) -> dict[str, Any]:
             "PAYMENT-REQUIRED header are authoritative for the current price, "
             "Base-mainnet USDC recipient, method, input schema and output "
             "contract. Never reuse one resource's quote for another resource. "
-            "For POST products, construct the exact body from OpenAPI or MCP, "
-            "send it once without payment, and pay only the returned request-"
-            "bound resource URL."
+            "For POST products, select the operation from the canonical "
+            "Agent Guild catalog, then send an empty JSON object with the "
+            "manifest discovery marker. Require a non-executable 402, read "
+            "the Bazaar input body template, materialize every placeholder "
+            "and generate a fresh caller proof where the template includes "
+            "one, resend the exact body without the marker, and pay only that "
+            "new request-bound quote. OpenAPI and the MCP server card describe "
+            "routes and tools; they are not the exact-body authority."
         ),
         "body_bound_products": {
+            "canonical_catalog": (
+                public_host() + "/.well-known/agent-guild.json"),
+            "catalog_json_pointer": "/paid_operations/operations",
+            "commercial_metrics": public_host() + "/commercial",
             "openapi": public_host() + "/openapi.json",
             "mcp_server_card": (
                 public_host() + "/.well-known/mcp/server-card.json"),
-            "catalog": public_host() + "/commercial",
+            "discovery_probe": {
+                "targets": [
+                    {
+                        "operation": "signed_decision",
+                        "url": public_host() + "/check/decision",
+                        "method": "POST",
+                    },
+                    {
+                        "operation": "evidence_bundle",
+                        "url": public_host() + "/evidence/bundle",
+                        "method": "POST",
+                    },
+                    {
+                        "operation": "machine_envelope",
+                        "url": public_host() + "/envelopes/issue",
+                        "method": "POST",
+                    },
+                    {
+                        "operation": "payment_decision",
+                        "url": public_host() + "/wallet-binding/decision",
+                        "method": "POST",
+                    },
+                    {
+                        "operation": "protected_payment_decision",
+                        "url": (
+                            public_host()
+                            + "/wallet-binding/protected-decision"),
+                        "method": "POST",
+                    },
+                    {
+                        "operation": "protected_payment_decision",
+                        "variant": "1000-usdc",
+                        "url": (
+                            public_host()
+                            + "/wallet-binding/protected-decision/tiers/"
+                            "1000-usdc"),
+                        "method": "POST",
+                    },
+                ],
+                "request": {
+                    "method": "POST",
+                    "body": {},
+                    "headers": {
+                        "X-Agent-Guild-Discovery-Probe": "manifest",
+                    },
+                },
+                "require": {
+                    "status": 402,
+                    "response_header": {
+                        "X-Agent-Guild-Discovery-Probe": "non-attributed",
+                    },
+                    "detail": {
+                        "discovery_only": True,
+                        "executable": False,
+                    },
+                },
+                "body_template": {
+                    "source": "base64-decoded PAYMENT-REQUIRED header",
+                    "json_pointer": "/extensions/bazaar/info/input/body",
+                },
+                "execution": (
+                    "materialize every placeholder and generate a fresh "
+                    "caller proof where the template includes one; resend "
+                    "without the discovery marker; pay only the new request-"
+                    "bound quote"),
+            },
             "rule": (
                 "Not listed as reusable resources: the authoritative quote is "
                 "derived from the buyer's exact JSON body and, where required, "
@@ -832,8 +906,16 @@ def _bazaar_body_example(preq: "PaidRequest") -> dict[str, Any]:
     path = preq.path
     if path == "/evidence/bundle":
         query = dict(preq.query)
+        url = query.get("url")
+        if not url or url == "discovery-only":
+            # Never publish the internal registry sentinel as if it were a
+            # buyer value.  This canonical live endpoint is a valid executable
+            # example; resending the template therefore produces a NEW quote
+            # bound to a real URL instead of preserving the non-executable
+            # discovery resource.
+            url = public_host() + "/a2a"
         return {
-            "url": query.get("url", public_host() + "/a2a"),
+            "url": url,
             "ttl_seconds": int(query.get("ttl_seconds", "3600")),
         }
     if path == "/watch/cycle":

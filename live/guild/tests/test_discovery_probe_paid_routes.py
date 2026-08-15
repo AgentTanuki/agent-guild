@@ -12,6 +12,7 @@ import base64
 import json
 import os
 import sys
+from urllib.parse import urlparse
 
 import pytest
 
@@ -66,14 +67,17 @@ CONTROL_ROUTES = [
 ]
 
 
-def _send(client, method, path, path_params, query=None, headers=None):
+def _send(client, method, path, path_params, query=None, headers=None,
+          body=None):
     url = path
     for key, value in path_params.items():
         url = url.replace("{" + key + "}", value)
     probe_headers = {"user-agent": "MPPScan-probe/1.0", **(headers or {})}
     if method == "GET":
         return client.get(url, params=query or {}, headers=probe_headers)
-    return client.post(url, params=query or {}, json={}, headers=probe_headers)
+    return client.post(
+        url, params=query or {}, json={} if body is None else body,
+        headers=probe_headers)
 
 
 @pytest.mark.parametrize(
@@ -95,6 +99,119 @@ def test_unpaid_probe_gets_402(
 def test_controls_still_402(
         client, settle_spy, method, path, path_params, query):
     assert _send(client, method, path, path_params, query).status_code == 402
+    assert settle_spy == []
+
+
+def test_body_bound_manifest_probe_returns_non_executable_body_template(
+        client, settle_spy):
+    from app.main import store
+
+    def event_count(event_type):
+        return len([event for event in store.events
+                    if event.get("type") == event_type])
+
+    document = client.get("/.well-known/x402").json()
+    probe = document["body_bound_products"]["discovery_probe"]
+    targets = probe["targets"]
+    assert {(target["operation"], urlparse(target["url"]).path)
+            for target in targets} == {
+        ("signed_decision", "/check/decision"),
+        ("evidence_bundle", "/evidence/bundle"),
+        ("machine_envelope", "/envelopes/issue"),
+        ("payment_decision", "/wallet-binding/decision"),
+        ("protected_payment_decision",
+         "/wallet-binding/protected-decision"),
+        ("protected_payment_decision",
+         "/wallet-binding/protected-decision/tiers/1000-usdc"),
+    }
+    assert probe["body_template"] == {
+        "source": "base64-decoded PAYMENT-REQUIRED header",
+        "json_pointer": "/extensions/bazaar/info/input/body",
+    }
+    proof_required_paths = {
+        "/check/decision",
+        "/envelopes/issue",
+        "/wallet-binding/protected-decision",
+        "/wallet-binding/protected-decision/tiers/1000-usdc",
+    }
+
+    for target in targets:
+        before_paid = event_count("paid_offer_shown")
+        before_passport = event_count("offer_served")
+        path = urlparse(target["url"]).path
+        response = _send(
+            client, target["method"], path, {},
+            headers=probe["request"]["headers"],
+            body=probe["request"]["body"])
+
+        assert response.status_code == 402, response.text[:300]
+        assert response.headers["X-Agent-Guild-Discovery-Probe"] == \
+            "non-attributed"
+        detail = response.json()["detail"]
+        assert detail["discovery_only"] is True
+        assert detail["executable"] is False
+        challenge = json.loads(base64.b64decode(
+            response.headers["PAYMENT-REQUIRED"]))
+        input_info = challenge["extensions"]["bazaar"]["info"]["input"]
+        assert input_info["method"] == "POST"
+        assert input_info["bodyType"] == "json"
+        assert isinstance(input_info["body"], dict)
+        assert input_info["body"], (
+            "the discovery quote must contain a body template")
+        assert "discovery-only" not in json.dumps(input_info["body"])
+        assert ("caller_proof" in input_info["body"]) == \
+            (path in proof_required_paths)
+        assert "payment-response" not in {
+            key.lower() for key in response.headers}
+        assert settle_spy == []
+        assert event_count("paid_offer_shown") == before_paid
+        assert event_count("offer_served") == before_passport
+
+        # Following the published handoff can never reproduce the deliberately
+        # non-executable discovery quote.  Proof-bound examples first demand a
+        # fresh valid proof; the two plain-body products return a new exact 402.
+        resend = _send(
+            client, target["method"], path, {}, body=input_info["body"],
+            headers={"user-agent": "machine-buyer/1.0"})
+        if path in proof_required_paths:
+            assert resend.status_code == 401
+        else:
+            assert resend.status_code == 402
+            resend_required = json.loads(base64.b64decode(
+                resend.headers["PAYMENT-REQUIRED"]))
+            assert resend_required["resource"]["url"] != \
+                challenge["resource"]["url"]
+        assert "payment-response" not in {
+            key.lower() for key in resend.headers}
+        assert settle_spy == []
+
+
+def test_evidence_discovery_template_resend_gets_distinct_executable_quote(
+        client, settle_spy):
+    discovery = client.post(
+        "/evidence/bundle", json={}, headers={
+            "user-agent": "machine-catalogue/1.0",
+            "X-Agent-Guild-Discovery-Probe": "manifest",
+        })
+    assert discovery.status_code == 402
+    discovery_required = json.loads(base64.b64decode(
+        discovery.headers["PAYMENT-REQUIRED"]))
+    template = discovery_required["extensions"]["bazaar"]["info"][
+        "input"]["body"]
+    assert template["url"].startswith("https://")
+    assert template["url"] != "discovery-only"
+
+    request_quote = client.post(
+        "/evidence/bundle", json=template,
+        headers={"user-agent": "machine-buyer/1.0"})
+    assert request_quote.status_code == 402
+    request_required = json.loads(base64.b64decode(
+        request_quote.headers["PAYMENT-REQUIRED"]))
+    assert request_required["resource"]["url"] != \
+        discovery_required["resource"]["url"]
+    assert "discovery-only" not in request_required["resource"]["url"]
+    assert "payment-response" not in {
+        key.lower() for key in request_quote.headers}
     assert settle_spy == []
 
 

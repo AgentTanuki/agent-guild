@@ -156,6 +156,17 @@ def test_evidence_bundle_entrypoint_accepts_a_body_not_a_query_string():
     assert op["settlement"]["differs_from_entrypoint"] is True
 
 
+def test_evidence_bundle_catalogue_binds_every_result_affecting_body_field():
+    op = {o["operation"]: o for o in paidcatalog.operations()}[
+        "evidence_bundle"]
+    ep = op["entrypoint"]
+    assert set(ep["body"]) == {"url", "ttl_seconds", "audience"}
+    assert ep["server_derived_settlement_params"] == ["request_sha256"]
+    resource = op["settlement"]["canonical_resource"]
+    assert "request_sha256=" in resource
+    assert "audience=" not in resource
+
+
 def test_watch_cycle_is_labelled_not_directly_callable_and_routes_the_machine():
     """watch_cycle has NO public HTTP route. Saying so, and naming the flow that
     does exist, is the only honest option."""

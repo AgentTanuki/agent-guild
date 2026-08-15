@@ -457,7 +457,16 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             # PARAMETERS GO IN THE JSON BODY. The settlement resource below
             # canonicalises them into a query string; that string is a binding
             # identifier, not a call you can make.
-            "body": {"url": "<endpoint>", "ttl_seconds": 3600},
+            "body": {
+                "url": "<endpoint>",
+                "ttl_seconds": 3600,
+                "audience": "<optional verifier audience>",
+            },
+            # The server derives this opaque JCS digest from every
+            # result-affecting body field (URL, effective TTL and audience).
+            # Audience therefore remains private in settlement metadata while
+            # a quote cannot be replayed for a differently scoped artifact.
+            "server_derived_settlement_params": ["request_sha256"],
             "auth": "none required — pay per call from the 402 challenge, "
                     "or send X-API-Key to draw on a credit balance",
             "key_required": False,
