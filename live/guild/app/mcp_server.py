@@ -762,7 +762,10 @@ def guild_envelope_verify(envelope: dict, ctx: Context = None) -> dict:
 
 
 @mcp.tool
-def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> dict:
+def guild_preflight_deep(
+        url: str, api_key: str = "",
+        x402_payment: Optional[dict[str, Any] | str] = None,
+        ctx: Context = None) -> dict:
     """PAID. Use when asking "is this agent endpoint safe to call?" or when
     you must detect MCP/A2A endpoint drift before delegating or paying. Returns
     live checks PLUS drift
@@ -774,6 +777,10 @@ def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> di
     whether the endpoint has CHANGED, and whether anyone else corroborates it.
 
     Priced through the same gateway as every other paid read (see GET /pricing).
+    After a payment-required response, retry with the official
+    `_meta['x402/payment']` carrier. If an MCP adapter cannot set request
+    metadata, pass the identical PaymentPayload through the schema-visible
+    `x402_payment` fallback. Conflicting carriers fail closed before settlement.
 
     Example: guild_preflight_deep(url="https://some-agent.example/a2a")
     """
@@ -792,7 +799,7 @@ def guild_preflight_deep(url: str, api_key: str = "", ctx: Context = None) -> di
         return out
 
     return _serve_paid(payments.deep_preflight_request(url), _produce,
-                       ctx, api_key)
+                       ctx, api_key, x402_payment=x402_payment)
 
 
 @mcp.tool

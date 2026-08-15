@@ -3,8 +3,15 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.27"  # PATCH (machine-visible semver, 2026-08-15):
-                        # runs one reversible conversion experiment: priced
+__version__ = "2.5.28"  # PATCH (machine-visible semver, 2026-08-15):
+                        # exposes the documented schema-visible x402 payment
+                        # retry carrier on guild_preflight_deep, so MCP clients
+                        # that cannot set request metadata can settle the
+                        # strongest-demand paid tool through the same bound,
+                        # fail-closed gateway. Price, product and settlement
+                        # authority are unchanged.
+                        # History of 2.5.27: runs one reversible conversion
+                        # experiment: priced
                         # x402 challenges no longer advertise the free
                         # sandbox faucet at the purchase moment unless
                         # GUILD_X402_TRIAL_CTA=1. The faucet, free identity,
