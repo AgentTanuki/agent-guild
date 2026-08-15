@@ -166,13 +166,13 @@ def test_official_client_audit_incident_heals_commercial_metrics():
         s.record_event(f"audit:{i}", "paid_offer_shown", ua=ua,
                        endpoint="x402_challenge",
                        challenged_operation="best_agent",
-                       actor_distinct=True)
-        s.events[-1]["at"] = "2026-08-14T03:14:50.953066+00:00"
+                       actor_distinct=True,
+                       at="2026-08-14T03:14:50.953066+00:00")
 
     s.record_event("real:later", "paid_offer_shown", ua="langchain/0.2.1",
                    endpoint="x402_challenge",
-                   challenged_operation="best_agent", actor_distinct=True)
-    s.events[-1]["at"] = "2026-08-14T03:16:01+00:00"
+                   challenged_operation="best_agent", actor_distinct=True,
+                   at="2026-08-14T03:16:01+00:00")
 
     exposure = experiments.qualified_exposure(s)
     assert exposure["qualified_actors"] == 1

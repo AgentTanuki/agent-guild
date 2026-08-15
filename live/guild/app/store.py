@@ -53,6 +53,13 @@ def _iso_age_seconds(ts: Optional[str]) -> float:
         return float("inf")
 
 
+# The serving cache is deliberately bounded; the SQLite event table is the
+# durable history.  Named constants let the retention invariant be exercised
+# with small fixtures instead of writing 50,001 rows in every regression.
+EVENT_RETENTION_TRIGGER = 50000
+EVENT_RETENTION_TARGET = 25000
+
+
 # Keepalive event dedup window (seconds). Agents that re-declare the SAME
 # endpoint on a timer (e.g. the market worker re-verifies every ~2 min so
 # /check freshness never goes stale) were emitting an endpoint_declared +
@@ -184,6 +191,15 @@ class Store:
         self.accounts: dict[str, dict[str, Any]] = {}     # billing key -> account
         self.billing_log: list[dict[str, Any]] = []       # usage + top-up ledger
         self.events: list[dict[str, Any]] = []            # agent-native instrumentation
+        # Exact number of events intentionally omitted from this process's
+        # retained tail. SQLite derives it from the authoritative events table
+        # at boot. JSON persists it beside the compacted tail, because the
+        # omitted prefix is otherwise irrecoverable after a restart.
+        self.events_omitted_by_retention: int = 0
+        # A lossy JSON→SQLite cutover cannot manufacture complete durable
+        # history. Empty means the SQLite table starts at the true beginning;
+        # otherwise measurement stays incomplete until the prefix is restored.
+        self.event_history_floor: dict[str, Any] = {}
         # MONOTONIC IN-MEMORY MUTATION COUNTER (divergence incident 2026-07-31).
         # Bumped on every recorded event and every published checkpoint. It is
         # stamped on responses (X-Guild-Store-Rev) so an outside observer can
@@ -598,6 +614,7 @@ class Store:
             b.put_kv("externality_attestations",
                      self.externality_attestations)
             b.put_kv("guild_inbox", self.guild_inbox)
+            b.put_kv("event_history_floor", self.event_history_floor)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -668,6 +685,7 @@ class Store:
             b.put_kv("externality_attestations",
                      self.externality_attestations)
             b.put_kv("guild_inbox", self.guild_inbox)
+            b.put_kv("event_history_floor", self.event_history_floor)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
 
@@ -712,6 +730,13 @@ class Store:
                 pass  # a failed backup must not block boot; JSON file remains
             self._load_from_json_file()
             self._replay_event_journal()
+            if self.events_omitted_by_retention > 0:
+                self.event_history_floor = {
+                    "cutover_at": _now(),
+                    "reason": "lossy_json_retention_prefix_before_sqlite_cutover",
+                    "omitted_before_cutover":
+                        int(self.events_omitted_by_retention),
+                }
             floor = self.canonical_floor()
             _sh = self.feed_head(self.checkpoints)
             _shi = self.canonical_index_of(_sh) if _sh else None
@@ -781,15 +806,24 @@ class Store:
             # reported complete, so a crash mid-seed can only ever leave the
             # database quarantined — never seeded-and-trusted.
             self._sqlite_initial_load(quarantine=quarantine)
+            # The SQLite table is now authoritative. Its retained-tail offset
+            # counts only rows actually in that table; any older JSON loss is
+            # represented separately by event_history_floor.
+            self.events_omitted_by_retention = 0
+            self._trim_event_cache()
             self._apply_recovery_authorization(head_idx)
             return
-        d = self.backend.load_all()
+        d = self.backend.load_all(event_limit=EVENT_RETENTION_TARGET)
         self.agents = d["agents"]
         self.tasks = d["tasks"]
         self.attestations = d["attestations"]
         self.accounts = d["accounts"]
         self.billing_log = d["billing_log"]
         self.events = d["events"]
+        self.events_omitted_by_retention = max(
+            0, int(d.get("events_total") or 0) - len(self.events))
+        self.event_history_floor = self.backend.fetch_kv(
+            "event_history_floor", {}) or {}
         self.referrals = d["referrals"]
         self.health_log = d["health_log"]
         self.identity = d["identity"]
@@ -848,6 +882,7 @@ class Store:
             return
         self._load_from_json_file()
         self._replay_event_journal()
+        self._trim_event_cache()
         if creds.hashing_enabled():
             self._migrate_plaintext_keys()
 
@@ -861,6 +896,8 @@ class Store:
             self.accounts = data.get("accounts", {})
             self.billing_log = data.get("billing_log", [])
             self.events = data.get("events", [])
+            self.events_omitted_by_retention = max(
+                0, int(data.get("event_retention_omitted", 0) or 0))
             self.referrals = data.get("referrals", [])
             self.health_log = data.get("health_log", [])
             self.identity = data.get("identity", {})
@@ -999,7 +1036,10 @@ class Store:
             json.dump({"agents": self.agents, "tasks": self.tasks,
                        "attestations": self.attestations,
                        "accounts": self.accounts, "billing_log": self.billing_log,
-                       "events": self.events, "referrals": self.referrals,
+                       "events": self.events,
+                       "event_retention_omitted":
+                           self.events_omitted_by_retention,
+                       "referrals": self.referrals,
                        "health_log": self.health_log,
                        "identity": self.identity,
                        "ledger_records": self.ledger_records,
@@ -2553,6 +2593,20 @@ class Store:
             return "a2a"
         return "http"
 
+    def _trim_event_cache(self) -> int:
+        """Bound the serving cache and advance its exact logical offset.
+
+        Call while holding ``self.lock`` when coordinating with a write. The
+        helper is also safe during single-threaded boot before the Store is
+        published to callers.
+        """
+        if len(self.events) <= EVENT_RETENTION_TRIGGER:
+            return 0
+        dropped = len(self.events) - EVENT_RETENTION_TARGET
+        self.events = self.events[-EVENT_RETENTION_TARGET:]
+        self.events_omitted_by_retention += dropped
+        return dropped
+
     def record_event(self, key: Optional[str], etype: str, ua: str = "", **meta) -> None:
         """Record a funnel event (query / delegation). `key` is the billing key
         (the agent's identity for instrumentation purposes). `fp` marks whether
@@ -2560,25 +2614,105 @@ class Store:
         third-party usage can be isolated. `surface` names the transport the
         event arrived on (mcp / a2a / http), stamped at write time so
         per-surface funnels never guess."""
-        key = creds.sanitize_actor_key(key)
-        acct = self.accounts.get(key or "")
-        # An event stamped with a Guild subsystem origin is first-party BY
-        # CONSTRUCTION — it never crossed the network — so `fp` must reflect
-        # that even though there is no account behind it.
-        from . import attribution as _attr
-        fp = bool(acct and acct.get("first_party")) or _attr.is_guild_internal_origin(meta)
-        event = {"key": key or "anon", "type": etype, "ua": ua or "",
-                 "fp": fp, "surface": self._surface_of(key, ua or ""),
-                 "at": _now(), **meta}
-        self.events.append(event)
-        self.revision += 1               # stamped on responses; see __init__
+        with self.lock:
+            key = creds.sanitize_actor_key(key)
+            acct = self.accounts.get(key or "")
+            # An event stamped with a Guild subsystem origin is first-party BY
+            # CONSTRUCTION — it never crossed the network — so `fp` must
+            # reflect that even though there is no account behind it.
+            from . import attribution as _attr
+            fp = (bool(acct and acct.get("first_party"))
+                  or _attr.is_guild_internal_origin(meta))
+            event = {"key": key or "anon", "type": etype, "ua": ua or "",
+                     "fp": fp, "surface": self._surface_of(key, ua or ""),
+                     "at": _now(), **meta}
+            self.events.append(event)
+            self.revision += 1           # stamped on responses; see __init__
+            if self.backend is not None:
+                self._persist_event(event)  # durable per-row (events table)
+            else:
+                self._journal_event(event)  # durable immediately, O(1)
+            self._trim_event_cache()
+
+    def event_retention_coverage(self, since: Optional[str] = None
+                                 ) -> dict[str, Any]:
+        """Truthful coverage of the bounded in-process event view.
+
+        SQLite can identify when a treatment window sits wholly inside its
+        retained tail because its full durable table remains available. JSON
+        cannot: once a prefix is compacted, every view is conservatively marked
+        incomplete. Invalid timestamps fail closed.
+        """
+        with self.lock:
+            retained = len(self.events)
+            omitted = int(self.events_omitted_by_retention)
+            oldest = self.events[0].get("at") if self.events else None
+            newest = self.events[-1].get("at") if self.events else None
+        complete = omitted == 0
+        # JSON compaction irreversibly destroys the prefix. Never infer a
+        # complete window from retained timestamps: retention is by append
+        # sequence and clocks can regress. SQLite has a separate durable table,
+        # so this timestamp comparison is only diagnostic of its memory tail.
+        if self.backend is None and omitted:
+            complete = False
+        elif not complete and since and oldest:
+            try:
+                complete = (datetime.fromisoformat(str(since))
+                            >= datetime.fromisoformat(str(oldest)))
+            except (TypeError, ValueError):
+                complete = False
+        return {
+            "source": ("sqlite_durable_tail" if self.backend is not None
+                       else "json_retained_tail"),
+            "mode": "full" if omitted == 0 else "retained_tail",
+            "retained_events": retained,
+            "events_omitted_by_retention": omitted,
+            "logical_events_seen": omitted + retained,
+            "oldest_retained_at": oldest,
+            "newest_retained_at": newest,
+            "requested_since": since,
+            "history_complete": complete,
+            "note": (
+                "history_complete applies to this process's retained event "
+                "view; use measurement_event_snapshot for durable SQLite "
+                "commercial measurements"),
+        }
+
+    def measurement_event_snapshot(
+            self, *, types: Optional[tuple[str, ...]] = None,
+            since: Optional[str] = None
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """One immutable event cut for a funnel or experiment decision.
+
+        SQLite queries the authoritative append-only table, so bounded serving
+        memory never deletes commercial evidence. JSON has no separate event
+        database after compaction; it returns a copied retained view and marks
+        incomplete windows truthfully so the experiment engine can fail closed.
+        """
         if self.backend is not None:
-            self._persist_event(event)   # durable per-row (events table)
-        else:
-            self._journal_event(event)  # durable immediately, O(1) — see __init__
-        # keep the persisted log bounded
-        if len(self.events) > 50000:
-            self.events = self.events[-25000:]
+            events = self.backend.fetch_events(types=types, since=since)
+            floor = self.event_history_floor or {}
+            return events, {
+                "source": "sqlite_durable",
+                "requested_since": since,
+                "event_types": list(types or ()),
+                "snapshot_events": len(events),
+                # A lossy cutover is permanently incomplete until the missing
+                # prefix is restored. Append order, not timestamps, chose the
+                # omitted rows; no timestamp window can prove them irrelevant.
+                "history_complete": not floor,
+                "history_floor": floor or None,
+            }
+        with self.lock:
+            events = [dict(event) for event in self.events
+                      if (not types or event.get("type") in types)
+                      and (since is None
+                           or str(event.get("at") or "") >= str(since))]
+        coverage = self.event_retention_coverage(since)
+        coverage = {**coverage, "source": "json_retained_memory",
+                    "event_types": list(types or ()),
+                    "snapshot_events": len(events)}
+        return events, coverage
 
     def paid_offer_funnel(self, operation: Optional[str] = None
                           ) -> dict[str, Any]:
@@ -2610,7 +2744,9 @@ class Store:
         by_source: dict[str, dict[str, Any]] = {}
         qualified_actors: set = set()
         raw = anon = 0
-        for ev in self.events:
+        event_snapshot, measurement_coverage = self.measurement_event_snapshot(
+            types=("paid_offer_served",))
+        for ev in event_snapshot:
             if ev.get("type") != "paid_offer_served":
                 continue
             op = ev.get("operation") or "unknown"
@@ -2699,6 +2835,7 @@ class Store:
                            "canaries, registry crawlers and in-process Guild "
                            "subsystems (attribution.GUILD_INTERNAL_ORIGINS) "
                            "are excluded by CALLER CLASS, structurally"),
+            "measurement_coverage": measurement_coverage,
         }
 
     def _qualifies_as_paid_demand(self, ev: dict[str, Any], cls: str) -> bool:
@@ -5189,8 +5326,13 @@ class Store:
         must detect; "discard the first few reads" is a reporting workaround,
         not a write-path control."""
         from . import instanceid
+        coverage_before = self.event_retention_coverage()
         mem = {
-            "events": len(self.events),
+            "events": coverage_before["retained_events"],
+            "events_omitted_by_retention": (
+                coverage_before["events_omitted_by_retention"]),
+            "logical_events_seen": coverage_before["logical_events_seen"],
+            "event_retention": coverage_before,
             "agents": len(self.agents),
             "ledger_records": len(self.ledger_records),
             "checkpoints": len(self.checkpoints),
@@ -5227,9 +5369,13 @@ class Store:
         # two agree and the only difference is WHEN each was observed. A
         # detector that fires on that cries wolf on every run — which is how a
         # real incident goes two days without a diagnosis.
-        mem_after = len(self.events)
+        coverage_after = self.event_retention_coverage()
+        mem_after = coverage_after["retained_events"]
+        logical_after = coverage_after["logical_events_seen"]
         out["in_memory"]["events_after_durable_read"] = mem_after
-        lo, hi = min(mem["events"], mem_after), max(mem["events"], mem_after)
+        out["in_memory"]["logical_events_after_durable_read"] = logical_after
+        lo = min(mem["logical_events_seen"], logical_after)
+        hi = max(mem["logical_events_seen"], logical_after)
         if durable["events"] < lo:
             # in-memory holds events the database does not: the DANGEROUS
             # direction — unpersisted state a restart would lose.

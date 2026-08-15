@@ -27,7 +27,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app import experiments, pricing  # noqa: E402
+from app import experiments, pricing, store as store_module  # noqa: E402
 from app.store import Store  # noqa: E402
 
 EXT_UA = "langchain/0.2.1"
@@ -397,9 +397,41 @@ def _impression(store: Store, actor: str, operation: str, price: int,
     store.record_event(actor, "paid_offer_shown", ua="langchain/0.2.1",
                        endpoint="x402_challenge",
                        challenged_operation=operation,
-                       impression="challenge_402", price_credits=price)
-    if at:
-        store.events[-1]["at"] = at
+                       impression="challenge_402", price_credits=price,
+                       **({"at": at} if at else {}))
+
+
+def test_incomplete_retained_history_can_never_decide_an_experiment(
+        tmp_path, monkeypatch):
+    """A tail containing enough recent actors cannot erase earlier history
+    and then justify a price change as though the full arm were observed."""
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TRIGGER", 5)
+    monkeypatch.setattr(store_module, "EVENT_RETENTION_TARGET", 3)
+    monkeypatch.setenv("GUILD_STORE", "json")
+    monkeypatch.delenv("GUILD_STORE_PATH", raising=False)
+    store = Store(path=str(tmp_path / "partial.json"))
+    rec = experiments.define(
+        store, "deep", hypothesis="h", variable="price:deep_preflight",
+        baseline={m: 0 for m in experiments.PRIMARY_METRICS},
+        tested_price_credits=20)
+    rec["started_at"] = "2020-01-01T00:00:00+00:00"
+    rec["min_qualified"] = 1
+    store.experiments["deep"] = rec
+
+    _impression(store, "a2a:net:old", "deep_preflight", 20,
+                at="2020-01-02T00:00:00+00:00")
+    for i in range(4):
+        store.record_event(None, "query", ua=f"filler/{i}")
+    _impression(store, "a2a:net:recent", "deep_preflight", 20)
+
+    out = experiments.evaluate(store, "deep")
+    assert out["decision"] == "insufficient_evidence", out
+    assert "incomplete" in out["reason"]
+    assert experiments.next_action(store, "deep")["action"] == \
+        "increase_qualified_exposure"
+    coverage = out["evidence"]["exposure"]["measurement_coverage"]
+    assert coverage["mode"] == "retained_tail"
+    assert coverage["history_complete"] is False
 
 
 def test_old_price_impressions_cannot_decide_the_new_price_window(store):

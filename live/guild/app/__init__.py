@@ -3,7 +3,17 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.29"  # PATCH (machine-visible semver, 2026-08-15):
+__version__ = "2.5.30"  # PATCH (machine-visible semver, 2026-08-15):
+                        # makes paid funnels and autonomous price experiments
+                        # read one ordered snapshot from durable SQLite event
+                        # history instead of the bounded serving cache. Event
+                        # memory now hydrates as an exact retained tail with a
+                        # disclosed offset; diagnostics distinguish retention
+                        # from a genuinely stale writer, while JSON-mode
+                        # partial history fails closed and cannot reprice.
+                        # Revenue eligibility, attribution, active treatment
+                        # state, prices and settlement are unchanged.
+                        # History of 2.5.29:
                         # repairs the canonical x402 handoff for body-bound
                         # products: machines now learn the exact authoritative
                         # Bazaar request template through a non-attributed,

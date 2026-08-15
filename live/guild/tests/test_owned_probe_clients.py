@@ -72,9 +72,12 @@ def test_every_probe_identity_is_excluded_on_every_transport_shape(shape):
 # --------------------------------------------------------------------------
 def _seed(store, ua, actor="mcp:net:probe", source="paid_offer:mcp_tool"):
     for op in ("deep_preflight", "evidence_bundle", "watch_cycle"):
-        store.events.append({"type": "paid_offer_served", "operation": op,
-                             "source": source, "key": actor, "ua": ua,
-                             "at": "2026-08-01T10:20:00+00:00"})
+        event = {"type": "paid_offer_served", "operation": op,
+                 "source": source, "key": actor, "ua": ua,
+                 "at": "2026-08-01T10:20:00+00:00"}
+        store.events.append(event)
+        if store.backend is not None:
+            store.backend.append_event(event)
     return store
 
 
