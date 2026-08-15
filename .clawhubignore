@@ -1,5 +1,0 @@
-# Publish the root skill as a deliberately tiny, auditable bundle. Runtime
-# integrations remain fetched from the pinned public Agent Guild service and
-# source repository; they are not duplicated into the catalog artifact.
-*
-!SKILL.md
