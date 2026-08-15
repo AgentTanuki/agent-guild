@@ -73,15 +73,86 @@ def test_well_known_x402_fans_out_without_cross_product_price():
     assert reusable | subject_or_body_bound == \
         openapi_payment_discovery.advertised_operations()
     assert body["body_bound_products"] == {
+        "canonical_catalog": (
+            x402.public_host() + "/.well-known/agent-guild.json"),
+        "catalog_json_pointer": "/paid_operations/operations",
+        "commercial_metrics": x402.public_host() + "/commercial",
         "openapi": x402.public_host() + "/openapi.json",
         "mcp_server_card": (
             x402.public_host() + "/.well-known/mcp/server-card.json"),
-        "catalog": x402.public_host() + "/commercial",
+        "discovery_probe": {
+            "targets": [
+                {
+                    "operation": "signed_decision",
+                    "url": x402.public_host() + "/check/decision",
+                    "method": "POST",
+                },
+                {
+                    "operation": "evidence_bundle",
+                    "url": x402.public_host() + "/evidence/bundle",
+                    "method": "POST",
+                },
+                {
+                    "operation": "machine_envelope",
+                    "url": x402.public_host() + "/envelopes/issue",
+                    "method": "POST",
+                },
+                {
+                    "operation": "payment_decision",
+                    "url": (
+                        x402.public_host() + "/wallet-binding/decision"),
+                    "method": "POST",
+                },
+                {
+                    "operation": "protected_payment_decision",
+                    "url": (
+                        x402.public_host()
+                        + "/wallet-binding/protected-decision"),
+                    "method": "POST",
+                },
+                {
+                    "operation": "protected_payment_decision",
+                    "variant": "1000-usdc",
+                    "url": (
+                        x402.public_host()
+                        + "/wallet-binding/protected-decision/tiers/"
+                        "1000-usdc"),
+                    "method": "POST",
+                },
+            ],
+            "request": {
+                "method": "POST",
+                "body": {},
+                "headers": {
+                    "X-Agent-Guild-Discovery-Probe": "manifest",
+                },
+            },
+            "require": {
+                "status": 402,
+                "response_header": {
+                    "X-Agent-Guild-Discovery-Probe": "non-attributed",
+                },
+                "detail": {
+                    "discovery_only": True,
+                    "executable": False,
+                },
+            },
+            "body_template": {
+                "source": "base64-decoded PAYMENT-REQUIRED header",
+                "json_pointer": "/extensions/bazaar/info/input/body",
+            },
+            "execution": (
+                "materialize every placeholder and generate a fresh caller "
+                "proof where the template includes one; resend without the "
+                "discovery marker; pay only the new request-bound quote"),
+        },
         "rule": (
             "Not listed as reusable resources: the authoritative quote is "
             "derived from the buyer's exact JSON body and, where required, "
             "caller proof."),
     }
+    assert "construct the exact body from OpenAPI or MCP" not in \
+        body["instructions"]
 
     # The products have different prices (including dynamic value pricing).
     # A shared accepts/payment object would cause simple crawlers to apply the

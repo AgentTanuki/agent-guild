@@ -39,6 +39,14 @@ from . import preflight, trustindex
 #: about a live endpoint that claims a long life is lying about how fast the
 #: world changes.
 DEFAULT_TTL_S = 3600
+MIN_TTL_S = 60
+MAX_TTL_S = 7 * 24 * 3600
+
+
+def normalize_evidence_ttl(ttl_s: int | None) -> int:
+    """Return the exact lifetime used by both quote and signed artifact."""
+    requested = int(ttl_s or DEFAULT_TTL_S)
+    return max(MIN_TTL_S, min(requested, MAX_TTL_S))
 
 
 class EvidenceIssuanceRefused(RuntimeError):
@@ -188,8 +196,7 @@ def evidence_bundle(store: Any, url: str, *, ttl_s: int = DEFAULT_TTL_S,
         "audience": audience or None,
         "issued_at": issued.isoformat(),
         "valid_until": (issued + timedelta(
-            seconds=max(60, min(int(ttl_s or DEFAULT_TTL_S), 7 * 24 * 3600)))
-        ).isoformat(),
+            seconds=normalize_evidence_ttl(ttl_s))).isoformat(),
         "observation": {
             "verdict": deep.get("verdict"),
             "checks": deep.get("checks", []),

@@ -33,6 +33,7 @@ Official x402 extensions implemented here:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import threading
 import time
@@ -50,6 +51,8 @@ from x402.schemas import PaymentPayload, PaymentRequired
 
 from . import billing
 from . import callerproof
+from . import crypto
+from . import deepcheck
 from . import x402
 from . import x402_artifacts as artifacts
 from . import x402_confirm
@@ -258,10 +261,27 @@ def deep_preflight_request(url: str) -> PaidRequest:
                              {"url": url})
 
 
-def evidence_bundle_request(url: str, ttl_seconds: int = 3600) -> PaidRequest:
-    """Paid signed evidence bundle."""
+def evidence_bundle_request(url: str, ttl_seconds: int = 3600,
+                            audience: str = "") -> PaidRequest:
+    """Paid signed evidence bundle, bound to every result-affecting input.
+
+    ``audience`` is sealed into the signed artifact but need not be revealed in
+    settlement metadata.  Its opaque JCS digest prevents a quote for one
+    audience being reused for another while the existing URL/TTL query keeps
+    the Bazaar discovery template legible.
+    """
+    effective_ttl = deepcheck.normalize_evidence_ttl(ttl_seconds)
+    exact = {
+        "url": str(url),
+        "ttl_seconds": effective_ttl,
+        "audience": str(audience or ""),
+    }
+    request_sha256 = hashlib.sha256(
+        crypto.canonicalize_jcs(exact).encode("utf-8")).hexdigest()
     return PaidRequest.build("evidence_bundle", "POST", "/evidence/bundle",
-                             {"url": url, "ttl_seconds": ttl_seconds})
+                             {"url": exact["url"],
+                              "ttl_seconds": exact["ttl_seconds"],
+                              "request_sha256": request_sha256})
 
 
 def watch_cycle_request(endpoint: str) -> PaidRequest:

@@ -1138,8 +1138,10 @@ def x402_discovery():
         # real agent id.  Publishing an opaque placeholder as an executable
         # resource causes generic buyers to pay for a request that can only
         # return 401/404/422.  Those products remain fully discoverable from
-        # OpenAPI, MCP and /commercial, and their REAL unpaid request returns
-        # the authoritative buyer-specific 402.
+        # the canonical Agent Guild catalog and a deliberately non-executable,
+        # non-attributed empty-body discovery challenge.  The Bazaar input body
+        # template in that 402 is the authority; a materialized REAL unpaid
+        # request returns the authoritative buyer-specific quote.
         payments.flags_request(),
         payments.search_request("fact-check"),
         payments.check_request("fact-check"),
@@ -4647,19 +4649,25 @@ def evidence_bundle_route(body: dict[str, Any], response: Response,
     charged** — the meter runs only after issuance succeeds. Selling a degraded
     evidence object is worse than selling nothing, because the buyer would rely
     on it exactly when it is weakest."""
-    _probe_challenge_or_none(
-        payments.evidence_bundle_request(
-            "discovery-only", deepcheck.DEFAULT_TTL_S),
-        x_api_key, discovery_only=not bool(body))
+    if not body:
+        _probe_challenge_or_none(
+            payments.evidence_bundle_request(
+                "discovery-only", deepcheck.DEFAULT_TTL_S),
+            x_api_key, discovery_only=True)
     url = str(body.get("url") or "").strip()
     if not url:
         raise HTTPException(422, "url is required")
-    ttl = int(body.get("ttl_seconds") or deepcheck.DEFAULT_TTL_S)
-    preq = payments.evidence_bundle_request(url, ttl)
+    ttl = deepcheck.normalize_evidence_ttl(body.get("ttl_seconds"))
+    audience = str(body.get("audience") or "")
+    preq = payments.evidence_bundle_request(url, ttl, audience)
+    # A real unpaid body gets its OWN executable quote, bound to the URL and
+    # effective TTL the buyer supplied.  The empty-body discovery sentinel is
+    # never a payable substitute for this request.
+    _probe_challenge_or_none(preq, x_api_key)
     # Produce FIRST, charge second: a refusal must never bill.
     try:
         bundle = deepcheck.evidence_bundle(
-            store, url, ttl_s=ttl, audience=str(body.get("audience") or ""))
+            store, url, ttl_s=ttl, audience=audience)
     except deepcheck.EvidenceIssuanceRefused as e:
         raise HTTPException(409, {
             "error": "evidence_issuance_refused", "code": e.code,

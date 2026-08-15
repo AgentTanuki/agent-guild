@@ -290,6 +290,120 @@ def test_paid_request_end_to_end_serves_result_and_settlement(monkeypatch):
     assert "/search" in rec["resource"]
 
 
+def test_evidence_bundle_uses_body_bound_quote_and_settles_once(monkeypatch):
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    fac = FakeFacilitator()
+    monkeypatch.setattr(x402, "_facilitator", lambda: fac)
+    from app import deepcheck
+    issued = []
+
+    def _bundle(*args, **kwargs):
+        issued.append(kwargs)
+        return {"schema": "AGEB-1", "proof": "test"}
+
+    monkeypatch.setattr(deepcheck, "evidence_bundle", _bundle)
+    from app.main import app
+
+    body = {"url": "https://agent.example/a2a", "ttl_seconds": 1,
+            "audience": "did:key:z6MkBuyerA"}
+    preq = payments.evidence_bundle_request(
+        body["url"], deepcheck.MIN_TTL_S, body["audience"])
+    with TestClient(app) as client:
+        quote = client.post("/evidence/bundle", json=body)
+        assert quote.status_code == 402
+        required = json.loads(base64.b64decode(
+            quote.headers["PAYMENT-REQUIRED"]))
+        assert required["resource"]["url"] == preq.resource_url
+        assert "discovery-only" not in preq.resource_url
+
+        paid = client.post(
+            "/evidence/bundle", json=body,
+            headers={"PAYMENT-SIGNATURE": sig_header(
+                make_payload(preq, cost=preq.cost))})
+        assert paid.status_code == 200
+        assert paid.json() == {"schema": "AGEB-1", "proof": "test"}
+        assert paid.headers.get("PAYMENT-RESPONSE")
+    assert len(fac.verify_calls) == 1
+    assert len(fac.settle_calls) == 1
+    assert issued == [{"ttl_s": deepcheck.MIN_TTL_S,
+                       "audience": body["audience"]}]
+
+
+def test_evidence_bundle_quote_uses_effective_ttl_boundaries():
+    url = "https://agent.example/a2a"
+    audience = "did:key:z6MkBuyerA"
+    assert payments.evidence_bundle_request(
+        url, 1, audience).resource_url == payments.evidence_bundle_request(
+            url, 60, audience).resource_url
+    assert payments.evidence_bundle_request(
+        url, 604801, audience).resource_url == payments.evidence_bundle_request(
+            url, 604800, audience).resource_url
+    assert payments.evidence_bundle_request(
+        url, 0, audience).resource_url == payments.evidence_bundle_request(
+            url, 3600, audience).resource_url
+
+
+def test_evidence_bundle_audience_mutation_fails_before_facilitator(
+        monkeypatch):
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    fac = FakeFacilitator()
+    monkeypatch.setattr(x402, "_facilitator", lambda: fac)
+    from app import deepcheck
+    monkeypatch.setattr(
+        deepcheck, "evidence_bundle",
+        lambda *args, **kwargs: {"schema": "AGEB-1", "proof": "test"})
+    from app.main import app
+
+    url = "https://agent.example/a2a"
+    quoted = payments.evidence_bundle_request(
+        url, 3600, "did:key:z6MkBuyerA")
+    mutated = payments.evidence_bundle_request(
+        url, 3600, "did:key:z6MkBuyerB")
+    assert quoted.resource_url != mutated.resource_url
+
+    with TestClient(app) as client:
+        rejected = client.post(
+            "/evidence/bundle",
+            json={"url": url, "ttl_seconds": 3600,
+                  "audience": "did:key:z6MkBuyerB"},
+            headers={"PAYMENT-SIGNATURE": sig_header(
+                make_payload(quoted, cost=quoted.cost))})
+        assert rejected.status_code == 402
+        detail = rejected.json()["detail"]
+        assert detail["reason"] == "resource_mismatch"
+        assert "payment-response" not in {
+            key.lower() for key in rejected.headers}
+    assert fac.verify_calls == []
+    assert fac.settle_calls == []
+
+
+def test_evidence_discovery_quote_cannot_pay_materialized_body(monkeypatch):
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    fac = FakeFacilitator()
+    monkeypatch.setattr(x402, "_facilitator", lambda: fac)
+    from app import deepcheck
+    monkeypatch.setattr(
+        deepcheck, "evidence_bundle",
+        lambda *args, **kwargs: {"schema": "AGEB-1", "proof": "test"})
+    from app.main import app
+
+    discovery_preq = payments.evidence_bundle_request(
+        "discovery-only", 3600)
+    body = {"url": "https://agent.example/a2a", "ttl_seconds": 3600}
+    with TestClient(app) as client:
+        rejected = client.post(
+            "/evidence/bundle", json=body,
+            headers={"PAYMENT-SIGNATURE": sig_header(
+                make_payload(discovery_preq, cost=discovery_preq.cost))})
+        assert rejected.status_code == 402
+        detail = rejected.json()["detail"]
+        assert detail["reason"] == "resource_mismatch"
+        assert "payment-response" not in {
+            key.lower() for key in rejected.headers}
+    assert fac.verify_calls == []
+    assert fac.settle_calls == []
+
+
 def test_failed_settlement_never_serves_the_result(monkeypatch):
     monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
     monkeypatch.setattr(x402, "_facilitator",
