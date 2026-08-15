@@ -210,6 +210,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/.well-known/402index-verify.txt"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/.well-known/agent-guild-did.json"
   },
   {

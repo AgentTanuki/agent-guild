@@ -23,6 +23,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 ## REST endpoints
 
 - `GET /`
+- `GET /.well-known/402index-verify.txt`
 - `GET /.well-known/agent-guild-did.json`
 - `GET /.well-known/agent-guild.json`
 - `GET /.well-known/agent-skills/agent-guild/SKILL.md`
