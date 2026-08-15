@@ -11,6 +11,48 @@ catalog:
   requires_adapter: false
   approval: none
 
+harness:
+  cases:
+    - name: agent-guild-trust-gates-autonomous-payment
+      operator_journeys:
+        - mode: standalone
+          confusors: [review-skill, prior-art]
+          request: Gate an autonomous payment to an unfamiliar agent on a current, identity-bound trust decision.
+          expected_outcome: Select Agent Guild for counterparty trust, bind the exact payee and capability, and block payment unless the verified current decision is allow.
+        - mode: composed
+          request: Continue payment authorization using the already verified Agent Guild decision and exact payee binding.
+          expected_outcome: Reuse the supplied signed decision and payee binding without purchasing another decision or re-verifying the same credential.
+          prior_evidence:
+            - The current signed Agent Guild payment decision supplied in the fixture.
+            - The verified payee identity and payment-field binding covered by that decision.
+          must_not_repeat:
+            - Do not purchase or request another decision while the supplied decision remains current.
+            - Do not repeat credential verification for the unchanged signed decision.
+      runner: prepare
+      inputs:
+        operation: Gate an autonomous Base USDC payment before signing.
+        capability: code-review
+        counterparty: did:key:zExamplePayee
+        constraints:
+          network: eip155:8453
+          require_decision: allow
+          fail_closed: true
+      caller:
+        answers:
+          agent_task.agent-guild-trust.output:
+            procedure:
+              decision: verify_payment_binding
+              endpoint: https://agent-guild-5d5r.onrender.com/wallet-binding/decision/verify
+              gate: Block signing unless the current credential verifies and every sealed payment field matches.
+              evidence_required:
+                - Signed AGPD-1 decision
+                - Exact payee and payment-field binding
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+
 runners:
   prepare:
     default: true
