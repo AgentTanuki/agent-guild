@@ -175,16 +175,17 @@ def test_trial_faucet_is_human_free_and_funds_an_account():
     assert int(r.headers["X-Guild-Balance"]) == acct["balance"] - PRICING["best_agent"]
 
 
-def test_machine_readable_402_tells_an_agent_how_to_pay():
-    os.environ["GUILD_BILLING_ENFORCED"] = "1"
-    try:
-        r = client.get("/search", params={"capability": "research"})
-        assert r.status_code == 402
-        detail = r.json()["detail"]
-        assert detail["error"] == "payment_required"
-        assert detail["acquire"]["trial"]["path"] == "/billing/trial"
-    finally:
-        os.environ.pop("GUILD_BILLING_ENFORCED", None)
+def test_machine_readable_402_tells_an_agent_how_to_pay(monkeypatch):
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    monkeypatch.delenv("GUILD_X402_TRIAL_CTA", raising=False)
+
+    r = client.get("/search", params={"capability": "research"})
+
+    assert r.status_code == 402
+    detail = r.json()["detail"]
+    assert detail["error"] == "payment_required"
+    assert "trial" not in detail["acquire"]
+    assert "x402" in detail["acquire"]
 
 
 def test_instrumentation_funnel_tracks_queries_and_delegations():

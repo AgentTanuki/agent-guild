@@ -163,6 +163,16 @@ def enabled() -> bool:
             and bool(pay_to()))
 
 
+def trial_cta_enabled() -> bool:
+    """Whether a priced x402 challenge advertises the sandbox faucet.
+
+    The faucet remains available either way.  This one reversible copy flag
+    lets production test whether presenting a free substitute at the exact
+    purchase moment suppresses genuine mainnet settlement.
+    """
+    return os.environ.get("GUILD_X402_TRIAL_CTA", "0") == "1"
+
+
 def pay_to() -> str:
     return os.environ.get("GUILD_X402_PAY_TO", "").strip()
 
@@ -984,11 +994,15 @@ def payment_required_body(preq: "PaidRequest", credits_cost: int,
         "verify": 'POST /credentials/verify {"credential": <passport JSON>}',
         "badge": "GET /agents/{id}/badge.svg",
     }
+    sandbox_note = "Credits are a SANDBOX settlement unit (not money). "
+    if trial_cta_enabled():
+        sandbox_note += (
+            "Free starter balance: POST /billing/trial; then send X-API-Key. "
+        )
+    sandbox_note += "The x402 `accepts` list is the real rail."
     body["sandbox"] = {
         "unit": "credits_sandbox",
-        "note": ("Credits are a SANDBOX settlement unit (not money). "
-                 "Free starter balance: POST /billing/trial; then send "
-                 "X-API-Key. The x402 `accepts` list is the real rail."),
+        "note": sandbox_note,
         "cost_credits": credits_cost,
     }
     body["v1_compat"] = {
