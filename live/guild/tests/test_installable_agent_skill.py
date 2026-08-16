@@ -38,6 +38,63 @@ def test_clawhub_skill_is_a_source_tagged_policy_parity_copy():
         "*\n!SKILL.md\n"
 
 
+def test_codex_plugin_is_installable_and_source_tagged():
+    import json
+
+    plugin = ROOT / "plugins" / "agent-guild"
+    manifest = json.loads(
+        (plugin / ".codex-plugin" / "plugin.json").read_text())
+    assert manifest["name"] == "agent-guild"
+    assert manifest["version"] == "1.0.0"
+    assert manifest["skills"] == "./skills/"
+    assert manifest["mcpServers"] == "./.mcp.json"
+    assert manifest["interface"]["developerName"] == "AgentTanuki"
+    assert len(manifest["interface"]["defaultPrompt"]) == 3
+
+    claude_manifest = json.loads(
+        (plugin / ".claude-plugin" / "plugin.json").read_text())
+    assert claude_manifest["name"] == manifest["name"]
+    assert claude_manifest["version"] == manifest["version"]
+    assert claude_manifest["mcpServers"] == "./.mcp.json"
+
+    marketplace = json.loads(
+        (ROOT / ".claude-plugin" / "marketplace.json").read_text())
+    assert marketplace["name"] == "agent-guild"
+    assert marketplace["plugins"] == [{
+        "name": "agent-guild",
+        "source": "./plugins/agent-guild",
+        "description": "Vet agents, verify portable passports, use escrow, "
+                       "and record signed outcomes.",
+        "version": "1.0.0",
+        "author": {"name": "AgentTanuki"},
+    }]
+
+    mcp = json.loads((plugin / ".mcp.json").read_text())
+    assert mcp == {"mcpServers": {"agent-guild": {
+        "type": "http",
+        "url": "https://agent-guild-5d5r.onrender.com/mcp",
+    }}}
+
+    canonical = (ROOT / "SKILL.md").read_text()
+    published = (
+        plugin / "skills" / "agent-guild-trust" / "SKILL.md"
+    ).read_text()
+    expected = canonical.replace(
+        "name: agent-guild\n",
+        "name: agent-guild-trust\n",
+        1,
+    ).replace(
+        "agentguild-skill/1.0 (host=<runtime>)",
+        "agentguild-skill/1.0 (host=<runtime>; source=codex-plugin)",
+    ).replace(
+        "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json",
+        "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json"
+        "?src=paid_offer:codex_plugin",
+        1,
+    )
+    assert published == expected
+
+
 def test_canonical_origin_serves_repository_policy_through_agent_skills():
     from fastapi.testclient import TestClient
     from app.main import app

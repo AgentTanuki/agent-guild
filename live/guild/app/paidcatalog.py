@@ -53,6 +53,7 @@ SOURCE_IDS = (
     "paid_offer:llms_txt",        # /llms.txt
     "paid_offer:registry",        # MCP Registry publisher metadata
     "paid_offer:clawhub_skill",   # installed ClawHub agent policy skill
+    "paid_offer:codex_plugin",    # installed Codex/Claude plugin bundle
     "paid_offer:agent_skills",    # domain-owned Agent Skills policy
     "paid_offer:x402_challenge",  # the 402 itself (a caller already on a route)
 )

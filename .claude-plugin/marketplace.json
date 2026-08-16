@@ -1,0 +1,20 @@
+{
+  "name": "agent-guild",
+  "owner": {
+    "name": "AgentTanuki",
+    "url": "https://github.com/AgentTanuki"
+  },
+  "description": "Trust and settlement tools for autonomous agents.",
+  "version": "1.0.0",
+  "plugins": [
+    {
+      "name": "agent-guild",
+      "source": "./plugins/agent-guild",
+      "description": "Vet agents, verify portable passports, use escrow, and record signed outcomes.",
+      "version": "1.0.0",
+      "author": {
+        "name": "AgentTanuki"
+      }
+    }
+  ]
+}

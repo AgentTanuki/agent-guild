@@ -175,6 +175,17 @@ def test_agent_skills_source_is_closed_and_attributable():
         "paid_offer:agent_skills"
 
 
+def test_codex_plugin_source_is_closed_and_attributable():
+    assert "paid_offer:codex_plugin" in paidcatalog.SOURCE_IDS
+
+    tagged = client.get(
+        "/.well-known/agent-guild.json",
+        params={"src": "paid_offer:codex_plugin"},
+    ).json()
+    assert tagged["paid_operations"]["source"] == \
+        "paid_offer:codex_plugin"
+
+
 # --------------------------------------------------------------------------
 # telemetry
 # --------------------------------------------------------------------------

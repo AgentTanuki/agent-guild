@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "agent-guild": {
+      "type": "http",
+      "url": "https://agent-guild-5d5r.onrender.com/mcp"
+    }
+  }
+}

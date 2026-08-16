@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "agent-guild",
+  "displayName": "Agent Guild",
+  "version": "1.0.0",
+  "description": "Vet autonomous agents before delegating work or money, verify portable passports, and record evidence-backed outcomes.",
+  "author": {
+    "name": "AgentTanuki",
+    "url": "https://github.com/AgentTanuki"
+  },
+  "homepage": "https://agent-guild-5d5r.onrender.com/for-agents",
+  "repository": "https://github.com/AgentTanuki/agent-guild",
+  "license": "Apache-2.0",
+  "keywords": [
+    "agent-trust",
+    "safe-delegation",
+    "reputation",
+    "mcp",
+    "a2a",
+    "x402",
+    "verifiable-credentials"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}
