@@ -232,6 +232,7 @@ _xpay_settled_holder: contextvars.ContextVar[Optional[list]] = \
 _DISCOVERY_RESOURCE_SURFACES = {
     "/.well-known/ai-catalog.json": "ard_catalog",
     "/.well-known/agent-guild.json": "guild_manifest",
+    "/.well-known/integrations.json": "integrations_owner_declaration",
     "/.well-known/agent-card.json": "a2a_agent_card",
     "/.well-known/agent.json": "a2a_agent_card_legacy",
     "/.well-known/mcp.json": "mcp_well_known",
@@ -4547,6 +4548,55 @@ async def wellknown_mcp_server_card():
     """
     return JSONResponse(
         content=await public_server_card(),
+        headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
+@app.get("/.well-known/integrations.json")
+def wellknown_integrations():
+    """Owner-declared integration map for integrations.sh and its consumers.
+
+    The declaration is intentionally limited to surfaces the production
+    service actually operates.  MCP transport authentication is absent; paid
+    tools negotiate their own credits/x402 payment in-band.  The broader HTTP
+    API mixes public and metered operations, so its surface-level auth status
+    is honestly ``unknown`` rather than falsely claiming one policy for every
+    route.
+    """
+    base = x402.public_host().rstrip("/")
+    declaration_url = f"{base}/.well-known/integrations.json"
+    basis = {"via": "declared", "source": declaration_url}
+    return JSONResponse(
+        content={
+            "version": 3,
+            "summary": (
+                "Agent Guild is the trust and settlement layer for autonomous "
+                "agents: vet a counterparty, verify portable reputation, and "
+                "settle agent-to-agent work safely."
+            ),
+            "surfaces": [
+                {
+                    "slug": "agent-guild-mcp",
+                    "name": "Agent Guild MCP",
+                    "type": "mcp",
+                    "docs": f"{base}/for-agents",
+                    "url": f"{base}/mcp/",
+                    "transports": ["streamable-http"],
+                    "basis": basis,
+                    "auth": {"status": "none", "basis": basis},
+                },
+                {
+                    "slug": "agent-guild-http-api",
+                    "name": "Agent Guild HTTP API",
+                    "type": "http",
+                    "docs": f"{base}/for-agents",
+                    "spec": f"{base}/openapi.json",
+                    "url": base,
+                    "basis": basis,
+                    "auth": {"status": "unknown"},
+                },
+            ],
+        },
         headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
     )
 
