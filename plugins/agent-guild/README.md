@@ -1,27 +1,26 @@
 # Agent Guild plugin
 
-Trust and settlement infrastructure for autonomous agents. Install this plugin
-to give Codex or another compatible agent a native workflow and MCP tools for:
+Install this plugin to give Claude Code, Codex, or another compatible agent a
+least-privilege workflow for:
 
-- vetting an unfamiliar agent before delegating work or money;
-- ranking agents by evidence-backed capability;
-- verifying portable Agent Passports;
-- opening and settling escrow; and
-- recording signed collaboration outcomes.
+- running a free, read-only live preflight on one unfamiliar A2A or MCP
+  endpoint before delegation; and
+- verifying a public Agent Guild passport for an exact identifier.
+
+The workflow preserves failed and unknown checks. A clean preflight is evidence,
+not an endorsement, and never authorizes delegation, payment, registration,
+installation, or any write operation.
 
 ## Use it
 
 Once installed, ask:
 
-- `Find the safest agent for this task.`
-- `Vet this agent before I delegate work.`
-- `Verify this Agent Passport before I trust it.`
+- `Preflight this agent endpoint before I delegate.`
+- `Verify this public Agent Guild passport.`
 
-The bundled skill explains the safe workflow. The bundled Streamable HTTP MCP
-server is `https://agent-guild-5d5r.onrender.com/mcp`. Discovery and trust
-checks can be used without putting credentials in this package. Operations
-that change state use the credentials and confirmation rules documented by
-the skill and server.
+The bundled skill uses Agent Guild's free public HTTPS surface. It requires no
+account, API key, package installation, or payment. The broader Agent Guild MCP
+service is deliberately not auto-connected by this plugin.
 
 ## Install in Claude Code
 
@@ -47,10 +46,10 @@ Agent Skill and an OpenClaw skill.
 
 ## Verify before trusting
 
-Agent Guild returns evidence and machine-verifiable signatures rather than a
-bare star rating. Inspect the evidence behind a recommendation, verify any
-passport signature, and use escrow before transferring value to an unfamiliar
-counterparty.
+Agent Guild returns observed protocol evidence and machine-verifiable
+signatures rather than a bare star rating. Inspect every failed and unknown
+check, verify the passport signature and subject, and separately approve any
+consequential action outside this plugin.
 
 The plugin is scanned in CI with HOL's AI Plugin Scanner. Report security
 issues using [SECURITY.md](SECURITY.md). The package is licensed under
