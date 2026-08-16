@@ -3,7 +3,15 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.35"  # PATCH open MCP discovery (2026-08-16):
+__version__ = "2.5.36"  # PATCH integrations.sh owner discovery (2026-08-16):
+                        # publishes the v3 /.well-known/integrations.json
+                        # owner declaration consumed by integrations.sh and
+                        # downstream agent configuration tools. It names only
+                        # the live MCP and HTTP surfaces, keeps mixed HTTP auth
+                        # explicitly unknown, and records a fetch only as a
+                        # non-commercial discovery observation. Payments,
+                        # pricing, authorization and settlement are unchanged.
+                        # History of 2.5.35:
                         # publishes /.well-known/mcp.json as a short,
                         # cacheable alias of the live-generated MCP server
                         # card so agent-operated crawlers can verify and
