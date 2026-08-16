@@ -163,13 +163,38 @@ KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
 ]
 
 
+# Exact privacy-safe aliases for external registry scanners whose generic HTTP
+# libraries otherwise look like agent frameworks. These three actors appeared
+# in one 21-second burst while the skills.sh listing was being reindexed on
+# 2026-08-16: one walked the A2A/Agent Skills/Guild manifests, one fetched the
+# agent card, and one fetched OpenAPI. They are the scanner pipeline that
+# produced the listing's security audit, not autonomous agents. Exact aliases
+# avoid demoting any unrelated use of undici/node-fetch/axios/httpx.
+KNOWN_REGISTRY_CRAWLER_ACTOR_ALIASES = frozenset({
+    "29e06ce658cd7a3b1144029ab719435b08435849e71d3bd661a9d96d64bb418e",
+    "e13d168323c33a63e335c28d2e0bb1fa90a927a9dbc5715a7fd49ca53115ba14",
+    "f6ddda7ffa318e3bf5e21f9ecb0b02c48386f4b20b49da78c60f90c06bdd4213",
+})
+
+
+def _census_actor_alias_sha256(event: Mapping[str, Any]) -> str:
+    actor = str(event.get("key", event.get("actor")) or "")
+    if not actor or actor == "anon":
+        return ""
+    return hashlib.sha256(
+        ("agent-guild/census/v1|" + actor).encode("utf-8")
+    ).hexdigest()
+
+
+def _is_known_registry_crawler_actor(event: Mapping[str, Any]) -> bool:
+    return (_census_actor_alias_sha256(event)
+            in KNOWN_REGISTRY_CRAWLER_ACTOR_ALIASES)
+
+
 def _is_known_first_party_incident(event: dict[str, Any]) -> bool:
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
     at = event.get("at") or ""
-    actor = str(event.get("key", event.get("actor")) or "")
-    actor_alias = hashlib.sha256(
-        ("agent-guild/census/v1|" + actor).encode("utf-8")
-    ).hexdigest() if actor and actor != "anon" else ""
+    actor_alias = _census_actor_alias_sha256(event)
     for inc in KNOWN_FIRST_PARTY_INCIDENTS:
         if (actor_alias and inc.get("actor_alias_sha256") == actor_alias):
             return True
@@ -344,6 +369,8 @@ def caller_class(event: Mapping[str, Any], *,
         return "AG_TEST"
     if fp:
         return "AG_INTERNAL"
+    if _is_known_registry_crawler_actor(event):
+        return "REGISTRY_CRAWLER"
     # Non-first-party but self-identified AG test/verification tooling (e.g. the
     # canary before the token is set) is still AG_TEST (defense-in-depth), never
     # genuine external.

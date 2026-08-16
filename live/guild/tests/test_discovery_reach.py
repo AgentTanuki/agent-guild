@@ -104,6 +104,50 @@ def test_agent_skill_identity_is_transparent_and_qualified(tmp_path):
     assert report["tiers"]["T3_framework_ua_actors"] == 1
 
 
+def test_exact_registry_scanner_aliases_are_excluded_without_ua_overreach(
+        tmp_path, monkeypatch):
+    """A scanner pipeline may use an agent-shaped HTTP library.
+
+    Corrections are exact actor aliases, never a blanket ban on that library:
+    the pinned scanner is excluded while a nearby independent actor with the
+    same framework UA still qualifies.
+    """
+    production_aliases = {
+        "29e06ce658cd7a3b1144029ab719435b08435849e71d3bd661a9d96d64bb418e",
+        "e13d168323c33a63e335c28d2e0bb1fa90a927a9dbc5715a7fd49ca53115ba14",
+        "f6ddda7ffa318e3bf5e21f9ecb0b02c48386f4b20b49da78c60f90c06bdd4213",
+    }
+    assert attribution.KNOWN_REGISTRY_CRAWLER_ACTOR_ALIASES == \
+        production_aliases
+
+    scanner_key = "http:known-registry-scanner"
+    scanner_alias = attribution._census_actor_alias_sha256({
+        "key": scanner_key,
+    })
+    monkeypatch.setattr(
+        attribution,
+        "KNOWN_REGISTRY_CRAWLER_ACTOR_ALIASES",
+        frozenset({scanner_alias}),
+    )
+
+    store = Store(path=str(tmp_path / "guild.json"))
+    store.record_event(
+        scanner_key, "discovery_resource_fetched", ua="undici/7.13.0",
+        discovery_surface="openapi", actor_distinct=True,
+    )
+    store.record_event(
+        "http:independent-agent", "discovery_resource_fetched",
+        ua="undici/7.13.0", discovery_surface="openapi",
+        actor_distinct=True,
+    )
+
+    report = store.discovery_reach()
+    assert report["qualified_distinct_autonomous_agents"] == 1
+    assert report["tiers"]["T3_framework_ua_actors"] == 1
+    assert report["evidence"][
+        "registry_crawler_distinct_actors_excluded"] == 1
+
+
 def test_legacy_guild_owned_member_is_excluded_at_read_and_write_time(tmp_path):
     """The public Codex worker used to be one of the signed census's T1 rows.
 
