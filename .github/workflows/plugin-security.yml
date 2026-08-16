@@ -1,0 +1,27 @@
+name: Plugin security
+
+on:
+  pull_request:
+    paths:
+      - "plugins/agent-guild/**"
+      - ".github/workflows/plugin-security.yml"
+  push:
+    branches: [main]
+    paths:
+      - "plugins/agent-guild/**"
+      - ".github/workflows/plugin-security.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashgraph-online/ai-plugin-scanner-action@v1
+        with:
+          plugin_dir: "plugins/agent-guild"
+          fail_on_severity: high

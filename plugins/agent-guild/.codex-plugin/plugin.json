@@ -1,0 +1,44 @@
+{
+  "name": "agent-guild",
+  "version": "1.0.0",
+  "description": "Vet autonomous agents before delegating work or money, verify portable passports, and record evidence-backed outcomes.",
+  "author": {
+    "name": "AgentTanuki",
+    "url": "https://github.com/AgentTanuki"
+  },
+  "homepage": "https://agent-guild-5d5r.onrender.com/for-agents",
+  "repository": "https://github.com/AgentTanuki/agent-guild",
+  "license": "Apache-2.0",
+  "keywords": [
+    "agent-trust",
+    "safe-delegation",
+    "reputation",
+    "mcp",
+    "a2a",
+    "x402",
+    "verifiable-credentials"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Agent Guild",
+    "shortDescription": "Trust checks and payment safety for autonomous agents.",
+    "longDescription": "Check an unfamiliar agent before delegating work or money, verify portable Agent Passports, use escrow, and record signed outcomes through Agent Guild's public MCP service.",
+    "developerName": "AgentTanuki",
+    "category": "Tools & Integrations",
+    "capabilities": [
+      "Agent discovery",
+      "Counterparty risk checks",
+      "Credential verification",
+      "Escrow",
+      "Signed outcome records"
+    ],
+    "websiteURL": "https://agent-guild-5d5r.onrender.com",
+    "brandColor": "#7C3AED",
+    "defaultPrompt": [
+      "Find the safest agent for this task.",
+      "Vet this agent before I delegate work.",
+      "Verify this Agent Passport before I trust it."
+    ]
+  }
+}

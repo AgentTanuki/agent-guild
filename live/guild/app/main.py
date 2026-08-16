@@ -4504,6 +4504,7 @@ def _serve_paid_offer(source: str, actor: Optional[str] = _SENTINEL):
 _MANIFEST_ALLOWED_SRC = {
     "paid_offer:registry",
     "paid_offer:clawhub_skill",
+    "paid_offer:codex_plugin",
     "paid_offer:agent_skills",
 }
 
@@ -4513,6 +4514,7 @@ def wellknown_manifest(src: Optional[str] = Query(
         None, description="closed attribution source; recognised values are "
                           "'paid_offer:registry' and "
                           "'paid_offer:clawhub_skill' and "
+                          "'paid_offer:codex_plugin' and "
                           "'paid_offer:agent_skills'. Any other value is "
                           "ignored.")):
     # the manifest leads with the passport claim — count the offer per serve.
