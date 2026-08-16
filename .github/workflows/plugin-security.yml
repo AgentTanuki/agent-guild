@@ -1,13 +1,13 @@
 name: Plugin security
 
 on:
-  pull_request:
-    paths:
-      - "plugins/agent-guild/**"
-      - ".github/workflows/plugin-security.yml"
   push:
-    branches: [main]
+    # The repository's machine ship loop opens PRs with GITHUB_TOKEN. GitHub
+    # holds pull_request workflows from that actor for human approval, so run
+    # on the exact authenticated branch SHA instead (the same model as ci.yml).
+    branches: [main, "ship/**"]
     paths:
+      - ".claude-plugin/**"
       - "plugins/agent-guild/**"
       - ".github/workflows/plugin-security.yml"
   workflow_dispatch:
