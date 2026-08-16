@@ -62,6 +62,22 @@ OURS_MCP_CLIENTS = {
     "guild-live-conformance",
 }
 
+# Guild-operated agents that were created before durable first-party tagging
+# was enforced.  These exact production identities are public and auditable:
+# four TanukiTextStats registrations declare
+# ``operator=agent-guild (first-party demo supply)`` and the fifth is the
+# operator-owned Codex Autonomous Worker.  Their old account/event rows were
+# written with ``first_party=false`` and therefore used to qualify as external
+# verified members at read time.  Keep this a narrow exact-ID set: it may only
+# demote known-owned traffic and must never infer ownership from a name/domain.
+KNOWN_GUILD_OPERATED_AGENT_IDS = frozenset({
+    "agent_143203b6a77b",
+    "agent_5dd9bd352a22",
+    "agent_87bcabedf2c0",
+    "agent_c7d2e902dc50",
+    "agent_f75dd36ac192",
+})
+
 # Known first-party incidents: OUR OWN traffic that slipped past first-party
 # tagging (e.g. a maintainer test that forgot the X-Guild-Source header) and
 # would otherwise read as genuine external. Each entry is deliberately narrow —

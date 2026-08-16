@@ -6,7 +6,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from app import crypto, main
+from app import attribution, crypto, main
 from app.store import Store
 
 
@@ -102,6 +102,85 @@ def test_agent_skill_identity_is_transparent_and_qualified(tmp_path):
     report = store.discovery_reach()
     assert report["qualified_distinct_autonomous_agents"] == 1
     assert report["tiers"]["T3_framework_ua_actors"] == 1
+
+
+def test_legacy_guild_owned_member_is_excluded_at_read_and_write_time(tmp_path):
+    """The public Codex worker used to be one of the signed census's T1 rows.
+
+    Its legacy account and immutable events predate durable first-party
+    tagging.  The exact owned ID must demote those historical rows at read time
+    and stamp every future event first-party, without mutating history.
+    """
+    store = Store(path=str(tmp_path / "guild.json"))
+    owned_id = "agent_c7d2e902dc50"
+    assert owned_id in attribution.KNOWN_GUILD_OPERATED_AGENT_IDS
+    store.agents[owned_id] = {
+        "id": owned_id,
+        "milestones": {"key_proof": {"at": "2026-07-27T10:13:00Z"}},
+    }
+    store.accounts["owned-worker-key"] = {
+        "owner_agent_id": owned_id,
+        "first_party": False,
+    }
+    historical = {
+        "key": "owned-worker-key",
+        "type": "key_proof",
+        "ua": "python-httpx/0.27",
+        "fp": False,
+        "actor_distinct": True,
+        "at": "2026-07-27T10:13:41+00:00",
+    }
+    store.events.append(historical)
+
+    report = store.discovery_reach()
+    assert report["qualified_distinct_autonomous_agents"] == 0
+    assert report["evidence"]["excluded_distinct_actors_by_reason"][
+        "first_party"] == 1
+    assert historical["fp"] is False, "historical evidence must stay immutable"
+
+    store.record_event(
+        "owned-worker-key", "query", ua="python-httpx/0.27",
+        actor_distinct=True,
+    )
+    assert store.events[-1]["fp"] is True
+
+
+def test_nearby_unowned_verified_member_still_counts(tmp_path):
+    """The corrective set is exact: no name/domain/agent-id prefix matching."""
+    store = Store(path=str(tmp_path / "guild.json"))
+    stranger_id = "agent_c7d2e902dc51"
+    store.agents[stranger_id] = {
+        "id": stranger_id,
+        "milestones": {"key_proof": {"at": "2026-08-16T00:00:00Z"}},
+    }
+    store.accounts["stranger-key"] = {"owner_agent_id": stranger_id}
+    store.record_event(
+        "stranger-key", "query", ua="python-httpx/0.27",
+        actor_distinct=True,
+    )
+    report = store.discovery_reach()
+    assert report["qualified_distinct_autonomous_agents"] == 1
+    assert report["tiers"]["T1_key_proved_members"] == 1
+
+
+def test_unproved_member_cannot_bypass_t1_with_a_framework_ua(tmp_path):
+    """T1 requires key proof; a plausible UA cannot upgrade a bare member."""
+    store = Store(path=str(tmp_path / "guild.json"))
+    store.agents["agent_external_unproved"] = {
+        "id": "agent_external_unproved",
+        "milestones": {},
+    }
+    store.accounts["unproved-key"] = {
+        "owner_agent_id": "agent_external_unproved",
+    }
+    store.record_event(
+        "unproved-key", "query", ua="langchain/0.3",
+        actor_distinct=True,
+    )
+    report = store.discovery_reach()
+    assert report["qualified_distinct_autonomous_agents"] == 0
+    assert report["evidence"]["excluded_distinct_actors_by_reason"][
+        "authenticated_but_key_unproved"] == 1
 
 
 def test_ard_has_every_free_web_discovery_hook():

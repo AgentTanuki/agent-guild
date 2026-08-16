@@ -2622,7 +2622,14 @@ class Store:
             # CONSTRUCTION — it never crossed the network — so `fp` must
             # reflect that even though there is no account behind it.
             from . import attribution as _attr
+            owner_agent_id = ((acct or {}).get("owner_agent_id")
+                              or (acct or {}).get("agent_id"))
+            owner_agent = self.agents.get(owner_agent_id or "") or {}
+            known_owned_agent = owner_agent_id in (
+                _attr.KNOWN_GUILD_OPERATED_AGENT_IDS)
             fp = (bool(acct and acct.get("first_party"))
+                  or bool(owner_agent.get("first_party"))
+                  or known_owned_agent
                   or _attr.is_guild_internal_origin(meta))
             event = {"key": key or "anon", "type": etype, "ua": ua or "",
                      "fp": fp, "surface": self._surface_of(key, ua or ""),
@@ -3091,11 +3098,13 @@ class Store:
             ua = str(event.get("ua") or "")
             if not unlinkable and caller_class == "EXTERNAL_VERIFIED":
                 tier = "T1_key_proved_member"
-            elif (not unlinkable and _attr.is_genuine_external(event)
+            elif (not unlinkable and caller_class == "EXTERNAL_UNKNOWN"
+                  and _attr.is_genuine_external(event)
                   and ua.startswith("mcp:")
                   and _attr._mcp_client(ua) is not None):
                 tier = "T2_named_mcp_client"
-            elif not unlinkable and _attr.is_genuine_external(event):
+            elif (not unlinkable and caller_class == "EXTERNAL_UNKNOWN"
+                  and _attr.is_genuine_external(event)):
                 tier = "T3_framework_ua_actor"
             else:
                 tier = None
@@ -3104,6 +3113,14 @@ class Store:
                     reason = "anonymous_unlinkable"
                 elif caller_class == "EXTERNAL_MEMBER":
                     reason = "authenticated_but_key_unproved"
+                elif caller_class == "AG_INTERNAL":
+                    reason = "first_party"
+                elif caller_class == "AG_TEST":
+                    reason = "ag_test"
+                elif caller_class == "OPERATOR":
+                    reason = "operator"
+                elif caller_class == "REGISTRY_CRAWLER":
+                    reason = "registry_crawler"
                 else:
                     reason = _attr.attribution_class(event)
                 if actor not in ("", "anon"):
@@ -3279,6 +3296,13 @@ class Store:
         acct = self.accounts.get(key) or {}
         agent_id = acct.get("owner_agent_id") or acct.get("agent_id")
         agent = self.agents.get(agent_id or "") or {}
+        # Upgrade toward first-party at READ time.  This is what repairs
+        # historical rows: marking an account/agent first-party (or pinning a
+        # proven legacy Guild identity) must reclassify its immutable old
+        # events without rewriting or deleting the event log.
+        if (acct.get("first_party") or agent.get("first_party")
+                or agent_id in _attr.KNOWN_GUILD_OPERATED_AGENT_IDS):
+            ev = {**ev, "fp": True}
         member = bool(acct)
         verified = bool((agent.get("milestones") or {}).get("key_proof")
                         or agent.get("proof_of_conduct"))
