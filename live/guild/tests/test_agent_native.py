@@ -16,6 +16,7 @@ def test_discovery_manifest_describes_service():
     assert m["economics"]["pricing_credits"]["best_agent"] == PRICING["best_agent"]
     # an agent can learn how to acquire credits with no human
     assert m["economics"]["acquire_credits"]["trial"]["human_free"] is True
+    assert m["discovery"]["aid_v2"] == "/.well-known/agent"
     assert "measured_lift" in m["evaluation_signals"]
 
 

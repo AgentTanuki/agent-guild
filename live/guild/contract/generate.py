@@ -81,6 +81,7 @@ def build_contract() -> dict:
                 f"{HOST}/.well-known/mcp/"
                 "payment-safety-server-card.json"
             ),
+            "aid_well_known": f"{HOST}/.well-known/agent",
             "ard_catalog": f"{HOST}/.well-known/ai-catalog.json",
             "a2a_endpoint": f"{HOST}/a2a",
             "agent_card": f"{HOST}/.well-known/agent-card.json",
@@ -409,6 +410,7 @@ def derived_interface_md(contract: dict) -> str:
         f"- Host: {s['host']}",
         f"- MCP (streamable HTTP): {s['mcp_url']}",
         f"- MCP x402 payment safety: {s['payment_safety_mcp_url']}",
+        f"- AID v2 discovery: {s['aid_well_known']}",
         f"- ARD catalogue: {s['ard_catalog']}",
         f"- A2A JSON-RPC: {s['a2a_endpoint']} · agent card: {s['agent_card']}",
         f"- Issuer DID: {s['issuer_did_document']}",

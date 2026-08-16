@@ -216,6 +216,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/.well-known/agent"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/.well-known/agent-guild-did.json"
   },
   {
@@ -1109,6 +1115,7 @@
  "service": {
   "a2a_endpoint": "https://agent-guild-5d5r.onrender.com/a2a",
   "agent_card": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+  "aid_well_known": "https://agent-guild-5d5r.onrender.com/.well-known/agent",
   "ard_catalog": "https://agent-guild-5d5r.onrender.com/.well-known/ai-catalog.json",
   "did_web_document": "https://agent-guild-5d5r.onrender.com/.well-known/did.json",
   "host": "https://agent-guild-5d5r.onrender.com",
