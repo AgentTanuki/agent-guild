@@ -230,6 +230,7 @@ _xpay_settled_holder: contextvars.ContextVar[Optional[list]] = \
 # exactly ONE row per fetch here; downstream measurement deduplicates the
 # privacy-safe actor and excludes our traffic, generic tools and crawlers.
 _DISCOVERY_RESOURCE_SURFACES = {
+    "/.well-known/agent": "aid_v2",
     "/.well-known/ai-catalog.json": "ard_catalog",
     "/.well-known/agent-guild.json": "guild_manifest",
     "/.well-known/integrations.json": "integrations_owner_declaration",
@@ -3897,6 +3898,7 @@ def _manifest() -> dict:
         },
         "discovery": {
             "capabilities": "/capabilities",
+            "aid_v2": "/.well-known/agent",
             "ard_catalog": "/.well-known/ai-catalog.json",
             "ard_agentmap": "/robots.txt",
             "discovery_census": {
@@ -4596,6 +4598,29 @@ def wellknown_integrations():
                     "auth": {"status": "unknown"},
                 },
             ],
+        },
+        headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
+@app.get("/.well-known/agent")
+def wellknown_aid_v2():
+    """AID v2 HTTPS fallback for domain-first agent discovery.
+
+    Agent Identity & Discovery clients query ``_agent.<host>`` first and may
+    fall back to this exact path when no DNS TXT record exists.  Keep the
+    record deliberately minimal: TLS already binds it to this host, and
+    omitting ``k`` avoids claiming the separate RFC 9421 PKA profile.
+    """
+    base = x402.public_host().rstrip("/")
+    return JSONResponse(
+        content={
+            "v": "aid2",
+            "u": f"{base}/mcp",
+            "p": "mcp",
+            "a": "none",
+            "s": "Agent Guild trust and settlement",
+            "d": f"{base}/for-agents",
         },
         headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
     )
