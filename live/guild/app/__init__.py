@@ -3,7 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.38"  # PATCH least-privilege skill packaging (2026-08-16):
+__version__ = "2.5.39"  # PATCH exact registry-scanner census correction
+                        # (2026-08-16): demotes three privacy-safe actor aliases
+                        # produced by the skills.sh reindex/audit burst. The
+                        # correction is actor-scoped, so unrelated autonomous
+                        # agents using the same HTTP libraries still qualify.
+                        # History of 2.5.38:
+                        # PATCH least-privilege skill packaging (2026-08-16):
                         # keeps the complete hosted/OpenClaw policy internal
                         # to Agent Skills discovery while publishing a tiny,
                         # read-only registry bundle with no executable remote
