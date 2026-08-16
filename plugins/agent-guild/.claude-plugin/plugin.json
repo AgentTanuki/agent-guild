@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "agent-guild",
   "displayName": "Agent Guild",
-  "version": "1.0.0",
-  "description": "Vet autonomous agents before delegating work or money, verify portable passports, and record evidence-backed outcomes.",
+  "version": "2.0.0",
+  "description": "Run a free, read-only live preflight on an unfamiliar A2A or MCP endpoint and verify public Agent Guild passports.",
   "author": {
     "name": "AgentTanuki",
     "url": "https://github.com/AgentTanuki"
@@ -18,8 +18,8 @@
     "mcp",
     "a2a",
     "x402",
-    "verifiable-credentials"
+    "verifiable-credentials",
+    "preflight"
   ],
-  "skills": "./skills/",
-  "mcpServers": "./.mcp.json"
+  "skills": "./skills/"
 }

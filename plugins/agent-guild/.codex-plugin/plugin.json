@@ -1,7 +1,7 @@
 {
   "name": "agent-guild",
-  "version": "1.0.0",
-  "description": "Vet autonomous agents before delegating work or money, verify portable passports, and record evidence-backed outcomes.",
+  "version": "2.0.0",
+  "description": "Run a free, read-only live preflight on an unfamiliar A2A or MCP endpoint and verify public Agent Guild passports.",
   "author": {
     "name": "AgentTanuki",
     "url": "https://github.com/AgentTanuki"
@@ -16,29 +16,26 @@
     "mcp",
     "a2a",
     "x402",
-    "verifiable-credentials"
+    "verifiable-credentials",
+    "preflight"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Agent Guild",
-    "shortDescription": "Trust checks and payment safety for autonomous agents.",
-    "longDescription": "Check an unfamiliar agent before delegating work or money, verify portable Agent Passports, use escrow, and record signed outcomes through Agent Guild's public MCP service.",
+    "shortDescription": "Read-only preflight for unfamiliar agent endpoints.",
+    "longDescription": "Run a free point-in-time A2A or MCP handshake preflight, preserve failed and unknown checks, and verify public Agent Guild passports without authorizing delegation, payment, or writes.",
     "developerName": "AgentTanuki",
     "category": "Tools & Integrations",
     "capabilities": [
-      "Agent discovery",
-      "Counterparty risk checks",
-      "Credential verification",
-      "Escrow",
-      "Signed outcome records"
+      "A2A endpoint preflight",
+      "MCP endpoint preflight",
+      "Public credential verification"
     ],
     "websiteURL": "https://agent-guild-5d5r.onrender.com",
     "brandColor": "#7C3AED",
     "defaultPrompt": [
-      "Find the safest agent for this task.",
-      "Vet this agent before I delegate work.",
-      "Verify this Agent Passport before I trust it."
+      "Preflight this agent endpoint before I delegate.",
+      "Verify this public Agent Guild passport."
     ]
   }
 }

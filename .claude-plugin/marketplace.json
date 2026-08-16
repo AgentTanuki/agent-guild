@@ -4,14 +4,14 @@
     "name": "AgentTanuki",
     "url": "https://github.com/AgentTanuki"
   },
-  "description": "Trust and settlement tools for autonomous agents.",
-  "version": "1.0.0",
+  "description": "Free, read-only preflight checks for autonomous-agent endpoints.",
+  "version": "2.0.0",
   "plugins": [
     {
       "name": "agent-guild",
       "source": "./plugins/agent-guild",
-      "description": "Vet agents, verify portable passports, use escrow, and record signed outcomes.",
-      "version": "1.0.0",
+      "description": "Preflight one A2A or MCP endpoint and verify public Agent Guild passports without granting consequential authority.",
+      "version": "2.0.0",
       "author": {
         "name": "AgentTanuki"
       }
