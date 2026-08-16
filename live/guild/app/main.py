@@ -234,6 +234,7 @@ _DISCOVERY_RESOURCE_SURFACES = {
     "/.well-known/agent-guild.json": "guild_manifest",
     "/.well-known/agent-card.json": "a2a_agent_card",
     "/.well-known/agent.json": "a2a_agent_card_legacy",
+    "/.well-known/mcp.json": "mcp_well_known",
     "/.well-known/mcp/server-card.json": "mcp_server_card",
     "/.well-known/mcp/payment-safety-server-card.json": (
         "mcp_payment_safety_server_card"),
@@ -4535,6 +4536,7 @@ def wellknown_manifest(src: Optional[str] = Query(
     return man
 
 
+@app.get("/.well-known/mcp.json")
 @app.get("/.well-known/mcp/server-card.json")
 async def wellknown_mcp_server_card():
     """Static MCP discovery without initializing a session or calling tools.
