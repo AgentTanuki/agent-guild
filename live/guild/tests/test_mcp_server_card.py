@@ -55,6 +55,28 @@ def test_server_card_matches_live_tool_registry_without_demand_events():
     assert _paid_offer_events() == before
 
 
+def test_short_well_known_alias_matches_server_card():
+    """Open MCP crawlers commonly probe ``/.well-known/mcp.json``."""
+    before = list(_paid_offer_events())
+    alias = client.get(
+        "/.well-known/mcp.json",
+        headers={"Origin": "https://crawler.example"},
+    )
+    canonical = client.get("/.well-known/mcp/server-card.json")
+
+    assert alias.status_code == 200
+    assert alias.headers["content-type"].startswith("application/json")
+    assert alias.headers["access-control-allow-origin"] == "*"
+    assert alias.headers["cache-control"] == (
+        "public, max-age=300, s-maxage=300"
+    )
+    assert alias.json() == canonical.json()
+    assert "/.well-known/mcp.json" in (
+        client.get("/openapi.json").json()["paths"]
+    )
+    assert _paid_offer_events() == before
+
+
 def test_server_card_advertises_only_truthful_public_transport_metadata():
     card = asyncio.run(public_server_card())
     assert "$schema" not in card  # the SEP-1649 draft URL is not live

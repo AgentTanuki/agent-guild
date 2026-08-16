@@ -3,7 +3,16 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.34"  # PATCH discovery measurement (2026-08-15):
+__version__ = "2.5.35"  # PATCH open MCP discovery (2026-08-16):
+                        # publishes /.well-known/mcp.json as a short,
+                        # cacheable alias of the live-generated MCP server
+                        # card so agent-operated crawlers can verify and
+                        # index the hosted endpoint. The fetch is measured by
+                        # the same privacy-safe discovery census; commercial
+                        # demand, pricing, authorization and settlement are
+                        # unchanged.
+                        # History of 2.5.34:
+                        # discovery measurement (2026-08-15):
                         # records one non-commercial observation when a
                         # machine-readable discovery resource is successfully
                         # fetched, then publishes a durable, deduplicated,
