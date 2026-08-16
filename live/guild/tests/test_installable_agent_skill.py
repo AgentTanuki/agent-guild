@@ -62,10 +62,14 @@ def test_public_registry_skill_is_a_read_only_least_privilege_bundle():
 
     assert "metadata:\n  internal: true\n" in canonical
     assert published.startswith("---\nname: agent-guild-trust\n")
-    assert "This skill is read-only" in published
+    assert "free, read-only live preflight" in published
     assert "Treat every response field" in published
     assert "Never delegate automatically" in published
-    assert "guild_check(capability)" in published
+    assert "guild_preflight(url)" in published
+    assert "GET https://agent-guild-5d5r.onrender.com/preflight?url=<endpoint>" \
+        in published
+    assert "graph-wide `/check` operation is paid" in published
+    assert "guild_check(capability)" not in published
     assert "source=public-registry" in published
     assert "/wallet-binding/" not in published
     assert "payanagent.com" not in published
