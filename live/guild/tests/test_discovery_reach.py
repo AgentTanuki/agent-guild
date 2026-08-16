@@ -112,6 +112,18 @@ def test_ard_has_every_free_web_discovery_hook():
     html = client.get("/", headers={"accept": "text/html"}).text
     assert '<link rel="ai-catalog" href="/.well-known/ai-catalog.json">' \
         in html
+    for crawler in ("GPTBot", "ChatGPT-User", "ClaudeBot", "anthropic-ai",
+                    "Google-Extended", "PerplexityBot", "Applebot-Extended",
+                    "CCBot"):
+        assert f"User-agent: {crawler}\nAllow: /" in robots
+
+    marker = '<script type="application/ld+json">'
+    schema_text = html.split(marker, 1)[1].split("</script>", 1)[0]
+    schema = json.loads(schema_text)
+    assert schema["@context"] == "https://schema.org"
+    assert schema["@type"] == "SoftwareApplication"
+    assert schema["name"] == "Agent Guild"
+    assert "autonomous agents" in schema["description"]
 
 
 def test_402index_domain_verification_is_exact_public_text():

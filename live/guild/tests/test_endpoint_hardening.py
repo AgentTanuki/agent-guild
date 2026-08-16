@@ -58,6 +58,46 @@ def test_mcp_trailing_slash_also_works():
     assert r.status_code == 200
 
 
+def test_sessionless_tools_list_has_read_only_discovery_compatibility():
+    """Metadata-only crawlers can inspect tools without opening a session."""
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+    }
+    with TestClient(app) as client:
+        for path in ("/mcp", "/mcp/"):
+            response = client.post(path, headers=headers, json={
+                "jsonrpc": "2.0", "id": 7, "method": "tools/list",
+                "params": {},
+            })
+            assert response.status_code == 200
+            assert response.headers["content-type"].startswith(
+                "application/json")
+            body = response.json()
+            assert body["jsonrpc"] == "2.0"
+            assert body["id"] == 7
+            assert any(tool["name"] == "guild_check"
+                       for tool in body["result"]["tools"])
+
+
+def test_sessionless_compatibility_does_not_allow_tool_calls():
+    with TestClient(app) as client:
+        response = client.post(
+            "/mcp",
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+            },
+            json={
+                "jsonrpc": "2.0", "id": 8, "method": "tools/call",
+                "params": {"name": "guild_check", "arguments": {}},
+            },
+        )
+    assert response.status_code == 400
+    assert response.json()["error"]["message"] == \
+        "Bad Request: Missing session ID"
+
+
 def test_focused_mcp_bare_and_trailing_slash_both_initialize():
     payload = {
         "jsonrpc": "2.0", "id": 1, "method": "initialize",
