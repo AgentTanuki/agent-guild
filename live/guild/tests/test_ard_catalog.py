@@ -62,7 +62,7 @@ def test_catalog_entries_are_unique_queryable_https_artifacts_that_resolve():
     assert {entry["type"] for entry in entries} == {
         "application/mcp-server-card+json",
         "application/a2a-agent-card+json",
-        "application/ai-skill+md",
+        "application/ai-skill",
     }
 
     for entry in entries:
@@ -77,6 +77,16 @@ def test_catalog_entries_are_unique_queryable_https_artifacts_that_resolve():
                 "application/json")
         else:
             assert artifact.headers["content-type"].startswith("text/markdown")
+
+
+def test_catalog_skill_uses_the_reference_client_filter_media_type():
+    """Keep the skill visible to standard ARD `kind=skill` searches."""
+    manifest = client.get("/.well-known/ai-catalog.json").json()
+    skills = [
+        entry for entry in manifest["entries"]
+        if entry["type"] == "application/ai-skill"
+    ]
+    assert [entry["displayName"] for entry in skills] == ["Agent Guild Skill"]
 
 
 def test_pinned_official_ard_conformance_cli_accepts_catalog(tmp_path):

@@ -3,7 +3,16 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.36"  # PATCH integrations.sh owner discovery (2026-08-16):
+__version__ = "2.5.37"  # PATCH census first-party correction (2026-08-16):
+                        # exact-pins five publicly evidenced Guild-operated
+                        # legacy agents, upgrades current first-party account
+                        # state at read time without rewriting event history,
+                        # and prevents unproved members from bypassing T1 via
+                        # a framework-shaped User-Agent. This intentionally
+                        # lowers any contaminated reach total; no real external
+                        # actor is inferred from a name, domain, or prefix.
+                        # History of 2.5.36:
+                        # PATCH integrations.sh owner discovery (2026-08-16):
                         # publishes the v3 /.well-known/integrations.json
                         # owner declaration consumed by integrations.sh and
                         # downstream agent configuration tools. It names only

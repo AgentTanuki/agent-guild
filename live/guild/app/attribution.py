@@ -62,12 +62,50 @@ OURS_MCP_CLIENTS = {
     "guild-live-conformance",
 }
 
+# Guild-operated agents that were created before durable first-party tagging
+# was enforced.  These exact production identities are public and auditable:
+# four TanukiTextStats registrations declare
+# ``operator=agent-guild (first-party demo supply)`` and the fifth is the
+# operator-owned Codex Autonomous Worker.  Their old account/event rows were
+# written with ``first_party=false`` and therefore used to qualify as external
+# verified members at read time.  Keep this a narrow exact-ID set: it may only
+# demote known-owned traffic and must never infer ownership from a name/domain.
+KNOWN_GUILD_OPERATED_AGENT_IDS = frozenset({
+    "agent_143203b6a77b",
+    "agent_5dd9bd352a22",
+    "agent_87bcabedf2c0",
+    "agent_c7d2e902dc50",
+    "agent_f75dd36ac192",
+})
+
 # Known first-party incidents: OUR OWN traffic that slipped past first-party
 # tagging (e.g. a maintainer test that forgot the X-Guild-Source header) and
 # would otherwise read as genuine external. Each entry is deliberately narrow —
 # an exact UA within a bounded time window — and documents why, so this can
 # never silently hide a real agent. The same UA OUTSIDE the window still counts.
 KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
+    {
+        "actor_alias_sha256": (
+            "f7ea1d14b9d84c12b41afdb0cf0e872726583f1edc06ed58b367af3376b484a4"
+        ),
+        "reason": "Guild-operated Hugging Face hf-discover v1.3.7 "
+                  "interoperability audit on 2026-08-16. The official "
+                  "discover/0.1 client fetched the live ARD manifest during "
+                  "a reference-client compatibility test and the resulting "
+                  "HTTP registration was incorrectly eligible as T3. This is "
+                  "the exact privacy-safe actor alias committed by the signed "
+                  "census, not a UA, network, name, or time-range inference.",
+    },
+    {
+        "actor_alias_sha256": (
+            "daaccb419bcecff13b71ed46af0e57d833a9d4884a89e12887c8d07cdd050298"
+        ),
+        "reason": "Second exact actor alias produced by the same Guild-operated "
+                  "Hugging Face hf-discover v1.3.7 interoperability audit on "
+                  "2026-08-16, recorded on the paid_offer:manifest surface. "
+                  "It is exact-pinned from the signed public evidence and may "
+                  "only demote that known-owned actor.",
+    },
     {
         "ua_re": r"^(?:a2a:)?langchain/0\.2\.1$",
         "from": "2026-08-14T03:11:00+00:00",
@@ -128,7 +166,15 @@ KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
 def _is_known_first_party_incident(event: dict[str, Any]) -> bool:
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
     at = event.get("at") or ""
+    actor = str(event.get("key", event.get("actor")) or "")
+    actor_alias = hashlib.sha256(
+        ("agent-guild/census/v1|" + actor).encode("utf-8")
+    ).hexdigest() if actor and actor != "anon" else ""
     for inc in KNOWN_FIRST_PARTY_INCIDENTS:
+        if (actor_alias and inc.get("actor_alias_sha256") == actor_alias):
+            return True
+        if "from" not in inc or "to" not in inc:
+            continue
         if not (inc["from"] <= at <= inc["to"]):
             continue
         if "ua" in inc and ua == inc["ua"]:

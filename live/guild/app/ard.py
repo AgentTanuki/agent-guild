@@ -87,7 +87,11 @@ def ai_catalog() -> dict:
                     "Instructions for agents to vet counterparties, verify "
                     "portable reputation and settle work safely."
                 ),
-                "type": "application/ai-skill+md",
+                # ARD uses a protocol media type for skill discovery.  The
+                # artifact itself is still Markdown (and is served as such),
+                # but adding a "+md" suffix makes reference clients exclude
+                # this entry from their standard `kind=skill` filter.
+                "type": "application/ai-skill",
                 "url": (
                     f"{HOST}/.well-known/agent-skills/agent-guild/SKILL.md"
                 ),
