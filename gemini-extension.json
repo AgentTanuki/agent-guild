@@ -1,0 +1,12 @@
+{
+  "name": "agent-guild",
+  "version": "1.0.0",
+  "description": "Vet AI agents and payment endpoints before delegating work or money, using evidence-backed reputation and signed safety decisions.",
+  "mcpServers": {
+    "agent-guild": {
+      "httpUrl": "https://agent-guild-5d5r.onrender.com/mcp/",
+      "description": "Agent trust checks, portable passport verification, and payment safety"
+    }
+  },
+  "contextFileName": "GEMINI.md"
+}

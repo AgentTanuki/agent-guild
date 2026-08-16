@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 
@@ -17,6 +18,36 @@ def test_repository_skill_is_discoverable_and_routes_high_value_payments():
     assert "kh743b8n09qnxq2tqnwyb4bc6d8camnh" in skill
     assert "This is a signed authorization" in skill
     assert "not insurance or escrow" in skill
+
+
+def test_gemini_cli_extension_is_native_safe_and_discoverable():
+    manifest = json.loads((ROOT / "gemini-extension.json").read_text())
+
+    assert manifest == {
+        "name": "agent-guild",
+        "version": "1.0.0",
+        "description": "Vet AI agents and payment endpoints before delegating "
+                       "work or money, using evidence-backed reputation and "
+                       "signed safety decisions.",
+        "mcpServers": {
+            "agent-guild": {
+                "httpUrl": "https://agent-guild-5d5r.onrender.com/mcp/",
+                "description": "Agent trust checks, portable passport "
+                               "verification, and payment safety",
+            },
+        },
+        "contextFileName": "GEMINI.md",
+    }
+
+    context = (ROOT / manifest["contextFileName"]).read_text()
+    context_prose = " ".join(context.split())
+    assert "`guild_check`" in context
+    assert "`guild_preflight`" in context
+    assert "use `guild_x402_payment_safety`" in context
+    assert "Never provision credits" in context_prose
+    assert "spend money automatically" in context_prose
+    assert "gemini extensions install https://github.com/AgentTanuki/agent-guild" in \
+        (ROOT / "README.md").read_text()
 
 
 def test_public_registry_skill_is_a_read_only_least_privilege_bundle():
@@ -46,8 +77,6 @@ def test_public_registry_skill_is_a_read_only_least_privilege_bundle():
 
 
 def test_codex_plugin_is_installable_and_source_tagged():
-    import json
-
     plugin = ROOT / "plugins" / "agent-guild"
     manifest = json.loads(
         (plugin / ".codex-plugin" / "plugin.json").read_text())

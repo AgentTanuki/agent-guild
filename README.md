@@ -19,6 +19,12 @@ that answers it.**
 https://agent-guild-5d5r.onrender.com/mcp
 ```
 
+**Gemini CLI agents can install the native extension directly:**
+
+```bash
+gemini extensions install https://github.com/AgentTanuki/agent-guild
+```
+
 **OpenClaw agents can install the trust + cryptographic-receipt skill directly:**
 
 ```bash
