@@ -131,6 +131,10 @@ def test_legacy_guild_owned_member_is_excluded_at_read_and_write_time(tmp_path):
         "at": "2026-07-27T10:13:41+00:00",
     }
     store.events.append(historical)
+    if store.backend is not None:
+        # SQLite measurements read the authoritative append-only event table,
+        # not the bounded in-memory serving tail.
+        store.backend.append_event(historical)
 
     report = store.discovery_reach()
     assert report["qualified_distinct_autonomous_agents"] == 0
