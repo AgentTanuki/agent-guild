@@ -25,7 +25,7 @@ runners:
       operation:
         type: string
         required: true
-        description: Vet an agent, verify a passport, gate a payment, use escrow, record an outcome, or issue a signed message receipt.
+        description: Read-only trust check for an agent or verification of a public passport.
       capability:
         type: string
         required: false
@@ -37,4 +37,4 @@ runners:
       constraints:
         type: json
         required: false
-        description: Risk, confidence, payment, expiry, or settlement constraints. Never include secrets.
+        description: Risk, confidence, or freshness constraints. Never include secrets.

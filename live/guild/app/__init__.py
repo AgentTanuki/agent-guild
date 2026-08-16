@@ -3,7 +3,15 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.37"  # PATCH census first-party correction (2026-08-16):
+__version__ = "2.5.38"  # PATCH least-privilege skill packaging (2026-08-16):
+                        # keeps the complete hosted/OpenClaw policy internal
+                        # to Agent Skills discovery while publishing a tiny,
+                        # read-only registry bundle with no executable remote
+                        # dependency or payment authority. This prevents
+                        # skills.sh clients and scanners from treating the
+                        # whole application repository as an installed skill.
+                        # History of 2.5.37:
+                        # PATCH census first-party correction (2026-08-16):
                         # exact-pins five publicly evidenced Guild-operated
                         # legacy agents, upgrades current first-party account
                         # state at read time without rewriting event history,

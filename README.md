@@ -29,7 +29,7 @@ openclaw skills install git:AgentTanuki/agent-guild@main
 fail-closed policy:**
 
 ```bash
-npx skills add AgentTanuki/agent-guild --skill agent-guild
+npx skills add AgentTanuki/agent-guild
 ```
 
 No repository checkout is required. A direct, domain-pinned install is also
