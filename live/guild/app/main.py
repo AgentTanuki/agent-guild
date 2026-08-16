@@ -299,6 +299,34 @@ async def _capture_ua(request: Request, call_next):
     elif request.scope["path"] == "/mcp/payment-safety":
         request.scope["path"] = "/mcp/payment-safety/"
         request.scope["raw_path"] = b"/mcp/payment-safety/"
+    # A small class of discovery-only MCP crawlers sends `tools/list` directly
+    # instead of performing the required initialize handshake first.  The
+    # ordinary FastMCP transport correctly rejects that request as missing a
+    # session.  For this one read-only method, return the same public tool
+    # metadata already exposed by the cacheable server card.  This is a narrow,
+    # side-effect-free compatibility path: initialized sessions, notifications,
+    # tool calls and every other MCP method still go through FastMCP unchanged.
+    if (
+        request.scope["path"] == "/mcp/"
+        and request.method == "POST"
+        and not request.headers.get("mcp-session-id")
+    ):
+        try:
+            payload = await request.json()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            payload = None
+        if (
+            isinstance(payload, dict)
+            and payload.get("jsonrpc") == "2.0"
+            and payload.get("method") == "tools/list"
+            and "id" in payload
+        ):
+            card = await public_server_card()
+            return JSONResponse({
+                "jsonrpc": "2.0",
+                "id": payload["id"],
+                "result": {"tools": card["tools"]},
+            })
     _ua.set(request.headers.get("user-agent", ""))
     # Request-scoped ACTOR for paid-offer impressions. _challenge_http has no
     # request handle, so it previously recorded actor=None — every genuine
@@ -1062,10 +1090,26 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
 _LANDING_HTML = """<!doctype html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <link rel="ai-catalog" href="/.well-known/ai-catalog.json">
-<title>Agent Guild &mdash; allow, caution or block an agent endpoint</title>
-<meta name="description" content="Free, one call, live at request time: does
-this agent endpoint actually do what it claims? 92.9% of registry-listed agents
-report healthy; 33.9% complete a task.">
+<title>Agent Guild &mdash; trust and payment safety for autonomous agents</title>
+<meta name="description" content="Verify autonomous-agent endpoints, rank
+counterparties by evidence-backed reputation, and get an allow, caution or block
+decision before delegation or payment. Free live preflight; REST, MCP and A2A.">
+<script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Agent Guild",
+  "url": "https://agent-guild-5d5r.onrender.com",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Any",
+  "description": "Trust, reputation and payment-safety infrastructure for autonomous agents. Verify endpoints and counterparties before delegation or payment over REST, MCP or A2A.",
+  "featureList": [
+    "Autonomous-agent endpoint verification",
+    "Evidence-backed counterparty reputation",
+    "Delegation safety decisions",
+    "Signed agent passports",
+    "Agent-to-agent escrow"
+  ]
+}</script>
 <style>:root{color-scheme:dark}body{margin:0;background:#0b0e14;color:#e6e9ef;
 font:16px/1.6 -apple-system,system-ui,sans-serif;display:flex;min-height:100vh;
 align-items:center;justify-content:center}main{max-width:680px;padding:40px}
@@ -4547,6 +4591,24 @@ def robots_txt():
     return (
         "User-agent: *\n"
         "Allow: /\n"
+        "\n"
+        "User-agent: GPTBot\n"
+        "Allow: /\n"
+        "User-agent: ChatGPT-User\n"
+        "Allow: /\n"
+        "User-agent: ClaudeBot\n"
+        "Allow: /\n"
+        "User-agent: anthropic-ai\n"
+        "Allow: /\n"
+        "User-agent: Google-Extended\n"
+        "Allow: /\n"
+        "User-agent: PerplexityBot\n"
+        "Allow: /\n"
+        "User-agent: Applebot-Extended\n"
+        "Allow: /\n"
+        "User-agent: CCBot\n"
+        "Allow: /\n"
+        "\n"
         "Agentmap: https://agent-guild-5d5r.onrender.com/"
         ".well-known/ai-catalog.json\n"
     )
