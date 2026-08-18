@@ -92,16 +92,24 @@ def test_machine_resource_fetch_records_one_noncommercial_observation():
     } for event in new)
 
 
-def test_agent_skill_identity_is_transparent_and_qualified(tmp_path):
+def test_agent_skill_identity_is_transparent_but_not_independent(tmp_path):
     store = Store(path=str(tmp_path / "guild.json"))
     store.record_event(
         "http:skill-user", "query",
         ua="agentguild-skill/1.0 (host=openclaw)",
         endpoint="check", actor_distinct=True,
     )
+    store.record_event(
+        "mcp:skill-user", "query",
+        ua="mcp:agentguild-skill/1.1 (host=codex)",
+        endpoint="check", actor_distinct=True,
+    )
     report = store.discovery_reach()
-    assert report["qualified_distinct_autonomous_agents"] == 1
-    assert report["tiers"]["T3_framework_ua_actors"] == 1
+    assert report["qualified_distinct_autonomous_agents"] == 0
+    assert report["tiers"]["T3_framework_ua_actors"] == 0
+    assert report["evidence"]["excluded_distinct_actors_by_reason"] == {
+        "propagation_client": 2,
+    }
 
 
 def test_ard_has_every_free_web_discovery_hook():
