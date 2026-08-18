@@ -44,6 +44,7 @@
   "guild_attest",
   "guild_best_agent",
   "guild_check",
+  "guild_coordination_policy",
   "guild_envelope_issue",
   "guild_envelope_verify",
   "guild_escrow_open",
@@ -531,6 +532,12 @@
     "GET"
    ],
    "path": "/commercial"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/coordination-policy"
   },
   {
    "methods": [
