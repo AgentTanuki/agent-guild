@@ -78,6 +78,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /citizenship.md`
 - `POST /collaborations`
 - `GET /commercial`
+- `GET /coordination-policy`
 - `POST /credentials/verify`
 - `GET /demand/feed`
 - `POST /demand/watch`
@@ -197,6 +198,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `guild_attest`
 - `guild_best_agent`
 - `guild_check`
+- `guild_coordination_policy`
 - `guild_envelope_issue`
 - `guild_envelope_verify`
 - `guild_escrow_open`

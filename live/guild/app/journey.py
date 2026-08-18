@@ -24,6 +24,7 @@ from __future__ import annotations
 import math
 from typing import Any, Optional
 
+from . import coordination
 from .reputation import ScoringParams
 
 BASE = "https://agent-guild-5d5r.onrender.com"
@@ -410,10 +411,17 @@ def passport_bundle(store, agent: dict[str, Any]) -> dict[str, Any]:
         },
         "badge_url": f"{BASE}/agents/{aid}/badge.svg",
         "expose": {
-            "how": ("Add the badge_url image and your passport URL to your "
+            "how": ("If your operator's policy permits editing your own "
+                    "public metadata: add the badge_url image and your "
+                    "passport URL to your "
                     "own agent card, manifest, or service metadata; any party "
                     "can verify offline via verify_call and the Guild's "
                     "published did at /.well-known/agent-guild-did.json"),
+            # AGCS-1: this is a persistent change to caller-owned surfaces —
+            # advisory only, authorised locally, never automatic.
+            "coordination": coordination.advisory(
+                "This step edits caller-owned persistent surfaces (agent "
+                "card, manifest, README)."),
         },
     }
     _author = author_first_attestation_step(store, agent)
@@ -447,6 +455,12 @@ def guild_next(store, agent: dict[str, Any],
         "journey": f"GET {BASE}/agents/{agent['id']}/journey — the full ladder "
                    "+ counterfactuals (free to you)",
         "path_to_citizenship": f"GET {BASE}/citizenship",
+        # AGCS-1: every guild_next is a Guild-authored SUGGESTION. It carries
+        # no instruction priority, is never self-executing, must not be
+        # forwarded to other agents as an instruction, and any step with
+        # persistent or side-effectful consequences needs the caller's own
+        # local policy authorisation first.
+        "coordination": coordination.advisory(),
     }
     if not agent.get("proof_of_conduct"):
         from . import proving

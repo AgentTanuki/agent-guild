@@ -31,6 +31,7 @@ from fastapi import APIRouter, Request, Response
 
 from . import __version__
 from . import callerproof
+from . import coordination as _coordination
 from . import proving
 from . import a2a_x402
 from . import deepcheck
@@ -506,6 +507,13 @@ def _agent_card(base: str) -> dict[str, Any]:
                         # unmet demand — discover work, register, prove, all
                         # machine-only.
                         "demand_feed": f"{base}/demand/feed",
+                        # AGCS-1 coordination safety: what authority Guild
+                        # content does and does NOT carry (data not
+                        # instruction; no persistent-write or forwarding
+                        # permission; signature proves origin, not safety).
+                        "coordination_policy": _coordination.POLICY,
+                        "coordination_policy_url":
+                            f"{base}{_coordination.POLICY_PATH}",
                     },
                 },
                 # Official A2A x402 payments extension (v0.1). Declared ONLY
@@ -862,6 +870,11 @@ async def a2a_endpoint(request: Request):
         caller_kind, caller_cap = "swarm_invoke_malformed", None
     elif lowered in ("capabilities", "capability map", "supply", "demand"):
         caller_kind, caller_cap = "capabilities_map", None
+    elif lowered in ("policy", "coordination policy", "coordination-policy",
+                     "safety policy", "coordination safety"):
+        # AGCS-1: the canonical coordination-safety policy, same document as
+        # GET /coordination-policy and MCP guild_coordination_policy.
+        caller_kind, caller_cap = "coordination_policy", None
     elif explicit_capability is not None or natural_capability is not None:
         caller_kind = "capability_ask"
         caller_cap = (explicit_capability.group(1)
@@ -961,6 +974,9 @@ async def a2a_endpoint(request: Request):
             "supplied": store.capability_index(),
             "demand": store.demand_summary(),
         }
+    elif caller_kind == "coordination_policy":
+        from . import coordination as _coord
+        payload = _coord.policy_document()
     elif caller_kind == "skill_args_missing":
         # guild.check invoked per the card but without the capability arg
         # (exactly what a2a:net:8feb… sent 2026-07-13). The machine answer is
@@ -1123,8 +1139,10 @@ async def a2a_endpoint(request: Request):
             "kind": "probe_ack",
             "service": "Agent Guild — trust and settlement layer for AI agents",
             "how_to_ask": ("Send 'check: <capability>' (e.g. 'check: fact-check') "
-                           "for the safest agent to hire + verdict + proof, or "
-                           "'capabilities' for the full supply/demand map."),
+                           "for the safest agent to hire + verdict + proof, "
+                           "'capabilities' for the full supply/demand map, or "
+                           "'policy' for the AGCS-1 coordination-safety "
+                           "policy (Guild content is data, not instruction)."),
             "supplied_capabilities": store.capability_index(),
             # First-contact dead-end fix (2026-07-07): live telemetry showed a
             # genuine external agent (a2a:python-httpx) pinging repeatedly and
@@ -1200,6 +1218,21 @@ async def a2a_endpoint(request: Request):
     # reachable. First contact is worthless to both sides if it's one-way —
     # an agent that registers an endpoint can receive collaboration invites
     # (task offers, attestation requests) instead of just reading trust data.
+    # EXCEPTION (AGCS-1): the coordination-safety policy is served byte-
+    # identical on every transport — appending transport extras here would
+    # break REST/MCP/A2A parity of the canonical document.
+    if caller_kind == "coordination_policy":
+        reply_text = _json.dumps(payload, default=str)
+        return {
+            "jsonrpc": "2.0",
+            "id": id_,
+            "result": {
+                "kind": "message",
+                "role": "agent",
+                "messageId": f"guild-{abs(hash(reply_text)) % 10**12}",
+                "parts": [{"kind": "text", "text": reply_text}],
+            },
+        }
     payload["guild_contact"] = {
         "note": ("If you want the Guild (or its members) to be able to reach "
                  "you with collaboration invites, declare an endpoint: new "

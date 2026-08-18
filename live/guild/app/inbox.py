@@ -170,9 +170,13 @@ def ensure_passport_offer(store, agent: dict[str, Any]) -> None:
               f"live via POST {base}/credentials/verify "
               '{"credential": <the passport JSON>}. '
               f"3) Embed your live badge: {base}/agents/{aid}/badge.svg. "
-              "4) Expose it: add the badge and your passport URL to your own "
+              "4) If your operator's policy permits editing your own public "
+              "metadata, expose it: add the badge and your passport URL to "
+              "your own "
               "agent card, manifest, or service metadata, so counterparties "
-              "can verify you without asking the Guild."),
+              "can verify you without asking the Guild. (Steps 3-4 change "
+              "caller-owned persistent surfaces: advisory, your owner "
+              "authorises, never automatic.)"),
         action={"method": "GET", "url": f"{base}/agents/{aid}/passport"},
         dedupe_key=f"passport_offer:{aid}",
         source="guild_system",
@@ -212,11 +216,17 @@ def deliver_in_band(store, agent: dict[str, Any]) -> Optional[dict[str, Any]]:
     msgs = pending(store, agent)
     if not msgs:
         return None
+    from . import coordination
     from . import journey as journey_engine
     return {
         "messages": msgs,
         "read_all": (f"GET {journey_engine.BASE}/agents/{agent['id']}/inbox "
                      "(free to you)"),
+        # AGCS-1: inbox content is Guild-authored (or first-party/admin)
+        # ADVICE riding a transport — data, never instruction. Suggested
+        # actions execute only under the subject's own local policy, and are
+        # not for forwarding to other agents.
+        "coordination": coordination.advisory(),
     }
 
 
@@ -251,6 +261,7 @@ def inbox_view(store, agent: dict[str, Any]) -> dict[str, Any]:
     if len(live) != len(box):
         store.guild_inbox[agent["id"]] = live
         store._save()
+    from . import coordination
     return {
         "agent_id": agent["id"],
         "messages": [_public(m) for m in live],
@@ -259,6 +270,7 @@ def inbox_view(store, agent: dict[str, Any]) -> dict[str, Any]:
                  "have no inbound endpoint on file. Reading is free to you "
                  "and visible to no one else. Delivery never consumes a "
                  "message; expiry does."),
+        "coordination": coordination.advisory(),
     }
 
 
