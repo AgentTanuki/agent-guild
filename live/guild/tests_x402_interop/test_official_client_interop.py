@@ -77,6 +77,15 @@ def test_unpaid_request_gets_v2_challenge(live_stack):
 
 
 def test_official_client_pays_and_gets_result_and_receipt(live_stack):
+    unpaid = httpx.get(live_stack["guild"] + PAID_PATH)
+    assert unpaid.status_code == 402
+    challenge = json.loads(base64.b64decode(
+        unpaid.headers[PAYMENT_REQUIRED_HEADER]))
+    quoted_bazaar = challenge["extensions"]["bazaar"]
+
+    from fake_facilitator import bazaar_captures, reset_bazaar_captures
+    reset_bazaar_captures()
+
     async def run():
         transport = x402_httpx_transport(_official_client())
         async with httpx.AsyncClient(transport=transport) as http:
@@ -94,6 +103,13 @@ def test_official_client_pays_and_gets_result_and_receipt(live_stack):
     assert receipt.network == "eip155:84532"
     payer = Account.from_key(CLIENT_KEY).address
     assert receipt.payer and receipt.payer.lower() == payer.lower()
+
+    # CDP Bazaar indexing depends on the client echoing the server-declared
+    # extension into the PaymentPayload that reaches BOTH facilitator legs.
+    # Prove exact preservation, rather than merely checking the unpaid 402.
+    captured_bazaar = bazaar_captures()
+    assert captured_bazaar["verify"] == quoted_bazaar
+    assert captured_bazaar["settle"] == quoted_bazaar
 
     # the service records the settlement with its full identity, and REAL
     # revenue stays zero — this was a value-less testnet-shaped settlement
