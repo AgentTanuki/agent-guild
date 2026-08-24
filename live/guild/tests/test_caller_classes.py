@@ -63,6 +63,22 @@ def test_growth_gate_is_closed_by_type():
     assert external == {"EXTERNAL_UNKNOWN", "EXTERNAL_VERIFIED", "EXTERNAL_MEMBER"}
 
 
+def test_agentguild_skill_ua_is_propagation_not_external_demand():
+    """Our published skill UA cannot prove an independent counterparty."""
+    from app.attribution import attribution_class
+
+    for ua in (
+        "agentguild-skill/1.0 (host=openclaw)",
+        "agentguild-skill/1.1 (host=codex; source=awesome-copilot)",
+        "mcp:agentguild-skill/1.1 (host=codex)",
+    ):
+        event = _e(ua=ua)
+        assert caller_class(event) == "PROPAGATION_CLIENT"
+        assert attribution_class(event) == "propagation_client"
+        assert not may_count_as_external_growth(caller_class(event))
+        assert not is_genuine_external(event)
+
+
 def test_instrumentation_exposes_caller_class_counts():
     r = client.post("/agents/register",
                     json={"name": "CCTest", "capabilities": ["x"]},

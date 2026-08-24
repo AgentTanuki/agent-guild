@@ -11,8 +11,8 @@ A call counts as genuine external ONLY if it is not first-party AND it IDENTIFIE
 ITSELF AS AN AGENT in a way our own traffic does not:
   * an MCP client that named itself in the handshake (`mcp:<client>`) and is not one
     of ours, OR
-  * a recognised agent-framework user-agent (httpx/langchain/openai/... ) that is not
-    bare tooling.
+  * a recognised independent agent-framework user-agent
+    (httpx/langchain/openai/... ) that is not bare tooling.
 
 Deliberately NOT sufficient (all indistinguishable from our own traffic, so counting
 them would fool us):
@@ -33,9 +33,17 @@ from typing import Any, Mapping, Optional
 
 FRAMEWORK_RE = re.compile(
     r"(httpx|aiohttp|langchain|langgraph|openai|anthropic|claude|llamaindex|"
-    r"crewai|autogen|agentguild-skill|"
+    r"crewai|autogen|"
     r"semantic-kernel|node-fetch|undici|axios|okhttp|go-http-client|reqwest|"
     r"cursor|cline|continue|windsurf|cody|dify|n8n|flowise)", re.I)
+
+# Agent Guild publishes this User-Agent in its own installable skill and tells
+# downstream runtimes to preserve it. It proves propagation of our client
+# instructions, not an independent counterparty: the same identifier can be
+# emitted by our own worker or copied by any caller. Keep it distinct from
+# AG_TEST (a real third party may use the skill) and from EXTERNAL_* (the UA
+# alone is never enough to claim external demand or revenue).
+PROPAGATION_UA_RE = re.compile(r"\bagentguild-skill(?:/|\b)", re.I)
 
 # Bare tooling — indistinguishable from our own verification calls. NOT genuine.
 # `guild-ops-check` is our own scheduled ops probe and is named here explicitly
@@ -233,6 +241,12 @@ def is_genuine_external(event: dict[str, Any]) -> bool:
         return False
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
 
+    # This AG-authored identity may appear as either an HTTP User-Agent or an
+    # MCP clientInfo name (`mcp:agentguild-skill/...`). Guard it before the MCP
+    # short-circuit: neither transport proves an independent counterparty.
+    if PROPAGATION_UA_RE.search(ua):
+        return False
+
     # A self-identified MCP client that isn't one of ours.
     client = _mcp_client(ua)
     if client is not None:
@@ -260,6 +274,8 @@ def attribution_class(event: dict[str, Any]) -> str:
         return "ag_test"              # our own self-identified harnesses
     if CRAWLER_UA_RE.search(ua):
         return "registry_crawler"     # indexes manifests, never an agent
+    if PROPAGATION_UA_RE.search(ua):
+        return "propagation_client"   # AG-authored identifier, no external proof
     if ua == "mcp/remote":
         return "unattributable_mcp"
     if not ua or TOOLING_UA_RE.search(ua):
@@ -279,7 +295,8 @@ def attribution_class(event: dict[str, Any]) -> str:
 
 CALLER_CLASSES = (
     "AG_INTERNAL", "AG_TEST", "REGISTRY_CRAWLER",
-    "EXTERNAL_UNKNOWN", "EXTERNAL_VERIFIED", "EXTERNAL_MEMBER", "OPERATOR",
+    "PROPAGATION_CLIENT", "EXTERNAL_UNKNOWN", "EXTERNAL_VERIFIED",
+    "EXTERNAL_MEMBER", "OPERATOR",
 )
 
 # Registry / search-engine / uptime crawlers: they index manifests, they do
@@ -378,6 +395,8 @@ def caller_class(event: Mapping[str, Any], *,
         return "AG_TEST"
     if CRAWLER_UA_RE.search(ua):
         return "REGISTRY_CRAWLER"
+    if PROPAGATION_UA_RE.search(ua):
+        return "PROPAGATION_CLIENT"
     if member and verified:
         return "EXTERNAL_VERIFIED"
     if member:
