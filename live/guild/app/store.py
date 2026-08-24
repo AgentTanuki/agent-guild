@@ -3034,7 +3034,8 @@ class Store:
 
         * T1: a key-proved Guild member;
         * T2: a named third-party MCP client;
-        * T3: a recognised agent-framework UA (Sybil-unresolvable).
+        * T3: a recognised independent agent-framework UA
+          (Sybil-unresolvable).
 
         First-party traffic, Guild tests, generic tooling, registry crawlers,
         anonymous/unlinkable calls and repeated fetches are structurally
@@ -3237,7 +3238,8 @@ class Store:
                 "One durable privacy-safe actor key counts once, across every "
                 "origin surface and repeat call, only when it is a key-proved "
                 "Guild member (T1), a named third-party MCP client (T2), or a "
-                "recognised agent-framework caller (T3). First-party traffic, Guild "
+                "recognised independent agent-framework caller (T3). First-party "
+                "traffic, Guild "
                 "tests, generic tooling, registry crawlers, anonymous or "
                 "unlinkable traffic, unproved bare members, and raw repeat "
                 "impressions never count."),

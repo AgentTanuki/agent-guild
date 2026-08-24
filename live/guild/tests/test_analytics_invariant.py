@@ -128,5 +128,5 @@ def test_operator_kill_switch_event_is_audit_only():
 
 def test_taxonomy_is_closed():
     assert set(CALLER_CLASSES) == {
-        "AG_INTERNAL", "AG_TEST", "REGISTRY_CRAWLER", "EXTERNAL_UNKNOWN",
-        "EXTERNAL_VERIFIED", "EXTERNAL_MEMBER", "OPERATOR"}
+        "AG_INTERNAL", "AG_TEST", "REGISTRY_CRAWLER", "PROPAGATION_CLIENT",
+        "EXTERNAL_UNKNOWN", "EXTERNAL_VERIFIED", "EXTERNAL_MEMBER", "OPERATOR"}
