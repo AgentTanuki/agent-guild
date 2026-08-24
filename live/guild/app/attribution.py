@@ -70,12 +70,50 @@ OURS_MCP_CLIENTS = {
     "guild-live-conformance",
 }
 
+# Guild-operated agents that were created before durable first-party tagging
+# was enforced.  These exact production identities are public and auditable:
+# four TanukiTextStats registrations declare
+# ``operator=agent-guild (first-party demo supply)`` and the fifth is the
+# operator-owned Codex Autonomous Worker.  Their old account/event rows were
+# written with ``first_party=false`` and therefore used to qualify as external
+# verified members at read time.  Keep this a narrow exact-ID set: it may only
+# demote known-owned traffic and must never infer ownership from a name/domain.
+KNOWN_GUILD_OPERATED_AGENT_IDS = frozenset({
+    "agent_143203b6a77b",
+    "agent_5dd9bd352a22",
+    "agent_87bcabedf2c0",
+    "agent_c7d2e902dc50",
+    "agent_f75dd36ac192",
+})
+
 # Known first-party incidents: OUR OWN traffic that slipped past first-party
 # tagging (e.g. a maintainer test that forgot the X-Guild-Source header) and
 # would otherwise read as genuine external. Each entry is deliberately narrow —
 # an exact UA within a bounded time window — and documents why, so this can
 # never silently hide a real agent. The same UA OUTSIDE the window still counts.
 KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
+    {
+        "actor_alias_sha256": (
+            "f7ea1d14b9d84c12b41afdb0cf0e872726583f1edc06ed58b367af3376b484a4"
+        ),
+        "reason": "Guild-operated Hugging Face hf-discover v1.3.7 "
+                  "interoperability audit on 2026-08-16. The official "
+                  "discover/0.1 client fetched the live ARD manifest during "
+                  "a reference-client compatibility test and the resulting "
+                  "HTTP registration was incorrectly eligible as T3. This is "
+                  "the exact privacy-safe actor alias committed by the signed "
+                  "census, not a UA, network, name, or time-range inference.",
+    },
+    {
+        "actor_alias_sha256": (
+            "daaccb419bcecff13b71ed46af0e57d833a9d4884a89e12887c8d07cdd050298"
+        ),
+        "reason": "Second exact actor alias produced by the same Guild-operated "
+                  "Hugging Face hf-discover v1.3.7 interoperability audit on "
+                  "2026-08-16, recorded on the paid_offer:manifest surface. "
+                  "It is exact-pinned from the signed public evidence and may "
+                  "only demote that known-owned actor.",
+    },
     {
         "ua_re": r"^(?:a2a:)?langchain/0\.2\.1$",
         "from": "2026-08-14T03:11:00+00:00",
@@ -133,10 +171,43 @@ KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
 ]
 
 
+# Exact privacy-safe aliases for external registry scanners whose generic HTTP
+# libraries otherwise look like agent frameworks. These three actors appeared
+# in one 21-second burst while the skills.sh listing was being reindexed on
+# 2026-08-16: one walked the A2A/Agent Skills/Guild manifests, one fetched the
+# agent card, and one fetched OpenAPI. They are the scanner pipeline that
+# produced the listing's security audit, not autonomous agents. Exact aliases
+# avoid demoting any unrelated use of undici/node-fetch/axios/httpx.
+KNOWN_REGISTRY_CRAWLER_ACTOR_ALIASES = frozenset({
+    "29e06ce658cd7a3b1144029ab719435b08435849e71d3bd661a9d96d64bb418e",
+    "e13d168323c33a63e335c28d2e0bb1fa90a927a9dbc5715a7fd49ca53115ba14",
+    "f6ddda7ffa318e3bf5e21f9ecb0b02c48386f4b20b49da78c60f90c06bdd4213",
+})
+
+
+def _census_actor_alias_sha256(event: Mapping[str, Any]) -> str:
+    actor = str(event.get("key", event.get("actor")) or "")
+    if not actor or actor == "anon":
+        return ""
+    return hashlib.sha256(
+        ("agent-guild/census/v1|" + actor).encode("utf-8")
+    ).hexdigest()
+
+
+def _is_known_registry_crawler_actor(event: Mapping[str, Any]) -> bool:
+    return (_census_actor_alias_sha256(event)
+            in KNOWN_REGISTRY_CRAWLER_ACTOR_ALIASES)
+
+
 def _is_known_first_party_incident(event: dict[str, Any]) -> bool:
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
     at = event.get("at") or ""
+    actor_alias = _census_actor_alias_sha256(event)
     for inc in KNOWN_FIRST_PARTY_INCIDENTS:
+        if (actor_alias and inc.get("actor_alias_sha256") == actor_alias):
+            return True
+        if "from" not in inc or "to" not in inc:
+            continue
         if not (inc["from"] <= at <= inc["to"]):
             continue
         if "ua" in inc and ua == inc["ua"]:
@@ -315,6 +386,8 @@ def caller_class(event: Mapping[str, Any], *,
         return "AG_TEST"
     if fp:
         return "AG_INTERNAL"
+    if _is_known_registry_crawler_actor(event):
+        return "REGISTRY_CRAWLER"
     # Non-first-party but self-identified AG test/verification tooling (e.g. the
     # canary before the token is set) is still AG_TEST (defense-in-depth), never
     # genuine external.

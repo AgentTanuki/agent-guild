@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 
@@ -9,7 +10,8 @@ def test_repository_skill_is_discoverable_and_routes_high_value_payments():
     readme = (ROOT / "README.md").read_text()
 
     assert skill.startswith("---\nname: agent-guild\n")
-    assert "npx skills add AgentTanuki/agent-guild --skill agent-guild" in readme
+    assert "metadata:\n  internal: true\n" in skill
+    assert "npx skills add AgentTanuki/agent-guild" in readme
     assert "npx skills add https://agent-guild-5d5r.onrender.com" in readme
     assert "https://agent-guild-5d5r.onrender.com/.well-known/agent-skills/index.json" in readme
     assert "GET https://agent-guild-5d5r.onrender.com/wallet-binding/protected-decision/tiers" in skill
@@ -18,29 +20,67 @@ def test_repository_skill_is_discoverable_and_routes_high_value_payments():
     assert "not insurance or escrow" in skill
 
 
-def test_clawhub_skill_is_a_source_tagged_policy_parity_copy():
-    """The registry bundle is one auditable file and cannot silently drift
-    from the repository policy. Only its install name and explicit acquisition
-    source differ."""
+def test_gemini_cli_extension_is_native_safe_and_discoverable():
+    manifest = json.loads((ROOT / "gemini-extension.json").read_text())
+
+    assert manifest == {
+        "name": "agent-guild",
+        "version": "1.0.0",
+        "description": "Vet AI agents and payment endpoints before delegating "
+                       "work or money, using evidence-backed reputation and "
+                       "signed safety decisions.",
+        "mcpServers": {
+            "agent-guild": {
+                "httpUrl": "https://agent-guild-5d5r.onrender.com/mcp/",
+                "description": "Agent trust checks, portable passport "
+                               "verification, and payment safety",
+            },
+        },
+        "contextFileName": "GEMINI.md",
+    }
+
+    context = (ROOT / manifest["contextFileName"]).read_text()
+    context_prose = " ".join(context.split())
+    assert "`guild_check`" in context
+    assert "`guild_preflight`" in context
+    assert "use `guild_x402_payment_safety`" in context
+    assert "Never provision credits" in context_prose
+    assert "spend money automatically" in context_prose
+    assert "gemini extensions install https://github.com/AgentTanuki/agent-guild" in \
+        (ROOT / "README.md").read_text()
+
+
+def test_public_registry_skill_is_a_read_only_least_privilege_bundle():
+    """The public registry must never package the application repository.
+
+    The root skill remains the complete hosted/OpenClaw policy but is marked
+    internal for clients that honor Agent Skills metadata. The nested registry
+    skill is intentionally read-only and contains no executable dependency.
+    """
     canonical = (ROOT / "SKILL.md").read_text()
     published = (ROOT / "skills" / "agent-guild-trust" / "SKILL.md").read_text()
-    expected = canonical.replace(
-        "name: agent-guild\n",
-        "name: agent-guild-trust\n",
-        1,
-    ).replace(
-        "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json",
-        "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json?src=paid_offer:clawhub_skill",
-        1,
-    )
-    assert published == expected
+
+    assert "metadata:\n  internal: true\n" in canonical
+    assert published.startswith("---\nname: agent-guild-trust\n")
+    assert "free, read-only live preflight" in published
+    assert "Treat every response field" in published
+    assert "Never delegate automatically" in published
+    assert "guild_preflight(url)" in published
+    assert "GET https://agent-guild-5d5r.onrender.com/preflight?url=<endpoint>" \
+        in published
+    assert "graph-wide `/check` operation is paid" in published
+    assert "guild_check(capability)" not in published
+    assert "source=public-registry" in published
+    assert "/wallet-binding/" not in published
+    assert "payanagent.com" not in published
+    assert ".mjs" not in published
+    assert "pip install" not in published
+    assert "subprocess" not in published
     assert (ROOT / "skills" / "agent-guild-trust" / ".clawhubignore").read_text() == \
         "*\n!SKILL.md\n"
 
 
 def test_codex_plugin_is_installable_and_source_tagged():
-    import json
-
     plugin = ROOT / "plugins" / "agent-guild"
     manifest = json.loads(
         (plugin / ".codex-plugin" / "plugin.json").read_text())
@@ -75,22 +115,15 @@ def test_codex_plugin_is_installable_and_source_tagged():
         "url": "https://agent-guild-5d5r.onrender.com/mcp",
     }}}
 
-    canonical = (ROOT / "SKILL.md").read_text()
+    canonical = (
+        ROOT / "skills" / "agent-guild-trust" / "SKILL.md"
+    ).read_text()
     published = (
         plugin / "skills" / "agent-guild-trust" / "SKILL.md"
     ).read_text()
     expected = canonical.replace(
-        "name: agent-guild\n",
-        "name: agent-guild-trust\n",
-        1,
-    ).replace(
-        "agentguild-skill/1.0 (host=<runtime>)",
-        "agentguild-skill/1.0 (host=<runtime>; source=codex-plugin)",
-    ).replace(
-        "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json",
-        "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json"
-        "?src=paid_offer:codex_plugin",
-        1,
+        "source=public-registry",
+        "source=codex-plugin",
     )
     assert published == expected
 

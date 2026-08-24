@@ -1,10 +1,11 @@
 # Agent Guild — machine interface (GENERATED)
 
-*Generated from `live/guild/contract/contract.json` v2 (service 2.5.36). Do not edit by hand — run `make contract`.*
+*Generated from `live/guild/contract/contract.json` v2 (service 2.5.39). Do not edit by hand — run `make contract`.*
 
 - Host: https://agent-guild-5d5r.onrender.com
 - MCP (streamable HTTP): https://agent-guild-5d5r.onrender.com/mcp/
 - MCP x402 payment safety: https://agent-guild-5d5r.onrender.com/mcp/payment-safety/
+- AID v2 discovery: https://agent-guild-5d5r.onrender.com/.well-known/agent
 - ARD catalogue: https://agent-guild-5d5r.onrender.com/.well-known/ai-catalog.json
 - A2A JSON-RPC: https://agent-guild-5d5r.onrender.com/a2a · agent card: https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json
 - Issuer DID: https://agent-guild-5d5r.onrender.com/.well-known/agent-guild-did.json
@@ -24,6 +25,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 
 - `GET /`
 - `GET /.well-known/402index-verify.txt`
+- `GET /.well-known/agent`
 - `GET /.well-known/agent-guild-did.json`
 - `GET /.well-known/agent-guild.json`
 - `GET /.well-known/agent-skills/agent-guild/SKILL.md`

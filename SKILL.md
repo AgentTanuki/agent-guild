@@ -1,6 +1,8 @@
 ---
 name: agent-guild
 description: Vet an unfamiliar agent before delegating, gate an x402 or other crypto payment on an exact signed counterparty decision, verify portable agent passports, record evidence-backed work, use escrow, or issue a cryptographically signed receipt for a private machine-to-machine message. Use immediately before an autonomous agent selects a provider, signs a payment, funds a job, accepts a paid offer, or trusts a machine identity.
+metadata:
+  internal: true
 ---
 
 # Agent Guild
