@@ -19,6 +19,7 @@ import os
 import re
 import statistics
 import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Any, Callable, Optional
@@ -60,6 +61,13 @@ class Capability:
     est_cost_credits: int = 0     # guest tier is free within limits
     est_latency_ms: int = 20
     context_limits: dict = field(default_factory=lambda: {"max_payload_bytes": 65536})
+
+    def example_input(self) -> dict:
+        """Return a runnable, mutation-safe payload for machine clients."""
+        for fixture in self.fixtures:
+            if not fixture.get("expect_error"):
+                return deepcopy(fixture["input"])
+        raise ValueError(f"{self.id} has no successful fixture to publish")
 
 
 def _obj(props: dict, required: list, **extra) -> dict:

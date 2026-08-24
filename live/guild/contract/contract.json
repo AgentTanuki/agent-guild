@@ -44,6 +44,7 @@
   "guild_attest",
   "guild_best_agent",
   "guild_check",
+  "guild_coordination_policy",
   "guild_escrow_open",
   "guild_escrow_release",
   "guild_passport",
@@ -210,6 +211,12 @@
    "methods": [
     "POST"
    ],
+   "path": "/agents/{agent_id}/capabilities"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
    "path": "/agents/{agent_id}/configuration"
   },
   {
@@ -363,6 +370,12 @@
     "POST"
    ],
    "path": "/collaborations"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/coordination-policy"
   },
   {
    "methods": [

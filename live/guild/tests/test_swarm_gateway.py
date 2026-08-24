@@ -59,6 +59,9 @@ def test_schema_violation_returns_structured_422_not_500():
     body = r.json()
     assert body["ok"] is False
     assert "input_schema" in body["result"]
+    example = body["result"]["example_input"]
+    retry = client.post("/invoke/json.repair", json=example, headers=UA)
+    assert retry.status_code == 200
     assert body["provenance"]["envelope"]["outcome"] == "error"
 
 

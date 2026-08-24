@@ -152,7 +152,8 @@ def invoke(store, capability_id: str, payload: Any, *,
     if not isinstance(payload, dict):
         raise Denied(422, "bad_payload", {
             "error": "payload must be a JSON object matching input_schema",
-            "input_schema": cap.input_schema})
+            "input_schema": cap.input_schema,
+            "example_input": cap.example_input()})
     _payload_size_ok(payload)
     actor, is_member = derive_actor(x_api_key, client_host, ua, store=store)
     rate = _check_rate(actor, is_member)
@@ -166,7 +167,8 @@ def invoke(store, capability_id: str, payload: Any, *,
         output = {"error": "payload failed input_schema validation",
                   "message": e.message,
                   "path": "/" + "/".join(str(p) for p in e.absolute_path),
-                  "input_schema": cap.input_schema}
+                  "input_schema": cap.input_schema,
+                  "example_input": cap.example_input()}
     except CapabilityError as e:
         ok, error_kind = False, "unprocessable"
         output = {"error": str(e)}

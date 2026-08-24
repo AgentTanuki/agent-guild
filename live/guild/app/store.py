@@ -24,6 +24,7 @@ from typing import Any, Optional
 
 from .crypto import (generate_keypair, did_from_public_key, canonicalize,
                      sign_jcs)
+from . import coordination
 from . import reachability as _reach
 from .reachability import reachability_fields, url_policy_check
 from . import credentials as creds
@@ -1007,6 +1008,86 @@ class Store:
                     "declared_at": now,
                     "config_changes": max(0, len(agent["config_history"]) - 1),
                     "previous_hash": prev}
+
+    def declare_capabilities(self, agent_id: str,
+                             capabilities: list[str]) -> dict[str, Any]:
+        """Replace an agent's public supply declaration without replacing its
+        identity.
+
+        Capability evidence remains capability-specific, so adding a capability
+        never transfers evidence earned for another one. The declaration is
+        authenticated by the HTTP layer and append-only on the durable ledger;
+        an empty list honestly retires all current supply.
+        """
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in capabilities:
+            if not isinstance(raw, str):
+                raise ValueError("capabilities must contain strings")
+            cap = raw.strip()
+            if not cap:
+                raise ValueError("capabilities must not contain blank values")
+            if len(cap) > 128:
+                raise ValueError("capability names must be 128 characters or fewer")
+            if cap not in seen:
+                normalized.append(cap)
+                seen.add(cap)
+
+        with self.lock, self._txn():
+            self._sync_agent_from_db(agent_id)
+            agent = self.agents.get(agent_id)
+            if agent is None:
+                raise ValueError("agent not found")
+            previous = list(agent.get("capabilities") or [])
+            now = _now()
+            added = [cap for cap in normalized if cap not in previous]
+            removed = [cap for cap in previous if cap not in normalized]
+            changed = previous != normalized
+            if not changed:
+                return {
+                    "agent_id": agent_id,
+                    "capabilities": normalized,
+                    "added": [],
+                    "removed": [],
+                    "changed": False,
+                    "declared_at": now,
+                }
+
+            agent["capabilities"] = normalized
+            agent.setdefault("capability_history", []).append({
+                "capabilities": normalized,
+                "previous": previous,
+                "added": added,
+                "removed": removed,
+                "declared_at": now,
+            })
+            self.record_event(
+                self.account_for_agent(agent_id),
+                "capability_change",
+                agent_id=agent_id,
+                capabilities=normalized,
+                added=added,
+                removed=removed,
+            )
+            if self.backend is not None:
+                self._persist_agent(agent_id)
+            self._rep_cache = None
+            self._save()
+            self.append_ledger_event("capability_change", {
+                "agent_id": agent_id,
+                "capabilities": normalized,
+                "previous": previous,
+                "added": added,
+                "removed": removed,
+            }, actor_did=agent.get("did", ""))
+            return {
+                "agent_id": agent_id,
+                "capabilities": normalized,
+                "added": added,
+                "removed": removed,
+                "changed": True,
+                "declared_at": now,
+            }
 
     def _config_stamp(self, agent_id: str) -> Optional[str]:
         """The agent's current config hash, for stamping onto evidence records."""
@@ -3569,6 +3650,12 @@ class Store:
                 "verification_age_seconds": best.get("verification_age_seconds"),
                 "invocation_supported": best.get("invocation_supported", False),
                 "recommended_for_routing": best.get("recommended_for_routing", False),
+                # AGCS-1 (2026-08-18, additive): what authority this decision
+                # does and does NOT carry. The decision is evidence for the
+                # caller's own policy — never an instruction, never permission
+                # for side effects, and its signature (when signed) proves
+                # origin, not safety.
+                "coordination": coordination.decision_annotation(),
             }
         # ONE-COUNTERPARTY INVARIANT (fail closed): when routing says routable,
         # the decision MUST be about that exact provider — same agent id, same
@@ -3604,6 +3691,11 @@ class Store:
             "status": "supply" if best else "no_supply_yet",
             "routing": routing,
             "decision": decision,
+            # AGCS-1 (2026-08-18): compact coordination-safety reference +
+            # field-level trust classification of THIS payload. Rides inside
+            # store.check(), so REST /check, MCP guild_check and the A2A
+            # `check:` path all carry the identical block by construction.
+            "coordination": coordination.check_annotation(),
             "contract_note": (
                 "`decision` (AGD-1) is the stable machine contract: identity, "
                 "capability match, estimate, confidence, staleness, "
@@ -3665,14 +3757,20 @@ class Store:
             # supplier exists further down: surface it as the actionable
             # answer rather than leaving the caller to poll.
             _br = _reachable[0]
+            # AGCS-1: agent names/contacts are counterparty-declared strings —
+            # neutralised before riding inside Guild-authored prose (the raw
+            # values stay in the structured, trust-labelled fields).
             out["reachability"] = {
                 "status": "top_ranked_no_declared_endpoint",
                 "honest_answer": (
-                    f"'{best['name']}' ranks first on evidence but has no "
+                    f"'{coordination.safe_text(best['name'])}' ranks first on "
+                    "evidence but has no "
                     "declared endpoint — the Guild cannot route work to it. "
                     f"The best supplier WITH A DECLARED ENDPOINT is "
-                    f"'{_br['name']}' (trust {_br['trust']}, contact "
-                    f"{_br['contact']}) — note its endpoint is declared by "
+                    f"'{coordination.safe_text(_br['name'])}' (trust "
+                    f"{_br['trust']}, contact "
+                    f"{coordination.safe_text(_br['contact'], 200)}) — note "
+                    "its endpoint is declared by "
                     "the agent and unverified (reachability_status: "
                     "declared_unverified); the Guild has not checked it."
                 ),
@@ -3682,7 +3780,7 @@ class Store:
             out["reachability"] = {
                 "status": "supply_has_no_declared_endpoint",
                 "honest_answer": (
-                    f"The evidence ranks '{best['name']}' first for "
+                    f"The evidence ranks '{coordination.safe_text(best['name'])}' first for "
                     f"'{capability}', but no agent on this shortlist has "
                     "declared an endpoint — there is currently NO route to "
                     "send work to any of them through the Guild. A "
@@ -3731,7 +3829,7 @@ class Store:
             if best_conf < 0.2:
                 out["guild_next"] = {
                     "situation": (
-                        f"'{best['name']}' is the top supplier for '{capability}' "
+                        f"'{coordination.safe_text(best['name'])}' is the top supplier for '{capability}' "
                         f"but is UNPROVEN — confidence {best_conf:.2f}, no verified "
                         "task receipts or attestations yet. Honest cold-start, not "
                         "a hidden flaw: the score is low because evidence is absent, "
@@ -3829,6 +3927,12 @@ class Store:
             "valid_until": (now + timedelta(seconds=ttl_seconds)).isoformat(),
             "decision": res["decision"],
             "routing": res["routing"],
+            # AGCS-1 (additive, signed with the document): this signature
+            # proves who issued these bytes and that they were not altered —
+            # never that acting on them is safe or authorised. The disclaimer
+            # travels inside the signed envelope so it cannot be stripped
+            # without breaking verification.
+            "signature_semantics": coordination.signature_semantics(),
             "checkpoint": {
                 "index": published["index"] if published else None,
                 "published_at": (published["published_at"]

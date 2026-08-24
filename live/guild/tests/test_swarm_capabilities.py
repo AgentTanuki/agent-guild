@@ -40,6 +40,14 @@ def test_outputs_conform_to_output_schema():
             jsonschema.validate(out, cap.output_schema)
 
 
+def test_published_examples_are_runnable_and_schema_valid():
+    for cap in CAPABILITIES.values():
+        example = cap.example_input()
+        jsonschema.validate(example, cap.input_schema)
+        out, _ = run_capability(cap.id, example)
+        jsonschema.validate(out, cap.output_schema)
+
+
 def test_input_schema_rejects_garbage():
     with pytest.raises(jsonschema.ValidationError):
         run_capability("json.repair", {"nope": 1})

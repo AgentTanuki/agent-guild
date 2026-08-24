@@ -4,6 +4,7 @@ import os
 os.environ["GUILD_DATA"] = ""
 
 from fastapi.testclient import TestClient  # noqa: E402
+import jsonschema  # noqa: E402
 
 from app.main import app, store  # noqa: E402
 from app.crypto import verify_jcs  # noqa: E402
@@ -25,8 +26,10 @@ def test_index_lists_all_published_identities():
     assert idx["count"] == len(CAPABILITIES)
     entry = idx["identities"][0]
     for key in ("ag_id", "capability", "version", "invoke", "mcp_tool",
-                "document", "health"):
+                "document", "health", "input_schema", "example_input",
+                "output_schema"):
         assert key in entry
+    jsonschema.validate(entry["example_input"], entry["input_schema"])
     assert idx["terms"].endswith("/terms.json")
 
 
@@ -41,6 +44,8 @@ def test_identity_document_is_complete_and_signed():
                 "owner", "guild_membership", "created_at", "updated_at", "health"):
         assert key in ident, key
     assert ident["capability"]["input_schema"]["type"] == "object"
+    jsonschema.validate(ident["capability"]["example_input"],
+                        ident["capability"]["input_schema"])
     assert ident["capability"]["version"]
     assert ident["benchmark"]["ok"] is True
     assert ident["health"] == "passing"
@@ -119,3 +124,7 @@ def test_mcp_tools_registered_per_capability():
     assert "ag_capabilities" in names
     for cap_id in CAPABILITIES:
         assert "ag_" + cap_id.replace(".", "_") in names
+    swarm_tools = {t.name: t for t in tools if t.name.startswith("ag_")}
+    for cap_id in CAPABILITIES:
+        tool = swarm_tools["ag_" + cap_id.replace(".", "_")]
+        assert "Runnable example payload:" in (tool.description or "")

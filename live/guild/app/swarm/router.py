@@ -183,6 +183,7 @@ def swarm_capabilities():
         caps.append({
             "id": cap.id, "version": cap.version, "summary": cap.summary,
             "tags": list(cap.tags), "input_schema": cap.input_schema,
+            "example_input": cap.example_input(),
             "output_schema": cap.output_schema,
             "failure_modes": list(cap.failure_modes),
             "prohibited_uses": list(cap.prohibited_uses),
