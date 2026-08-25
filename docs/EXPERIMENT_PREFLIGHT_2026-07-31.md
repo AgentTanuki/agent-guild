@@ -103,8 +103,14 @@ adoption, pointed the other way:
 
 ## Instrumentation, baseline and thresholds
 
-Every call records a `preflight_run` event with target, verdict, failed and
-unknown counts, and rides the qualified cohort funnel from Phase A.
+Every call returns a random server-issued `observation_id` and records the same
+value on its `preflight_run` event with target, verdict, failed and unknown
+counts. The public recent-event feed exposes the opaque observation ID but not
+the target. A machine can therefore return the receipt with its result and join
+the exact action across protocol surfaces without publishing the counterparty
+URL or treating a caller-supplied source label as identity proof. The receipt
+correlates one run; it does not authenticate the caller. The event rides the
+qualified cohort funnel from Phase A.
 
 **Live baseline at ship time (2026-07-31, `4c28ab8`):**
 

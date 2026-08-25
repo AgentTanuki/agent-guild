@@ -3661,6 +3661,10 @@ class Store:
                 "first_party": bool(e.get("fp")),
                 "user_agent": (e.get("ua") or "")[:80],
                 "actor": (k[:10] + "…") if k != "anon" else "anon",
+                # Server-issued, random and target-free. Machines can return
+                # this exact receipt to join their result to the public event
+                # without exposing the target or trusting a caller label.
+                "observation_id": e.get("observation_id"),
                 # R3 (machine-economics audit 2026-07-06): the inbound ask is
                 # the demand signal — expose what was actually requested so
                 # "improve the answers" starts from real questions, not guesses.
