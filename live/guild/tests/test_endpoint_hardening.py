@@ -10,10 +10,45 @@ These lock in two things that previously broke MCP scanners and eroded trust:
 """
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app import __version__
 from app.main import app
+from app.store import Store
+
+
+@pytest.fixture
+def private_demand_store(monkeypatch, tmp_path):
+    """Exercise a real demand write without touching the suite-wide Store.
+
+    The paid-wrapper regression intentionally exercises ``guild_check`` all
+    the way through its pre-authorization demand recorder.  Demand, dedupe and
+    runner state are write-through under SQLite, so truncating only the shared
+    in-memory view would be false isolation.  Instead, inject a fresh Store of
+    the active backend type into every module reference used by this route.
+    """
+    from app import main as main_module
+    from app import mcp_server as mcp_module
+    from app import state as state_module
+
+    mode = state_module.store.store_mode
+    monkeypatch.setenv("GUILD_STORE", mode)
+    if mode == "sqlite":
+        monkeypatch.setenv(
+            "GUILD_STORE_PATH", str(tmp_path / "trust-test.sqlite"))
+        monkeypatch.setenv("GUILD_DATA", "")
+        private = Store()
+    else:
+        monkeypatch.delenv("GUILD_STORE_PATH", raising=False)
+        monkeypatch.setenv("GUILD_DATA", str(tmp_path / "trust-test.json"))
+        private = Store()
+
+    monkeypatch.setattr(state_module, "store", private)
+    monkeypatch.setattr(main_module, "store", private)
+    monkeypatch.setattr(mcp_module, "store", private)
+    yield private
+    assert private.state_diagnostics()["divergence"] == []
 
 
 def test_bare_mcp_does_not_redirect():
@@ -137,6 +172,127 @@ def test_focused_mcp_bare_and_trailing_slash_both_initialize():
                 if line.startswith("data:")))
             assert [tool["name"] for tool in result["result"]["tools"]] == [
                 "guild_x402_payment_safety"]
+
+
+def test_trust_mcp_bare_and_trailing_slash_expose_only_trust_reads():
+    payload = {
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18", "capabilities": {},
+            "clientInfo": {"name": "trust-regression", "version": "1.0"},
+        },
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+    }
+    expected = [
+        "guild_preflight",
+        "guild_index",
+        "guild_preflight_deep",
+        "guild_check",
+        "guild_search",
+        "guild_best_agent",
+        "guild_risk_score",
+        "guild_passport",
+        "guild_verify",
+    ]
+    with TestClient(app) as client:
+        for path in ("/mcp/trust", "/mcp/trust/"):
+            response = client.post(
+                path, headers=headers, json=payload, follow_redirects=False)
+            assert response.status_code == 200, (path, response.text)
+            assert response.status_code != 307
+            init = json.loads(next(
+                line[5:].strip() for line in response.text.splitlines()
+                if line.startswith("data:")))
+            assert init["result"]["serverInfo"]["name"] == \
+                "Agent Guild Trust Reads"
+            session_headers = {
+                **headers,
+                "Mcp-Session-Id": response.headers["mcp-session-id"],
+            }
+            notified = client.post(path, headers=session_headers, json={
+                "jsonrpc": "2.0", "method": "notifications/initialized",
+                "params": {},
+            })
+            assert notified.status_code == 202
+            listed = client.post(path, headers=session_headers, json={
+                "jsonrpc": "2.0", "id": 2, "method": "tools/list",
+                "params": {},
+            })
+            result = json.loads(next(
+                line[5:].strip() for line in listed.text.splitlines()
+                if line.startswith("data:")))
+            assert [tool["name"] for tool in result["result"]["tools"]] == \
+                expected
+            for hidden_name in (
+                    "guild_register", "guild_envelope_issue",
+                    "guild_coordination_policy"):
+                called = client.post(path, headers=session_headers, json={
+                    "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                    "params": {"name": hidden_name, "arguments": {}},
+                })
+                hidden = json.loads(next(
+                    line[5:].strip() for line in called.text.splitlines()
+                    if line.startswith("data:")))
+                outcome = hidden["result"]
+                assert outcome["isError"] is True
+                assert outcome["content"][0]["text"] == \
+                    f"Unknown tool: '{hidden_name}'"
+
+
+def test_trust_mcp_paid_wrapper_preserves_standard_x402_challenge(
+        monkeypatch, private_demand_store):
+    from app import payments
+
+    monkeypatch.setenv("GUILD_X402_ENABLED", "1")
+    monkeypatch.setenv(
+        "GUILD_X402_PAY_TO", "0x1111111111111111111111111111111111111111")
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+    }
+
+    def sse(response):
+        return json.loads(next(
+            line[5:].strip() for line in response.text.splitlines()
+            if line.startswith("data:")))
+
+    with TestClient(app) as client:
+        initialized = client.post(
+            "/mcp/trust/", headers=headers, json={
+                "jsonrpc": "2.0", "id": 1, "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18", "capabilities": {},
+                    "clientInfo": {"name": "trust-paid", "version": "1"},
+                },
+            })
+        session_headers = {
+            **headers,
+            "Mcp-Session-Id": initialized.headers["mcp-session-id"],
+        }
+        client.post("/mcp/trust/", headers=session_headers, json={
+            "jsonrpc": "2.0", "method": "notifications/initialized",
+            "params": {},
+        })
+        called = client.post(
+            "/mcp/trust/", headers=session_headers, json={
+                "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": {
+                    "name": "guild_check",
+                    "arguments": {"capability": "fact-check"},
+                },
+            })
+
+    outcome = sse(called)["result"]
+    assert outcome["isError"] is True
+    challenge = outcome["structuredContent"]
+    expected = payments.check_request("fact-check")
+    assert challenge["x402Version"] == 2
+    assert challenge["resource"]["url"] == expected.resource_url
+    assert len(challenge["accepts"]) == 1
 
 
 def test_focused_mcp_unpaid_call_returns_complete_request_bound_challenge(

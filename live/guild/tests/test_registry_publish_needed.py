@@ -88,8 +88,12 @@ def test_multiple_registry_products_dispatch_when_either_is_missing():
     focused = copy.deepcopy(EXPECTED)
     focused["name"] = "io.github.AgentTanuki/x402-payment-safety"
     missing = needed.decide({"status": 404}, focused)
-    combined = needed.combine_decisions([current, missing])
+    trust_reads = copy.deepcopy(EXPECTED)
+    trust_reads["name"] = "io.github.AgentTanuki/agent-guild-trust-reads"
+    trust_current = needed.decide(_served(trust_reads), trust_reads)
+    combined = needed.combine_decisions([current, missing, trust_current])
     assert combined["needed"] is True
     assert combined["state"] == "publication_needed"
     assert combined["version"] == EXPECTED["version"]
-    assert combined["name"] == [EXPECTED["name"], focused["name"]]
+    assert combined["name"] == [
+        EXPECTED["name"], focused["name"], trust_reads["name"]]

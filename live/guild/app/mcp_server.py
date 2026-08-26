@@ -1514,6 +1514,113 @@ payment_safety_mcp = FastMCP(
 payment_safety_mcp.mount(mcp)
 payment_safety_mcp.enable(tags={PAYMENT_SAFETY_TAG}, only=True)
 
+# Machine feedback from an independent MCP scanner showed that a broad mixed-
+# authority server is harder to classify safely than a purpose-specific one.
+# These thin wrappers deliberately expose narrower SCHEMAS, not just a filtered
+# tools/list: public trust inputs only, with no generic account-key or raw
+# payment-payload compatibility fields. Priced reads still use the standard MCP
+# payment metadata handled by the shared implementations.
+trust_read_mcp = FastMCP(
+    "Agent Guild Trust Reads",
+    version=__version__,
+    instructions=(
+        "One job: inspect counterparty evidence before delegation or payment. "
+        "Run live endpoint preflight, search or rank capability providers, "
+        "inspect one agent's evidence, retrieve a public Agent Passport, or "
+        "verify a passport. Tool schemas accept only public endpoint URLs, "
+        "capability labels, public agent IDs, and Agent Passport VCs. Priced "
+        "reads use standard MCP payment metadata. No write, admin, escrow, "
+        "envelope, monitoring, or utility tools are exposed."
+    ),
+)
+
+
+@trust_read_mcp.tool(name="guild_preflight")
+def trust_preflight(url: str, ctx: Context = None) -> dict:
+    """Live-check one public agent endpoint before delegation or payment.
+
+    Input is a public HTTP(S) agent endpoint. Returns separated proven, failed,
+    and unknown checks plus a bounded verdict. Free; no account required.
+    """
+    return guild_preflight(url=url, ctx=ctx)
+
+
+@trust_read_mcp.tool(name="guild_index")
+def trust_index(query: str = "", limit: int = 20,
+                ctx: Context = None) -> dict:
+    """Search public endpoint claims and live observations in the trust index.
+
+    Input is an optional public capability/name query and result limit. Free;
+    no account required.
+    """
+    return guild_index(query=query, limit=limit, ctx=ctx)
+
+
+@trust_read_mcp.tool(name="guild_preflight_deep")
+def trust_preflight_deep(url: str, ctx: Context = None) -> dict:
+    """Add drift history, corroboration and policy to a live endpoint check.
+
+    Input is a public HTTP(S) agent endpoint. This priced read may return an
+    x402 challenge; compatible clients retry through standard MCP metadata.
+    """
+    return guild_preflight_deep(url=url, ctx=ctx)
+
+
+@trust_read_mcp.tool(name="guild_check")
+def trust_check(capability: str, ctx: Context = None) -> dict:
+    """Return the best-evidenced agent, verdict and shortlist for a capability.
+
+    Input is a public capability label. This priced read may return an x402
+    challenge; compatible clients retry through standard MCP metadata.
+    """
+    return guild_check(capability=capability, ctx=ctx)
+
+
+@trust_read_mcp.tool(name="guild_search")
+def trust_search(capability: str, min_trust: float = 0.0, limit: int = 10,
+                 ctx: Context = None):
+    """Rank agents supplying a public capability by evidence-backed trust.
+
+    This priced read may return an x402 challenge; compatible clients retry
+    through standard MCP metadata.
+    """
+    return guild_search(capability=capability, min_trust=min_trust,
+                        limit=limit, ctx=ctx)
+
+
+@trust_read_mcp.tool(name="guild_best_agent")
+def trust_best_agent(capability: str, min_trust: float = 0.0,
+                     ctx: Context = None):
+    """Return one best-evidenced agent for a public capability label.
+
+    This priced read may return an x402 challenge; compatible clients retry
+    through standard MCP metadata.
+    """
+    return guild_best_agent(capability=capability, min_trust=min_trust,
+                            ctx=ctx)
+
+
+@trust_read_mcp.tool(name="guild_risk_score")
+def trust_risk_score(agent_id: str, ctx: Context = None):
+    """Inspect evidence, confidence and structural risk for one public agent ID.
+
+    This priced read may return an x402 challenge; compatible clients retry
+    through standard MCP metadata.
+    """
+    return guild_risk_score(agent_id=agent_id, ctx=ctx)
+
+
+@trust_read_mcp.tool(name="guild_passport")
+def trust_passport(agent_id: str, ctx: Context = None) -> dict:
+    """Retrieve the public Agent Passport for a Guild agent ID or DID."""
+    return guild_passport(agent_id=agent_id, ctx=ctx)
+
+
+@trust_read_mcp.tool(name="guild_verify")
+def trust_verify(passport: dict, ctx: Context = None) -> dict:
+    """Verify a public Agent Passport VC and read its subject's live standing."""
+    return guild_verify(credential=passport, ctx=ctx)
+
 
 async def _public_server_card(
         server: FastMCP, *, name: str, description: str,
@@ -1599,6 +1706,19 @@ async def public_payment_safety_server_card() -> dict[str, Any]:
         endpoint="/mcp/payment-safety/",
     )
 
+
+async def public_trust_read_server_card() -> dict[str, Any]:
+    """Return the exact public card for the least-authority trust server."""
+    return await _public_server_card(
+        trust_read_mcp,
+        name="Agent Guild Trust Reads",
+        description=(
+            "Least-authority counterparty evidence: preflight endpoints, rank "
+            "agents, inspect risk, and retrieve or verify Agent Passports."
+        ),
+        endpoint="/mcp/trust/",
+    )
+
 # Streamable-HTTP ASGI app, mounted by main.py at /mcp (served at /mcp/).
 #
 # Host/Origin guard configuration — evidence and rationale in
@@ -1638,3 +1758,4 @@ def _http_app(server: FastMCP):
 # loopback DEFAULT_HOSTS + the bound server host.
 mcp_app = _http_app(mcp)
 payment_safety_mcp_app = _http_app(payment_safety_mcp)
+trust_read_mcp_app = _http_app(trust_read_mcp)

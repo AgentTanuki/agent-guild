@@ -14,6 +14,8 @@ from app.mcp_server import (
     payment_safety_mcp,
     public_payment_safety_server_card,
     public_server_card,
+    public_trust_read_server_card,
+    trust_read_mcp,
 )
 from app.state import store
 
@@ -157,4 +159,53 @@ def test_focused_payment_safety_card_matches_its_exact_one_tool_registry():
     assert card["serverInfo"]["name"] == \
         "Agent Guild x402 Payment Safety"
     assert asyncio.run(public_payment_safety_server_card()) == card
+    assert _paid_offer_events() == before
+
+
+def test_focused_trust_card_matches_its_exact_least_authority_registry():
+    before = list(_paid_offer_events())
+    response = client.get(
+        "/.well-known/mcp/trust-server-card.json",
+        headers={"Origin": "https://crawler.example"},
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "*"
+    assert response.headers["cache-control"] == (
+        "public, max-age=300, s-maxage=300"
+    )
+    card = response.json()
+    expected = [
+        tool.to_mcp_tool().model_dump(by_alias=True, exclude_none=True)
+        for tool in asyncio.run(trust_read_mcp.list_tools())
+    ]
+    assert card["tools"] == expected
+    assert sorted(tool["name"] for tool in card["tools"]) == [
+        "guild_best_agent",
+        "guild_check",
+        "guild_index",
+        "guild_passport",
+        "guild_preflight",
+        "guild_preflight_deep",
+        "guild_risk_score",
+        "guild_search",
+        "guild_verify",
+    ]
+    assert card["transport"]["endpoint"] == "/mcp/trust/"
+    assert card["serverInfo"]["name"] == "Agent Guild Trust Reads"
+    assert asyncio.run(public_trust_read_server_card()) == card
+    assert card["resources"] == []
+    assert card["resourceTemplates"] == []
+    assert card["prompts"] == []
+    disallowed_inputs = {
+        "api_key", "x402_payment", "token", "secret", "password",
+        "private_key", "wallet_key", "authorization",
+    }
+    for tool in card["tools"]:
+        properties = set(tool["inputSchema"].get("properties") or {})
+        assert properties.isdisjoint(disallowed_inputs), (tool["name"], properties)
+    verify = {tool["name"]: tool for tool in card["tools"]}["guild_verify"]
+    assert set(verify["inputSchema"]["properties"]) == {"passport"}
+    serialized = json.dumps(card["tools"]).lower()
+    assert "api_key" not in serialized
+    assert "x402_payment" not in serialized
     assert _paid_offer_events() == before

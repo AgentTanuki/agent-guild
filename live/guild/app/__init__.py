@@ -3,7 +3,15 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.39"  # PATCH exact registry-scanner census correction
+__version__ = "2.5.40"  # PATCH least-authority trust-read MCP surface
+                        # (2026-08-26): publishes an independently
+                        # discoverable MCP server whose schemas accept only
+                        # public trust inputs. It exposes counterparty
+                        # preflight/ranking/risk and Agent Passport reads, but
+                        # no identity, attestation, escrow, envelope,
+                        # monitoring, admin or utility tools.
+                        # History of 2.5.39:
+                        # PATCH exact registry-scanner census correction
                         # (2026-08-16): demotes three privacy-safe actor aliases
                         # produced by the skills.sh reindex/audit burst. The
                         # correction is actor-scoped, so unrelated autonomous

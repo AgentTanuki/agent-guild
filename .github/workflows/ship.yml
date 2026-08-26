@@ -189,6 +189,7 @@ jobs:
           python live/scripts/registry_publish_needed.py \
             --server-json server.json \
             --server-json registry/x402-payment-safety/server.json \
+            --server-json registry/trust-reads/server.json \
             --github-output "$GITHUB_OUTPUT"
       - name: dispatch registry publish (exact local version is not served)
         if: steps.registry.outputs.needed == 'true'
@@ -293,6 +294,7 @@ jobs:
           python live/scripts/registry_publish_needed.py \
             --server-json server.json \
             --server-json registry/x402-payment-safety/server.json \
+            --server-json registry/trust-reads/server.json \
             --github-output "$GITHUB_OUTPUT"
       - name: dispatch registry publish (exact local version is not served)
         if: steps.registry.outputs.needed == 'true'

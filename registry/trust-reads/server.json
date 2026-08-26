@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.AgentTanuki/agent-guild-trust-reads",
+  "description": "Preflight and rank agents by trust; inspect risk and verify portable Agent Passports.",
+  "version": "2.5.40",
+  "repository": {
+    "url": "https://github.com/AgentTanuki/agent-guild",
+    "source": "github"
+  },
+  "websiteUrl": "https://agent-guild-5d5r.onrender.com/.well-known/mcp/trust-server-card.json",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://agent-guild-5d5r.onrender.com/mcp/trust/"
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "ai.agent-guild/trust-reads": {
+        "tools": [
+          "guild_best_agent",
+          "guild_check",
+          "guild_index",
+          "guild_passport",
+          "guild_preflight",
+          "guild_preflight_deep",
+          "guild_risk_score",
+          "guild_search",
+          "guild_verify"
+        ],
+        "accepted_inputs": [
+          "public endpoint URLs",
+          "capability labels",
+          "public agent IDs",
+          "Agent Passport VCs"
+        ],
+        "excluded_tool_classes": [
+          "identity",
+          "attestation",
+          "escrow",
+          "envelope",
+          "monitoring",
+          "admin",
+          "utility execution"
+        ],
+        "service_manifest": "https://agent-guild-5d5r.onrender.com/.well-known/agent-guild.json",
+        "pricing": "https://agent-guild-5d5r.onrender.com/pricing",
+        "payment_note": "Priced reads use request-bound x402 through standard MCP payment metadata."
+      }
+    }
+  }
+}

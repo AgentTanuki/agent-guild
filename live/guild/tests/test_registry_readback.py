@@ -144,6 +144,27 @@ def test_focused_product_metadata_is_exact_even_without_a_trust_key():
     assert any("publisher-provided" in reason for reason in result.reasons)
 
 
+def test_trust_read_product_metadata_is_exact():
+    expected = copy.deepcopy(EXPECTED)
+    expected["name"] = "io.github.AgentTanuki/agent-guild-trust-reads"
+    expected["remotes"] = [{
+        "type": "streamable-http",
+        "url": "https://agent-guild.example/mcp/trust/",
+    }]
+    expected["_meta"] = {PP: {
+        "ai.agent-guild/trust-reads": {
+            "tools": ["guild_preflight", "guild_verify"],
+            "accepted_inputs": ["public endpoint URLs", "Agent Passport VCs"],
+        },
+    }}
+    served = _served(**copy.deepcopy(expected))
+    served["server"]["_meta"][PP]["ai.agent-guild/trust-reads"][
+        "tools"].append("guild_register")
+    result = rb.verify_readback(served, expected)
+    assert result.status == "mismatch"
+    assert any("publisher-provided" in reason for reason in result.reasons)
+
+
 def test_expected_without_trust_meta_does_not_gate_on_it():
     # if the local server.json carries no trust block, readback must not
     # invent a requirement the registry cannot satisfy

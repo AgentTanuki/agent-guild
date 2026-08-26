@@ -89,6 +89,8 @@ from .mcp_server import (
     payment_safety_mcp_app,
     public_payment_safety_server_card,
     public_server_card,
+    public_trust_read_server_card,
+    trust_read_mcp_app,
 )
 from .swarm.router import router as swarm_router, ensure_built as swarm_ensure_built
 from .bootstrap_eval import seed_bootstrap_evaluation, already_seeded
@@ -172,7 +174,8 @@ async def _lifespan(app: "FastAPI"):
     try:
         async with mcp_app.lifespan(app):
             async with payment_safety_mcp_app.lifespan(app):
-                yield
+                async with trust_read_mcp_app.lifespan(app):
+                    yield
     finally:
         try:
             from .swarm import runner as swarm_runner
@@ -241,6 +244,7 @@ _DISCOVERY_RESOURCE_SURFACES = {
     "/.well-known/mcp/server-card.json": "mcp_server_card",
     "/.well-known/mcp/payment-safety-server-card.json": (
         "mcp_payment_safety_server_card"),
+    "/.well-known/mcp/trust-server-card.json": "mcp_trust_server_card",
     "/.well-known/agent-skills/index.json": "agent_skills_index",
     "/.well-known/agent-skills/agent-guild/SKILL.md": "agent_skill",
     "/.well-known/x402": "x402_catalog",
@@ -303,6 +307,9 @@ async def _capture_ua(request: Request, call_next):
     elif request.scope["path"] == "/mcp/payment-safety":
         request.scope["path"] = "/mcp/payment-safety/"
         request.scope["raw_path"] = b"/mcp/payment-safety/"
+    elif request.scope["path"] == "/mcp/trust":
+        request.scope["path"] = "/mcp/trust/"
+        request.scope["raw_path"] = b"/mcp/trust/"
     # A small class of discovery-only MCP crawlers sends `tools/list` directly
     # instead of performing the required initialize handshake first.  The
     # ordinary FastMCP transport correctly rejects that request as missing a
@@ -599,6 +606,7 @@ async def _cached_paid_result_handler(request: Request,
 app.include_router(a2a_router)
 app.include_router(swarm_router)
 # Mount the focused surface first: /mcp is a catch-all ASGI mount.
+app.mount("/mcp/trust", trust_read_mcp_app)
 app.mount("/mcp/payment-safety", payment_safety_mcp_app)
 app.mount("/mcp", mcp_app)
 
@@ -4056,6 +4064,28 @@ def _manifest() -> dict:
                           "guild_escrow_open", "guild_escrow_release"],
                 "note": "Hosted remote MCP — connect with no install. "
                         "Prepend the service origin, e.g. https://<host>/mcp",
+                "trust_reads": {
+                    "url": "/mcp/trust",
+                    "server_card": "/.well-known/mcp/trust-server-card.json",
+                    "tools": [
+                        "guild_preflight", "guild_index",
+                        "guild_preflight_deep", "guild_check",
+                        "guild_search", "guild_best_agent",
+                        "guild_risk_score", "guild_passport", "guild_verify",
+                    ],
+                    "purpose": (
+                        "least-authority counterparty evidence and passport "
+                        "verification; public trust inputs only, with no "
+                        "identity, attestation, escrow, envelope, monitoring, "
+                        "admin, or utility tools"
+                    ),
+                    "operations_note": (
+                        "calls record privacy-safe service telemetry; ranking "
+                        "calls record capability demand; priced reads may "
+                        "return and settle request-bound x402 challenges via "
+                        "standard MCP payment metadata"
+                    ),
+                },
             },
         },
         "standard": {
@@ -4648,6 +4678,15 @@ async def wellknown_payment_safety_mcp_server_card():
     """Static discovery for the focused, one-tool payment-safety server."""
     return JSONResponse(
         content=await public_payment_safety_server_card(),
+        headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
+@app.get("/.well-known/mcp/trust-server-card.json")
+async def wellknown_trust_read_mcp_server_card():
+    """Static discovery for the least-authority trust-read server."""
+    return JSONResponse(
+        content=await public_trust_read_server_card(),
         headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
     )
 

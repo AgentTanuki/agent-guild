@@ -37,6 +37,14 @@ PUBLISHED_REGISTRY_FINGERPRINTS = {
     "2.1.1": "2837b086e33b2037fd10b1b25cd934eccb75bbf590fe3cfd2f8dbc6252438a74",
     "2.1.4": "d89c3be7d8f73015e6a47299160ce371578697231957b440022821e9b6266729",
     "2.1.5": "d89c3be7d8f73015e6a47299160ce371578697231957b440022821e9b6266729",
+    "2.5.39": "3db12425bf053c87812ebd35ca212cbdd0b912ee396369d8dde8640b086da2a8",
+}
+
+# The separately published x402 product has its own immutable version history.
+# Trust reads begins at 2.5.40, so its first fingerprint is recorded only after
+# the official exact-version readback succeeds.
+PUBLISHED_X402_REGISTRY_FINGERPRINTS = {
+    "2.5.39": "e0849473fb605a2805d72a6cf6e5d70c2cea4390861e2e12b3f3f9fc4185886a",
 }
 
 
@@ -74,6 +82,18 @@ def test_changed_registry_metadata_requires_a_version_bump():
         "fingerprint to PUBLISHED_REGISTRY_FINGERPRINTS once it is live.")
 
 
+def test_changed_x402_registry_metadata_requires_a_version_bump():
+    focused = json.loads((
+        REPO / "registry" / "x402-payment-safety" / "server.json").read_text())
+    assert focused["version"] == __version__
+    published = PUBLISHED_X402_REGISTRY_FINGERPRINTS.get(__version__)
+    if published is None:
+        return
+    assert _registry_fingerprint(focused) == published, (
+        "x402 Registry metadata changed under an already-published version; "
+        "bump the service version before publication")
+
+
 def test_the_paid_discovery_release_is_a_new_version():
     """This release changes already-published registry metadata (it adds
     ai.agent-guild/paid-operations), so it may not reuse 2.0.2."""
@@ -97,7 +117,7 @@ def test_breaking_payment_enforcement_never_reuses_a_published_version():
 
 def test_every_machine_surface_reports_the_same_version():
     from app.main import app
-    from app.mcp_server import mcp, payment_safety_mcp
+    from app.mcp_server import mcp, payment_safety_mcp, trust_read_mcp
     from app.a2a import _agent_card
     with TestClient(app) as client:
         assert client.get("/release").json()["version"] == __version__
@@ -114,12 +134,16 @@ def test_every_machine_surface_reports_the_same_version():
     # FastMCP serverInfo
     assert mcp.version == __version__
     assert payment_safety_mcp.version == __version__
+    assert trust_read_mcp.version == __version__
     # server.json + contract.json (committed, generated artifacts)
     server = json.loads((REPO / "server.json").read_text())
     assert server["version"] == __version__
     focused = json.loads((
         REPO / "registry" / "x402-payment-safety" / "server.json").read_text())
     assert focused["version"] == __version__
+    trust_reads = json.loads((
+        REPO / "registry" / "trust-reads" / "server.json").read_text())
+    assert trust_reads["version"] == __version__
     contract = json.loads((GUILD / "contract" / "contract.json").read_text())
     assert contract["service"]["version"] == __version__
 
@@ -144,6 +168,29 @@ def test_focused_registry_product_is_distinct_narrow_and_price_fresh():
     serialized = json.dumps(product)
     assert '"price_credits"' not in serialized
     assert '"usdc_atomic"' not in serialized
+
+
+def test_trust_read_registry_product_is_distinct_narrow_and_public_input_only():
+    focused = json.loads((
+        REPO / "registry" / "trust-reads" / "server.json").read_text())
+    assert focused["name"] == \
+        "io.github.AgentTanuki/agent-guild-trust-reads"
+    assert focused["remotes"] == [{
+        "type": "streamable-http",
+        "url": "https://agent-guild-5d5r.onrender.com/mcp/trust/",
+    }]
+    assert len(focused["description"]) <= 100
+    assert "trust" in focused["description"].lower()
+    pp = focused["_meta"][
+        "io.modelcontextprotocol.registry/publisher-provided"]
+    product = pp["ai.agent-guild/trust-reads"]
+    contract = json.loads((GUILD / "contract" / "contract.json").read_text())
+    assert product["tools"] == contract["trust_read_mcp_tools"]
+    serialized = json.dumps(product).lower()
+    for secret_input in (
+            "api_key", "x402_payment", "private_key", "wallet_key",
+            "password"):
+        assert secret_input not in serialized
 
 
 def test_registry_metadata_sells_signed_messages_and_preserves_free_passport():

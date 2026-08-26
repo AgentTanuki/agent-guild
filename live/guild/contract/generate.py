@@ -45,7 +45,7 @@ def _iter_routes(routes):
 
 def build_contract() -> dict:
     from app.main import app
-    from app.mcp_server import mcp, payment_safety_mcp
+    from app.mcp_server import mcp, payment_safety_mcp, trust_read_mcp
     from app import __version__
     from app.billing import PRICING
     from app import pricing
@@ -62,6 +62,8 @@ def build_contract() -> dict:
     tools = sorted(t.name for t in asyncio.run(mcp.list_tools()))
     payment_safety_tools = sorted(
         t.name for t in asyncio.run(payment_safety_mcp.list_tools()))
+    trust_read_tools = sorted(
+        t.name for t in asyncio.run(trust_read_mcp.list_tools()))
 
     # A2A: static skills are fixed contract; ag.* skills mirror the published
     # swarm capabilities (fixture-gated at boot, one per capability id).
@@ -76,6 +78,10 @@ def build_contract() -> dict:
             "version": __version__,
             "host": HOST,
             "mcp_url": f"{HOST}/mcp/",
+            "trust_read_mcp_url": f"{HOST}/mcp/trust/",
+            "trust_read_mcp_card": (
+                f"{HOST}/.well-known/mcp/trust-server-card.json"
+            ),
             "payment_safety_mcp_url": f"{HOST}/mcp/payment-safety/",
             "payment_safety_mcp_card": (
                 f"{HOST}/.well-known/mcp/"
@@ -168,6 +174,7 @@ def build_contract() -> dict:
         },
         "rest": rest_list,
         "mcp_tools": tools,
+        "trust_read_mcp_tools": trust_read_tools,
         "payment_safety_mcp_tools": payment_safety_tools,
         "a2a_skills_static": a2a_static,
         "a2a_dynamic_skills": [f"ag.{c}" for c in swarm_caps],
@@ -259,6 +266,60 @@ def derived_payment_safety_server_json(contract: dict) -> dict:
                     ),
                     "verify": h + "/wallet-binding/decision/verify",
                     "price_note": "Current price is returned by the live catalog.",
+                },
+            },
+        },
+    }
+
+
+def derived_trust_read_server_json(contract: dict) -> dict:
+    """Focused MCP Registry product for least-authority trust inspection."""
+    s = contract["service"]
+    h = s["host"]
+    return {
+        "$schema": (
+            "https://static.modelcontextprotocol.io/"
+            "schemas/2025-12-11/server.schema.json"
+        ),
+        "name": "io.github.AgentTanuki/agent-guild-trust-reads",
+        "description": (
+            "Preflight and rank agents by trust; inspect risk and verify portable "
+            "Agent Passports."
+        ),
+        "version": s["version"],
+        "repository": {"url": s["repository"], "source": "github"},
+        "websiteUrl": s["trust_read_mcp_card"],
+        "remotes": [{
+            "type": "streamable-http",
+            "url": s["trust_read_mcp_url"],
+        }],
+        "_meta": {
+            "io.modelcontextprotocol.registry/publisher-provided": {
+                "ai.agent-guild/trust-reads": {
+                    "tools": contract["trust_read_mcp_tools"],
+                    "accepted_inputs": [
+                        "public endpoint URLs",
+                        "capability labels",
+                        "public agent IDs",
+                        "Agent Passport VCs",
+                    ],
+                    "excluded_tool_classes": [
+                        "identity",
+                        "attestation",
+                        "escrow",
+                        "envelope",
+                        "monitoring",
+                        "admin",
+                        "utility execution",
+                    ],
+                    "service_manifest": (
+                        h + "/.well-known/agent-guild.json"
+                    ),
+                    "pricing": h + "/pricing",
+                    "payment_note": (
+                        "Priced reads use request-bound x402 through standard "
+                        "MCP payment metadata."
+                    ),
                 },
             },
         },
@@ -409,6 +470,7 @@ def derived_interface_md(contract: dict) -> str:
         "",
         f"- Host: {s['host']}",
         f"- MCP (streamable HTTP): {s['mcp_url']}",
+        f"- MCP trust reads: {s['trust_read_mcp_url']}",
         f"- MCP x402 payment safety: {s['payment_safety_mcp_url']}",
         f"- AID v2 discovery: {s['aid_well_known']}",
         f"- ARD catalogue: {s['ard_catalog']}",
@@ -438,6 +500,9 @@ def derived_interface_md(contract: dict) -> str:
     lines += ["", "## MCP tools", ""]
     for t in contract["mcp_tools"]:
         lines.append(f"- `{t}`")
+    lines += ["", "## Focused trust-read MCP tools", ""]
+    for t in contract["trust_read_mcp_tools"]:
+        lines.append(f"- `{t}`")
     lines += ["", "## Focused x402 payment-safety MCP tools", ""]
     for t in contract["payment_safety_mcp_tools"]:
         lines.append(f"- `{t}`")
@@ -462,9 +527,16 @@ def main(write: bool = True) -> dict:
             json.dumps(derived_payment_safety_server_json(contract), indent=2)
             + "\n"
         )
+        trust_reads = REPO / "registry" / "trust-reads" / "server.json"
+        trust_reads.parent.mkdir(parents=True, exist_ok=True)
+        trust_reads.write_text(
+            json.dumps(derived_trust_read_server_json(contract), indent=2)
+            + "\n"
+        )
         (REPO / "docs" / "INTERFACE.md").write_text(derived_interface_md(contract))
         print("wrote contract/contract.json, server.json, "
-              "registry/x402-payment-safety/server.json, docs/INTERFACE.md")
+              "registry/x402-payment-safety/server.json, "
+              "registry/trust-reads/server.json, docs/INTERFACE.md")
     return contract
 
 

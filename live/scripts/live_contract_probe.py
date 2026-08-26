@@ -108,6 +108,9 @@ def main() -> int:
         surfaces = (
             ("mcp", CONTRACT["service"]["mcp_url"],
              CONTRACT["mcp_tools"]),
+            ("focused trust-read mcp",
+             CONTRACT["service"]["trust_read_mcp_url"],
+             CONTRACT["trust_read_mcp_tools"]),
             ("focused payment-safety mcp",
              CONTRACT["service"]["payment_safety_mcp_url"],
              CONTRACT["payment_safety_mcp_tools"]),

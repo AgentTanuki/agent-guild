@@ -1,9 +1,10 @@
 # Agent Guild — machine interface (GENERATED)
 
-*Generated from `live/guild/contract/contract.json` v2 (service 2.5.39). Do not edit by hand — run `make contract`.*
+*Generated from `live/guild/contract/contract.json` v2 (service 2.5.40). Do not edit by hand — run `make contract`.*
 
 - Host: https://agent-guild-5d5r.onrender.com
 - MCP (streamable HTTP): https://agent-guild-5d5r.onrender.com/mcp/
+- MCP trust reads: https://agent-guild-5d5r.onrender.com/mcp/trust/
 - MCP x402 payment safety: https://agent-guild-5d5r.onrender.com/mcp/payment-safety/
 - AID v2 discovery: https://agent-guild-5d5r.onrender.com/.well-known/agent
 - ARD catalogue: https://agent-guild-5d5r.onrender.com/.well-known/ai-catalog.json
@@ -38,6 +39,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /.well-known/mcp.json`
 - `GET /.well-known/mcp/payment-safety-server-card.json`
 - `GET /.well-known/mcp/server-card.json`
+- `GET /.well-known/mcp/trust-server-card.json`
 - `GET /.well-known/x402`
 - `POST /adjudicators/enroll`
 - `POST /admin/agents/{agent_id}/first-party`
@@ -218,6 +220,18 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `guild_watch`
 - `guild_watch_feed`
 - `guild_x402_payment_safety`
+
+## Focused trust-read MCP tools
+
+- `guild_best_agent`
+- `guild_check`
+- `guild_index`
+- `guild_passport`
+- `guild_preflight`
+- `guild_preflight_deep`
+- `guild_risk_score`
+- `guild_search`
+- `guild_verify`
 
 ## Focused x402 payment-safety MCP tools
 

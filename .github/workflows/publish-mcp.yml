@@ -6,10 +6,10 @@ name: Publish to MCP Registry
 # Determinism + honesty guarantees (docs/CORRECTIONS_2026-07-14.md):
 #   * mcp-publisher is PINNED and checksum-verified — a new publisher release
 #     can never silently change publish behaviour.
-#   * the server name MUST be `io.github.AgentTanuki/agent-guild` — the exact
-#     (case-sensitive) namespace the repo's OIDC identity is granted; this is
-#     the same identity as the published 1.0.0/1.1.0 listing, so legacy
-#     consumers see 1.2.0 as a new `isLatest` version of the same server.
+#   * every server name MUST stay under the exact, case-sensitive
+#     `io.github.AgentTanuki/*` namespace granted to this repository by OIDC;
+#     the canonical product retains its original identity while focused
+#     products use distinct names and remote URLs.
 #   * every step fails the workflow loudly; nothing is reported published
 #     until the OFFICIAL registry serves the exact release back
 #     (live/scripts/registry_readback.py — unit-tested parser).
@@ -81,7 +81,23 @@ jobs:
             exit 1
           fi
 
-      - name: Hard gate — exact workflow SHA is live and both MCP surfaces conform
+      - name: Guard — trust-read name and remote are distinct and OIDC-publishable
+        run: |
+          set -euo pipefail
+          path="registry/trust-reads/server.json"
+          name=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['name'])" "$path")
+          remote=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['remotes'][0]['url'])" "$path")
+          expected="io.github.${{ github.repository_owner }}/agent-guild-trust-reads"
+          if [ "$name" != "$expected" ]; then
+            echo "::error::trust-read name '$name' != OIDC-publishable '$expected'"
+            exit 1
+          fi
+          if [ "$remote" != "https://agent-guild-5d5r.onrender.com/mcp/trust/" ]; then
+            echo "::error::trust-read remote is not the dedicated trust surface"
+            exit 1
+          fi
+
+      - name: Hard gate — exact workflow SHA is live and all MCP surfaces conform
         run: |
           set -euo pipefail
           live_sha=$(curl -fsSL https://agent-guild-5d5r.onrender.com/release | \
@@ -92,10 +108,11 @@ jobs:
           fi
           python3 live/scripts/live_contract_probe.py
 
-      - name: Validate both generated manifests
+      - name: Validate all generated manifests
         run: |
           ./mcp-publisher validate server.json
           ./mcp-publisher validate registry/x402-payment-safety/server.json
+          ./mcp-publisher validate registry/trust-reads/server.json
 
       - name: Decide canonical publication idempotently
         id: canonical
@@ -110,8 +127,15 @@ jobs:
             --server-json registry/x402-payment-safety/server.json \
             --github-output "$GITHUB_OUTPUT"
 
+      - name: Decide trust-read publication idempotently
+        id: trust_reads
+        run: |
+          python3 live/scripts/registry_publish_needed.py \
+            --server-json registry/trust-reads/server.json \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Authenticate (GitHub OIDC)
-        if: steps.canonical.outputs.needed == 'true' || steps.focused.outputs.needed == 'true'
+        if: steps.canonical.outputs.needed == 'true' || steps.focused.outputs.needed == 'true' || steps.trust_reads.outputs.needed == 'true'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish canonical Agent Guild server
@@ -122,7 +146,11 @@ jobs:
         if: steps.focused.outputs.needed == 'true'
         run: ./mcp-publisher publish registry/x402-payment-safety/server.json
 
-      - name: Verify both Registry READBACKS (hard gate)
+      - name: Publish focused trust-read server
+        if: steps.trust_reads.outputs.needed == 'true'
+        run: ./mcp-publisher publish registry/trust-reads/server.json
+
+      - name: Verify all Registry READBACKS (hard gate)
         # Not "published" until the official registry serves the exact
         # name+version+repository+remote (and the publisher-provided trust
         # _meta) back. Exit codes: 1 never served, 2 served-but-mismatched,
@@ -135,3 +163,8 @@ jobs:
             --attempts 30 --interval 10 \
             --search x402 --search payment --search safety \
             --search x402-payment-safety
+          python3 live/scripts/registry_readback.py \
+            --server-json registry/trust-reads/server.json \
+            --attempts 30 --interval 10 \
+            --search agent --search trust --search passport \
+            --search agent-guild-trust-reads

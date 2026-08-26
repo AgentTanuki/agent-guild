@@ -81,7 +81,8 @@ jobs:
         run: python contract/generate.py
       - run: |
           git diff --exit-code live/guild/contract/contract.json server.json \
-            registry/x402-payment-safety/server.json docs/INTERFACE.md \
+            registry/x402-payment-safety/server.json \
+            registry/trust-reads/server.json docs/INTERFACE.md \
             || (echo "::error::contract drift — run 'make contract' and commit" && exit 1)
 
   independent-vc-verification:

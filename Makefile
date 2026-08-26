@@ -51,6 +51,7 @@ test-kdf: setup
 contract: setup
 	cd $(GUILD) && ../../$(VPY) contract/generate.py
 	git diff --exit-code $(GUILD)/contract/contract.json server.json docs/INTERFACE.md \
+	  registry/x402-payment-safety/server.json registry/trust-reads/server.json \
 	  || (echo "CONTRACT DRIFT: commit the regenerated contract artifacts" && exit 1)
 
 verify-independent: setup
