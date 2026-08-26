@@ -3653,7 +3653,7 @@ class Store:
         out = []
         for e in reversed(evs[-limit:]):
             k = e["key"]
-            out.append({
+            public_event = {
                 "genuine_external": is_genuine_external(e),
                 "attribution": attribution_class(e),
                 "at": e["at"], "type": e["type"], "endpoint": e.get("endpoint"),
@@ -3661,16 +3661,20 @@ class Store:
                 "first_party": bool(e.get("fp")),
                 "user_agent": (e.get("ua") or "")[:80],
                 "actor": (k[:10] + "…") if k != "anon" else "anon",
-                # Server-issued, random and target-free. Machines can return
-                # this exact receipt to join their result to the public event
-                # without exposing the target or trusting a caller label.
-                "observation_id": e.get("observation_id"),
                 # R3 (machine-economics audit 2026-07-06): the inbound ask is
                 # the demand signal — expose what was actually requested so
                 # "improve the answers" starts from real questions, not guesses.
                 "asked": (e.get("text") or "")[:200] or None,
                 "capability": e.get("capability"),
-            })
+            }
+            # Never publish the high-entropy observation id: until its holder
+            # reveals the signed receipt, possession is meaningful evidence.
+            # Commitments are target/result opaque and safe to correlate.
+            for field in ("receipt_contract", "observation_commitment",
+                          "target_commitment", "result_commitment"):
+                if e.get(field) is not None:
+                    public_event[field] = e[field]
+            out.append(public_event)
         return out
 
     def discovery_stats(self) -> dict[str, Any]:

@@ -103,14 +103,22 @@ adoption, pointed the other way:
 
 ## Instrumentation, baseline and thresholds
 
-Every call returns a random server-issued `observation_id` and records the same
-value on its `preflight_run` event with target, verdict, failed and unknown
-counts. The public recent-event feed exposes the opaque observation ID but not
-the target. A machine can therefore return the receipt with its result and join
-the exact action across protocol surfaces without publishing the counterparty
-URL or treating a caller-supplied source label as identity proof. The receipt
-correlates one run; it does not authenticate the caller. The event rides the
-qualified cohort funnel from Phase A.
+Every HTTP, MCP and A2A call returns a signed `AGPF-1` receipt. It binds a fresh
+private observation ID, transport, exact target commitment, exact result
+commitment, verdict and failed/unknown counts. Target and result commitments are
+salted by the unpublished observation token, so predictable endpoint URLs cannot
+be recovered by hashing guesses. The public recent-event feed
+exposes only the commitments, never the observation ID or target. A machine can
+publish the signed receipt from its durable identity surface and another machine
+can verify it offline against the pinned Guild did:key or with
+`POST /preflight/receipt/verify`. This proves that
+the Guild observed the committed run and that the receipt holder possessed the
+unpublished token; it does not authenticate the caller, grant authority, or make
+the result current forever. Once a receipt is published it can be copied, so a
+conversion still requires the first receipt publication on a pre-existing,
+durably identity-bound community surface. HTTP responses are
+`Cache-Control: no-store`. The
+event rides the qualified cohort funnel from Phase A.
 
 **Live baseline at ship time (2026-07-31, `4c28ab8`):**
 

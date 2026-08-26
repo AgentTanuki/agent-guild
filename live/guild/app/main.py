@@ -49,6 +49,7 @@ from . import mpp
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from . import instanceid
 from . import preflight
+from . import preflightreceipt
 from . import protecteddecision
 from . import protectedmarket
 from . import pricing
@@ -4762,8 +4763,9 @@ def llms_txt():
         "                                       A2A: 'preflight: <url>')\n"
         "One unauthenticated call, live at request time. Returns what the\n"
         "endpoint CLAIMS and, separately, what it just PROVED, plus a\n"
-        "server-issued observation_id you can return as an exact receipt.\n"
-        "The receipt correlates one run; it does not prove caller identity.\n"
+        "signed AGPF-1 receipt with private token and target/result commitments.\n"
+        "Verify at POST /preflight/receipt/verify. The receipt proves Guild\n"
+        "origin and integrity; it does not prove caller identity or authority.\n"
         "GET /index               the public index: every endpoint we know and\n"
         "                         what happened when we actually called it\n"
         "                         (MCP: guild_index; A2A: 'index')\n"
@@ -4922,7 +4924,7 @@ def llms_txt():
 
 
 @app.get("/preflight")
-def delegation_preflight(request: Request, url: str = Query(
+def delegation_preflight(request: Request, response: Response, url: str = Query(
         ..., description="The agent endpoint you are about to delegate to")):
     """PREFLIGHT — run this in the moment before you delegate or pay.
 
@@ -4939,30 +4941,26 @@ def delegation_preflight(request: Request, url: str = Query(
     at publication time — a server can change its tool descriptions after any
     one-off review. `unknowns` are reported, never averaged into the verdict.
 
-    Every response also carries a server-issued `observation_id`. A machine can
-    return that opaque receipt with its result so another protocol surface can
-    join the exact public event without exposing the target URL or trusting a
-    caller-supplied source tag. It correlates one observation; it does not prove
-    the caller's identity.
+    Every response also carries a signed, server-issued receipt. A machine can
+    publish that receipt from its durable identity surface to bind the exact
+    target and result without exposing either in public telemetry. The receipt
+    proves Guild origin and integrity, never caller identity or authority.
     """
-    out = preflight.run(url, store=store)
-    # A random, server-issued join key lets an autonomous caller return proof of
-    # the exact observation it consumed. Never accept this value from the caller:
-    # caller-chosen labels are attribution hints, not evidence. The opaque UUID
-    # contains no target, IP, credential or other identifying material and is
-    # therefore safe to expose in the public privacy-preserving event feed.
-    observation_id = "pfobs_" + uuid.uuid4().hex
-    out["observation_id"] = observation_id
-    # Demand instrumentation: WHO is asking, and do they come back? This is
-    # the only honest way to learn whether the check is wanted, and it is
-    # recorded as a query, never as adoption of anything.
-    store.record_event(None, "preflight_run", ua=_ua.get(),
-                       endpoint="preflight", target=url,
-                       observation_id=observation_id,
-                       verdict=out["verdict"],
-                       failed_count=len(out["failed"]),
-                       unknown_count=len(out["unknowns"]))
-    return out
+    response.headers["Cache-Control"] = "no-store"
+    return preflightreceipt.run_and_record(
+        store, url, actor=_req_actor.get(), ua=_ua.get(), transport="http",
+        actor_distinct=bool(_req_actor.get()), first_party=_fp_flag.get())
+
+
+@app.post("/preflight/receipt/verify")
+def verify_preflight_receipt(body: dict[str, Any]):
+    """Verify a free-preflight receipt and optional exact target/result. FREE."""
+    receipt = body.get("receipt")
+    if not isinstance(receipt, dict):
+        receipt = body
+    target = body.get("target") if isinstance(body.get("target"), str) else None
+    result = body.get("result") if isinstance(body.get("result"), dict) else None
+    return preflightreceipt.verify(store, receipt, target=target, result=result)
 
 
 @app.get("/preflight/deep")

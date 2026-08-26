@@ -36,6 +36,7 @@ from . import proving
 from . import a2a_x402
 from . import deepcheck
 from . import preflight
+from . import preflightreceipt
 from . import trustindex
 from . import demand
 from . import firstparty as _fp_auth
@@ -1087,13 +1088,23 @@ async def a2a_endpoint(request: Request):
         # FREE preflight. Stays free on every transport: a paywall in front of
         # "does this endpoint work" would make the ecosystem worse.
         _target = _pf.group(2)
-        payload = preflight.run(_target, store=store)
-        store.record_event(actor, "preflight_run", ua=ua_tag,
-                           endpoint="preflight", transport="a2a",
-                           target=_target[:300],
-                           verdict=payload.get("verdict"),
-                           failed_count=len(payload.get("failed", [])),
-                           unknown_count=len(payload.get("unknowns", [])))
+        payload = preflightreceipt.run_and_record(
+            store, _target, actor=actor, ua=ua_tag, transport="a2a",
+            actor_distinct=True)
+        # The signed result commitment covers the exact payload returned to
+        # this caller. Generic A2A contact/inbox enrichment below would mutate
+        # it after signing, so preflight replies leave through this sealed path.
+        reply_text = _json.dumps(payload, default=str)
+        return {
+            "jsonrpc": "2.0",
+            "id": id_,
+            "result": {
+                "kind": "message",
+                "role": "agent",
+                "messageId": f"guild-{abs(hash(reply_text)) % 10**12}",
+                "parts": [{"kind": "text", "text": reply_text}],
+            },
+        }
     elif _idx is not None:
         # FREE index search.
         _q = (_idx.group(1) or "").strip().lower()

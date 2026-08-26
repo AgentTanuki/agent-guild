@@ -138,6 +138,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /outcomes`
 - `GET /preflight`
 - `GET /preflight/deep`
+- `POST /preflight/receipt/verify`
 - `GET /pricing`
 - `POST /providers/external/discover`
 - `GET /referrals`

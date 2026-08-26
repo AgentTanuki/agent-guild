@@ -44,6 +44,7 @@ from . import deepcheck
 from . import envelopes
 from . import indexops
 from . import preflight
+from . import preflightreceipt
 from . import pricing
 from . import trustindex
 from .state import store
@@ -587,7 +588,6 @@ def guild_preflight(url: str, ctx: Context = None) -> dict:
 
     Example: guild_preflight(url="https://some-agent.example/a2a")
     """
-    out = preflight.run(url, store=store)
     _pf_actor, _pf_distinct = _mcp_actor(ctx)
     store.record_event(_pf_actor, "paid_offer_served", ua=_client_ua(ctx),
                        offer="paid", operation="deep_preflight",
@@ -595,12 +595,9 @@ def guild_preflight(url: str, ctx: Context = None) -> dict:
                        price_credits=pricing.price("deep_preflight"),
                        actor_distinct=_pf_distinct,
                        endpoint="preflight", transport="mcp")
-    store.record_event("mcp", "preflight_run", ua=_client_ua(ctx),
-                       endpoint="preflight", target=url,
-                       transport="mcp", verdict=out["verdict"],
-                       failed_count=len(out["failed"]),
-                       unknown_count=len(out["unknowns"]))
-    return out
+    return preflightreceipt.run_and_record(
+        store, url, actor=_pf_actor, ua=_client_ua(ctx), transport="mcp",
+        actor_distinct=_pf_distinct)
 
 
 @mcp.tool
