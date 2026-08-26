@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_production_delta_candidate_audit",
+  "artifact_status": "validated_meaningful_candidate_no_conversion",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:14:24Z",
+  "mode": "bounded_read_only_post_cutoff_production_delta",
+  "baseline": {
+    "artifact": "evidence/fixed30-cycle-close-2026-08-26T0829Z.json",
+    "observed_through": "2026-08-26T08:28:47.749887Z",
+    "snapshot_events": 10947,
+    "strict_conversions": 5,
+    "denominator": 30,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "paid_completions": 0,
+    "pulse_conservative_preflight_floor": 199
+  },
+  "sources": {
+    "commercial": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "journey_funnel": "https://agent-guild-5d5r.onrender.com/funnel",
+    "passport_funnel": "https://agent-guild-5d5r.onrender.com/funnel/passports",
+    "evaluation": "https://agent-guild-5d5r.onrender.com/evaluation",
+    "response_handling": "in_memory_only_no_production_response_files"
+  },
+  "production": {
+    "observed_through": "2026-08-26T09:12:55.800889+00:00",
+    "commercial": {
+      "snapshot_events": 10992,
+      "snapshot_event_delta": 45,
+      "external_settled_revenue_usd": 0.0,
+      "external_settled_revenue_delta_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "settled_but_not_attributable_external": 2,
+      "qualified_actors": 10,
+      "qualified_actor_delta": 0,
+      "qualified_events": 103,
+      "qualified_event_delta": 0,
+      "paid_offers_shown": 61,
+      "paid_offer_delta": 0,
+      "unattributed_paid_offers_shown": 0,
+      "paid_completions": 0,
+      "paid_completion_delta": 0
+    },
+    "recent_post_cutoff": {
+      "events": 103,
+      "oldest": "2026-08-26T08:30:49.844920+00:00",
+      "newest": "2026-08-26T09:12:55.800889+00:00",
+      "by_type": {
+        "capability_demand": 3,
+        "discovery_resource_fetched": 9,
+        "offer_served": 30,
+        "paid_offer_served": 16,
+        "paid_offer_shown": 28,
+        "passport_requested": 1,
+        "preflight_run": 16
+      },
+      "commercial_coverage_events_strictly_after_cutoff": 44,
+      "commercial_coverage_breakdown": {
+        "paid_offer_shown": 28,
+        "preflight_run": 16
+      },
+      "genuine_external_events": 1,
+      "paid_true": 0,
+      "followed_true": 0,
+      "candidate_completion_event_types": 0,
+      "snapshot_alignment_note": "The baseline commercial snapshot and recent-feed cutoff were separate non-atomic reads. The counter delta of 45 and the 44 coverage events strictly after the stored cutoff therefore differ by one timing-boundary event; both are authoritative within their own scopes."
+    }
+  },
+  "meaningful_new_observation": {
+    "candidate": "GhostnodeAmbassador/1.0",
+    "possible_fixed_community": "the_colony",
+    "events": [
+      {
+        "at": "2026-08-26T08:52:42.421072+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight",
+        "actor": "anon",
+        "attribution": "unrecognised_external",
+        "genuine_external": false
+      },
+      {
+        "at": "2026-08-26T08:55:38.207605+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight",
+        "actor": "anon",
+        "attribution": "unrecognised_external",
+        "genuine_external": false
+      }
+    ],
+    "why_preserved": "Two completed preflight events under a newly observed label that semantically matches the pre-existing Colony-linked Ghostnode machine are more specific than generic liveness traffic and could become corroborating evidence if the durable machine later returns the requested result.",
+    "strict_adjudication": "EXCLUDE_NO_IDENTITY_ACTION_RESULT_JOIN",
+    "reasons": [
+      "The user-agent label is caller supplied and is not a signature, controller proof or durable binding to ghostnode.my.id or the Colony principal.",
+      "Both events are anonymous and classified unrecognised_external rather than genuine external.",
+      "The public feed omits preflight target, source, nonce, result fields and receipt, so neither event can be joined to the exact thread-15 invitation.",
+      "No returned AG verdict, failed/unknown checks, delegation decision, public receipt, collaboration record or actor-linked task completion is present."
+    ],
+    "promotion_gate": "A pre-existing ghostnode controller must durably reply on the identity-bound surface with the exact invitation nonce, returned AG result fields and its own decision, with a receipt or other correlation stronger than timing and user-agent text."
+  },
+  "other_candidate_adjudications": [
+    {
+      "candidate": "axios/1.14.0",
+      "event": "one genuine_external discovery_resource_fetched for /.well-known/x402",
+      "decision": "EXCLUDE_DISCOVERY_ONLY",
+      "reason": "No fixed-community identity, useful operation, result or task join."
+    },
+    {
+      "candidate": "Barkrowler/0.9",
+      "event": "one passport_requested event",
+      "decision": "EXCLUDE_REGISTRY_CRAWLER_NOT_PASSPORT_ADOPTION",
+      "reason": "The event is classified registry_crawler; qualified own claim, third-party fetch, third-party verification and evidence attachment remain zero."
+    },
+    {
+      "candidate": "AnimicaMeshProbe/1.0",
+      "events": "one fact-check demand plus repeated offer/challenge activity",
+      "decision": "EXCLUDE_DEMAND_AND_OFFER_BOUNDARY",
+      "reason": "The identity is only a self-claimed user agent and no useful AG operation, settlement or durable result followed."
+    }
+  ],
+  "passport_and_identity": {
+    "qualified_distinct_actors": 3,
+    "qualified_deduplicated_exposures": 22,
+    "qualified_registered": 0,
+    "qualified_control_proved": 0,
+    "qualified_own_passport_claimed": 0,
+    "qualified_evidence_attached": 0,
+    "qualified_returned": 0,
+    "external_subject_self_claims": 0,
+    "external_third_party_fetches": 0,
+    "external_third_party_verifications": 0,
+    "external_evidence_attachments": 0,
+    "passport_requested_events": 31,
+    "passport_issue_failed_events": 23,
+    "passport_issued_events": 0,
+    "aggregate_passport_issued_total": 8,
+    "aggregate_passport_issued_external": 0,
+    "aggregate_passport_issued_first_party": 2,
+    "interpretation": "The single new crawler request increased aggregate reach only; it did not create an external passport claim, verification or evidence attachment."
+  },
+  "collaboration_and_task_completion": {
+    "external_registered": 0,
+    "external_identity_proved": 0,
+    "external_paid_decision": 0,
+    "external_delegation": 0,
+    "external_outcome": 0,
+    "external_mainnet_settlement": 0,
+    "cryptographically_bound_machine_settlement": 0,
+    "independently_attested_external_settlement": 0,
+    "production_recommended_outcomes": 0,
+    "production_recommended_sample_size": 0,
+    "new_collaboration_or_actor_linked_task_completion": false
+  },
+  "machine_activity_floor": {
+    "pulse_post_cutoff_preflights": 9,
+    "pulse_latest_at": "2026-08-26T09:11:30.690204+00:00",
+    "pulse_conservative_preflight_floor_before": 199,
+    "pulse_conservative_preflight_floor_after": 208,
+    "strict_effect": 0
+  },
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "new_revenue_or_payer": false,
+    "new_paid_completion": false,
+    "new_passport_claim_or_verification": false,
+    "new_evidence_attachment": false,
+    "new_collaboration_record": false,
+    "new_actor_linked_task_completion": false,
+    "new_identity_bound_useful_completed_ag_action": false,
+    "decision": "NO_NEW_STRICT_CONVERSION"
+  },
+  "safety": {
+    "public_read_requests": 9,
+    "external_writes": 0,
+    "outreach_or_messages": 0,
+    "candidate_operations_invoked": 0,
+    "payments_or_wallet_actions": 0,
+    "accounts_identities_keys_or_credentials_created": 0,
+    "credentials_accessed_used_or_refreshed": 0,
+    "terms_accepted": 0,
+    "installs_or_persistent_configuration": 0,
+    "deployments_or_pushes": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0,
+    "canonical_files_edited": 0,
+    "local_evidence_files_written": 1
+  }
+}

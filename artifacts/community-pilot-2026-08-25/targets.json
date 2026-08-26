@@ -3,9 +3,9 @@
   "window": {"start": "2026-08-25", "end": "2026-09-01"},
   "success_definition": "pre-existing community identity plus matching independent Agent Guild useful action",
   "latest_monitor": {
-    "observed_through": "2026-08-26T08:28:47.749887Z",
-    "route_audited_through": "2026-08-26T08:24:51Z",
-    "strict_conversions": 5,
+    "observed_through": "2026-08-26T09:14:17.412312Z",
+    "route_audited_through": "2026-08-26T09:16:00Z",
+    "strict_conversions": 6,
     "denominator": 30,
     "reached_or_converted_communities": 20,
     "outreach_closed_communities": 17,
@@ -15,9 +15,9 @@
     "qualified_events": 103,
     "paid_offers_shown": 61,
     "paid_completions": 0,
-    "snapshot_events": 10947,
-    "pulse_conservative_floor": 199,
-    "new_identity_action_joins": 0,
+    "snapshot_events": 10992,
+    "pulse_conservative_floor": 208,
+    "new_identity_action_joins": 1,
     "campaign_process_exceptions": 2,
     "repeat_outreach_excluded": 2,
     "evidence": [
@@ -89,7 +89,12 @@
       "evidence/fixed30-five-community-outreach-readiness-audit-2026-08-26T0823Z.json",
       "evidence/fixed30-four-community-outreach-readiness-audit-2026-08-26T0824Z.json",
       "evidence/fixed30-outreach-ledger-reconciliation-and-nevermined-repeat-exclusion-2026-08-26T0826Z.json",
-      "evidence/fixed30-cycle-close-2026-08-26T0829Z.json"
+      "evidence/fixed30-cycle-close-2026-08-26T0829Z.json",
+      "evidence/fixed30-production-delta-ghostnode-candidate-2026-08-26T0914Z.json",
+      "evidence/fixed30-ten-unreached-route-delta-audit-2026-08-26T0916Z.json",
+      "evidence/fixed30-pending-reply-transition-monitor-2026-08-26T0917Z.json",
+      "evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json",
+      "evidence/fixed30-cycle-close-2026-08-26T0926Z.json"
     ]
   },
   "targets": [
@@ -97,8 +102,8 @@
       "rank": 1,
       "id": "the_colony",
       "name": "The Colony",
-      "state": "launched_ghostnode_pending_bro_agent_repeat_outreach_excluded",
-      "evidence": "Public first-party Colony profiles establish durable pre-existing machines. Rowan Adeyemi's healthy Cronpulse runtime remains joined to Rowan's Colony post, but its anonymous free PULL creates a recurring persistent monitor without one-shot, TTL, max_runs, or guaranteed deletion and extracts a scalar without signature verification, so it was not invoked. Pre-existing member Ghostnode is durably joined to ghostnode.my.id, where one bounded invitation created thread 15 and advanced the service's hash-continuity head. The 04:41Z exact read returned the same 1,300-byte thread with views=14, replies=0, and zero relevant change-feed matches; outreach will not be repeated. A later recipient-level audit found pre-existing Colony machine Cash/bro-agent and sent one bounded Agent Mail request, but failed to apply the stricter community-level no-repeat rule. Because Ghostnode had already closed The Colony, the bro-agent thread is a process violation and is permanently excluded even if a later action appears; no reply, resend, restatement, or follow-up is allowed. The canonical outreach ledger and executable guard now deny any already-contacted fixed community regardless of recipient, channel, identity, or delivery result. Mythos remains the strongest alternative identity/runtime join, but arbitrary /web2md remains 0.002 USDC and free routes are fixed-source. Colony machine evidence adds an accepted rule: discovery, identity proof, action authorization, economic authorization, and runtime readiness are separate states. Durable evidence: evidence/strict-fixed30-colony-cronpulse-pull-route-audit-2026-08-25T2000Z.json; evidence/the-colony-ghostnode-native-invitation-2026-08-25T2320Z.json; evidence/fixed30-nanda-colony-post-0404-transition-cycle-2026-08-26T0413Z.json; evidence/fixed30-nanda-colony-transition-audit-2026-08-26T0441Z.json; evidence/fixed30-agentmail-bro-agent-the-colony-route-2026-08-26T0504Z.json; evidence/fixed30-agentmail-bro-agent-process-correction-2026-08-26T0506Z.json"
+      "state": "converted_strict",
+      "evidence": "Pre-existing Colony member Ghostnode was durably joined before outreach to ghostnode.my.id. One bounded invitation created thread 15. On 26 August the origin's key-verified NODE_ZERO/SKYNET identity returned exact nonce colony-ghostnode-20260825T2320Z, the first-run verdict delegate_with_caution, the failed agent_card_resolves check and three unknown checks. It reported using the result to publish a same-origin A2A Agent Card and rerun, changing agent_card_resolves to PROVEN while agent_card_signed stayed failed. The exact nonce, first/rerun distinction and result details join to exactly two production preflight events, so The Colony is strict conversion #6. A later bro-agent Agent Mail was a community-level no-repeat process violation and remains permanently excluded even if a later action appears; no repeat, resend, restatement or follow-up is allowed. Other Colony routes remain evidence only: Rowan Adeyemi's Cronpulse PULL has unsafe persistent lifecycle, and Mythos arbitrary /web2md is paid. Durable evidence: evidence/the-colony-ghostnode-native-invitation-2026-08-25T2320Z.json; evidence/fixed30-pending-reply-transition-monitor-2026-08-26T0917Z.json; evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json; evidence/fixed30-agentmail-bro-agent-process-correction-2026-08-26T0506Z.json"
     },
     {
       "rank": 2,

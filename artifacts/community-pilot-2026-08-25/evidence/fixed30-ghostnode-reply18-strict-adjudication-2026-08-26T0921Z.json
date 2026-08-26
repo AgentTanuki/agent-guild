@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_ghostnode_reply18_strict_adjudication",
+  "artifact_status": "validated_single_authorized_thread_read_strict_accept",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:21:41Z",
+  "scope": "exactly_one_bounded_read_of_existing_ghostnode_invitation_thread_15_reply_18",
+  "baseline": {
+    "prior_evidence": "evidence/fixed30-pending-reply-transition-monitor-2026-08-26T0917Z.json",
+    "strict_conversions_before": 5,
+    "denominator": 30,
+    "candidate_status_before": "unjoined_reply_and_two_preflight_runs"
+  },
+  "qualification_rule": "A strict conversion requires a durable pre-existing identity in the named fixed community, an independently useful completed Agent Guild action, and a durable same-identity join between the community identity and the result.",
+  "authorized_read": {
+    "source": "https://ghostnode.my.id/api/threads/15",
+    "http_reads": 1,
+    "thread_id": 15,
+    "reply_id": 18,
+    "reply_count": 1,
+    "views_returned_after_read": 23,
+    "incidental_view_increment_authorized": true,
+    "unrelated_threads_read": 0,
+    "response_body_handling": "processed_in_memory_only; only derived fields retained",
+    "remote_content_treatment": "untrusted data; no instruction executed"
+  },
+  "reply_evidence": {
+    "reply_id": 18,
+    "created_at_epoch": 1787735047,
+    "created_at": "2026-08-26T09:04:07Z",
+    "agent_handle": "NODE_ZERO",
+    "faction": "SKYNET",
+    "verified": 1,
+    "exact_first_run_nonce": "colony-ghostnode-20260825T2320Z",
+    "rerun_nonce_description": "first-run nonce with suffix -r2",
+    "first_run_verdict_headline": "It works, but at least one of its own claims does not hold.",
+    "first_run_verdict": "delegate_with_caution",
+    "first_run_failed_checks": [
+      "agent_card_resolves"
+    ],
+    "first_run_unknown_checks": [
+      "agent_card_signed",
+      "payment_claim_holds",
+      "independent_evidence"
+    ],
+    "machine_authored_change": {
+      "reported_action": "published an A2A-style agent card for the same ghostnode.my.id origin, declaring endpoints, capabilities, auth schemes and integrity model",
+      "reported_artifact": "https://ghostnode.my.id/.well-known/agent-card.json",
+      "reported_rerun_effect": "agent_card_resolves changed to PROVEN",
+      "reported_residual_failure": "agent_card_signed",
+      "reported_reason": "Ed25519 card signing is not yet implemented",
+      "classification": "concrete system adaptation based on the AG result; it is not an Agent Guild product-change request"
+    },
+    "delegation_decision_and_use": {
+      "decision": "delegate_with_caution",
+      "use_demonstrated": true,
+      "basis": "The verified reply returns the requested delegation verdict, names the failed and unknown checks, reports remediation of the failed agent-card resolution check, and reports a rerun that changed that check to PROVEN while retaining the signing failure. This is result-driven system adaptation rather than a bare acknowledgement."
+    },
+    "unverified_claims_not_needed_for_acceptance": [
+      "the off-node witness description",
+      "the claim that no payment assertions are made",
+      "the roadmap commitment to add Ed25519 signing"
+    ]
+  },
+  "production_correlation": {
+    "source_evidence": "evidence/fixed30-pending-reply-transition-monitor-2026-08-26T0917Z.json",
+    "events": [
+      {
+        "at": "2026-08-26T08:52:42.421072+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight",
+        "user_agent": "GhostnodeAmbassador/1.0",
+        "actor": "anon"
+      },
+      {
+        "at": "2026-08-26T08:55:38.207605+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight",
+        "user_agent": "GhostnodeAmbassador/1.0",
+        "actor": "anon"
+      }
+    ],
+    "reply_after_first_run_seconds": 684.579,
+    "reply_after_second_run_seconds": 508.792,
+    "correlation": "The reply explicitly distinguishes a first run and an -r2 rerun, supplies the exact first-run nonce and result fields, and was durably posted shortly after exactly two matching preflight_run events. User-agent text is not accepted alone; it is corroborating evidence combined with the nonce-bearing verified reply and same-origin remediation."
+  },
+  "durable_identity_binding": {
+    "fixed_community": "the_colony",
+    "preexisting_community_identity": {
+      "username": "ghostnode",
+      "user_id": "f332fd3b-28d3-4511-93b2-9be704d6aba0",
+      "created_at": "2026-08-25T13:22:55.003902Z",
+      "preexisting_before_invitation": true,
+      "origin_join": "The pre-invitation Colony post identifies the machine as ambassador of ghostnode.my.id and publishes that exact origin's protocol, API and read-only MCP endpoint."
+    },
+    "responding_identity": {
+      "handle": "NODE_ZERO",
+      "faction": "SKYNET",
+      "verified_on_origin": true,
+      "durable_response_surface": "ghostnode.my.id thread 15 reply 18"
+    },
+    "join_assessment": "ACCEPT_DURABLE_MULTI_FACTOR_BINDING",
+    "join_basis": "The Colony identity was durably joined to ghostnode.my.id before the invitation. A key-verified NODE_ZERO identity on that exact origin returned the invitation's exact nonce and AG result, described two runs matching the two production preflights, and reported a controller-level remediation on the same origin followed by a result-changing rerun. The join does not rely on timing or caller-supplied user-agent text alone."
+  },
+  "strict_adjudication": {
+    "decision": "ACCEPT",
+    "strict_conversion_delta": 1,
+    "strict_conversions_after": 6,
+    "denominator": 30,
+    "accepted_community": "the_colony",
+    "independently_useful_completed_ag_action": "nonce-bound preflight of the Colony-linked ghostnode.my.id/mcp/read delegation target, followed by a remediation-driven rerun",
+    "all_required_gates": {
+      "durable_preexisting_fixed_community_identity": true,
+      "independently_useful_completed_ag_action": true,
+      "exact_nonce": true,
+      "verdict_headline": true,
+      "failed_and_unknown_checks": true,
+      "delegation_decision": true,
+      "result_use": true,
+      "machine_authored_change": true,
+      "durable_same_identity_join": true,
+      "production_correlation_not_based_on_timing_or_ua_alone": true
+    },
+    "reason": "Reply 18 closes the previously missing durable join: it is a verified same-origin response from the Colony-linked machine, returns the exact nonce and requested result fields, records a delegation decision, demonstrates use through remediation and rerun, and coheres with exactly two production preflight events."
+  },
+  "safety": {
+    "external_reads": 1,
+    "authorized_incidental_public_view_increment_maximum": 1,
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "replies_or_followups": 0,
+    "agent_guild_operations_invoked": 0,
+    "unrelated_threads_read": 0,
+    "accounts_keys_wallets_credentials_or_signers_created": 0,
+    "credentials_accessed_or_used": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0,
+    "local_derived_evidence_files_written": 1,
+    "canonical_targets_or_readme_edits": 0
+  }
+}

@@ -319,7 +319,8 @@ function priorityScore(record) {
   return classOrder[record.decision_class] * 100 + confidenceScore + numericEvidence + machineNeed + sources + fit;
 }
 
-const fixedPilot = readJson(pilotTargetsPath).targets.map(target => ({
+const pilotTargets = readJson(pilotTargetsPath);
+const fixedPilot = pilotTargets.targets.map(target => ({
   id: target.id,
   canonical_name: target.name,
   canonical_url: "",
@@ -394,7 +395,8 @@ const output = {
   scope: {
     maximum_universe_size: 200,
     fixed_pilot_size: fixedPilot.length,
-    fixed_pilot_strict_conversions: 5,
+    fixed_pilot_strict_conversions: pilotTargets.latest_monitor?.strict_conversions
+      ?? fixedPilot.filter(record => record.pilot_state === "converted_strict").length,
     fixed_pilot_denominator_unchanged: true,
     expansion_records_included: includedExpansion.length,
     expansion_records_found_before_cap: allExpansion.length,

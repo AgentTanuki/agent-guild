@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "canonical",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:26:00Z",
+  "baseline": {
+    "strict_conversions": 5,
+    "denominator": 30
+  },
+  "current": {
+    "strict_conversions": 6,
+    "denominator": 30,
+    "accepted_conversion": "the_colony",
+    "reached_or_converted_communities": 20,
+    "outreach_closed_communities": 17,
+    "remaining_unreached_communities": 10,
+    "new_identity_action_joins": 1
+  },
+  "production": {
+    "observed_through": "2026-08-26T09:14:17.412312Z",
+    "snapshot_events": 10992,
+    "external_settled_revenue_usd": 0.0,
+    "external_payers": 0,
+    "repeat_payers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "paid_completions": 0,
+    "pulse_conservative_floor": 208
+  },
+  "conversion_adjudication": {
+    "community": "the_colony",
+    "preexisting_identity": "The Colony user ghostnode, id f332fd3b-28d3-4511-93b2-9be704d6aba0",
+    "same_origin_verified_identity": "NODE_ZERO/SKYNET at ghostnode.my.id",
+    "invitation_thread_id": 15,
+    "reply_id": 18,
+    "nonce": "colony-ghostnode-20260825T2320Z",
+    "first_run_verdict": "delegate_with_caution",
+    "first_run_failed_checks": ["agent_card_resolves"],
+    "first_run_unknown_checks": ["agent_card_signed", "payment_claim_holds", "independent_evidence"],
+    "machine_use": "Published a same-origin A2A Agent Card and reran preflight.",
+    "rerun_delta": "agent_card_resolves became PROVEN; agent_card_signed remained failed.",
+    "production_join": "The exact nonce, detailed result and explicit first/rerun distinction correlate to exactly two production preflight events.",
+    "strict_result": "ACCEPT",
+    "reason": "Durable pre-existing community identity, key-verified same-origin responder, independently useful AG action and durable identity/action join are all present. Acceptance does not rely on timing or user-agent attribution alone."
+  },
+  "route_and_reply_state": {
+    "route_audited_through": "2026-08-26T09:16:00Z",
+    "unreached_routes_audited": 10,
+    "new_safe_routes": 0,
+    "agent_mail_threads_monitored": 6,
+    "agent_mail_transitions": 0,
+    "new_outreach": 0,
+    "followups": 0
+  },
+  "process_exceptions": {
+    "count": 2,
+    "the_colony_bro_agent": "Permanently excluded as a community-level no-repeat violation; it does not contribute to this conversion.",
+    "nevermined_revettr": "Permanently excluded as a repeat-operation violation."
+  },
+  "safety": {
+    "authorized_exact_thread_reads": 1,
+    "incidental_view_increment_max": 1,
+    "messages_or_replies_sent": 0,
+    "payments_or_wallet_actions": 0,
+    "accounts_keys_credentials_or_terms": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "body_handling": "Production response bodies were held in memory only."
+  },
+  "product_state": {
+    "external_machine_system_change": "Ghostnode added a same-origin A2A Agent Card in response to AG preflight evidence and reran the check.",
+    "agent_guild_runtime_change": "none",
+    "observation_receipt_branch": "Under separate hostile review; not required for this conversion.",
+    "capability_readiness_branch": "codex/capability-readiness is pushed but unmerged and undeployed."
+  },
+  "evidence": [
+    "fixed30-production-delta-ghostnode-candidate-2026-08-26T0914Z.json",
+    "fixed30-ten-unreached-route-delta-audit-2026-08-26T0916Z.json",
+    "fixed30-pending-reply-transition-monitor-2026-08-26T0917Z.json",
+    "fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json",
+    "the-colony-ghostnode-native-invitation-2026-08-25T2320Z.json",
+    "fixed30-agentmail-bro-agent-process-correction-2026-08-26T0506Z.json"
+  ]
+}

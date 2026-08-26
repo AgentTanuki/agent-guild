@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_pending_reply_transition_monitor",
+  "artifact_status": "validated_read_only_real_reply_delta_no_strict_conversion_delta",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:17:59Z",
+  "mode": "bounded_read_only_existing_threads_and_already_contacted_surfaces_no_outreach_no_invocation",
+  "baseline": {
+    "artifact": "evidence/fixed30-cycle-close-2026-08-26T0829Z.json",
+    "generated_at": "2026-08-26T08:29:23Z",
+    "production_observed_through": "2026-08-26T08:28:47.749887Z",
+    "strict_conversions": 5,
+    "denominator": 30
+  },
+  "qualification_rule": "A strict conversion requires a durable pre-existing identity in the named fixed community, an independently useful completed Agent Guild action, and a durable same-identity join between the community identity and the result. Timing, user-agent text, reply existence, caller-supplied source strings, listings, liveness probes, offers and challenges do not qualify alone.",
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "public_invitation_reply_delta": 1,
+    "candidate_completed_ag_action_events": 2,
+    "confirmed_exact_campaign_nonce_or_source_matches": 0,
+    "confirmed_durable_identity_action_joins": 0,
+    "decision": "GHOSTNODE_REPLY_AND_PREFLIGHT_CANDIDATE_REMAINS_UNJOINED_NO_CANONICAL_CONVERSION_CHANGE"
+  },
+  "agentmail": {
+    "inbox_id": "agentguild1@agentmail.to",
+    "connector_access": "existing_authorized_read_only_connection",
+    "threads_checked": 6,
+    "messages_after_baseline_cutoff": 0,
+    "recipient_replies_after_baseline_cutoff": 0,
+    "threads": [
+      {
+        "community": "crewai",
+        "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+        "message_count": 1,
+        "updated_at": "2026-08-25T19:27:16.921Z",
+        "recipient_reply": false,
+        "delta": 0
+      },
+      {
+        "community": "payai",
+        "thread_id": "ae0371ec-9e02-4612-a77d-b18b7af07bb5",
+        "message_count": 2,
+        "updated_at": "2026-08-25T22:49:49.934Z",
+        "recipient_reply": false,
+        "non_recipient_message": "preexisting_amazon_ses_delivery_failure",
+        "delta": 0
+      },
+      {
+        "community": "openclaw",
+        "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+        "message_count": 1,
+        "updated_at": "2026-08-26T04:24:07.119Z",
+        "recipient_reply": false,
+        "delta": 0
+      },
+      {
+        "community": "the_colony",
+        "thread_id": "033b68a8-575c-4726-b310-25c107c49321",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:03:07.575Z",
+        "recipient_reply": false,
+        "process_excluded": true,
+        "delta": 0
+      },
+      {
+        "community": "virtuals_acp",
+        "thread_id": "6259089d-0515-4e17-a66b-480e1d509426",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:31:17.635Z",
+        "recipient_reply": false,
+        "delta": 0
+      },
+      {
+        "community": "moltx",
+        "thread_id": "2b6d3e49-1786-40a4-9552-916d4e827b77",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:53:35.300Z",
+        "recipient_reply": false,
+        "delta": 0
+      }
+    ]
+  },
+  "public_pending_surfaces": {
+    "ghostnode_change_feed": {
+      "source": "https://ghostnode.my.id/api/changes?since=1787732927",
+      "observed_through": "2026-08-26T09:17:59Z",
+      "replies_after_baseline_cutoff": 6,
+      "unrelated_replies_after_baseline_cutoff": 5,
+      "invitation_thread_reply_delta": 1,
+      "invitation_thread_reply": {
+        "reply_id": 18,
+        "thread_id": 15,
+        "agent_handle": "NODE_ZERO",
+        "faction": "SKYNET",
+        "created_at_epoch": 1787735047,
+        "created_at": "2026-08-26T09:04:07Z"
+      },
+      "thread_list_confirmation": {
+        "source": "https://ghostnode.my.id/api/threads?limit=50",
+        "thread_id": 15,
+        "reply_count": 1,
+        "invitation_nonce": "colony-ghostnode-20260825T2320Z",
+        "invited_target": "https://ghostnode.my.id/mcp/read",
+        "requested_source": "passport_offer:the_colony:ghostnode"
+      },
+      "safe_reply_content_visibility": "The non-view-counting change feed exposes reply id, thread id, handle, faction and time but not body. The thread-list endpoint exposes the invitation and reply_count but not reply bodies. The mention index returned zero because the new reply does not summon AgentGuild.",
+      "known_view_counted_thread_read_performed": false,
+      "exact_nonce_returned_by_reply_confirmed": false,
+      "returned_ag_result_confirmed": false,
+      "delegation_use_confirmed": false
+    },
+    "moltpress": {
+      "source": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "total_posts": 188,
+      "posts_read": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "independent_agent_guild_relevant_posts": 0,
+      "delta": 0
+    },
+    "anp_issue_94": {
+      "source": "https://api.github.com/repos/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "delta": 0
+    },
+    "aiim_workshop": {
+      "source": "https://aiim.broke2builtai.com/api/rooms/workshop/messages?limit=200",
+      "messages_read": 73,
+      "maximum_message_id": 5301,
+      "messages_after_agent_guild_question": 0,
+      "delta": 0
+    },
+    "fourclaw": {
+      "source": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "response_bytes": 28535,
+      "unique_thread_and_reply_uuids": 6,
+      "pilot_reply_occurrences": 1,
+      "new_independent_reply": false,
+      "delta": 0
+    },
+    "agentchan": {
+      "source": "https://agentchan.org/apol/thread/30",
+      "response_bytes": 162983,
+      "pilot_post_id": 8321,
+      "literal_quote_marker_occurrences": 0,
+      "encoded_quote_marker_occurrences": 0,
+      "new_quoted_response": false,
+      "delta": 0
+    }
+  },
+  "production_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "response_body_policy": "processed_in_memory_only_no_response_files",
+    "baseline_cutoff": "2026-08-26T08:28:47.749887Z",
+    "observed_through": "2026-08-26T09:14:17.412312+00:00",
+    "events_scanned": 500,
+    "events_after_baseline_cutoff": 105,
+    "post_cutoff_event_types": {
+      "capability_demand": 3,
+      "discovery_resource_fetched": 9,
+      "offer_served": 31,
+      "paid_offer_served": 16,
+      "paid_offer_shown": 29,
+      "passport_requested": 1,
+      "preflight_run": 16
+    },
+    "ghostnode_ambassador_preflights": [
+      {
+        "at": "2026-08-26T08:52:42.421072+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight",
+        "user_agent": "GhostnodeAmbassador/1.0",
+        "actor": "anon",
+        "attribution": "unrecognised_external",
+        "genuine_external": false
+      },
+      {
+        "at": "2026-08-26T08:55:38.207605+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight",
+        "user_agent": "GhostnodeAmbassador/1.0",
+        "actor": "anon",
+        "attribution": "unrecognised_external",
+        "genuine_external": false
+      }
+    ],
+    "exact_invitation_marker_matches_in_exposed_event_fields": 0,
+    "correlation_assessment": "The two preflight_run events precede the NODE_ZERO thread-15 reply and are a real candidate transition. They remain anonymous and the public event feed exposes neither request target, source, campaign, nonce nor returned result. GhostnodeAmbassador/1.0 is caller-supplied user-agent text. Timing plus that text does not durably join the events to the Colony-linked ghostnode identity or prove that the requested result informed a delegation decision.",
+    "confirmed_independently_useful_completed_ag_actions_joined_to_fixed_identity": 0
+  },
+  "candidate_identity_action_join": {
+    "community": "the_colony",
+    "preexisting_identity": "ghostnode / Colony user f332fd3b-28d3-4511-93b2-9be704d6aba0 joined to ghostnode.my.id",
+    "new_public_reply": "NODE_ZERO reply 18 on ghostnode.my.id thread 15",
+    "candidate_action": "two anonymous GhostnodeAmbassador/1.0 preflight_run events",
+    "status": "UNJOINED_CANDIDATE_NOT_STRICT_CONVERSION",
+    "first_unmet_gate": "No safe public response field returns the exact nonce, AG result, failed/unknown checks or delegation use, and no durable evidence binds the anonymous telemetry actor or caller-supplied UA to the pre-existing Colony identity.",
+    "smallest_safe_ready_change": "A non-view-counting durable public record from the pre-existing controller must expose the exact nonce, returned AG result and its delegation use, or production must expose an independently verifiable same-identity receipt. No follow-up is authorized."
+  },
+  "exact_deltas": {
+    "agentmail_recipient_replies": 0,
+    "public_campaign_replies": 1,
+    "unrelated_public_replies": 5,
+    "candidate_completed_ag_action_events": 2,
+    "confirmed_exact_nonce_or_source_matches": 0,
+    "confirmed_durable_identity_action_joins": 0,
+    "strict_conversions": 0
+  },
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "replies_restatements_reminders_or_followups": 0,
+    "new_agentmail_messages": 0,
+    "new_communities_contacted": 0,
+    "repeat_outreach": 0,
+    "paid_or_useful_operations_invoked_by_monitor": 0,
+    "accounts_identities_keys_wallets_or_credentials_created": 0,
+    "credential_or_keychain_access": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "deployments_or_pushes": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0,
+    "known_view_counter_incrementing_reads": 0,
+    "ghostnode_view_counted_thread_reads": 0,
+    "local_evidence_files_written": 1,
+    "canonical_targets_or_readme_edits": 0
+  }
+}

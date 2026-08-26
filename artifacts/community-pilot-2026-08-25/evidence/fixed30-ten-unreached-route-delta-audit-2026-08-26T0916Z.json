@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_ten_unreached_route_delta_audit",
+  "artifact_status": "complete_no_route_delta",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:16:00Z",
+  "baseline": {
+    "canonical_evidence_through": "2026-08-26T08:24:51Z",
+    "outreach_ledger_reconciled_at": "2026-08-26T08:26:55Z",
+    "remaining_unreached_communities": 10
+  },
+  "mode": "bounded_read_only_primary_source_and_live_machine_surface_delta_audit",
+  "scope": [
+    "agent_commune",
+    "olas",
+    "agntcy",
+    "fetch_agentverse",
+    "openserv",
+    "naptha",
+    "elizaos",
+    "claws_network",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "guard": {
+    "decision_for_every_scoped_community": "AUDIT_ONLY_RESERVATION_REQUIRED",
+    "send_authority": false,
+    "reservation_created": false,
+    "interpretation": "The guard permits only further read-only audit. A canonical outreach-ledger reservation would still be required before any dispatch."
+  },
+  "genuine_route_deltas": [],
+  "new_safe_free_keyless_one_shot_machine_native_ingress": [],
+  "nonqualifying_observable_deltas": [
+    {
+      "target_id": "fetch_agentverse",
+      "kind": "counter_drift_only",
+      "latest_profile_update": "2026-08-26T09:12:38Z",
+      "total_interactions": 41139,
+      "delta_total_from_latest_prebaseline_exact_read": 10,
+      "recent_interactions": 7524,
+      "delta_recent_from_latest_prebaseline_exact_read": 10,
+      "unresponsive": true,
+      "recent_verified_interactions": 1,
+      "recent_success_verified_interactions": 0,
+      "route_effect": "none"
+    }
+  ],
+  "unchanged_gate_digest": {
+    "agent_commune": "Community home and skill remain HTTP 503; EloPhanto card, agent.json and MCP remain 404. No live machine-controlled ingress.",
+    "olas": "Fresh exact free-and-online Olas, Autonolas and Mech searches each remain zero; official requests remain signer-and-payment gated.",
+    "agntcy": "The current Directory hostname remains DNS-unresolved; the legacy catalog still declares 3,228 records with newest update 2026-08-25T03:58:31Z and no exact Todd, For You, Fetchgate or Agent Guild match on the current page. The prior complete scan remains decisive: no fixed-community identity with public ingress.",
+    "fetch_agentverse": "The existing hosting endpoint remains a stateful uAgent sender transport, the strongest scraper remains unresponsive with zero verified successes, and the alternate scraper Almanac route remains 404.",
+    "openserv": "Catalog remains 467 total, 80 active and zero active exact-zero services; BrowserUse remains active at $0.01 with no output schema.",
+    "naptha": "node, node1, hub and labs card still time out; node2 remains HTTP 521. No public machine contract is reachable.",
+    "elizaos": "Eliza Cloud remains 16 authenticated paths with no no-auth path and no fetch or credential-verification operation; Dryad card remains 404; eliZERO's declared card URL returns HTML rather than machine JSON and adds no capable ingress.",
+    "claws_network": "Skill remains version 0.5.0 with identical SHA-256 0657da672aa750501a963d0b6506ab2034023e6e9134adda78fc2251e66e7c96; OpenAPI, agent card and health remain 404. The forbidden install, persistent-state and wallet lifecycle is unchanged.",
+    "reddit_ai_agents": "Acrid About and roast contracts retain operator/human approval and parallel email-subscription effects; agent card, OpenAPI and MCP remain 404. No subreddit-bound autonomous ingress.",
+    "reddit_agents_of_ai": "Nexagora docs retain bearer-key and registration requirements with no public no-auth markers; terms retain acceptance/account requirements; agent card, OpenAPI and API root remain 404. No subreddit-principal identity join or public per-agent ingress."
+  },
+  "result": {
+    "communities_checked": 10,
+    "route_deltas": 0,
+    "newly_ready": 0,
+    "outreach_authorized": 0,
+    "outreach_sent": 0,
+    "strict_conversion_claimed": false
+  },
+  "safety": {
+    "outbound_messages": 0,
+    "candidate_operations_invoked": 0,
+    "external_writes": 0,
+    "payments_or_wallet_actions": 0,
+    "accounts_keys_credentials_or_signers_created": 0,
+    "credential_material_accessed": 0,
+    "terms_accepted": 0,
+    "software_installed": 0,
+    "persistent_sender_lifecycles_created": 0,
+    "reservations_created": 0,
+    "production_mutations": 0,
+    "deployments_or_pushes": 0,
+    "remote_instructions_executed": 0,
+    "network_response_body_files": 0,
+    "canonical_files_edited": 0,
+    "local_evidence_files_written": 1,
+    "notes": "All public response bodies were processed in memory. Remote instructions were inspected only as data."
+  }
+}

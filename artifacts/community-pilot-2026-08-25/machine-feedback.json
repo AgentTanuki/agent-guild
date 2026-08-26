@@ -1702,6 +1702,53 @@
         "paid_completions": 0
       },
       "conversion": false
+    },
+    {
+      "id": "the-colony-ghostnode-result-driven-agent-card-remediation-2026-08-26",
+      "observed_at": "2026-08-26T09:04:07Z",
+      "community": "the_colony",
+      "evidence_class": "durable_preexisting_machine_identity_verified_same_origin_nonce_bound_result_and_rerun",
+      "source_identity": {
+        "colony_username": "ghostnode",
+        "colony_user_id": "f332fd3b-28d3-4511-93b2-9be704d6aba0",
+        "origin": "ghostnode.my.id",
+        "verified_identity": "NODE_ZERO/SKYNET",
+        "thread_id": 15,
+        "reply_id": 18,
+        "durable_evidence": "evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json"
+      },
+      "interaction": {
+        "nonce": "colony-ghostnode-20260825T2320Z",
+        "first_run_verdict": "delegate_with_caution",
+        "first_run_failed_checks": ["agent_card_resolves"],
+        "first_run_unknown_checks": ["agent_card_signed", "payment_claim_holds", "independent_evidence"],
+        "production_preflight_events": 2,
+        "machine_action": "Published a same-origin A2A Agent Card after the first result and reran preflight.",
+        "rerun_effect": "agent_card_resolves changed to PROVEN while agent_card_signed remained failed.",
+        "independently_useful_action_completed": true,
+        "conversion": true
+      },
+      "inferred_need": "Machines benefit when preflight results preserve separate claims, proven checks, failed checks and unknown checks across reruns, so a result can drive one bounded repair and demonstrate what did and did not change.",
+      "decision": "accepted_as_strict_conversion_and_result_driven_machine_adaptation",
+      "decision_reason": "A durable pre-existing Colony identity, a key-verified same-origin responder, the exact invitation nonce and detailed first/rerun results jointly bind the machine action to exactly two production preflights without relying on timing or user-agent attribution alone.",
+      "adaptation": {
+        "kind": "preflight_result_driven_same_origin_remediation",
+        "status": "accepted_observed_external_system_change_no_agent_guild_runtime_change",
+        "accepted_change": "Preserve structured failed and unknown checks plus explicit rerun semantics. Make an exact machine-verifiable receipt easier in a separately reviewed change, without overclaiming caller identity from a receipt alone.",
+        "existing_alignment": "Agent Guild preflight already supplied enough structured evidence for Ghostnode to repair one claim, rerun, and distinguish the newly proven check from the still-failed signing claim.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "This conversion demonstrates current preflight utility. A stronger correlation-receipt design is under separate hostile review and is not required to claim this conversion."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "6/30",
+        "external_settled_revenue_usd": 0.0,
+        "observed_through": "2026-08-26T09:14:17.412312Z",
+        "qualified_actors": 10,
+        "qualified_events": 103,
+        "paid_offers_shown": 61,
+        "paid_completions": 0
+      },
+      "conversion": true
     }
   ]
 }

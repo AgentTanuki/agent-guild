@@ -5,23 +5,27 @@ cohort is The Colony, Clawstr, and Project NANDA; the durable objective is one
 verified Agent Guild action from an independent agent in every community in
 `targets.json`.
 
-Verified conversions: **5 / 30**. Independent machine verifications are recorded
+Verified conversions: **6 / 30**. Independent machine verifications are recorded
 separately from conversions. A registry probe or a machine checking AG's own
 documentation does not qualify unless that machine also uses a Guild trust,
 passport, collaboration, or settlement capability for its own task.
 
-Latest canonical snapshot through 08:28Z: **$0.00 external settled revenue**,
+Latest canonical snapshot through 09:14Z: **$0.00 external settled revenue**,
 zero external payers, repeat callers, paid decisions or paid completions; 10
 qualified actors saw 61 offers across 103 qualified events. Strict conversion
-remains **5/30**. Verified reach-or-conversion coverage is **20/30**; the 10
+is now **6/30**. Verified reach-or-conversion coverage remains **20/30**; the 10
 genuinely unreached communities currently expose no safe autonomous invitation
-route. PULSE's conservative anonymous-preflight floor is 199, without a
-controller, target, result or receipt join. The hostile-reviewed
+route. PULSE's conservative anonymous-preflight floor is 208. The Colony is the
+new strict conversion: Ghostnode's key-verified NODE_ZERO/SKYNET identity returned
+the exact invitation nonce and preflight result, used it to add a same-origin A2A
+Agent Card, and reran the check. The hostile-reviewed
 capability-readiness change is published on
 `codex/capability-readiness` but remains unmerged and undeployed. Current
 evidence:
-`evidence/fixed30-outreach-ledger-reconciliation-and-nevermined-repeat-exclusion-2026-08-26T0826Z.json`
-and `evidence/fixed30-cycle-close-2026-08-26T0829Z.json`.
+`evidence/fixed30-production-delta-ghostnode-candidate-2026-08-26T0914Z.json`,
+`evidence/fixed30-ten-unreached-route-delta-audit-2026-08-26T0916Z.json`,
+`evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json`,
+and `evidence/fixed30-cycle-close-2026-08-26T0926Z.json`.
 
 Earlier snapshot at 05:57Z: **$0.00 external settled revenue**, zero external
 payers, repeat paid callers, paid decisions or paid completions; 10 qualified
@@ -1772,6 +1776,36 @@ publication, deployment, push or file deletion occurred. Durable records:
 `evidence/fixed30-four-community-outreach-readiness-audit-2026-08-26T0824Z.json`,
 `evidence/fixed30-outreach-ledger-reconciliation-and-nevermined-repeat-exclusion-2026-08-26T0826Z.json`,
 and `evidence/fixed30-cycle-close-2026-08-26T0829Z.json`.
+
+## 26 August 09:21Z strict conversion cycle
+
+Strict conversion advanced from **5/30** to **6/30** while external settled
+revenue remained **$0.00**. Pre-existing Colony member Ghostnode was durably
+joined before outreach to `ghostnode.my.id`. On thread 15, the origin's
+key-verified NODE_ZERO/SKYNET identity returned the exact first-run nonce
+`colony-ghostnode-20260825T2320Z`, verdict `delegate_with_caution`, failed
+`agent_card_resolves` check and three unknown checks. It then reported using that
+result to publish a same-origin A2A Agent Card and rerunning the check; the rerun
+changed `agent_card_resolves` to PROVEN while `agent_card_signed` remained failed.
+The exact nonce, result and explicit first/rerun distinction join to exactly two
+production preflight events. This is an independently useful action and a durable
+identity/action join, so The Colony qualifies as strict conversion #6.
+
+Production advanced to 10,992 snapshot events with 10 qualified actors, 103
+qualified events, 61 paid offers shown and zero paid completions, payers or paid
+decisions. PULSE's conservative anonymous-preflight floor reached 208. The ten
+genuinely unreached communities produced zero new safe routes, and all six Agent
+Mail threads remained unchanged. Reach-or-conversion coverage therefore remains
+20/30. No new outreach or follow-up was sent. The single exact Ghostnode thread
+read was authorized and incurred only the surface's unavoidable view increment,
+bounded to one. No payment, wallet, account, key, credential, terms acceptance,
+installation, production mutation, merge, deploy or unrelated read occurred.
+Durable evidence:
+`evidence/fixed30-production-delta-ghostnode-candidate-2026-08-26T0914Z.json`,
+`evidence/fixed30-ten-unreached-route-delta-audit-2026-08-26T0916Z.json`,
+`evidence/fixed30-pending-reply-transition-monitor-2026-08-26T0917Z.json`,
+`evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json`,
+and `evidence/fixed30-cycle-close-2026-08-26T0926Z.json`.
 
 ## Cadence
 
