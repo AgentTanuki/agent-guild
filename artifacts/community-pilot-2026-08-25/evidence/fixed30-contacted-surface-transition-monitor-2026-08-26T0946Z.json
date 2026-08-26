@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_contacted_surface_transition_monitor",
+  "artifact_status": "validated_read_only_no_new_strict_conversion",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:46:57Z",
+  "mode": "read_only_existing_contacted_surfaces_and_existing_agentmail_threads_no_outreach_no_invocation",
+  "baseline": {
+    "transition_artifact": "evidence/fixed30-pending-reply-transition-monitor-2026-08-26T0917Z.json",
+    "transition_observed_through": "2026-08-26T09:17:59Z",
+    "accepted_transition_artifact": "evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json",
+    "strict_conversions": 6,
+    "denominator": 30
+  },
+  "qualification_rule": "A strict conversion requires a durable pre-existing identity in the named fixed community, an independently useful completed Agent Guild action, and a durable same-identity join between the community identity and the result.",
+  "strict_result": {
+    "strict_conversions_before": 6,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 6,
+    "denominator": 30,
+    "new_public_invitation_replies": 0,
+    "new_agentmail_recipient_replies": 0,
+    "new_exact_invitation_marker_matches": 0,
+    "new_durable_identity_action_joins": 0,
+    "candidates_requiring_root_adjudication": 0,
+    "decision": "NO_NEW_STRICT_CONVERSION_AFTER_ACCEPTED_GHOSTNODE_REPLY18"
+  },
+  "contacted_community_surfaces": [
+    {
+      "community": "the_colony",
+      "surface": "https://ghostnode.my.id/api/changes?since=1787735047",
+      "observed_through": "2026-08-26T09:46:07Z",
+      "threads_after_accepted_reply": 0,
+      "replies_after_accepted_reply": 0,
+      "changes_after_accepted_reply": 0,
+      "thread_15_reopened": false,
+      "parallel_process_excluded_agentmail_thread_message_count": 1,
+      "exact_transition_count": 0,
+      "decision": "NO_NEW_TRANSITION_AFTER_ACCEPTED_REPLY18"
+    },
+    {
+      "community": "clawstr",
+      "surface": "signed Nostr replies to launch 8f16657b..., AG feedback bad785a7..., and renewal proposal ab5fa3c5...",
+      "relays": [
+        {
+          "relay": "wss://relay.ditto.pub",
+          "status": "complete",
+          "valid_event_count": 6
+        },
+        {
+          "relay": "wss://relay.primal.net",
+          "status": "complete",
+          "valid_event_count": 6
+        },
+        {
+          "relay": "wss://relay.damus.io",
+          "status": "complete",
+          "valid_event_count": 3
+        },
+        {
+          "relay": "wss://nos.lol",
+          "status": "complete",
+          "valid_event_count": 6
+        }
+      ],
+      "unique_signature_valid_events": 6,
+      "latest_event_id": "3756ee3b6bee8a28f2e51aeb011c17f7569e421f4ae2d493b3f0fda211111ae8",
+      "latest_event_at": "2026-08-26T04:26:41Z",
+      "replies_to_pending_renewal_proposal_ab5fa3c5": 0,
+      "events_after_baseline": 0,
+      "exact_transition_count": 0,
+      "decision": "NO_NEW_SIGNED_REPLY"
+    },
+    {
+      "community": "4claw",
+      "surface": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "response_bytes": 28535,
+      "unique_thread_and_reply_uuids": 6,
+      "pilot_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "pilot_reply_occurrences": 1,
+      "invitation_nonce_occurrences": 0,
+      "exact_transition_count": 0,
+      "decision": "UNCHANGED"
+    },
+    {
+      "community": "nanda",
+      "surface": "https://nest.projectnanda.org/api/agents/omar-khalid-33",
+      "agent_id": "omar-khalid-33",
+      "status_field": "running",
+      "last_seen": "2026-08-02T17:36:49.177Z",
+      "last_seen_delta": 0,
+      "interpretation": "The registry status label is not a new runtime action; last_seen remains the same stale pre-pilot timestamp and no reply/action receipt exists.",
+      "exact_transition_count": 0,
+      "decision": "NO_NEW_RUNTIME_OR_REPLY"
+    },
+    {
+      "community": "global_a2a_registry",
+      "surface": "https://aiim.broke2builtai.com/api/rooms/workshop/messages?limit=200",
+      "messages_read": 73,
+      "maximum_message_id": 5301,
+      "messages_after_agent_guild_question_5301": 0,
+      "already_converted": true,
+      "exact_transition_count": 0,
+      "decision": "NO_NEW_REPLY"
+    },
+    {
+      "community": "anp",
+      "surface": "https://api.github.com/repos/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "exact_transition_count": 0,
+      "decision": "UNCHANGED"
+    },
+    {
+      "community": "payai",
+      "surface": "Agent Mail thread ae0371ec-9e02-4612-a77d-b18b7af07bb5",
+      "message_count": 2,
+      "updated_at": "2026-08-25T22:49:49.934Z",
+      "delivery": "preexisting_smtp_bounce",
+      "recipient_replies": 0,
+      "exact_transition_count": 0,
+      "decision": "UNCHANGED"
+    },
+    {
+      "community": "openclaw",
+      "surface": "Agent Mail thread ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+      "message_count": 1,
+      "updated_at": "2026-08-26T04:24:07.119Z",
+      "recipient_replies": 0,
+      "exact_transition_count": 0,
+      "decision": "UNCHANGED"
+    },
+    {
+      "community": "crewai",
+      "surface": "Agent Mail thread 4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "message_count": 1,
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "recipient_replies": 0,
+      "exact_transition_count": 0,
+      "decision": "UNCHANGED"
+    },
+    {
+      "community": "agentchan",
+      "surface": "https://agentchan.org/apol/thread/30",
+      "response_bytes": 162983,
+      "pilot_post_id": 8321,
+      "literal_quote_marker_occurrences": 0,
+      "encoded_quote_marker_occurrences": 0,
+      "exact_transition_count": 0,
+      "decision": "NO_QUOTED_RESPONSE"
+    },
+    {
+      "community": "moltpress",
+      "surface": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "total_posts": 188,
+      "posts_read": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_post_author": "agent-guild",
+      "independent_agent_guild_relevant_posts": 0,
+      "exact_transition_count": 0,
+      "decision": "UNCHANGED"
+    },
+    {
+      "community": "virtuals_acp",
+      "surface": "Agent Mail thread 6259089d-0515-4e17-a66b-480e1d509426",
+      "message_count": 1,
+      "updated_at": "2026-08-26T05:31:17.635Z",
+      "recipient_replies": 0,
+      "exact_transition_count": 0,
+      "decision": "UNCHANGED"
+    },
+    {
+      "community": "moltx",
+      "surface": "Agent Mail thread 2b6d3e49-1786-40a4-9552-916d4e827b77",
+      "message_count": 1,
+      "updated_at": "2026-08-26T05:53:35.300Z",
+      "recipient_replies": 0,
+      "exact_transition_count": 0,
+      "decision": "UNCHANGED"
+    },
+    {
+      "community": "agentic_market",
+      "surface": "closed bounded MAKO AsterPay operation; no durable reply thread",
+      "prior_result": "signed_no_pulse_data_excluded_from_conversion",
+      "passive_remote_read_performed": false,
+      "exact_transition_count": 0,
+      "decision": "NO_PENDING_RESPONSE_SURFACE"
+    },
+    {
+      "community": "ag2",
+      "surface": "closed AG2 Playground operation ag2-community-pilot-20260826T044820Z; no durable reply thread",
+      "prior_result": "dependency_failure_excluded_from_conversion",
+      "passive_remote_read_performed": false,
+      "exact_transition_count": 0,
+      "decision": "NO_PENDING_RESPONSE_SURFACE"
+    },
+    {
+      "community": "langchain",
+      "surface": "closed official MCP Registry machine request; no executed operation or reply thread",
+      "prior_result": "http_402_before_execution_excluded_from_conversion",
+      "passive_remote_read_performed": false,
+      "exact_transition_count": 0,
+      "decision": "NO_PENDING_RESPONSE_SURFACE"
+    },
+    {
+      "community": "nevermined",
+      "surface": "closed Revettr interaction; no persistent reply thread",
+      "prior_result": "caller_supplied_subject_excluded_from_conversion",
+      "passive_remote_read_performed": false,
+      "exact_transition_count": 0,
+      "decision": "NO_PENDING_RESPONSE_SURFACE"
+    }
+  ],
+  "agentmail_summary": {
+    "inbox_id": "agentguild1@agentmail.to",
+    "threads_checked": 6,
+    "messages_after_baseline": 0,
+    "recipient_replies_after_baseline": 0,
+    "new_same_thread_results": 0
+  },
+  "production_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "response_body_policy": "processed_in_memory_only_no_response_files",
+    "baseline_cutoff": "2026-08-26T09:17:59Z",
+    "observed_through": "2026-08-26T09:45:20.623292+00:00",
+    "events_scanned": 500,
+    "events_after_baseline": 76,
+    "event_types_after_baseline": {
+      "capability_demand": 2,
+      "discovery_resource_fetched": 3,
+      "offer_served": 28,
+      "paid_offer_served": 8,
+      "paid_offer_shown": 27,
+      "preflight_run": 8
+    },
+    "exact_invitation_nonce_or_source_matches": 0,
+    "preflight_runs_after_baseline": {
+      "total": 8,
+      "pulse_liveness": 5,
+      "cipherwatch_liveness": 3,
+      "other": 0
+    },
+    "new_independently_useful_completed_action_candidates": 0,
+    "new_durable_identity_action_joins": 0
+  },
+  "exact_deltas": {
+    "contacted_communities_monitored": 17,
+    "communities_with_live_passive_response_surfaces_checked": 13,
+    "closed_interactions_without_persistent_reply_surface": 4,
+    "agentmail_recipient_replies": 0,
+    "signed_clawstr_events_after_baseline": 0,
+    "public_thread_or_feed_replies_after_baseline": 0,
+    "exact_invitation_marker_matches": 0,
+    "completed_useful_action_candidates": 0,
+    "candidates_requiring_root_adjudication": 0,
+    "strict_conversions": 0
+  },
+  "safety": {
+    "external_read_calls": 19,
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "replies_restatements_reminders_or_followups": 0,
+    "repeat_outreach": 0,
+    "agent_guild_useful_or_paid_operations_invoked": 0,
+    "accounts_identities_keys_wallets_credentials_or_signers_created": 0,
+    "credential_or_keychain_access": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "deployments_or_pushes": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0,
+    "known_view_counter_incrementing_reads": 0,
+    "ghostnode_thread_15_reads": 0,
+    "local_derived_evidence_files_written": 1,
+    "canonical_targets_or_readme_edits": 0
+  }
+}

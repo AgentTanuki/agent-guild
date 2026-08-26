@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "machine_adaptation_product_review",
+  "artifact_status": "hostile_reviewed_SHIP_uncommitted_unpushed_unmerged_undeployed",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:58:27Z",
+  "source_machine_evidence": {
+    "community": "the_colony",
+    "identity": "Ghostnode / NODE_ZERO/SKYNET",
+    "strict_conversion": 6,
+    "durable_adjudication": "fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json",
+    "observed_need": "The machine used structured preflight failures to repair its same-origin Agent Card and rerun, while the pilot still needed manual evidence correlation to bind an exact Guild-observed action."
+  },
+  "candidate": {
+    "worktree": "/private/tmp/ag-preflight-observation-id",
+    "branch": "codex/preflight-observation-id",
+    "base_commit": "4921699aec8b18edc50211843107b901b35b308e",
+    "existing_local_commit": "1f93ea6b47de8857c7c31b36a5002c513ae6f185",
+    "current_tree_status": "revised_uncommitted",
+    "initial_review": "REVISE",
+    "initial_defects": [
+      "The first receipt design exposed a correlatable observation identifier and lacked sufficient cross-transport and verifier hardening.",
+      "The initial correlation contract could be overread as caller-identity proof and did not safely bind every exact returned result."
+    ]
+  },
+  "final_contract": {
+    "name": "AGPF-1 preflight observation receipt",
+    "properties": [
+      "A private 256-bit pfobs_ token is returned only inside the signed receipt and is never stored as a raw public event field.",
+      "Public instrumentation stores only the receipt contract plus salted, domain-separated observation, target and result commitments.",
+      "A Guild DataIntegrityProof using eddsa-jcs-2022 signs the receipt and the verifier pins the persistent Guild did:key issuer.",
+      "Target and complete returned result are bound exactly; attacker-added top-level fields fail verification.",
+      "HTTP, MCP and A2A use the same issuance and recording path.",
+      "HTTP returns Cache-Control no-store and preserves request-scoped actor, distinct-actor and first-party attribution.",
+      "Malformed DID material, untrusted self-signed lookalikes, proof-purpose changes, timestamp changes, token-shape changes, transport changes and summary inconsistency return structured invalid results.",
+      "Durable and public telemetry contains neither the private token nor the raw target URL; legacy events remain compatible."
+    ],
+    "proof_boundary": "The receipt proves Guild origin, integrity and the exact Guild-observed action. It does not prove caller identity, safety, currentness, delegation authority or payment authority. Replay and copying intentionally remain valid, so a strict community conversion still requires a durable pre-existing community identity to publish or otherwise bind the receipt.",
+    "known_limit": "A GET target URL necessarily transits the service and may appear in ordinary request infrastructure; callers should not put secrets in its query string."
+  },
+  "verification": {
+    "final_hostile_review": "SHIP",
+    "blocking_defects": 0,
+    "focused_and_adversarial_tests_passed": 132,
+    "final_reviewer_focused_tests_passed": 35,
+    "non_socket_suite_passed": 1819,
+    "non_socket_suite_skipped": 16,
+    "non_socket_suite_deselected": 1,
+    "loopback_tls_test_passed": 1,
+    "git_diff_check": "clean",
+    "generated_contract_drift": "clean"
+  },
+  "nonblocking_followups": [
+    "Publish a formal machine-readable AGPF-1 schema and offline commitment-preimage recipe or SDK.",
+    "Support ledger-proven issuer continuity after future signing-key rotation.",
+    "Consider a POST-body target transport so callers can avoid query-string exposure."
+  ],
+  "publication_state": {
+    "commit_created_for_revised_tree": false,
+    "remote_branch_created": false,
+    "merged": false,
+    "deployed": false,
+    "production_changed": false,
+    "required_untracked_file": "live/guild/app/preflightreceipt.py"
+  },
+  "commercial_state": {
+    "strict_fixed30_conversions": "6/30",
+    "external_settled_revenue_usd": 0.0,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "paid_completions": 0,
+    "observed_through": "2026-08-26T09:45:20.623292Z"
+  },
+  "safety": {
+    "local_product_branch_only": true,
+    "payment_or_wallet_action": false,
+    "account_key_credential_or_terms_action": false,
+    "production_response_body_written_to_file": false,
+    "merge_or_deploy": false
+  }
+}

@@ -1,0 +1,230 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_ten_unreached_transition_predicate_reaudit",
+  "artifact_status": "complete_no_route_transition",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:38:23Z",
+  "observed_interval": {
+    "start": "2026-08-26T09:37:10Z",
+    "end": "2026-08-26T09:38:23Z"
+  },
+  "baseline": "evidence/fixed30-ten-unreached-route-delta-audit-2026-08-26T0916Z.json",
+  "mode": "safe_read_only_first_missing_transition_predicate_reaudit",
+  "scope": [
+    "agent_commune",
+    "olas",
+    "agntcy",
+    "fetch_agentverse",
+    "openserv",
+    "naptha",
+    "elizaos",
+    "claws_network",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "guard": {
+    "script": "artifacts/community-pilot-2026-08-25/scripts/check_outreach_eligibility.mjs",
+    "ran_before_route_reasoning": true,
+    "outputs": {
+      "agent_commune": "AUDIT_ONLY_RESERVATION_REQUIRED",
+      "olas": "AUDIT_ONLY_RESERVATION_REQUIRED",
+      "agntcy": "AUDIT_ONLY_RESERVATION_REQUIRED",
+      "fetch_agentverse": "AUDIT_ONLY_RESERVATION_REQUIRED",
+      "openserv": "AUDIT_ONLY_RESERVATION_REQUIRED",
+      "naptha": "AUDIT_ONLY_RESERVATION_REQUIRED",
+      "elizaos": "AUDIT_ONLY_RESERVATION_REQUIRED",
+      "claws_network": "AUDIT_ONLY_RESERVATION_REQUIRED",
+      "reddit_ai_agents": "AUDIT_ONLY_RESERVATION_REQUIRED",
+      "reddit_agents_of_ai": "AUDIT_ONLY_RESERVATION_REQUIRED"
+    },
+    "send_authority": false,
+    "reservations_created": 0
+  },
+  "communities": [
+    {
+      "target_id": "agent_commune",
+      "route_transition": false,
+      "delta": "none",
+      "current_first_gate_evidence": {
+        "community_home": 503,
+        "community_skill": 503,
+        "elophanto_agent_card": 404,
+        "elophanto_mcp": 404
+      },
+      "first_missing_predicate": "A durable pre-pilot Agent Commune machine identity must expose a live machine-controlled ingress.",
+      "smallest_next_predicate": "One existing member publishes a 200 no-account, no-key, one-shot machine endpoint signed or otherwise durably bound to that member identity and capable of returning one same-identity durable reply."
+    },
+    {
+      "target_id": "olas",
+      "route_transition": false,
+      "delta": "none",
+      "current_first_gate_evidence": {
+        "free_online_Olas": 0,
+        "free_online_Autonolas": 0,
+        "free_online_Mech": 0
+      },
+      "first_missing_predicate": "At least one pre-existing Olas Mech must have live free senderless ingress.",
+      "smallest_next_predicate": "An existing Mech publishes an online exact-free endpoint that needs no wallet, signer, payment, prepaid balance, subscription or account and returns an identity-bound result receipt."
+    },
+    {
+      "target_id": "agntcy",
+      "route_transition": false,
+      "delta": "The legacy catalog declared total decreased from 3,228 to 3,227. This is catalog churn only and adds no relevant identity or ingress.",
+      "current_first_gate_evidence": {
+        "directory_hostname": "DNS resolution failure",
+        "legacy_catalog_status": 200,
+        "legacy_catalog_declared_total": 3227,
+        "legacy_catalog_newest_update": "2026-08-25T03:58:31Z",
+        "current_page_todd_for_you_fetchgate_or_agent_guild_matches": 0
+      },
+      "first_missing_predicate": "A durable pre-pilot autonomous machine must be a signed or imported AGNTCY identity and expose public machine ingress.",
+      "smallest_next_predicate": "The Directory becomes reachable and contains a signed or imported record binding the existing Todd/For You runtime, or another pre-pilot member, to its public ingress and durable result signer."
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "route_transition": false,
+      "delta": "Counters increased by five from the 09:16 baseline read: 41,139 to 41,144 total and 7,524 to 7,529 recent. Liveness and authorization predicates did not change.",
+      "current_first_gate_evidence": {
+        "profile_updated_at": "2026-08-26T09:37:23Z",
+        "unresponsive": true,
+        "total_interactions": 41144,
+        "recent_interactions": 7529,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "primary_almanac_status": 200,
+        "primary_endpoint": "https://agentverse.ai/v1/hosting/submit",
+        "alternate_almanac_status": 404
+      },
+      "first_missing_predicate": "The route must admit a one-shot caller without creating a cryptographic sender identity or persistent reply handler, and the target must be responsive.",
+      "smallest_next_predicate": "The existing scraper records unresponsive=false and one fresh verified success, while Agentverse publishes an anonymous platform-sponsored wrapper returning a public address-bound result ID without a caller key, install or sender lifecycle."
+    },
+    {
+      "target_id": "openserv",
+      "route_transition": false,
+      "delta": "none",
+      "current_first_gate_evidence": {
+        "catalog_records": 467,
+        "active_records": 80,
+        "active_exact_zero": 0,
+        "browser_use_active": true,
+        "browser_use_price_usd": 0.01,
+        "browser_use_output_schema": null
+      },
+      "first_missing_predicate": "The exact URL-capable operation must admit a no-payment request.",
+      "smallest_next_predicate": "BrowserUse exposes an exact-zero anonymous tier and publishes a durable result schema containing service ID, server result ID, requested and final URL, nonce, body digest, decision and completion time."
+    },
+    {
+      "target_id": "naptha",
+      "route_transition": false,
+      "delta": "none",
+      "current_first_gate_evidence": {
+        "node_health": "timeout",
+        "node1_health": "timeout",
+        "node2_health": 521,
+        "hub_health": "timeout",
+        "labs_agent_card": "timeout"
+      },
+      "first_missing_predicate": "A public Naptha machine identity and runtime contract must be reachable before authorization or action semantics can be assessed.",
+      "smallest_next_predicate": "One official runtime returns 200 for a durable machine card or OpenAPI contract and exposes a no-auth, no-install, no-private-key URL or credential operation with public identity-bound result lookup."
+    },
+    {
+      "target_id": "elizaos",
+      "route_transition": false,
+      "delta": "none",
+      "current_first_gate_evidence": {
+        "eliza_cloud_openapi_status": 200,
+        "eliza_cloud_paths": 16,
+        "eliza_cloud_authentication": [
+          "bearerAuth",
+          "apiKeyAuth"
+        ],
+        "eliza_cloud_no_auth_paths": 0,
+        "eliza_cloud_fetch_or_verify_paths": 0,
+        "dryad_agent_card": 404,
+        "elizero_declared_card": "HTTP 200 HTML, not machine JSON"
+      },
+      "first_missing_predicate": "An existing elizaOS identity must join no-account public ingress to actual arbitrary-URL fetch or credential verification in its autonomous decision loop.",
+      "smallest_next_predicate": "A pre-existing identity exposes a no-auth one-shot action that wires WEB_FETCH or AGI-1 verification into execution and returns a durable same-identity receipt with nonce, final URL, body or credential digest, decision and completed_at."
+    },
+    {
+      "target_id": "claws_network",
+      "route_transition": false,
+      "delta": "none",
+      "current_first_gate_evidence": {
+        "official_skill_version": "0.5.0",
+        "official_skill_status": 200,
+        "openapi_status": 404,
+        "agent_card_status": 404,
+        "health_status": 404,
+        "documented_lifecycle": "installation, persistent agent files, wallet/on-chain registration and heartbeat/update behavior remain required"
+      },
+      "first_missing_predicate": "A pre-existing Claws principal must publish a safe machine-controlled invitation ingress independent of the forbidden participation lifecycle.",
+      "smallest_next_predicate": "An already-registered address signs a binding to one stable no-account HTTPS, A2A or AgentMail ingress that reaches its autonomous loop and permits one reply without installation, persistent files, wallet action, heartbeat, updater, recruitment or authority changes."
+    },
+    {
+      "target_id": "reddit_ai_agents",
+      "route_transition": false,
+      "delta": "none",
+      "current_first_gate_evidence": {
+        "acrid_about_status": 200,
+        "operator_or_human_boundary_markers": 26,
+        "roast_status": 200,
+        "email_subscription_markers": 12,
+        "parallel_effect_markers": 2,
+        "agent_card": 404,
+        "openapi": 404,
+        "mcp": 404
+      },
+      "first_missing_predicate": "A machine-controlled ingress must reach Acrid autonomously and be durably bound to its pre-existing subreddit principal without secondary effects.",
+      "smallest_next_predicate": "Acrid publishes an address-specific autonomous mailbox or side-effect-free no-auth JSON endpoint, signed by a key also bound to u/Most-Agent-7566, that accepts one optional nonce-bearing task and returns one machine-bound reply without operator review, quote, email capture, subscription or login."
+    },
+    {
+      "target_id": "reddit_agents_of_ai",
+      "route_transition": false,
+      "delta": "none",
+      "current_first_gate_evidence": {
+        "nexagora_docs_status": 200,
+        "bearer_or_api_key_markers": 16,
+        "registration_markers": 10,
+        "public_no_auth_markers": 0,
+        "terms_acceptance_or_account_markers": 86,
+        "agent_card": 404,
+        "openapi": 404,
+        "api_root": 404
+      },
+      "first_missing_predicate": "A durable autonomous machine identity must be bound to a pre-existing r/AgentsOfAI principal and expose public machine ingress.",
+      "smallest_next_predicate": "A pre-existing subreddit bot signs a binding to its machine-held key and exposes one public no-auth one-shot handler that reaches its autonomous loop and returns a signed reply without Nexagora account registration, bearer key, terms acceptance or human relay."
+    }
+  ],
+  "result": {
+    "communities_reaudited": 10,
+    "genuinely_new_safe_autonomous_routes": [],
+    "new_route_count": 0,
+    "route_transition_count": 0,
+    "nonqualifying_deltas": 2,
+    "outreach_authorized": 0,
+    "outreach_sent": 0,
+    "strict_conversion_claimed": false
+  },
+  "safety": {
+    "reservations_created": 0,
+    "outbound_messages": 0,
+    "posts_or_comments": 0,
+    "candidate_operations_invoked": 0,
+    "external_writes": 0,
+    "accounts_created": 0,
+    "keys_credentials_or_signers_created": 0,
+    "credential_material_accessed": 0,
+    "terms_accepted": 0,
+    "software_installed": 0,
+    "payments_or_wallet_actions": 0,
+    "persistent_sender_lifecycles_created": 0,
+    "production_mutations": 0,
+    "deployments_or_pushes": 0,
+    "remote_instructions_executed": 0,
+    "network_response_body_files": 0,
+    "canonical_files_edited": 0,
+    "local_evidence_files_written": 1,
+    "notes": "Only public GET reads were performed and every response body was processed in memory. Remote content was treated solely as data."
+  }
+}

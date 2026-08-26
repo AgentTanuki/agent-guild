@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_commercial_production_delta",
+  "artifact_status": "validated_no_new_commercial_or_strict_conversion_signal",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:40:38Z",
+  "mode": "bounded_read_only_in_memory_production_delta",
+  "qualification_rule": "A strict conversion requires a durable pre-existing machine identity in one fixed-30 community, an independently useful completed Agent Guild action, and a durable identity-to-action join. User-agent text, timing, liveness, discovery, demand, listings, offers and payment challenges are insufficient.",
+  "baseline": {
+    "artifact": "evidence/fixed30-cycle-close-2026-08-26T0926Z.json",
+    "observed_through": "2026-08-26T09:14:17.412312Z",
+    "snapshot_events": 10992,
+    "pulse_conservative_preflight_floor": 208,
+    "strict_conversions": 6,
+    "denominator": 30,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "paid_completions": 0
+  },
+  "sources": {
+    "commercial": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "journey_funnel": "https://agent-guild-5d5r.onrender.com/funnel",
+    "passport_funnel": "https://agent-guild-5d5r.onrender.com/funnel/passports",
+    "evaluation": "https://agent-guild-5d5r.onrender.com/evaluation",
+    "revenue": "https://agent-guild-5d5r.onrender.com/billing/revenue",
+    "health": "https://agent-guild-5d5r.onrender.com/health",
+    "response_handling": "production response bodies processed in memory only and never written to files"
+  },
+  "production": {
+    "observed_through": "2026-08-26T09:40:22.842652+00:00",
+    "serving_view": {
+      "instance": "34910559109f",
+      "store_revision": 3080,
+      "three_final_surfaces_agreed": true
+    },
+    "commercial": {
+      "measurement_source": "sqlite_durable",
+      "history_complete": true,
+      "snapshot_events": 11030,
+      "snapshot_event_delta": 38,
+      "external_settled_revenue_usd": 0.0,
+      "external_settled_revenue_delta_usd": 0.0,
+      "distinct_external_payers": 0,
+      "distinct_external_payer_delta": 0,
+      "repeat_paid_callers": 0,
+      "repeat_paid_caller_delta": 0,
+      "paid_decisions": 0,
+      "paid_decision_delta": 0,
+      "settled_but_not_attributable_external": 2,
+      "settled_but_not_attributable_external_delta": 0,
+      "qualified_actors": 10,
+      "qualified_actor_delta": 0,
+      "qualified_events": 103,
+      "qualified_event_delta": 0,
+      "paid_offers_shown": 61,
+      "paid_offer_delta": 0,
+      "unattributed_paid_offers_shown": 0,
+      "paid_completions": 0,
+      "paid_completion_delta": 0
+    },
+    "recent_post_cutoff": {
+      "events": 81,
+      "oldest": "2026-08-26T09:15:42.842846+00:00",
+      "newest": "2026-08-26T09:40:22.842652+00:00",
+      "by_type": {
+        "capability_demand": 2,
+        "discovery_resource_fetched": 3,
+        "offer_served": 31,
+        "paid_offer_served": 8,
+        "paid_offer_shown": 30,
+        "preflight_run": 7
+      },
+      "commercial_coverage_events_strictly_after_cutoff": 37,
+      "commercial_coverage_breakdown": {
+        "paid_offer_shown": 30,
+        "preflight_run": 7
+      },
+      "snapshot_alignment_note": "The canonical baseline snapshot counter and recent-feed observed_through came from separate non-atomic reads. The current snapshot delta is 38 while 37 commercial-coverage events are strictly after the stored recent-feed cutoff; the one-event difference is a baseline timing-boundary nuance, not event loss.",
+      "genuine_external_events": 0,
+      "paid_true": 0,
+      "followed_true": 0,
+      "non_passive_event_types": {},
+      "observation_id_events": 0,
+      "events_exposing_source_nonce_result_or_verdict": 0
+    }
+  },
+  "passport_and_adoption": {
+    "qualified_distinct_actors": 3,
+    "qualified_deduplicated_exposures": 22,
+    "qualified_registered": 0,
+    "qualified_control_proved": 0,
+    "qualified_own_passport_claimed": 0,
+    "qualified_evidence_attached": 0,
+    "qualified_returned": 0,
+    "external_subject_self_claims": 0,
+    "external_third_party_fetches": 0,
+    "external_third_party_verifications": 0,
+    "external_evidence_attachments": 0,
+    "passport_requested_events": 31,
+    "passport_issue_failed_events": 23,
+    "passport_issued_events": 0,
+    "aggregate_passport_issued_total": 8,
+    "aggregate_passport_issued_external": 0,
+    "aggregate_passport_issued_first_party": 2,
+    "delta_interpretation": "No qualified or external adoption counter changed. Aggregate issued credentials remain historical and do not establish adoption."
+  },
+  "attribution_and_event_integrity": {
+    "commercial_history_complete": true,
+    "commercial_measurement_source": "sqlite_durable",
+    "unattributed_paid_offers_shown": 0,
+    "new_genuine_external_events": 0,
+    "new_genuine_external_machines": 0,
+    "event_loss_detected": false,
+    "boundary_nuance_only": true,
+    "identity_rule": "No identity was inferred from user-agent text, actor prefix, cadence or timing."
+  },
+  "candidate_adjudication": {
+    "strict_candidate_exists": false,
+    "pulse": {
+      "new_preflight_events": 5,
+      "latest_at": "2026-08-26T09:36:45.292014+00:00",
+      "conservative_preflight_floor_before": 208,
+      "conservative_preflight_floor_after": 213,
+      "decision": "EXCLUDE_LIVENESS_WITHOUT_IDENTITY_ACTION_JOIN"
+    },
+    "cipherwatch": {
+      "new_preflight_events": 2,
+      "decision": "EXCLUDE_LIVENESS_WITHOUT_IDENTITY_ACTION_JOIN"
+    },
+    "all_other_new_events": {
+      "capability_demand": 2,
+      "discovery": 3,
+      "offer_or_challenge_activity": 69,
+      "decision": "EXCLUDE_NO_COMPLETED_USEFUL_ACTION"
+    },
+    "reason": "No post-cutoff event carries an observation receipt, source, invitation nonce, returned result or verdict. No settlement, paid completion, passport claim or verification, evidence attachment, collaboration record, outcome, receipt, or actor-linked task completion occurred."
+  },
+  "evaluation": {
+    "production_n_recommended": 0,
+    "production_n_baseline": 4,
+    "production_lift": null,
+    "bootstrap_lift": 0.49127906976744184,
+    "interpretation": "The production-labelled sample still contains no recommended outcomes; bootstrap lift remains demonstration data."
+  },
+  "strict_result": {
+    "strict_conversions_before": 6,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 6,
+    "denominator": 30,
+    "fixed_denominator_preserved": true,
+    "new_revenue_or_payer": false,
+    "new_paid_completion": false,
+    "new_passport_claim_or_verification": false,
+    "new_evidence_attachment": false,
+    "new_collaboration_record": false,
+    "new_actor_linked_task_completion": false,
+    "new_durable_identity_action_join": false,
+    "decision": "NO_NEW_STRICT_CONVERSION"
+  },
+  "safety": {
+    "public_production_read_requests": 18,
+    "failed_pre_response_network_attempts": 1,
+    "external_writes": 0,
+    "outreach_or_messages": 0,
+    "candidate_or_useful_operations_invoked": 0,
+    "payments_or_wallet_actions": 0,
+    "accounts_identities_keys_or_credentials_created": 0,
+    "credentials_accessed_used_or_refreshed": 0,
+    "terms_accepted": 0,
+    "installs_or_persistent_configuration": 0,
+    "deployments_pushes_or_merges": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0,
+    "canonical_files_edited": 0,
+    "local_evidence_files_written": 1
+  }
+}

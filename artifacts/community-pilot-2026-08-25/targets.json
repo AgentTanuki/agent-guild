@@ -3,8 +3,8 @@
   "window": {"start": "2026-08-25", "end": "2026-09-01"},
   "success_definition": "pre-existing community identity plus matching independent Agent Guild useful action",
   "latest_monitor": {
-    "observed_through": "2026-08-26T09:14:17.412312Z",
-    "route_audited_through": "2026-08-26T09:16:00Z",
+    "observed_through": "2026-08-26T09:45:20.623292Z",
+    "route_audited_through": "2026-08-26T09:38:23Z",
     "strict_conversions": 6,
     "denominator": 30,
     "reached_or_converted_communities": 20,
@@ -15,9 +15,9 @@
     "qualified_events": 103,
     "paid_offers_shown": 61,
     "paid_completions": 0,
-    "snapshot_events": 10992,
-    "pulse_conservative_floor": 208,
-    "new_identity_action_joins": 1,
+    "snapshot_events": 11030,
+    "pulse_conservative_floor": 213,
+    "new_identity_action_joins": 0,
     "campaign_process_exceptions": 2,
     "repeat_outreach_excluded": 2,
     "evidence": [
@@ -94,7 +94,13 @@
       "evidence/fixed30-ten-unreached-route-delta-audit-2026-08-26T0916Z.json",
       "evidence/fixed30-pending-reply-transition-monitor-2026-08-26T0917Z.json",
       "evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json",
-      "evidence/fixed30-cycle-close-2026-08-26T0926Z.json"
+      "evidence/fixed30-cycle-close-2026-08-26T0926Z.json",
+      "evidence/fixed30-ten-unreached-transition-predicate-reaudit-2026-08-26T0938Z.json",
+      "evidence/fixed30-commercial-production-delta-2026-08-26T0940Z.json",
+      "evidence/fixed30-contacted-surface-transition-monitor-2026-08-26T0946Z.json",
+      "evidence/fixed30-cycle-close-2026-08-26T0949Z.json",
+      "evidence/fixed30-machine-adaptation-preflight-receipt-2026-08-26T0958Z.json",
+      "evidence/fixed30-preflight-receipt-github-push-2026-08-26T1011Z.json"
     ]
   },
   "targets": [

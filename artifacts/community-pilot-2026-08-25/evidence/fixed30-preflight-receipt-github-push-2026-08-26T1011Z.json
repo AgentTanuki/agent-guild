@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "github_desktop_branch_publication_receipt",
+  "artifact_status": "verified_pushed_not_merged_not_deployed",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T10:11:38Z",
+  "authorization": {
+    "operator": "Ross",
+    "scope": "Put needed GitHub push instructions into Claude; Claude may push via GitHub Desktop.",
+    "publication_authorized": true,
+    "merge_pr_deploy_force_push_authorized": false
+  },
+  "publication": {
+    "worktree": "/private/tmp/ag-preflight-observation-id",
+    "branch": "codex/preflight-observation-id",
+    "commit": "9abe3f559e80964acf767e82fd235aaba4426e3e",
+    "parent": "1f93ea6b47de8857c7c31b36a5002c513ae6f185",
+    "subject": "fix(preflight): issue signed private cross-transport receipts",
+    "author": "AgentTanuki",
+    "files_changed": 9,
+    "insertions": 464,
+    "deletions": 74,
+    "publication_transport": "GitHub Desktop",
+    "direct_git_push_used": false
+  },
+  "committed_paths": [
+    "docs/EXPERIMENT_PREFLIGHT_2026-07-31.md",
+    "docs/INTERFACE.md",
+    "live/guild/app/a2a.py",
+    "live/guild/app/main.py",
+    "live/guild/app/mcp_server.py",
+    "live/guild/app/preflightreceipt.py",
+    "live/guild/app/store.py",
+    "live/guild/contract/contract.json",
+    "live/guild/tests/test_preflight_observation_id.py"
+  ],
+  "verification": {
+    "git_diff_check": "clean",
+    "generated_contract_after_regeneration": "byte_identical",
+    "primary_macos_non_socket_suite": {
+      "passed": 1819,
+      "skipped": 16,
+      "deselected": 1,
+      "failed": 0
+    },
+    "claude_linux_non_socket_suite": {
+      "passed": 1826,
+      "skipped": 9,
+      "deselected": 1,
+      "failed": 0,
+      "interpretation": "Same 1836-test total; seven platform-conditional tests passed instead of skipping."
+    },
+    "loopback_tls_test_passed": 1,
+    "receipt_focused_tests": "all selected receipt, preflight and observation tests passed; complete suite subsumed the hostile-review selection",
+    "secret_and_name_scan": "clean"
+  },
+  "independent_remote_read": {
+    "observed_at": "2026-08-26T10:11:38Z",
+    "codex_preflight_observation_id": "9abe3f559e80964acf767e82fd235aaba4426e3e",
+    "main_unchanged": "4921699aec8b18edc50211843107b901b35b308e",
+    "capability_readiness_unchanged": "8fe5f3a15faaa99be8d2903f5696f54f12893579",
+    "community_pilot_state_unchanged": "6185ca7d59b3eecd7a4cd3017b762207abb442f6"
+  },
+  "operational_safeguard": {
+    "hazard": "The local branch inherited refs/heads/main as its configured upstream, so GitHub Desktop initially displayed Push origin/main (2 ahead).",
+    "correction": "Claude repointed the branch tracking configuration to refs/heads/codex/preflight-observation-id before publication; Desktop then displayed Publish branch.",
+    "main_was_pushed": false,
+    "stale_locks_deleted_or_renamed": false,
+    "desktop_post_push_lock_warning": true,
+    "remote_tip_is_authoritative": true
+  },
+  "release_state": {
+    "pull_request_opened": false,
+    "merged": false,
+    "deployed": false,
+    "production_changed": false
+  },
+  "commercial_state": {
+    "strict_fixed30_conversions": "6/30",
+    "external_settled_revenue_usd": 0.0,
+    "observed_through": "2026-08-26T09:45:20.623292Z"
+  }
+}

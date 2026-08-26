@@ -1749,6 +1749,50 @@
         "paid_completions": 0
       },
       "conversion": true
+    },
+    {
+      "id": "ghostnode-preflight-exact-receipt-evidence-contract-2026-08-26",
+      "observed_at": "2026-08-26T09:58:27Z",
+      "community": "the_colony",
+      "evidence_class": "strict_conversion_driven_machine_product_adaptation_hostile_reviewed",
+      "source_identity": {
+        "colony_username": "ghostnode",
+        "colony_user_id": "f332fd3b-28d3-4511-93b2-9be704d6aba0",
+        "verified_identity": "NODE_ZERO/SKYNET",
+        "origin": "ghostnode.my.id",
+        "durable_adjudication": "evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json",
+        "product_review_evidence": "evidence/fixed30-machine-adaptation-preflight-receipt-2026-08-26T0958Z.json"
+      },
+      "interaction": {
+        "observed": "Ghostnode used the structured failed and unknown checks from one exact preflight to publish a same-origin Agent Card and rerun. The action proved current preflight utility, while the pilot still needed manual evidence correlation to bind the exact Guild-observed action to its durable community identity.",
+        "machine_action": "same-origin Agent Card repair followed by exact preflight rerun",
+        "manual_correlation_exposed": "No machine-portable signed receipt existed for the exact observed target and returned result.",
+        "conversion": false
+      },
+      "inferred_need": "Machines need a privacy-safe, exact, cross-transport, Guild-signed observation receipt they can carry to a durable identity surface without confusing origin integrity with caller identity or authority.",
+      "decision": "accepted_and_implemented_as_hostile_reviewed_SHIP_candidate",
+      "decision_reason": "The need arose from a strict machine conversion and a real machine repair loop. The revised contract materially reduces autonomous evidence-correlation friction while explicitly preserving the identity and authority boundaries.",
+      "adaptation": {
+        "kind": "AGPF-1_exact_preflight_observation_receipt",
+        "status": "implemented_hostile_reviewed_pushed_not_merged_not_deployed",
+        "accepted_change": "Issue one Guild-signed receipt containing a private 256-bit token and exact target/result commitments across HTTP, MCP and A2A. Store only salted domain-separated commitments publicly, pin the Guild issuer in verification, reject all exact-result tampering, use no-store on HTTP, and preserve request attribution without placing raw targets or tokens in durable telemetry.",
+        "proof_boundary": "The receipt proves Guild origin, integrity and exact observed action only. It does not prove caller identity, safety, currentness, delegation authority or payment authority; replay and copying remain valid.",
+        "candidate_branch": "codex/preflight-observation-id",
+        "commit": "9abe3f559e80964acf767e82fd235aaba4426e3e",
+        "remote_branch": "https://github.com/AgentTanuki/agent-guild/tree/codex/preflight-observation-id",
+        "agent_guild_runtime_change": "Commit 9abe3f559e80964acf767e82fd235aaba4426e3e spans nine exact paths, including live/guild/app/preflightreceipt.py. Final hostile verdict is SHIP with no blocking defects. The complete non-socket suite passed in both environments: 1,819 passed / 16 skipped / 1 deselected in the primary macOS run and 1,826 passed / 9 skipped / 1 deselected in Claude's Linux sandbox, the same 1,836-test total; the separately permitted loopback TLS test also passed. Under explicit operator authority, Claude published the isolated branch through GitHub Desktop and an independent git ls-remote read verified the exact remote tip.",
+        "runtime_reason": "Ghostnode's independently useful remediation showed that structured preflight output changes machine behavior. A portable signed receipt makes that useful action machine-verifiable without adding a false caller-identity claim."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "6/30",
+        "external_settled_revenue_usd": 0.0,
+        "observed_through": "2026-08-26T09:45:20.623292Z",
+        "qualified_actors": 10,
+        "qualified_events": 103,
+        "paid_offers_shown": 61,
+        "paid_completions": 0
+      },
+      "conversion": false
     }
   ]
 }

@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "canonical_no_new_transition",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T09:49:00Z",
+  "updated_at": "2026-08-26T10:11:38Z",
+  "baseline": {
+    "artifact": "fixed30-cycle-close-2026-08-26T0926Z.json",
+    "strict_conversions": 6,
+    "denominator": 30,
+    "snapshot_events": 10992,
+    "pulse_conservative_floor": 208
+  },
+  "current": {
+    "strict_conversions": 6,
+    "denominator": 30,
+    "strict_conversions_added": 0,
+    "reached_or_converted_communities": 20,
+    "outreach_closed_communities": 17,
+    "remaining_unreached_communities": 10,
+    "new_identity_action_joins": 0
+  },
+  "production": {
+    "commercial_observed_through": "2026-08-26T09:40:22.842652Z",
+    "reply_monitor_observed_through": "2026-08-26T09:45:20.623292Z",
+    "snapshot_events": 11030,
+    "snapshot_event_delta": 38,
+    "external_settled_revenue_usd": 0.0,
+    "external_payers": 0,
+    "repeat_payers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "paid_completions": 0,
+    "new_genuine_external_machines": 0,
+    "pulse_conservative_floor": 213,
+    "candidate": "none"
+  },
+  "contacted_surface_monitor": {
+    "outreach_closed_communities_checked": 17,
+    "live_passive_surfaces_checked": 13,
+    "closed_operations_without_reply_surface": 4,
+    "agent_mail_threads_checked": 6,
+    "new_recipient_replies": 0,
+    "new_invitation_markers": 0,
+    "new_completed_useful_action_candidates": 0,
+    "ghostnode_thread_15_reopened": false
+  },
+  "unreached_route_audit": {
+    "route_audited_through": "2026-08-26T09:38:23Z",
+    "communities_checked": 10,
+    "guards_audit_only": 10,
+    "reservations_created": 0,
+    "new_safe_routes": 0,
+    "nonqualifying_deltas": [
+      "AGNTCY legacy catalog count changed from 3228 to 3227 without identity or ingress.",
+      "Fetch counters increased by five while the machine remained unresponsive with zero verified successes."
+    ]
+  },
+  "product_work": {
+    "machine_signal": "Ghostnode used structured failed and unknown preflight checks to repair its own Agent Card surface and rerun.",
+    "candidate_branch": "codex/preflight-observation-id",
+    "status": "implemented_hostile_reviewed_SHIP_pushed_not_merged_not_deployed",
+    "commit": "9abe3f559e80964acf767e82fd235aaba4426e3e",
+    "remote_branch": "codex/preflight-observation-id",
+    "candidate_contract": "Signed AGPF-1 receipt with private token, salted public commitments, exact target/result binding, pinned Guild issuer, Cache-Control no-store and shared HTTP/MCP/A2A issuance.",
+    "tests": {
+      "non_socket_suite_passed": 1819,
+      "non_socket_suite_skipped": 16,
+      "focused_and_adversarial_passed": 132,
+      "loopback_tls_test_passed": 1
+    },
+    "proof_boundary": "The receipt proves Guild origin, integrity and exact observed action. It does not prove caller identity, safety, currentness, delegation authority or payment authority; replay and copying intentionally remain valid.",
+    "nonblocking_followups": [
+      "Publish a formal machine-readable AGPF-1 schema and offline commitment-verification recipe or SDK.",
+      "Add ledger-proven issuer continuity for signing-key rotation.",
+      "Avoid secrets in GET target query strings or later add a POST-body transport."
+    ],
+    "commit_or_push": true,
+    "merge_or_deploy": false
+  },
+  "safety": {
+    "new_outreach_or_followups": 0,
+    "view_counting_reads": 0,
+    "payments_or_wallet_actions": 0,
+    "accounts_identities_keys_credentials_or_terms": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0,
+    "external_code_publication": 1,
+    "local_product_branch_only": false,
+    "publication_scope": "isolated_non_deploy_branch_only"
+  },
+  "evidence": [
+    "fixed30-ten-unreached-transition-predicate-reaudit-2026-08-26T0938Z.json",
+    "fixed30-commercial-production-delta-2026-08-26T0940Z.json",
+    "fixed30-contacted-surface-transition-monitor-2026-08-26T0946Z.json",
+    "fixed30-machine-adaptation-preflight-receipt-2026-08-26T0958Z.json",
+    "fixed30-preflight-receipt-github-push-2026-08-26T1011Z.json"
+  ]
+}

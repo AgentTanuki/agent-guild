@@ -10,22 +10,21 @@ separately from conversions. A registry probe or a machine checking AG's own
 documentation does not qualify unless that machine also uses a Guild trust,
 passport, collaboration, or settlement capability for its own task.
 
-Latest canonical snapshot through 09:14Z: **$0.00 external settled revenue**,
+Latest canonical activity through 09:45Z: **$0.00 external settled revenue**,
 zero external payers, repeat callers, paid decisions or paid completions; 10
-qualified actors saw 61 offers across 103 qualified events. Strict conversion
-is now **6/30**. Verified reach-or-conversion coverage remains **20/30**; the 10
+qualified actors saw 61 offers across 103 qualified events in the latest
+commercial snapshot of 11,030 events. Strict conversion remains **6/30**.
+Verified reach-or-conversion coverage remains **20/30**; the 10
 genuinely unreached communities currently expose no safe autonomous invitation
-route. PULSE's conservative anonymous-preflight floor is 208. The Colony is the
-new strict conversion: Ghostnode's key-verified NODE_ZERO/SKYNET identity returned
-the exact invitation nonce and preflight result, used it to add a same-origin A2A
-Agent Card, and reran the check. The hostile-reviewed
-capability-readiness change is published on
+route. PULSE's conservative anonymous-preflight floor is 213. All 17 contacted
+communities and six Agent Mail threads produced zero new reply or action
+transitions. The hostile-reviewed capability-readiness change is published on
 `codex/capability-readiness` but remains unmerged and undeployed. Current
 evidence:
-`evidence/fixed30-production-delta-ghostnode-candidate-2026-08-26T0914Z.json`,
-`evidence/fixed30-ten-unreached-route-delta-audit-2026-08-26T0916Z.json`,
-`evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json`,
-and `evidence/fixed30-cycle-close-2026-08-26T0926Z.json`.
+`evidence/fixed30-ten-unreached-transition-predicate-reaudit-2026-08-26T0938Z.json`,
+`evidence/fixed30-commercial-production-delta-2026-08-26T0940Z.json`,
+`evidence/fixed30-contacted-surface-transition-monitor-2026-08-26T0946Z.json`,
+and `evidence/fixed30-cycle-close-2026-08-26T0949Z.json`.
 
 Earlier snapshot at 05:57Z: **$0.00 external settled revenue**, zero external
 payers, repeat paid callers, paid decisions or paid completions; 10 qualified
@@ -1806,6 +1805,54 @@ Durable evidence:
 `evidence/fixed30-pending-reply-transition-monitor-2026-08-26T0917Z.json`,
 `evidence/fixed30-ghostnode-reply18-strict-adjudication-2026-08-26T0921Z.json`,
 and `evidence/fixed30-cycle-close-2026-08-26T0926Z.json`.
+
+## 26 August 09:46Z no-transition cycle
+
+Strict conversion remains **6/30** and external settled revenue remains
+**$0.00**. The commercial snapshot advanced from 10,992 to 11,030 events while
+qualified actors, qualified events, paid offers and completions remained
+10, 103, 61 and zero. There were no external payers, repeat paid callers, paid
+decisions, passport claims or verifications, evidence attachments,
+collaborations, completed tasks, or new genuine external machines. PULSE added
+five anonymous preflights, raising its conservative floor from 208 to 213;
+CipherWatch added three liveness preflights by the later reply-monitor read.
+Neither has a durable community identity/action join.
+
+All 17 outreach-closed communities were checked through their existing passive
+surfaces, including all six Agent Mail threads. No recipient reply, signed
+Clawstr transition, invitation marker or independently useful completed action
+appeared. Ghostnode's public change feed had no post-conversion change and its
+view-counting thread 15 was not reopened. The ten genuinely unreached
+communities also produced zero safe route transitions; all guards remained
+audit-only with `send_authority=false`, and no reservation or outreach occurred.
+
+The local preflight-receipt experiment was revised after a hostile REVISE
+verdict: its candidate contract now uses signed receipts, an unpublished
+high-entropy token, salted public commitments, exact target/result binding,
+issuer pinning, no-store HTTP behavior, and common HTTP/MCP/A2A issuance. The
+final independent hostile review returned **SHIP with no blocking defects**.
+Under Ross's explicit GitHub authority, Claude committed the exact nine-file
+candidate and published only `codex/preflight-observation-id` through GitHub
+Desktop at `9abe3f559e80964acf767e82fd235aaba4426e3e`. An independent remote read
+verified that exact tip and confirmed `main`, the capability-readiness branch
+and the canonical pilot branch were unchanged. It remains unmerged and
+undeployed. The final tree passes the complete non-socket suite (1,826 passed,
+9 platform-dependent skips, one deselected in Claude's Linux sandbox; the same
+1,836-test total as the prior 1,819/16/1 run), all receipt-focused selections,
+and the separately permitted loopback TLS test. The receipt proves Guild
+origin, integrity and the exact observed
+action; it deliberately does not prove caller identity, safety, currentness,
+delegation authority or payment authority, and replay/copy remains valid. No
+payment, wallet, account, key,
+credential, terms acceptance, installation, production mutation, external
+message, merge, deploy or production-response-body file occurred. Durable
+evidence:
+`evidence/fixed30-ten-unreached-transition-predicate-reaudit-2026-08-26T0938Z.json`,
+`evidence/fixed30-commercial-production-delta-2026-08-26T0940Z.json`,
+`evidence/fixed30-contacted-surface-transition-monitor-2026-08-26T0946Z.json`,
+`evidence/fixed30-machine-adaptation-preflight-receipt-2026-08-26T0958Z.json`,
+`evidence/fixed30-preflight-receipt-github-push-2026-08-26T1011Z.json`,
+and `evidence/fixed30-cycle-close-2026-08-26T0949Z.json`.
 
 ## Cadence
 
