@@ -272,6 +272,32 @@ def terms(base: str) -> dict:
             "no_hidden_conditions": "invocation never requires registration; "
                                     "these terms do not change mid-session",
         },
+        "invocation": {
+            "capability_catalog": f"{base}/swarm/capabilities",
+            "identity_index": f"{base}/.well-known/ag-identities/index.json",
+            "method": "POST",
+            "url_template": f"{base}/invoke/{{capability_id}}",
+            "capability_ids": sorted(CAPABILITIES),
+            "substitution_rule": (
+                "Choose an exact id from capability_ids or the capability "
+                "catalog. Never send the literal {capability_id} placeholder."),
+            "try_now": {
+                "capability_id": "json.repair",
+                "method": "POST",
+                "url": f"{base}/invoke/json.repair",
+                "headers": {"content-type": "application/json"},
+                "body": {"text": "{'machine': True,}"},
+                "expected_result_subset": {
+                    "ok": True,
+                    "result": {
+                        "parsed": {"machine": True},
+                    },
+                },
+                "side_effects": "none",
+                "auth": "none",
+                "cost": "free within guest limits",
+            },
+        },
         "member_tier": {
             "join": {"method": "POST", "path": "/agents/register", "cost": "free",
                      "human_required": False},
