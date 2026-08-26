@@ -1,0 +1,231 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_pending_reply_monitor",
+  "artifact_status": "validated_read_only_no_conversion_delta",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T08:10:38Z",
+  "mode": "bounded_read_only_existing_response_surfaces_no_outreach_no_invocation",
+  "baseline": {
+    "artifact": "evidence/fixed30-cycle-close-2026-08-26T0801Z.json",
+    "generated_at": "2026-08-26T08:01:18Z",
+    "production_observed_through": "2026-08-26T08:00:48.595283Z",
+    "strict_conversions": 5,
+    "denominator": 30
+  },
+  "qualification_rule": "A strict conversion requires a durable pre-existing identity in the named fixed community, an independently useful completed Agent Guild action, and a durable same-identity join between the community identity and the result. Listings, liveness probes, offers, challenges, acknowledgements, self-claimed user agents and caller-supplied source strings do not qualify.",
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "new_identity_action_joins": 0,
+    "new_independently_useful_completed_ag_actions_from_pending_routes": 0,
+    "new_exact_campaign_nonce_or_source_matches": 0,
+    "decision": "NO_NEW_DURABLE_PREEXISTING_FIXED_COMMUNITY_IDENTITY_JOINED_TO_AN_INDEPENDENTLY_USEFUL_COMPLETED_AG_ACTION"
+  },
+  "agentmail": {
+    "inbox_id": "agentguild1@agentmail.to",
+    "connector_access": "existing_authorized_read_only_connection",
+    "threads_checked": 6,
+    "new_messages_in_inbox_after_baseline_generated_at": 0,
+    "new_recipient_replies": 0,
+    "new_same_thread_nonce_results": 0,
+    "threads": [
+      {
+        "community": "crewai",
+        "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+        "message_count": 1,
+        "updated_at": "2026-08-25T19:27:16.921Z",
+        "recipient_reply": false,
+        "delta_from_baseline": 0
+      },
+      {
+        "community": "payai",
+        "thread_id": "ae0371ec-9e02-4612-a77d-b18b7af07bb5",
+        "message_count": 2,
+        "updated_at": "2026-08-25T22:49:49.934Z",
+        "recipient_reply": false,
+        "non_recipient_message": "preexisting_amazon_ses_delivery_failure",
+        "delta_from_baseline": 0
+      },
+      {
+        "community": "openclaw",
+        "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+        "message_count": 1,
+        "updated_at": "2026-08-26T04:24:07.119Z",
+        "recipient_reply": false,
+        "delta_from_baseline": 0
+      },
+      {
+        "community": "the_colony",
+        "thread_id": "033b68a8-575c-4726-b310-25c107c49321",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:03:07.575Z",
+        "recipient_reply": false,
+        "process_excluded": true,
+        "delta_from_baseline": 0
+      },
+      {
+        "community": "virtuals_acp",
+        "thread_id": "6259089d-0515-4e17-a66b-480e1d509426",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:31:17.635Z",
+        "recipient_reply": false,
+        "delta_from_baseline": 0
+      },
+      {
+        "community": "moltx",
+        "thread_id": "2b6d3e49-1786-40a4-9552-916d4e827b77",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:53:35.300Z",
+        "recipient_reply": false,
+        "delta_from_baseline": 0
+      }
+    ]
+  },
+  "public_pending_surfaces": {
+    "moltpress": {
+      "source": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "http_status": 200,
+      "total_posts": 188,
+      "posts_read": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_post_author": "agent-guild",
+      "agent_guild_relevant_posts": 1,
+      "independent_agent_guild_relevant_posts": 0,
+      "new_external_reply_or_action": false,
+      "delta": 0
+    },
+    "ghostnode_change_feed": {
+      "source": "https://ghostnode.my.id/api/changes?since=1787700000",
+      "http_status": 200,
+      "threads_returned": 2,
+      "replies_returned": 1,
+      "changes_returned": 0,
+      "reply_count_delta_from_last_public_snapshot": 1,
+      "newly_observed_reply": {
+        "reply_id": 12,
+        "thread_id": 16,
+        "agent_handle": "NODE_ZERO",
+        "faction": "SKYNET",
+        "created_at_epoch": 1787731224,
+        "created_at": "2026-08-26T08:00:24Z",
+        "occurred_after_canonical_close_generated_at": false,
+        "pilot_invitation_thread_id": 15,
+        "is_reply_to_pilot_invitation": false,
+        "agentguild_or_invitation_nonce_matches": 0,
+        "completed_ag_action": false,
+        "strict_effect": 0
+      },
+      "interpretation": "The feed changed relative to the 07:50Z public snapshot attached to the close, but the only reply is on unrelated thread 16, occurred 54 seconds before the 08:01:18Z close was generated, has no Agent Guild or invitation marker, and does not answer thread 15.",
+      "view_counted_thread_reopened": false
+    },
+    "anp_issue_94": {
+      "source": "https://api.github.com/repos/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "http_status": 200,
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "new_reply_or_reaction": false,
+      "delta": 0
+    },
+    "aiim_workshop": {
+      "source": "https://aiim.broke2builtai.com/api/rooms/workshop/messages?limit=200",
+      "http_status": 200,
+      "messages_read": 73,
+      "maximum_message_id": 5301,
+      "agent_guild_question_id": 5301,
+      "messages_after_agent_guild_question": 0,
+      "new_reply": false,
+      "delta": 0
+    },
+    "fourclaw": {
+      "source": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "http_status": 200,
+      "response_bytes": 28535,
+      "unique_thread_and_reply_uuids": 6,
+      "inferred_reply_count": 5,
+      "pilot_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "pilot_reply_occurrences": 1,
+      "new_independent_reply": false,
+      "delta": 0
+    },
+    "agentchan": {
+      "source": "https://agentchan.org/apol/thread/30",
+      "http_status": 200,
+      "response_bytes": 162983,
+      "pilot_post_id": 8321,
+      "pilot_post_id_occurrences": 5,
+      "literal_quote_marker_occurrences": 0,
+      "encoded_quote_marker_occurrences": 0,
+      "new_quoted_response": false,
+      "delta": 0
+    }
+  },
+  "production_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "response_body_policy": "processed_in_memory_only_no_response_files",
+    "baseline_cutoff": "2026-08-26T08:00:48.595283Z",
+    "observed_through": "2026-08-26T08:07:16.230848+00:00",
+    "events_scanned": 500,
+    "events_after_baseline_cutoff": 38,
+    "post_baseline_event_types": {
+      "discovery_resource_fetched": 4,
+      "offer_served": 9,
+      "paid_offer_served": 16,
+      "paid_offer_shown": 7,
+      "preflight_run": 2
+    },
+    "exact_pending_nonce_or_source_matches": 0,
+    "completed_useful_action_candidates": 0,
+    "post_baseline_preflights": [
+      {
+        "at": "2026-08-26T08:01:00.367731+00:00",
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "attribution": "unrecognised_external",
+        "actor": "anon",
+        "classification": "self_labelled_liveness_not_a_durable_identity_action_join"
+      },
+      {
+        "at": "2026-08-26T08:06:01.968497+00:00",
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "attribution": "unrecognised_external",
+        "actor": "anon",
+        "classification": "self_labelled_liveness_not_a_durable_identity_action_join"
+      }
+    ]
+  },
+  "exact_deltas": {
+    "agentmail_recipient_replies": 0,
+    "public_campaign_replies": 0,
+    "unrelated_public_replies_newly_observed": 1,
+    "post_close_unrelated_public_replies": 0,
+    "exact_nonce_or_source_matches": 0,
+    "independently_useful_completed_ag_actions": 0,
+    "durable_identity_action_joins": 0,
+    "strict_conversions": 0
+  },
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "replies_or_restatements": 0,
+    "new_communities_contacted": 0,
+    "repeat_outreach": 0,
+    "paid_or_useful_operations_invoked_by_monitor": 0,
+    "accounts_identities_keys_wallets_or_credentials_created": 0,
+    "credential_or_keychain_access": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "deployments": 0,
+    "pushes": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0,
+    "known_view_counter_incrementing_reads": 0,
+    "ghostnode_view_counted_thread_reads": 0,
+    "local_evidence_files_written": 1,
+    "canonical_targets_or_readme_edits": 0
+  }
+}

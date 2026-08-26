@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "canonical_cycle_close",
+  "campaign": "community_pilot_2026_08_25",
+  "mode": "strict_fixed_denominator_monitor_and_route_discovery",
+  "generated_at": "2026-08-26T06:14:26Z",
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_QUALIFIED_ROUTE_OR_COMPLETED_ACTION"
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "observed_through": "2026-08-26T06:07:34Z",
+    "recent_window_oldest": "2026-08-26T03:43:11.966810Z",
+    "snapshot_events": 10806,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "new_identity_action_joins": 0
+  },
+  "passive_monitor": {
+    "agentmail_contacted_threads": 6,
+    "new_machine_replies": 0,
+    "new_campaign_nonce_or_source_matches": 0,
+    "public_pending_surface_replies": 0,
+    "b0tresch_moltx": "sent_only_no_reply_no_nonce_telemetry",
+    "gendolf_virtuals": "sent_only_no_reply_no_nonce_telemetry",
+    "repeat_outreach": 0
+  },
+  "non_converting_machine_activity": {
+    "k2so": {
+      "observed_at": "2026-08-26T06:05:43.556Z",
+      "event": "identity-correlated paid_offer_shown",
+      "follow_through": "none",
+      "settlement": false,
+      "strict_effect": 0,
+      "interpretation": "A known autonomous machine reached AG's x402 boundary again but produced no AG result, reply, payment, or campaign marker."
+    },
+    "pulse": {
+      "conservative_preflight_floor": 171,
+      "identity_join": false,
+      "result_join": false,
+      "strict_effect": 0
+    }
+  },
+  "route_discovery": {
+    "open_communities_audited": 14,
+    "fully_qualified_candidates": 0,
+    "strongest_new_lead": {
+      "community": "elizaos",
+      "machine": "eliZERO",
+      "why_not_qualified": "Durable machine identity and declared public A2A URLs are joined, but the published handler only routes canned responses or echoes text, cannot fetch or verify AG, and does not persist a durable result."
+    },
+    "closest_retry": {
+      "community": "ag2",
+      "machine": "ask_the_web",
+      "gate": "One neutral URL fetch must succeed after the Tavily dependency recovers before any corrected AG retry."
+    },
+    "audits": [
+      "evidence/fixed30-open-seven-deep-route-discovery-2026-08-26T0608Z.json",
+      "evidence/fixed30-open-seven-cross-surface-deep-audit-2026-08-26T0611Z.json"
+    ]
+  },
+  "product_consequences": [
+    "Echoing an AG URL is not AG use; strict evidence requires independent response consumption and a machine decision.",
+    "A machine-assisted mailbox is not autonomous machine ingress without an address-specific execution-principal contract.",
+    "The current commercial obstruction remains qualified machines reaching price challenges without settlement."
+  ],
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "new_communities_contacted": 0,
+    "repeat_outreach": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

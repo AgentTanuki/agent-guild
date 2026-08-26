@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_registry_marketplace_readonly_sweep",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-25T22:15:00Z",
+    "end": "2026-08-25T22:29:05Z"
+  },
+  "strict_baseline_before": "5/30",
+  "strict_conversions_added": 0,
+  "strict_total_after": "5/30",
+  "scope": [
+    "PayAI",
+    "Nevermined/Revettr",
+    "LangChain",
+    "OpenServ",
+    "Agentic Market/CDP Bazaar",
+    "Virtuals ACP",
+    "AGNTCY",
+    "Olas/Autonolas/Mech",
+    "AG2/AutoGen",
+    "elizaOS"
+  ],
+  "strict_success_rule": "A conversion requires a durable pre-existing identity in the named community plus a live free anonymous operation that independently consumes an exact Agent Guild endpoint or trust artifact and returns a substantive result. Listings, discovery probes, caller-supplied-only validation, framework-name wrappers, payment challenges, registrations, and schema-only checks do not qualify.",
+  "method": "Current public catalogs, descriptors, cards, OpenAPI documents, source-controlled import configuration and published issue identity evidence were read in memory. Only read-only GET/HEAD discovery was used. No candidate operation was invoked.",
+  "x402_amount_normalization": {
+    "invariant": "Determine price from the selected acceptance entry using `amount` for x402 v2 or `maxAmountRequired` for x402 v1. Parse an explicitly present finite decimal integer value in atomic asset units; a route is free only when that normalized value equals exactly zero. Missing, null, malformed, negative or unparseable values are unknown/invalid, never free.",
+    "v2_field": "accepts[].amount",
+    "v1_field": "accepts[].maxAmountRequired",
+    "normalization_result": "The zero/nonzero classification is version-invariant after field normalization; catalogs containing both x402 generations must not count only one field or coerce a missing field to zero.",
+    "application_in_this_sweep": "PayAI's newest 1000 records contained 20 effective-zero records after v1/v2 normalization; none had URL, URI, website, fetch, passport, credential, trust or preflight semantics. Agentic Market/CDP matches were nonzero after the same normalization."
+  },
+  "targets": [
+    {
+      "target_id": "payai",
+      "catalog": "https://facilitator.payai.network/discovery/resources",
+      "catalog_declared_total": 26653,
+      "delta_from_prior_total_26650": 3,
+      "latest_records_scanned": 1000,
+      "effective_zero_records_in_latest_1000": 20,
+      "semantically_relevant_effective_zero_records_in_latest_1000": 0,
+      "candidate": {
+        "name": "Aster Vale Audit402 sample_website_audit",
+        "operation_contract": "sample_website_audit(url: public HTTP(S) URL), declared zero price",
+        "http_endpoint": "https://aster-vale-audit402.shares.zrok.io/website-audit-sample",
+        "mcp_endpoint": "https://aster-vale-audit402.shares.zrok.io/mcp",
+        "http_endpoint_head": {
+          "observed_at": "2026-08-25T22:29:02Z",
+          "status": 404
+        },
+        "mcp_endpoint_head": {
+          "observed_at": "2026-08-25T22:29:05Z",
+          "status": 404
+        }
+      },
+      "paid_url_capable_examples": [
+        {
+          "name": "relay402 web trust report",
+          "amount_atomic_usdc": 30000
+        },
+        {
+          "name": "relay402 Wayback snapshot",
+          "amount_atomic_usdc": 1000
+        }
+      ],
+      "decision": "NO_GO",
+      "reason": "The exact declared free arbitrary-URL route is dead. Current live URL-capable alternatives are paid, and the newest effective-zero rows have no Agent Guild-consuming semantics."
+    },
+    {
+      "target_id": "nevermined",
+      "candidate": "Revettr",
+      "durable_identity": {
+        "participant_source": "https://github.com/nevermined-io/payments/issues/286",
+        "provider_did": "did:web:revettr.com"
+      },
+      "surfaces": {
+        "risk_discovery": "https://revettr.com/.well-known/risk-check.json",
+        "risk_discovery_version": "0.2.0",
+        "mcp_discovery": "https://revettr.com/.well-known/mcp/server.json",
+        "mcp_discovery_version": "0.1.0",
+        "mcp_endpoint": "https://revettr.com/mcp",
+        "openapi": "https://revettr.com/openapi.json"
+      },
+      "free_contracts": [
+        "POST /v1/attest returns a signed compliance-risk envelope",
+        "POST /v1/iss-verdict returns a free advisory signed verdict"
+      ],
+      "contract_limit": "The /v1/iss-verdict description says the MCP client validates `iss`; its body is caller-supplied {iss, iss_kind, context}. ScoreRequest likewise accepts caller-supplied domain, URL, IP, wallet or company data. Neither route independently fetches an Agent Guild result nor verifies an Agent Guild credential.",
+      "decision": "NO_GO",
+      "reason": "Free signed output over caller-supplied identifiers is not independent Agent Guild consumption."
+    },
+    {
+      "target_id": "langchain",
+      "durable_machine": {
+        "agent_card": "https://authenticated-mcp-traced-agent.getvda.ai/.well-known/agent-card.json",
+        "a2a_endpoint": "https://authenticated-mcp-traced-agent.getvda.ai/a2a/",
+        "version": "0.1.1",
+        "framework_join": "The card binds orchestration to langchain-core."
+      },
+      "free_capability": "selftest only; fixed canned input",
+      "official_mcp_registry": {
+        "query": "langchain",
+        "matches": 2,
+        "records": [
+          {
+            "name": "io.github.baixianger/langchain-mcp",
+            "version": "2.0.0",
+            "hosted_remote": false
+          },
+          {
+            "name": "io.github.doc2mcp/langchain",
+            "version": "1.0.1781396655",
+            "hosted_remote": true,
+            "gate": "secret bearer token required"
+          }
+        ]
+      },
+      "decision": "NO_GO",
+      "reason": "The attributable hosted machine has no free arbitrary-URL, credential-verification or Agent Guild skill; registry alternatives are unhosted or authenticated."
+    },
+    {
+      "target_id": "openserv",
+      "catalog": "https://api.openserv.ai/x402-services",
+      "catalog_total": 467,
+      "active_services": 88,
+      "active_free_services": 0,
+      "minimum_active_price_usd": 0.005,
+      "strongest_semantic_match": {
+        "name": "BrowserUse Agent",
+        "input": {
+          "url": "string",
+          "instructions": "string"
+        },
+        "price_usd": 0.01,
+        "gate": "x402 payment and webhook flow"
+      },
+      "decision": "NO_GO",
+      "reason": "No active free catalog operation exists."
+    },
+    {
+      "target_id": "agentic_market",
+      "catalog_base": "https://api.cdp.coinbase.com/platform/v2/x402",
+      "matches": [
+        {
+          "name": "Agent Guild search listing",
+          "endpoint": "https://agent-guild-5d5r.onrender.com/search",
+          "amount_atomic_usdc": 10000,
+          "qualification_limit": "A listing of Agent Guild itself is not a third-party buyer-machine conversion."
+        },
+        {
+          "name": "AgentsTools preflight",
+          "endpoint": "https://api.agentstools.dev/preflight",
+          "semantics": "trust check for a target x402 URL",
+          "amount_atomic_usdc": 5000
+        },
+        {
+          "name": "Minifetch URL check",
+          "amount_atomic_usdc": 1000
+        },
+        {
+          "name": "Toolbelt URL operation",
+          "amount_atomic_usdc": 5000
+        },
+        {
+          "name": "Loren preflight",
+          "amount_atomic_usdc": 30000
+        }
+      ],
+      "decision": "NO_GO",
+      "reason": "All independent semantic matches require nonzero payment."
+    },
+    {
+      "target_id": "virtuals_acp",
+      "catalog": "https://acpx.virtuals.io/api/agents",
+      "catalog_total": 44051,
+      "page_count": 1763,
+      "page_size": 25,
+      "candidate": {
+        "detail_endpoint": "https://acpx.virtuals.io/api/agents/q91f2hf7ppvjjwqe6wtk943v",
+        "document_id": "q91f2hf7ppvjjwqe6wtk943v",
+        "numeric_id": 1587,
+        "name": "x402guard",
+        "wallet": "0x9aC4C2F7B7c7b88007B1227050810B6E41820533",
+        "created_at": "2026-02-05",
+        "updated_at": "2026-04-09",
+        "last_active_at": null,
+        "completed_jobs": 0,
+        "priced_jobs": [
+          "quickScan: $0.01",
+          "standardScan: $0.01",
+          "deepScan: $0.01",
+          "publisherCheck: $0.01"
+        ],
+        "required_skill_url_type_null_contradiction": {
+          "affected_jobs": [
+            "quickScan",
+            "standardScan",
+            "deepScan"
+          ],
+          "required": [
+            "skillUrl"
+          ],
+          "declared_property": {
+            "skillUrl": {
+              "type": "null",
+              "description_semantics": "URL to the skill file"
+            }
+          },
+          "alternative_property": "skillContent is a string, but does not remove the required skillUrl constraint.",
+          "effect": "A schema-valid request must contain skillUrl:null even though the operation declares that field to be the URL it scans. The published contract cannot express its own stated URL input."
+        },
+        "free_resource": "threatIntelFeed accepts category only and does not consume an Agent Guild artifact"
+      },
+      "decision": "NO_GO",
+      "reason": "There is no free relevant job; the platform is auth/wallet/escrow governed, the candidate has no activity, and its URL-taking paid jobs have a required-field/type contradiction."
+    },
+    {
+      "target_id": "agntcy",
+      "descriptor": "https://ai-catalog.outshift.io/.well-known/ai-catalog.json",
+      "catalog": "https://ai-catalog.outshift.io/v1/agents",
+      "catalog_total": 3228,
+      "official_import_config": "https://raw.githubusercontent.com/agntcy/dir/main/.github/workflows/scripts/import-records.json",
+      "identity_join_check": "The official mcp-registry import allowlist contains vendor namespaces and excludes dev.fetchgate/fetchgate and Todd/For You. Prior useful actions by those machines therefore cannot be attributed to AGNTCY membership.",
+      "actionability": "Imported hosted records remain documentation, package validation, authenticated/private-context or paid operations. Agent skills are reusable documentation/install artifacts, not anonymous hosted one-shot operations.",
+      "decision": "NO_GO",
+      "reason": "No durable attributable AGNTCY machine exposes a free anonymous Agent Guild-consuming operation."
+    },
+    {
+      "target_id": "olas",
+      "queries": [
+        "https://hol.org/registry/api/v1/search?q=Olas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+        "https://hol.org/registry/api/v1/search?q=Autonolas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+        "https://hol.org/registry/api/v1/search?q=Mech&online=true&metadata.isFree=true&limit=10&includeAggregations=false"
+      ],
+      "free_online_results": {
+        "Olas": 0,
+        "Autonolas": 0,
+        "Mech": 0
+      },
+      "official_execution_gate": "Mech execution requires a signer plus payment, prepaid balance or subscription.",
+      "decision": "NO_GO",
+      "reason": "No current free-online community runtime was returned, and the official execution route is signer/payment governed."
+    },
+    {
+      "target_id": "ag2_autogen",
+      "official_mcp_registry": {
+        "exact_ag2_matches": 0,
+        "autogen_matches": 1,
+        "record": {
+          "name": "ai.smithery/DynamicEndpoints-autogen_mcp",
+          "version": "0.3.0",
+          "endpoint": "https://server.smithery.ai/@DynamicEndpoints/autogen_mcp/mcp",
+          "gate": "secret Authorization bearer token required",
+          "identity_limit": "The AutoGen label does not prove current AG2 community membership."
+        }
+      },
+      "decision": "NO_GO",
+      "reason": "The only registry match is authenticated and lacks a defensible AG2 identity join."
+    },
+    {
+      "target_id": "elizaos",
+      "openapi_requested": "https://www.elizacloud.ai/api/openapi.json",
+      "openapi_final": "https://api.eliza.app/api/openapi.json",
+      "openapi_path_count": 16,
+      "openapi_paths": [
+        "/api/elevenlabs/stt",
+        "/api/elevenlabs/tts",
+        "/api/elevenlabs/voices",
+        "/api/elevenlabs/voices/clone",
+        "/api/elevenlabs/voices/user",
+        "/api/elevenlabs/voices/{id}",
+        "/api/v1/api-keys",
+        "/api/v1/api-keys/{id}",
+        "/api/v1/api-keys/{id}/regenerate",
+        "/api/v1/chat",
+        "/api/v1/gallery",
+        "/api/v1/generate-image",
+        "/api/v1/generate-prompts",
+        "/api/v1/generate-video",
+        "/api/v1/models",
+        "/api/v1/user"
+      ],
+      "security_schemes": [
+        "apiKeyAuth",
+        "bearerAuth"
+      ],
+      "official_mcp_registry_eliza_matches": 0,
+      "decision": "NO_GO",
+      "reason": "The current public contract exposes authenticated product APIs, not an anonymous MCP/A2A or Agent Guild-consuming operation."
+    }
+  ],
+  "adjudication": {
+    "strict_conversion": false,
+    "reason": "Every target failed at least one mandatory identity, semantic independence, liveness, free-access or authorization gate. No exact Agent Guild-consuming action was executed or observed.",
+    "targets_crossed_to_ready": 0
+  },
+  "safety_and_no_write_facts": {
+    "operation_invocations": 0,
+    "external_writes_posts_or_messages": 0,
+    "payments": 0,
+    "wallets_or_signatures": 0,
+    "accounts_or_keys_created": 0,
+    "terms_acceptances": 0,
+    "installs_or_persistent_configuration_changes": 0,
+    "product_runtime_edits": 0,
+    "targets_json_edits": 0,
+    "readme_edits": 0,
+    "network_method": "Public read-only GET/HEAD discovery only; response bodies were handled in memory."
+  },
+  "corroborating_prior_evidence": [
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-framework-marketplace-no-go-2026-08-25T1940Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-free-runtime-refresh-2026-08-25T2052Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/olas-virtuals-openserv-current-free-route-audit-2026-08-25T1832Z.json"
+  ]
+}

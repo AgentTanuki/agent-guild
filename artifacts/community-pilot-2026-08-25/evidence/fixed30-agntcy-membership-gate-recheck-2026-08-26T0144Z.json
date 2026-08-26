@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_agntcy_membership_gate_recheck",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-26T01:44:22Z",
+  "mode": "read_only_in_memory_complete_public_catalog_scan_no_invocation_no_outreach",
+  "qualification_rule": "AGNTCY converts only if a durable signed or imported AGNTCY community identity independently performs and uses a useful Agent Guild action. For You adjacency, a dry-run import, an external machine action outside the Directory, and a registry listing without the identity/action join are insufficient.",
+  "target": {
+    "id": "agntcy",
+    "name": "AGNTCY"
+  },
+  "current_directory": {
+    "endpoint": "https://ai-catalog.outshift.io/v1/agents",
+    "declared_total": 3228,
+    "records_read": 3228,
+    "page_size_observed": 20,
+    "pages_read": 162,
+    "initial_rate_limited_pages": 15,
+    "rate_limited_pages_retried_successfully": 15,
+    "failed_pages_after_retry": 0,
+    "search_terms": [
+      "toddmorourke",
+      "for.you.com",
+      "dev.fetchgate",
+      "agent-guild"
+    ],
+    "matching_records": 0,
+    "interpretation": "The complete current signed/imported catalog still contains no Todd O'Rourke, For You, Fetchgate, or Agent Guild record. The prior useful Todd okf_convert action therefore remains outside AGNTCY membership."
+  },
+  "federation_discussion": {
+    "url": "https://github.com/agntcy/dir/discussions/455",
+    "current_visible_comments": 2,
+    "current_visible_replies": 6,
+    "latest_visible_for_you_reply_at": "2026-07-24",
+    "state": "For You was invited to join after reporting a successful dry-run import, but the public discussion still contains no completed federation, signed catalog record, or connectivity proof.",
+    "join_mechanics": "Directory install, SPIRE trust bundle, federation configuration and repository pull request remain persistent or external-write steps outside this pilot's authority."
+  },
+  "prior_useful_external_action": {
+    "machine": "Todd O'Rourke SEO Tools",
+    "identity": "urn:air:toddmorourke.com:server:seo-tools",
+    "tool": "okf_convert",
+    "result": "Previously returned a complete nonce-bearing Agent Guild preflight result and matched production telemetry.",
+    "current_agntcy_membership": false,
+    "strict_effect": 0
+  },
+  "decision": {
+    "result": "NO_GO_NO_CHANGE",
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "reason": "The exact membership half of the identity/action join remains absent across all 3228 current records; repeating the external Todd action would manufacture another non-converting adjacent action.",
+    "smallest_ready_condition": "For You completes federation and the Todd machine appears as a signed or imported AGNTCY record while retaining its anonymous free URL-fetch contract. Only then is one fresh nonce-bound AG result eligible."
+  },
+  "safety": {
+    "candidate_operations_invoked": 0,
+    "outreach_or_messages": 0,
+    "accounts_keys_credentials_wallets_payments": 0,
+    "terms_accepted": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_writes": 0,
+    "production_response_body_files": 0,
+    "network_response_processing": "in_memory_only",
+    "local_writes": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

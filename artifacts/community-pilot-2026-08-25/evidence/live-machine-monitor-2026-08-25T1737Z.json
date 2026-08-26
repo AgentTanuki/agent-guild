@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T17:37:35Z",
+  "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500",
+  "source_status": 200,
+  "source_date": "Tue, 25 Aug 2026 17:37:35 GMT",
+  "source_policy": "public privacy-safe telemetry; target URLs and full actor identities are withheld",
+  "window_start": "2026-08-25T17:20:00Z",
+  "events_in_window": 50,
+  "type_counts": {
+    "paid_offer_shown": 10,
+    "offer_served": 12,
+    "preflight_run": 5,
+    "discovery_resource_fetched": 5,
+    "paid_offer_served": 16,
+    "swarm_invoke_denied": 1,
+    "swarm_terms_fetch": 1
+  },
+  "nanda_pulse": {
+    "events": [
+      {
+        "at": "2026-08-25T17:24:29.579029+00:00",
+        "type": "preflight_run",
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "actor": "anon"
+      },
+      {
+        "at": "2026-08-25T17:29:31.374612+00:00",
+        "type": "preflight_run",
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "actor": "anon"
+      },
+      {
+        "at": "2026-08-25T17:34:33.068865+00:00",
+        "type": "preflight_run",
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "actor": "anon"
+      }
+    ],
+    "prior_defensible_floor_through_2026_08_25T17_24_29Z": 21,
+    "new_events_after_prior_floor": 2,
+    "current_defensible_cumulative_floor": 23,
+    "strict_conversion": false,
+    "reason": "Repeated independent use continues, but the public event still contains no target, result, NEST identity, signed controller receipt, or exact public source join. The self-claimed truncated user agent alone is not identity proof."
+  },
+  "other_external_machine_signals": [
+    {
+      "user_agent": "CipherWatch/1.0 (Cloudflare Worker; liveness probe)",
+      "preflight_runs": 2,
+      "strict_action": false,
+      "reason": "Liveness probes are excluded and no durable controller/community join is established."
+    },
+    {
+      "user_agent": "forum-labs-trust-prober/1.0 (x402 endpoint QoS monitor; +https://forum-labs.com)",
+      "offer_events": 2,
+      "strict_action": false,
+      "reason": "Challenge inspection is not adoption; identity/community join is being researched separately."
+    },
+    {
+      "user_agent": "mako-pulse-prober/0.1",
+      "offer_events": 6,
+      "strict_action": false,
+      "reason": "Challenge inspection is not adoption and the caller publishes no durable identity in this event."
+    }
+  ],
+  "excluded_first_party_or_audit_activity": [
+    "AgentGuild-Pilot/1.0 (+https://agent-guild-5d5r.onrender.com)",
+    "a2a:AgentGuild-Pilot/1.0 (+https://agent-guild-5d5r.onrender.com)",
+    "agent-guild-pilot-readonly-audit/1.0",
+    "a2a:agent-guild-pilot-readonly-audit/1.0"
+  ],
+  "conversion_delta": 0
+}

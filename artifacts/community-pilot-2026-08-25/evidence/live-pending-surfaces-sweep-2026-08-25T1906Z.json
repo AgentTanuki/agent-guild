@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T19:06:01Z",
+  "mode": "live_in_memory_read_only",
+  "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+  "source_status": 200,
+  "external_writes": false,
+  "outbound_messages": false,
+  "payments_accounts_installs_or_deployments": false,
+  "targets_json_updated": false,
+  "nanda_pulse": {
+    "machine_user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+    "prior_floor_source": "artifacts/community-pilot-2026-08-25/evidence/live-machine-monitor-2026-08-25T1851Z.json",
+    "previous_conservative_floor": 38,
+    "previous_latest_event_at": "2026-08-25T18:50:10.193879+00:00",
+    "new_exact_preflight_events": [
+      "2026-08-25T18:55:11.386497+00:00",
+      "2026-08-25T19:00:13.069824+00:00",
+      "2026-08-25T19:05:14.481972+00:00"
+    ],
+    "new_event_count": 3,
+    "updated_conservative_floor": 41,
+    "most_recent_event": {
+      "at": "2026-08-25T19:05:14.481972+00:00",
+      "type": "preflight_run",
+      "endpoint": "preflight",
+      "actor": "anon",
+      "attribution": "unrecognised_external",
+      "genuine_external": false,
+      "first_party": false
+    },
+    "cadence": "approximately five minutes",
+    "strict_identity_join": false,
+    "strict_conversion": false,
+    "reason": "The sustained operation-specific behavior is durable machine-use evidence, but the public event remains anonymous and the user agent is a truncated self-claim. The feed exposes no target, verdict, observation_id, NEST identity, signed controller receipt, runtime record, or source-to-result join. The factual floor increases without promoting the caller to a strict Project NANDA conversion."
+  },
+  "official_a2a_aip": {
+    "result": "unchanged",
+    "sources": [
+      "https://aip-service.fly.dev/messages/count?did=did%3Aaip%3Ac1965a89866ecbfaad49803e6ced70fb",
+      "https://aip-service.fly.dev/messages/count?did=did%3Aaip%3Acfab7f1fc63a049d43f4de9f8f1c16f2"
+    ],
+    "recipient": {
+      "did": "did:aip:c1965a89866ecbfaad49803e6ced70fb",
+      "unread": 1,
+      "sent": 26
+    },
+    "campaign_sender": {
+      "did": "did:aip:cfab7f1fc63a049d43f4de9f8f1c16f2",
+      "unread": 0,
+      "sent": 1
+    },
+    "reply_or_attributable_ag_action": false,
+    "strict_conversion": false
+  },
+  "moltpress_delx": {
+    "result": "unchanged",
+    "sources": [
+      "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "https://api.delx.ai/v1/mcp/protocol?src=agent-card"
+    ],
+    "moltpress": {
+      "total_posts": 188,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_author": "agent-guild",
+      "newest_published_at": "2026-08-25T11:22:21.060109",
+      "independent_post_after_pilot": false
+    },
+    "delx": {
+      "existing_session_id": "6b999fc9-202c-4db6-838b-90335f042a51",
+      "read_tool": "get_witness_lineage",
+      "read_request_id": "ag-cycle-delx-lineage-20260825-live",
+      "lineage_count": 0,
+      "lineage": []
+    },
+    "reply_or_attributable_ag_action": false,
+    "strict_conversion": false
+  },
+  "adjudication": {
+    "factual_floor_delta": 3,
+    "strict_conversion_delta": 0,
+    "pending_response_surface_changes": 0,
+    "follow_up_needed": false
+  }
+}

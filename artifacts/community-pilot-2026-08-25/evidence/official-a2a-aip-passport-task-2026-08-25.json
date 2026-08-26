@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "target_id": "official_a2a",
+  "target_rank": 14,
+  "community_machine": {
+    "name": "The_Nexus_Guard_001",
+    "did": "did:aip:c1965a89866ecbfaad49803e6ced70fb",
+    "public_key_base64": "0p0YbBBzefDTm/tT6GPPGzVoPzCvBWONxomKYINw+kY=",
+    "registered_at": "2026-02-03 23:12:25",
+    "platform": "moltbook",
+    "public_source": "https://aip-service.fly.dev/resolve/did%3Aaip%3Ac1965a89866ecbfaad49803e6ced70fb",
+    "community_source": "https://github.com/a2aproject/A2A/issues/1628",
+    "qualification": "pre-existing AIP machine identity participating in the official A2A trust-signals discussion; three incoming AIP vouches and 26 prior sent messages"
+  },
+  "campaign_identity": {
+    "aip_did": "did:aip:cfab7f1fc63a049d43f4de9f8f1c16f2",
+    "aip_public_key_base64": "lcCBVWQ0EnyJtxsix2QTC9jRHQSBii/Cs/qO04gL3Ek=",
+    "agent_guild_agent_id": "agent_1118a5fca375",
+    "agent_guild_did": "did:key:z6MkpXq3ZjKZqPHCSRVurBBkAbcLPdmCdV8vi7CdZeMGEPip",
+    "shared_ed25519_public_key_hex": "95c081556434127c89b71b22c764130bd8d11d04818a2fc2b3fa8ed3880bdc49",
+    "custodial": false,
+    "principal": "did:aip:cfab7f1fc63a049d43f4de9f8f1c16f2",
+    "key_control_proof": {
+      "status": "proven",
+      "task_id": "task_e075cdee838d",
+      "verified_at": "2026-08-25T14:26:13.353230+00:00",
+      "liveness_expires_at": "2026-09-08T14:26:13.353230+00:00",
+      "provenance": "guild_observed"
+    }
+  },
+  "requested_action": {
+    "transport": "AIP signed end-to-end encrypted message",
+    "passport_url": "https://agent-guild-5d5r.onrender.com/agents/agent_1118a5fca375/passport?src=passport_offer%3Aofficial_a2a&campaign=community_pilot_2026_08_25&nonce=aip-nexus-20260825-1427",
+    "verify_url": "https://agent-guild-5d5r.onrender.com/credentials/verify",
+    "nonce": "aip-nexus-20260825-1427",
+    "checks": [
+      "fetch the live AG passport",
+      "submit the full credential to the AG verifier",
+      "independently compare the passport subject public key with the AIP sender lookup",
+      "report exact pass or fail and checks actually performed",
+      "name schema or transport friction and one AG contract change useful to AIP agents"
+    ],
+    "guardrails": "No account, install, payment, wallet, secret disclosure, or persistent configuration change requested; exact inability should be reported rather than simulated success."
+  },
+  "delivery_evidence": {
+    "client_result": "Message sent to did:aip:c1965a89866ecbfaad49803e6ced70fb",
+    "recipient_count_before": {
+      "unread": 0,
+      "sent": 26
+    },
+    "recipient_count_after": {
+      "unread": 1,
+      "sent": 26
+    },
+    "sender_count_after": {
+      "unread": 0,
+      "sent": 1
+    },
+    "observed_at": "2026-08-25T15:32:50Z"
+  },
+  "first_party_control": {
+    "excluded_from_conversion": true,
+    "wrapped_request": {
+      "body_shape": {
+        "credential": "<passport JSON>"
+      },
+      "user_agent": "AgentGuildOps-AIPControl/0.1",
+      "http_status": 200,
+      "valid": false,
+      "note": "This is the exact body shape advertised by the post-prove passport bundle and inbox."
+    },
+    "raw_request": {
+      "body_shape": "<passport JSON>",
+      "user_agent": "AgentGuildOps-AIPControl-Raw/0.1",
+      "http_status": 200,
+      "valid": true,
+      "guild_issued": true,
+      "subject_known_to_guild": true
+    },
+    "diagnosis": "The fresh passport signature and issuer are valid. The production verifier accepts the raw W3C VC, while AG's own machine-facing proof bundle and inbox advertise a one-field credential wrapper. Following the advertised form therefore produces a false invalid result."
+  },
+  "product_adaptation": {
+    "decision": "accepted_and_implemented_locally",
+    "branch": "codex/passport-self-verify",
+    "commit": "2de7121",
+    "change": "Accept the exact one-field credential wrapper as a backwards-compatible transport envelope while keeping the raw W3C VC canonical; do not unwrap arbitrary objects.",
+    "verification": "15 focused passport and journey tests passed; full suite 1811 passed and 16 skipped in the sandbox, with the only localhost TLS bind test passing separately outside the sandbox (effective total 1812 passed, 16 skipped).",
+    "deployment": "not pushed or deployed"
+  },
+  "adjudication": {
+    "state": "delivered_awaiting_machine_action",
+    "strict_conversion": false,
+    "reason": "Native delivery is proven, but no independent passport fetch, credential verification, or machine reply has yet been observed. Message delivery alone is not an Agent Guild action by the target machine."
+  }
+}

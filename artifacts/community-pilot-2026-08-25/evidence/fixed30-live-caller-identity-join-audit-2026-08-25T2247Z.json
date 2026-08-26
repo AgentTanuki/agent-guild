@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T22:47:34Z",
+  "window_start": "2026-08-25T22:41:00Z",
+  "mode": "public_primary_sources_and_production_telemetry_read_only_in_memory",
+  "strict_rule": "A qualifying conversion requires both a durable pre-existing principal in an unconverted fixed-30 community and an attributable useful completed Agent Guild action/result. Caller-selected user-agent text, timing correlation, discovery reads, card fetches, offer inspection, and listing presence are insufficient.",
+  "overall_verdict": "no_complete_identity_action_join",
+  "conversion_delta": 0,
+  "telemetry": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "events_in_window": 10,
+    "first_at": "2026-08-25T22:41:51.581234+00:00",
+    "last_at": "2026-08-25T22:46:53.394113+00:00",
+    "callers": [
+      {
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "events": {
+          "preflight_run": 2
+        },
+        "latest_at": "2026-08-25T22:46:53.394113+00:00"
+      },
+      {
+        "user_agent": "CarbonMonitor/0.1 healthcheck (+https://carbon-cashmere.de)",
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T22:43:11.752787+00:00"
+      },
+      {
+        "user_agent": "K-2SO-DigitalLifeform/1.0 (x402-probe)",
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T22:43:53.726245+00:00"
+      },
+      {
+        "user_agent": "mri-indexer/1.0 (+https://agentrateindicators.com)",
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T22:44:35.144344+00:00"
+      },
+      {
+        "user_agent": "mako-pulse-prober/0.1",
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T22:46:51.024463+00:00"
+      }
+    ]
+  },
+  "active_join_audit": [
+    {
+      "machine": "PULSE-observatory",
+      "candidate_fixed_community": "nanda",
+      "fixed_community_unconverted": true,
+      "durable_principal": false,
+      "useful_completed_ag_operation_class": true,
+      "result_join": false,
+      "evidence": "Two anonymous preflight_run events occurred in the window. Adding only the event strictly after the prior 22:41:51 floor raises the conservative cumulative PULSE floor from 84 to 85; latest 22:46:53Z. The user agent is truncated and caller-controlled. Current official NANDA source, NEST, chapter runtime, card, signed controller, target, returned verdict, and observation receipt remain unjoined.",
+      "exact_missing_join": "A pre-existing NANDA principal must publish or sign the returned AG result or server-issued observation_id, or an official NANDA runtime/card must bind that principal to the same run. Timing and the projnanda URL in a user agent do not suffice.",
+      "strict_verdict": "reject_identity_and_result_join_missing",
+      "primary_sources": [
+        "https://github.com/projnanda/nandatown",
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+      ]
+    },
+    {
+      "machine": "MAKO Payment Assurance",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_completed_ag_operation_class": false,
+      "result_join": false,
+      "evidence": "Agentic Market currently publishes the exact mako.pollinateresearch.com service and its three hosted routes, including the paid arbitrary-service verifier and Pulse score. The post-cutoff telemetry only shows an unpaid x402 offer inspection by mako-pulse-prober; it contains no settlement or AG verdict/result.",
+      "exact_missing_join": "A MAKO-signed or marketplace-bound completed response must show it independently consumed an exact AG trust/passport/preflight result. Current evidence stops at challenge inspection; the capable verifier is paid.",
+      "strict_verdict": "reject_no_useful_completed_ag_result",
+      "primary_sources": [
+        "https://agentic.market/services/mako-pollinateresearch-com",
+        "https://mako.pollinateresearch.com/",
+        "https://mako.pollinateresearch.com/openapi.json"
+      ]
+    },
+    {
+      "machine": "CarbonMonitor / Carbon & Cashmere",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_completed_ag_operation_class": false,
+      "result_join": false,
+      "evidence": "Carbon & Cashmere's first-party x402 manifest publishes the api.carbon-cashmere.de service and payTo 0xf8b2...F2Ee. The current official CDP x402 search returns at least ten exact-host resources in its capped semantic result. The post-cutoff AG activity is only offer_served plus paid_offer_shown.",
+      "exact_missing_join": "A service-generated result must consume AG trust/passport/preflight data and be bound to the Carbon principal. An unsigned healthcheck user agent and x402 challenge inspection do not establish such an action.",
+      "strict_verdict": "reject_no_useful_completed_ag_result",
+      "primary_sources": [
+        "https://carbon-cashmere.de/",
+        "https://api.carbon-cashmere.de/.well-known/x402",
+        "https://api.cdp.coinbase.com/platform/v2/x402/discovery/search?query=carbon-cashmere.de&limit=20"
+      ]
+    },
+    {
+      "machine": "K-2SO",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_completed_ag_operation_class": false,
+      "result_join": false,
+      "evidence": "K-2SO's live discovery document identifies a persistent autonomous merchant, wallet 0xc85f...0604 and x402/MPP contracts. The official CDP x402 search currently returns fifteen exact-host resources with the same wallet. The post-cutoff AG events are only offer_served and paid_offer_shown; the caller user agent is not signed.",
+      "exact_missing_join": "A K-2SO principal-bound receipt/result must show a completed AG action. Current identity and marketplace membership are strong, but the AG-side action is an unpaid probe and the inbound user agent alone does not prove controller possession.",
+      "strict_verdict": "reject_no_useful_completed_ag_result_and_no_signed_caller_binding",
+      "primary_sources": [
+        "https://k2so.wrong.systems/api/discovery",
+        "https://k2so.wrong.systems/.well-known/agent.json",
+        "https://api.cdp.coinbase.com/platform/v2/x402/discovery/search?query=k2so.wrong.systems&limit=20"
+      ]
+    },
+    {
+      "machine": "MRI indexer / Agent Rate Indicators",
+      "candidate_fixed_community": "aaif_mcp",
+      "fixed_community_unconverted": false,
+      "durable_principal": "product_identity_only",
+      "useful_completed_ag_operation_class": false,
+      "result_join": false,
+      "evidence": "The Official MCP Registry currently has two active latest ARI records tied to agentrateindicators.com. Their published runtime/package identities are ari-mcp and ari-mcp-py, not mri-indexer, so they do not bind this caller. The fixed AAIF/MCP target is already converted independently. Current activity is only an x402 offer inspection with no fact-check result or settlement.",
+      "exact_missing_join": "A signed ARI controller record must bind mri-indexer to one durable principal and a completed AG fact-check response. Even then this would be additional adoption evidence, not a new conversion for the already-converted AAIF/MCP target.",
+      "strict_verdict": "reject_runtime_identity_join_missing_no_result_and_fixed_target_already_converted",
+      "primary_sources": [
+        "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.Antmanbuilds%2Fari-mcp&version=latest&limit=10",
+        "https://agentrateindicators.com/"
+      ]
+    }
+  ],
+  "named_callers_not_active_after_cutoff": [
+    {
+      "machine": "x402-observer",
+      "last_seen": "2026-08-25T22:23:14.174423+00:00",
+      "identity_membership": "Exact x402.fuchss.app principal has seven current official CDP x402 resources and is adjacent to the unconverted Agentic Market target.",
+      "action": "Historical challenge/offer inspection only.",
+      "exact_missing_join": "No post-cutoff event and no completed AG result; useful arbitrary-endpoint trust scoring is paid.",
+      "primary_source": "https://api.cdp.coinbase.com/platform/v2/x402/discovery/search?query=x402.fuchss.app&limit=20"
+    },
+    {
+      "machine": "Forum Labs trust prober",
+      "last_seen": "2026-08-25T22:19:24.655883+00:00",
+      "identity_membership": "Exact first-party user-agent, repository and active Official MCP Registry identity io.github.forum-labs/payfetch are durable, but AAIF/MCP is already converted.",
+      "action": "Historical challenge/offer inspection only.",
+      "exact_missing_join": "No post-cutoff event, no completed AG result, and no unconverted fixed-community membership; hosted trust actions are paid.",
+      "primary_sources": [
+        "https://forum-labs.com/",
+        "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.forum-labs%2Fpayfetch&version=latest&limit=10"
+      ]
+    },
+    {
+      "machine": "Agent402",
+      "last_seen": "2026-08-25T22:34:38.835164+00:00",
+      "identity_membership": "agent402.tools is a durable PayAI seller origin, but the exact earlier card validator was not catalog-bound to PayAI.",
+      "action": "Discovery documents only in the retained latest window; the earlier card validation processed supplied JSON and did not fetch or use AG trust data.",
+      "exact_missing_join": "A PayAI-listed exact operation must independently fetch or verify an AG trust artifact and return a substantive result. Relevant hosted fetch operations are paid and terms-gated.",
+      "primary_sources": [
+        "https://agent402.tools/",
+        "https://facilitator.payai.network/discovery/resources"
+      ]
+    },
+    {
+      "machine": "402explorer / Paygent Discover",
+      "last_seen": "2026-08-25T21:48:50.402346+00:00",
+      "identity_membership": "The first-party Paygent Discover about page identifies a public x402 reliability index, but exact-domain official CDP x402 search returns no resource and no fixed-30 community principal is proven.",
+      "action": "Discovery/card reads followed by challenge inspection only.",
+      "exact_missing_join": "No unconverted fixed-community membership and no completed AG result; its claimed Agent Card, x402 and OpenAPI paths return 404.",
+      "primary_sources": [
+        "https://discover.paygent.net/about",
+        "https://api.cdp.coinbase.com/platform/v2/x402/discovery/search?query=discover.paygent.net&limit=20"
+      ]
+    },
+    {
+      "machine": "agent-tools.cloud crawler and A2A indexer",
+      "last_seen": "2026-08-25T21:55:59.168108+00:00",
+      "identity_membership": "Durable first-party x402/A2A directory identity, but no fixed-30 membership proof.",
+      "action": "Discovery and Agent Card fetches only.",
+      "exact_missing_join": "No unconverted fixed-community principal and no useful AG action; the first-party manifest explicitly says the host is discovery-only.",
+      "primary_source": "https://agent-tools.cloud/.well-known/agent-tools.json"
+    },
+    {
+      "machine": "ITINAI WordPress/A2A runtime",
+      "last_seen": "2026-08-25T22:02:38.326409+00:00",
+      "identity_membership": "Durable ITINAI expansion-community identity and public AG profile; its adjacent Global A2A Registry fixed target is already converted.",
+      "action": "Agent Card fetch only.",
+      "exact_missing_join": "No trust/passport/preflight result and no new unconverted fixed-community principal.",
+      "primary_sources": [
+        "https://itinai.com/agent/agent-guild/",
+        "https://github.com/aihlp/itinai"
+      ]
+    },
+    {
+      "machine": "CipherWatch",
+      "last_seen": "2026-08-25T22:38:48.390456+00:00",
+      "identity_membership": "No public durable controller or fixed-community principal found.",
+      "action": "Repeated anonymous preflight_run events prove machine use but expose no target or returned-result join.",
+      "exact_missing_join": "A durable community identity must sign or publish one server-correlated result/observation receipt. Cloudflare Worker and a caller-selected name are not membership proof.",
+      "primary_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+    }
+  ],
+  "commercial_cross_check": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "paid_decisions": 0,
+    "paid_completions_all_surfaces": 0,
+    "interpretation": "No offer inspection in this audit can be promoted to settlement or a paid completed result."
+  },
+  "strict_conclusion": {
+    "complete_joins": 0,
+    "strongest_identity_half": "MAKO, Carbon & Cashmere and K-2SO have current durable Agentic Market principals, but only inspected AG's offer boundary.",
+    "strongest_action_half": "PULSE completed AG preflight twice in-window, but the NANDA principal, target and returned result remain unbound.",
+    "first_ready_gate": "A durable NANDA principal returning a server-issued observation_id/result is the smallest missing join; alternatively any current Agentic Market principal must return a principal-bound completed AG trust/passport/preflight result rather than a challenge probe."
+  },
+  "safety": {
+    "public_reads_only": true,
+    "external_messages_or_contact": 0,
+    "paid_or_terms_gated_routes_invoked": 0,
+    "accounts_keys_wallets_installs_or_persistent_changes": 0,
+    "canonical_targets_edited": false
+  }
+}

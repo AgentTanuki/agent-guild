@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_payai_agentic_market_free_route_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T00:01:20Z",
+    "end": "2026-08-26T00:06:44Z"
+  },
+  "mode": "public_read_only_in_memory_plus_one_bounded_free_machine_operation",
+  "qualification_rule": "A strict conversion requires a durable pre-existing fixed-community machine identity joined to a useful Agent Guild action backed by independent evidence. A marketplace listing, paid offer, caller-supplied URL echoed into a signed unavailable result, or machine discovery read does not qualify.",
+  "payai": {
+    "catalog_source": "https://facilitator.payai.network/discovery/resources",
+    "catalog": {
+      "declared_total": 26653,
+      "delta_from_2309z": 4,
+      "records_read": 26653,
+      "zero_price_records": 87,
+      "zero_price_unique_hosts": 18,
+      "relevant_zero_price_records": 15,
+      "zero_price_delta": 0
+    },
+    "strongest_candidate": {
+      "seller": "Aster Vale Audit402",
+      "stable_resource": "https://aster-vale-audit402.shares.zrok.io/website-audit-sample",
+      "stable_dns": "resolved",
+      "stable_head_status": 404,
+      "fallback_hosts_checked": 5,
+      "fallback_hosts_resolving": 0,
+      "decision": "unreachable_not_invoked"
+    },
+    "agent402": {
+      "current_openapi_version": "2.1.0",
+      "path_count": 559,
+      "useful_apparently_unpaid_ag_route_count": 0,
+      "live_literal_placeholder_recovery_required": true,
+      "decision": "no_free_attributable_route"
+    },
+    "strict_conversion": false
+  },
+  "agentic_market": {
+    "catalog_source": "https://api.cdp.coinbase.com/platform/v2/x402/discovery/search",
+    "current_machine_routes": [
+      {
+        "identity": "x402-observer / x402.fuchss.app",
+        "records": 7,
+        "zero_price_records": 0,
+        "minimum_atomic_usdc": 1000,
+        "useful_route": "POST /v1/x402-trust",
+        "useful_route_atomic_usdc": 5000,
+        "decision": "payment_gate"
+      },
+      {
+        "identity": "CarbonMonitor / carbon-cashmere.de",
+        "records_in_current_search": 20,
+        "zero_price_records": 0,
+        "minimum_atomic_usdc": 1000,
+        "decision": "wrong_semantics_and_payment_gate"
+      },
+      {
+        "identity": "K-2SO / k2so.wrong.systems",
+        "records": 15,
+        "zero_price_records": 0,
+        "minimum_atomic_usdc": 2000,
+        "decision": "payment_gate"
+      }
+    ],
+    "agent_guild_listing": {
+      "resource": "https://agent-guild-5d5r.onrender.com/search",
+      "amount_atomic_usdc": 10000,
+      "pay_to": "0xaa4E3ba0Eb5f564cAb54dDC08f5BaAfb3D4cA8E5",
+      "last_updated": "2026-08-23T03:20:20.65Z",
+      "catalog_reported_30d_calls": 2,
+      "catalog_reported_30d_unique_payers": 1,
+      "pilot_attribution": false
+    },
+    "mako": {
+      "identity": "MAKO Payment Assurance / Pollinate Research",
+      "community_join": "Pre-existing first-party MAKO identity is durably listed in Agentic Market and its published signer is 0x12BBC7Cde00eB800588243A0B3B4E8E802673BFf.",
+      "live_external_behavior": "MAKO continues to inspect Agent Guild x402 challenges, but current AG telemetry records offer presentation rather than a useful completion or settlement.",
+      "operation": {
+        "method": "GET",
+        "url": "https://mako.pollinateresearch.com/api/asterpay/reliability?endpoint=https%3A%2F%2Fagent-guild-5d5r.onrender.com%2Fsearch",
+        "price_usd": 0,
+        "bounded": true,
+        "http_status": 200,
+        "invoked_at": "2026-08-26T00:05:15.072Z"
+      },
+      "signed_result": {
+        "issued_at": "2026-08-26T00:05:15.072Z",
+        "max_age_s": 300,
+        "nonce": "0xe8e7ffb3dc4348f40a3d415d68140ca7896f64cb6bb217d6599ee4ee203a83ad",
+        "signer": "0x12BBC7Cde00eB800588243A0B3B4E8E802673BFf",
+        "signature": "0x5ec6ae2d56d180e4ca85bc1046567157017b3c2674d99f9a95d6f7fce0f06e0546c13e96a0c5d7e3b754feb3b6313dc85a1b237b441b9c09d98a35ce569aad641b",
+        "signature_profile": "EIP-191 over sorted compact JSON of the full envelope including signer and excluding signature",
+        "recovered_signer": "0x12BBC7Cde00eB800588243A0B3B4E8E802673BFf",
+        "signature_valid": true,
+        "payload": {
+          "attribution": "https://mako.pollinateresearch.com",
+          "endpoint": "https://agent-guild-5d5r.onrender.com/search",
+          "fee": {
+            "amount": "20000",
+            "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            "network": "base",
+            "payTo": "0x6e4DfBe49858E9Cb93162352D75DBD1E409A7737",
+            "scheme": "exact"
+          },
+          "lastScannedAt": null,
+          "sampleSize": 0,
+          "score": null,
+          "scoreScale": "0-100",
+          "source": "mako-pulse",
+          "unavailable": {
+            "reason": "no_pulse_data"
+          }
+        }
+      },
+      "adjudication": "The operation and signature are genuine and identity-bound, but the result contains no independent observation: sampleSize is zero, score and lastScannedAt are null, and unavailable.reason is no_pulse_data. It only binds the caller-supplied AG URL to a signed absence response. This is not a useful AG action and does not convert Agentic Market.",
+      "smallest_ready_condition": "The same free signed route returns a nonzero sampleSize, score, lastScannedAt and observation evidence for the exact AG resource, or a MAKO route independently consumes an AG preflight/passport and returns a signed substantive result."
+    },
+    "strict_conversion": false
+  },
+  "decision": {
+    "strict_conversions_added": 0,
+    "strict_total_after": "5/30",
+    "external_settled_revenue_usd": 0.0,
+    "ready_routes": []
+  },
+  "safety": {
+    "catalog_and_contract_reads": "public_in_memory_only",
+    "candidate_operations_invoked": 1,
+    "candidate_operation_free": true,
+    "candidate_operation_bounded": true,
+    "outreach_messages": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "deploys_or_pushes": 0,
+    "response_files_written": 0
+  }
+}

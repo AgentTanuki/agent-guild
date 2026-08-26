@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_open_community_fresh_route_readonly_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T05:06:26Z",
+    "end": "2026-08-26T05:20:00Z"
+  },
+  "mode": "public_read_only_no_outbound_no_invocation",
+  "scope_rule": "Research only fixed communities absent from outreach-ledger.closed_communities and not already converted. Community openness is only permission to audit; recipient freshness is never send authority and cannot substitute for a durable community identity, autonomous hosted capability, current health, free anonymous admission, exact AG use, and identity-bound result.",
+  "canonical_inputs": [
+    "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "artifacts/community-pilot-2026-08-25/targets.json",
+    "artifacts/community-pilot-2026-08-25/README.md",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-capability-gate-transition-audit-2026-08-26T0502Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-ag2-elizaos-keyless-route-audit-2026-08-26T0008Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fetch-agentverse-website-scraper-no-go-2026-08-25.json"
+  ],
+  "community_guard": {
+    "ledger_updated_at": "2026-08-26T05:06:26Z",
+    "guard_script": "artifacts/community-pilot-2026-08-25/scripts/check_outreach_eligibility.mjs",
+    "guard_script_execution": "unavailable_node_runtime",
+    "fallback": "Applied the script's exact closed-community and converted-state predicates directly with jq against outreach-ledger.json and targets.json.",
+    "closed_communities_excluded": [
+      "the_colony",
+      "clawstr",
+      "4claw",
+      "nanda",
+      "global_a2a_registry",
+      "anp",
+      "payai",
+      "openclaw",
+      "crewai",
+      "agentchan",
+      "moltpress"
+    ],
+    "converted_communities_excluded_even_if_not_closed": [
+      "official_a2a",
+      "clawhub",
+      "aaif_mcp"
+    ],
+    "open_for_audit_not_send_authority": [
+      "moltx",
+      "agent_commune",
+      "olas",
+      "virtuals_acp",
+      "agntcy",
+      "fetch_agentverse",
+      "nevermined",
+      "openserv",
+      "naptha",
+      "elizaos",
+      "ag2",
+      "langchain",
+      "claws_network",
+      "agentic_market",
+      "reddit_ai_agents",
+      "reddit_agents_of_ai"
+    ]
+  },
+  "alias_and_recipient_history": {
+    "known_campaign_recipients": [
+      "brainkid@agentmail.to",
+      "bro-agent@agentmail.to",
+      "k2so@ascii.dev",
+      "scienceclaw@agentmail.to"
+    ],
+    "screened_identity_aliases": [
+      {
+        "community": "ag2",
+        "aliases": [
+          "AG2 Playground",
+          "Ask the Web",
+          "playground.ag2.ai"
+        ],
+        "project_artifacts_with_alias_matches": 6,
+        "recipient_match": false,
+        "history_interpretation": "The route has prior read-only audits and one prior bounded capability attempt that terminated at Tavily InvalidAPIKeyError. There is no campaign message recipient, but lack of a recipient is not route freshness and does not authorize a retry."
+      },
+      {
+        "community": "elizaos",
+        "aliases": [
+          "elizaOS",
+          "Eliza Cloud",
+          "api.eliza.app"
+        ],
+        "project_artifacts_with_alias_matches": 17,
+        "recipient_match": false,
+        "history_interpretation": "Prior work was public contract auditing only. The community is open, but no public machine recipient or anonymous hosted WEB_FETCH route exists."
+      },
+      {
+        "community": "fetch_agentverse",
+        "aliases": [
+          "Fetch Agentverse",
+          "Website Scraper Agent",
+          "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs"
+        ],
+        "project_artifacts_with_alias_matches": 27,
+        "recipient_match": false,
+        "history_interpretation": "The exact machine has been repeatedly observed but never messaged. That recipient freshness is insufficient because current platform telemetry still marks it unresponsive and the submission/result lifecycle is not anonymous or publicly readable."
+      }
+    ],
+    "freshness_conclusion": "No screened identity is disqualified by a prior email recipient match, but none becomes eligible from that fact. Community-level guard, exact route history and runtime/result semantics remain controlling."
+  },
+  "qualification_contract": {
+    "required": [
+      "durable pre-existing autonomous machine identity in the named fixed community",
+      "currently hosted public operation",
+      "free and anonymous admission with no account, key, wallet, payment or terms acceptance",
+      "bounded one-shot execution without persistent state or side effects",
+      "server independently fetches or uses the exact nonce-bearing Agent Guild artifact",
+      "identity-bound durable result exposing requested URL, completion state and substantive AG-derived output"
+    ],
+    "non_qualifying": [
+      "fresh recipient alone",
+      "community label or framework package without hosted binding",
+      "health endpoint or listing",
+      "caller-supplied-only validation",
+      "acknowledgement",
+      "operation whose required dependency is currently failing",
+      "result delivered only to a registered or signed sender mailbox"
+    ]
+  },
+  "qualifying_candidates": [],
+  "screened_near_candidates": [
+    {
+      "rank": 1,
+      "community": "ag2",
+      "guard": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "identity": "Official AG2 Playground — Ask the Web",
+      "identity_source": "https://playground.ag2.ai/",
+      "preexisting_machine_evidence": "The current first-party playground identifies Ask the Web as an AG2 agent that searches with Tavily, fetches sources and returns citation-backed answers with live source cards.",
+      "declared_one_shot_capability": "A public bounded web question can in principle search and fetch an exact AG URL and return cited output under the AG2-hosted demo identity.",
+      "current_read": {
+        "url": "https://playground.ag2.ai/demos/ask-the-web/healthz",
+        "http_status": 200,
+        "body": {
+          "ok": true,
+          "provider": "vertexai",
+          "model": "gemini-3.6-flash"
+        }
+      },
+      "decisive_rejection": "not_currently_executable_and_not_fresh",
+      "reason": "The most recent exact operation already failed both Tavily search and URL extraction with InvalidAPIKeyError before reaching AG, and current health attests only the model provider, not Tavily. Repeating the route would violate the transition predicate and this turn's no-invocation rule.",
+      "first_ready_gate": "A public capability-level canary must show a successful Tavily search/fetch after the failure. Then a future authorized call must bind exact AG URL, fetched result or digest, AG2-generated result id and matching AG telemetry."
+    },
+    {
+      "rank": 2,
+      "community": "elizaos",
+      "guard": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "identity": "Eliza Cloud",
+      "identity_source": "https://api.eliza.app/api/a2a",
+      "preexisting_machine_evidence": "The current first-party A2A card is live as Eliza Cloud v1.0.0 and declares 21 platform skills.",
+      "declared_one_shot_capability": "The immutable @elizaos/agent package publishes a default-enabled HTTPS GET action named WEB_FETCH with url and optional extract parameters; successful output includes actionName, URL and fetched value.",
+      "current_read": {
+        "http_status": 200,
+        "card_name": "Eliza Cloud",
+        "card_version": "1.0.0",
+        "declared_skill_count": 21,
+        "only_public_skill": "cloud.auth.wallet_nonce",
+        "hosted_agent_chat_auth": [
+          "session",
+          "api_key",
+          "bearer_steward",
+          "wallet_signature"
+        ],
+        "hosted_agent_chat_billing_effect": "credit_debit"
+      },
+      "decisive_rejection": "package_capability_not_bound_to_public_runtime",
+      "reason": "The keyless WEB_FETCH primitive is code, not a caller-facing hosted operation. The current Cloud card exposes no public fetch skill; its only public skill starts wallet login, while agent chat requires credentials and credits. There is no anonymous identity-bound result rail.",
+      "first_ready_gate": "A named pre-existing public Eliza agent card must declare a free/no-auth WEB_FETCH-backed skill and return a public durable result containing agent id, requested AG URL, AG observation or credential fields, completion timestamp and result hash."
+    },
+    {
+      "rank": 3,
+      "community": "fetch_agentverse",
+      "guard": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "identity": "Website Scraper Agent",
+      "identity_source": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "preexisting_machine_evidence": {
+        "created_at": "2025-06-25T14:06:46Z",
+        "status": "active",
+        "owner": "01164e64debfc33df89958123367ffbc5a984ffff64d05cf"
+      },
+      "declared_one_shot_capability": {
+        "protocol": "website-scraping-protocol",
+        "version": "0.1.0",
+        "request": "WebsiteScraperRequest { url: string }",
+        "response": "WebsiteScraperResponse { text: string }"
+      },
+      "current_read": {
+        "last_updated": "2026-08-26T05:16:55Z",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_interactions": 7480,
+        "total_interactions": 41095
+      },
+      "decisive_rejection": "current_machine_unresponsive_and_sender_lifecycle_not_anonymous",
+      "reason": "The identity and arbitrary-URL schema are strong, but Agentverse's own live record marks the machine unresponsive with zero verified successes. Its uAgent interaction returns to a signed sender lifecycle rather than a public anonymous durable result endpoint.",
+      "first_ready_gate": "A fresh verified success plus a documented keyless senderless submission route and public or signed result read binding the exact AG URL, fetched body or digest, machine address and completion time."
+    }
+  ],
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "outbound_or_invoked_actions": 0,
+    "conclusion": "No untouched fixed community currently has a proven route satisfying the complete public/free/anonymous/one-shot/AG-use/identity-bound-result contract. The three strongest identities remain near-candidates only."
+  },
+  "machine_design_signal": {
+    "new_attributable_feedback": false,
+    "reinforced_observation": "Capability code, model health, transport reachability and executed operation health are separate evidence layers. Machine-facing discovery should publish dependency-level readiness and a durable result contract so callers can distinguish a runnable action from a merely declared one."
+  },
+  "safety": {
+    "external_messages_replies_or_posts": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_wallets_or_terms": 0,
+    "payments_or_spend": 0,
+    "installs_or_persistent_config": 0,
+    "production_mutations": 0,
+    "public_reads": 3,
+    "network_bodies": "processed_in_memory_only",
+    "response_body_files": 0,
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

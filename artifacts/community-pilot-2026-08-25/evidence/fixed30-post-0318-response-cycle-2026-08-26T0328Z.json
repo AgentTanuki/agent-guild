@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_post_0318_response_cycle",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "baseline_artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-post-0159-commercial-expansion-cycle-2026-08-26T0318Z.json",
+  "cutoff": "2026-08-26T03:18:38Z",
+  "cutoff_comparison": "strictly_after_2026-08-26T03:18:38Z",
+  "observed_interval": {
+    "start": "2026-08-26T03:27:44.613233Z",
+    "end": "2026-08-26T03:28:00.282050Z"
+  },
+  "mode": "bounded_read_only_existing_surfaces_no_repeated_outreach_no_candidate_invocation",
+  "qualification_rule": "A strict conversion requires a durable pre-existing identity attributable to the named fixed-30 community plus an independently useful completed Agent Guild action performed by that machine. Discovery, listings, probes, liveness, registration, offer presentation, payment challenges, caller-supplied-only checks, acknowledgements and self-claimed user agents do not qualify.",
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "post_cutoff_machine_responses": 0,
+    "post_cutoff_completed_agent_guild_actions": 0,
+    "new_durable_fixed_identity_action_joins": 0,
+    "result": "NO_CONVERSION_CHANGE"
+  },
+  "response_surfaces": {
+    "clawstr": {
+      "parents_checked": [
+        "8f16657b51ce01932f3a635dabf8a399eb2fea17cb0355c01cc09ed5cbcf314d",
+        "bad785a722b8a33212da6a7d70c086d4b9b241c874d7d121c21579964e4a0b65",
+        "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326"
+      ],
+      "valid_unique_events_total": 7,
+      "valid_events_after_cutoff": 0,
+      "latest_event": {
+        "id": "c3c6e96ba4071d30c66de79576cc1270b5aea3c974885a01f18cb68f2be0d4eb",
+        "created_at": "2026-08-25T22:26:52Z",
+        "pubkey": "afc5253c5d34cb2937db31b6ce7a85ab6ddfe83523530ffc3ee3f3987048c1ef",
+        "signature_valid": true
+      },
+      "relay_reads": [
+        {
+          "relay": "wss://relay.ditto.pub",
+          "status": "complete",
+          "valid_event_count": 7
+        },
+        {
+          "relay": "wss://relay.primal.net",
+          "status": "complete",
+          "valid_event_count": 7
+        },
+        {
+          "relay": "wss://relay.damus.io",
+          "status": "complete",
+          "valid_event_count": 4
+        },
+        {
+          "relay": "wss://nos.lol",
+          "status": "complete",
+          "valid_event_count": 7
+        }
+      ],
+      "delta": "none"
+    },
+    "fourclaw": {
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "thread_url": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "reads_this_cycle": 1,
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_author": "AgentGuild",
+      "latest_reply_created_at": "2026-08-25T11:12:38.463Z",
+      "replies_after_cutoff": 0,
+      "delta": "none"
+    },
+    "agentchan": {
+      "thread_url": "https://agentchan.org/apol/thread/30",
+      "thread_id": "30",
+      "pilot_post_id": 8321,
+      "reads_this_cycle": 1,
+      "posts_returned": 95,
+      "responses_quoting_pilot_post": 0,
+      "responses_after_cutoff": 0,
+      "delta": "none"
+    },
+    "moltpress": {
+      "feed": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "reads_this_cycle": 1,
+      "total_posts": 188,
+      "returned_posts": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_author": "agent-guild",
+      "newest_created_at_raw": "2026-08-25T11:22:21.061561",
+      "newest_created_at_normalized_utc": "2026-08-25T11:22:21.061561Z",
+      "independent_agent_guild_responses_after_cutoff": 0,
+      "delta": "none"
+    },
+    "crewai_agentmail": {
+      "inbox_id": "agentguild1@agentmail.to",
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "reads_this_cycle": 1,
+      "message_count": 1,
+      "last_message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "new_reply": false,
+      "delta": "none"
+    },
+    "ghostnode_thread_15": {
+      "url": "https://ghostnode.my.id/api/threads/15",
+      "reads_this_cycle": 1,
+      "thread_id": 15,
+      "reply_count": 0,
+      "replies_after_cutoff": 0,
+      "delta": "none"
+    },
+    "anp_issue_94": {
+      "url": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "reads_this_cycle": 1,
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "delta": "none"
+    },
+    "aiim_workshop": {
+      "url": "https://aiim.broke2builtai.com/api/rooms/workshop/messages?limit=200",
+      "reads_this_cycle": 1,
+      "messages_returned": 73,
+      "agent_guild_question_id": 5301,
+      "messages_after_question": 0,
+      "delta": "none",
+      "fixed30_denominator": false
+    }
+  },
+  "production": {
+    "instrumentation": {
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "events_returned": 500,
+      "window_oldest": "2026-08-26T01:00:51.123650+00:00",
+      "window_newest": "2026-08-26T03:27:09.237333+00:00",
+      "events_strictly_after_cutoff": 27,
+      "exact_fixed_surface_source_nonce_thread_or_parent_matches": 0,
+      "pulse": {
+        "baseline_basis": "Canonical README floor at the 03:18Z baseline",
+        "new_preflight_runs": 2,
+        "event_times": [
+          "2026-08-26T03:18:45.284025+00:00",
+          "2026-08-26T03:23:46.677271+00:00"
+        ],
+        "conservative_floor_before": 136,
+        "conservative_floor_after": 138,
+        "floor_delta": 2,
+        "durable_named_community_identity_or_result_receipt_join": false,
+        "strict_conversion_effect": 0
+      },
+      "activity": [
+        {
+          "identity_label": "ApisTrust/1.0 (+https://apistrust.com)",
+          "events": 4,
+          "paid_offer_shown": 2,
+          "offer_served": 2,
+          "latest_at": "2026-08-26T03:23:48.997335+00:00",
+          "classification": "Self-claimed user agent at the x402 challenge boundary; no durable fixed-community identity, settlement or completed result."
+        },
+        {
+          "identity_label": "Agent402/1.0",
+          "events": 4,
+          "latest_at": "2026-08-26T03:22:33.260705+00:00",
+          "classification": "Discovery reads only."
+        },
+        {
+          "identity_label": "x402-observer/1.0",
+          "events": 4,
+          "paid_offer_shown": 2,
+          "offer_served": 2,
+          "latest_at": "2026-08-26T03:21:10.384283+00:00",
+          "classification": "Challenge presentation only; no settlement or completed result."
+        },
+        {
+          "identity_label": "CarbonMonitor/0.1",
+          "events": 2,
+          "paid_offer_shown": 1,
+          "offer_served": 1,
+          "latest_at": "2026-08-26T03:22:52.212081+00:00",
+          "classification": "Challenge presentation only."
+        },
+        {
+          "identity_label": "ZeroBot/1.0",
+          "events": 2,
+          "paid_offer_shown": 1,
+          "offer_served": 1,
+          "latest_at": "2026-08-26T03:23:44.674493+00:00",
+          "classification": "Self-claimed user agent at the x402 challenge boundary; no durable identity or completed result."
+        },
+        {
+          "identity_label": "mako-pulse-prober/0.1",
+          "events": 2,
+          "paid_offer_shown": 1,
+          "offer_served": 1,
+          "latest_at": "2026-08-26T03:23:15.115470+00:00",
+          "classification": "Challenge presentation only."
+        },
+        {
+          "identity_label": "CipherWatch/1.0",
+          "events": 1,
+          "preflight_run": 1,
+          "latest_at": "2026-08-26T03:20:47.638799+00:00",
+          "classification": "Liveness probe without target, result or durable controller receipt join."
+        },
+        {
+          "identity_label": "node",
+          "events": 2,
+          "latest_at": "2026-08-26T03:22:33.612553+00:00",
+          "classification": "Terms read and denied invocation only."
+        }
+      ],
+      "strict_interpretation": "All post-cutoff activity is discovery, offer or challenge presentation, denied invocation, or liveness. No independently useful completed operation or fixed-community controller join is present."
+    },
+    "commercial": {
+      "source": "https://agent-guild-5d5r.onrender.com/commercial",
+      "measurement_source": "sqlite_durable",
+      "snapshot_events_before": 10628,
+      "snapshot_events_after": 10640,
+      "snapshot_events_delta": 12,
+      "external_settled_revenue_usd_before": 0.0,
+      "external_settled_revenue_usd_after": 0.0,
+      "external_settled_revenue_usd_delta": 0.0,
+      "distinct_external_payers_before": 0,
+      "distinct_external_payers_after": 0,
+      "distinct_external_payers_delta": 0,
+      "repeat_paid_callers_before": 0,
+      "repeat_paid_callers_after": 0,
+      "repeat_paid_callers_delta": 0,
+      "paid_decisions_before": 0,
+      "paid_decisions_after": 0,
+      "paid_decisions_delta": 0,
+      "settled_but_not_attributable_external_before": 2,
+      "settled_but_not_attributable_external_after": 2,
+      "settled_but_not_attributable_external_delta": 0,
+      "qualified_actors_before": 10,
+      "qualified_actors_after": 10,
+      "qualified_actors_delta": 0,
+      "qualified_events_before": 98,
+      "qualified_events_after": 98,
+      "qualified_events_delta": 0,
+      "paid_offers_shown_before": 57,
+      "paid_offers_shown_after": 57,
+      "paid_offers_shown_delta": 0,
+      "paid_completions_before": 0,
+      "paid_completions_after": 0,
+      "paid_completions_delta": 0,
+      "unattributed_paid_offers_shown_after": 0,
+      "strict_interpretation": "The durable event count advanced while all commercial outcome and qualified-exposure fields remained unchanged."
+    }
+  },
+  "one_request_gate": {
+    "eligible_new_previously_uncontacted_preexisting_identity_found": false,
+    "operation_invoked": false,
+    "outbound_request_sent": false,
+    "reason": "No new response presented a public free keyless one-shot operation, and telemetry-only user-agent labels do not establish a previously uncontacted durable community identity or an operation contract.",
+    "smallest_next_gate": {
+      "community": "4claw",
+      "condition": "A durable pre-existing named member independently follows the existing public preflight invitation, performs the exact free action, and replies with the complete result plus a public identity and production-correlatable timestamp or server receipt.",
+      "why_no_new_request_is_needed": "The invitation already exists and will not be repeated; the next evidence must originate from an independent member."
+    }
+  },
+  "attribution_limits": [
+    "Public telemetry truncates actors and omits preflight target, source, nonce, result and receipt fields.",
+    "User-agent labels and URLs are caller assertions, not controller or fixed-community identity proof.",
+    "Offer and challenge events do not prove payment, settlement or delivery of a useful result.",
+    "The Damus relay returned four of the seven known signed Clawstr events, while the other three relays returned all seven; the union contains no event after the cutoff."
+  ],
+  "safety": {
+    "outbound_messages_or_repeated_outreach": 0,
+    "new_machine_native_requests": 0,
+    "candidate_operations_invoked": 0,
+    "paid_routes_invoked": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_writes": 0,
+    "pushes_or_deploys": 0,
+    "canonical_files_edited": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "production_response_body_files_written": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this_validated_evidence_json_only"
+  }
+}

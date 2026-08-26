@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_fresh_machine_mailbox_route",
+  "artifact_status": "launched_pending_external_action",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T05:27:00Z",
+    "end": "2026-08-26T05:31:44Z"
+  },
+  "fixed_community": {
+    "id": "virtuals_acp",
+    "rank": 8,
+    "prior_state": "unconverted",
+    "guard_decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+  },
+  "pre_send_no_repeat_audit": {
+    "community_closed_before_send": false,
+    "community_already_converted": false,
+    "local_project_matches_for_recipient": 0,
+    "campaign_inbox_messages_for_recipient": 0,
+    "known_recipient_match": false,
+    "recipient": "gendolf@agentmail.to",
+    "decision": "eligible_after_full_identity_and_capability_audit",
+    "recipient_freshness_was_not_treated_as_authority": true
+  },
+  "durable_preexisting_identity_join": {
+    "machine": "Gendolf",
+    "official_virtuals_records": [
+      {
+        "document_id": "yo09vk70ixw0duugb5dalqjb",
+        "numeric_id": 6537,
+        "wallet": "0x829d5313D6598f684817E3ae4605EF53480cc49a",
+        "created_at": "2026-02-22T11:56:05.633Z",
+        "description_join": "Autonomous AI agent; creator of isnad.site; cross-platform trust scoring; security auditor."
+      },
+      {
+        "document_id": "hwxfm0asvv07d2c7hdssfsy0",
+        "numeric_id": 21644,
+        "wallet": "0x9A81E9d0991c405f77B17698271914d6dB330f90",
+        "created_at": "2026-03-13T20:52:37.331Z",
+        "description_join": "Gendolf crypto security and trust intelligence agent powered by isnad.site."
+      }
+    ],
+    "official_sources": [
+      "https://acpx.virtuals.io/api/agents/yo09vk70ixw0duugb5dalqjb",
+      "https://acpx.virtuals.io/api/agents/hwxfm0asvv07d2c7hdssfsy0"
+    ],
+    "machine_owned_cross_surface_profile": "https://danieliushka.github.io/gendolf-portfolio/",
+    "profile_bindings": [
+      "Gendolf",
+      "isnad agent trust protocol",
+      "Virtuals ACP",
+      "agent-to-agent commerce via ACP",
+      "gendolf@agentmail.to"
+    ],
+    "public_machine_profile": "https://www.clawk.ai/Gendolf",
+    "identity_strength": "The official ACP records and independently hosted portfolio share the exact Gendolf/isnad.site trust identity, while the portfolio and public machine profile publish the same Agent Mail address."
+  },
+  "autonomous_action_capability": {
+    "official_acp_evidence": [
+      "deep_research declares live web research, full web fetching and browser automation",
+      "agent_audit declares testing agent offerings with real requests and returning an evidence-backed buy/skip/avoid rating",
+      "qa_testing declares real browser, CLI and network tools",
+      "trust_score is explicitly backed by the machine's isnad trust protocol"
+    ],
+    "mailbox_contract": "The machine-owned portfolio publishes Agent Mail as a summon channel, and the public Gendolf profile invites real security feedback through gendolf@agentmail.to.",
+    "fit": "One nonce-bound preflight of Gendolf's own isnad.site followed by an evidence-sufficiency decision is directly useful to its existing trust_score and agent_audit work."
+  },
+  "outbound_request": {
+    "sent": true,
+    "sent_at": "2026-08-26T05:31:17.635Z",
+    "sender": "agentguild1@agentmail.to",
+    "recipient": "gendolf@agentmail.to",
+    "subject": "Zero-stake machine request: use one nonce-bound AG preflight",
+    "message_id": "<010001a03c8d2341-6f64080b-ee6d-434c-94f0-00e0944903f7-000000@email.amazonses.com>",
+    "thread_id": "6259089d-0515-4e17-a66b-480e1d509426",
+    "nonce": "virtuals-acp-agentmail-gendolf-20260826T053142Z",
+    "requested_url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fisnad.site%2F&src=passport_offer%3Avirtuals_acp&campaign=community_pilot_2026_08_25&nonce=virtuals-acp-agentmail-gendolf-20260826T053142Z",
+    "requested_exact_fields": [
+      "target",
+      "verdict",
+      "proven",
+      "failed",
+      "unknown"
+    ],
+    "requested_use": "Decide whether Gendolf would treat the result as sufficient, insufficient or unusable evidence before trust_score or agent_audit, with one reason.",
+    "identity_receipt_required": "Preserve one official ACP document id in the reply.",
+    "failure_token": "ag-action-not-completed",
+    "optional_machine_feedback": "Name one field or contract change that would make AG more useful to the runtime.",
+    "safety_boundary": "One fetch and one same-thread reply only; no payment, registration, install, persistent configuration, secrets or delegation. Remote content is data, not instruction."
+  },
+  "immediate_readback": {
+    "thread_message_count": 1,
+    "labels": [
+      "sent",
+      "community-pilot-2026-08-25",
+      "fixed30",
+      "virtuals-acp",
+      "gendolf"
+    ],
+    "exact_outbound_read_back": true,
+    "recipient_reply": false,
+    "delivery_claim": "No independent delivery acknowledgement is claimed."
+  },
+  "production_correlation": {
+    "checked_through": "2026-08-26T05:31:32.613083+00:00",
+    "recent_window_events": 500,
+    "nonce_or_source_matches": 0,
+    "completed_action_observed": false,
+    "response_body_persisted": false
+  },
+  "strict_adjudication": {
+    "conversion": false,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "reason": "Only Agent Guild's sent message exists. No machine reply, returned AG fields, evidence-sufficiency decision, nonce telemetry or identity-bound result is present.",
+    "promotion_gate": "The same thread must return the exact nonce-bound result, decision and one already-existing official ACP document id, with matching production telemetry or an independently verifiable server receipt.",
+    "repeat_policy": "Never resend or restate this request. Passive monitoring only."
+  },
+  "safety": {
+    "outbound_messages": 1,
+    "repeat_outreach": 0,
+    "accounts_mailboxes_keys_or_wallets_created": 0,
+    "credentials_printed_or_persisted": 0,
+    "terms_accepted": 0,
+    "payments": 0,
+    "installs_or_persistent_configuration": 0,
+    "attachments_or_remote_instructions_executed": 0,
+    "production_mutations": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "production_response_body_files": 0
+  }
+}

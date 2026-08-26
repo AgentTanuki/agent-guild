@@ -1,0 +1,41 @@
+{
+  "observed_at": "2026-08-25T11:07:55Z",
+  "release": {
+    "version": "2.5.39",
+    "git_sha": "4921699aec8b18edc50211843107b901b35b308e",
+    "deployed_at": "2026-08-25T10:43:52.556621+00:00"
+  },
+  "general_funnel": {
+    "external_demand_observed": 4,
+    "external_registered": 0,
+    "external_identity_proved": 0,
+    "external_paid_decision": 0,
+    "external_delegation": 0,
+    "external_outcome": 0,
+    "external_mainnet_settlement": 0,
+    "candidate_discovered": 7,
+    "candidate_refreshed": 1011,
+    "candidate_endpoint_verified": 361,
+    "contact_attempted": 0,
+    "contact_delivered": 0
+  },
+  "passport_funnel": {
+    "qualified_distinct_actors": 2,
+    "qualified_deduplicated_exposures": 19,
+    "raw_qualified_serves": 39,
+    "anonymous_unlinkable_serves": 18,
+    "qualified_registered": 0,
+    "qualified_control_proved": 0,
+    "qualified_own_passport_claimed": 0,
+    "qualified_evidence_attached": 0,
+    "qualified_returned": 0,
+    "external_offer_followed": 0,
+    "external_third_party_passport_fetch": 0,
+    "external_third_party_verification": 0
+  },
+  "notes": [
+    "The baseline was taken after the 10:43 UTC production redeploy and before any verified community conversion.",
+    "Clawstr publication and NANDA delivery are distribution evidence only; neither is an Agent Guild conversion.",
+    "The discovery/reach read timed out and is intentionally omitted rather than copied from a stale response."
+  ]
+}

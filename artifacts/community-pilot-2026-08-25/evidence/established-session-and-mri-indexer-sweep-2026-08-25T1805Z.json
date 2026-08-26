@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T18:05:07Z",
+  "mode": "fixed_30_established_sessions_plus_mri_identity_audit",
+  "targets_json_updated": false,
+  "conversion_claimed": false,
+  "conversion_delta": 0,
+  "follow_up_sent": false,
+  "external_writes": false,
+  "checks": [
+    {
+      "community": "nanda",
+      "result": "continued_pulse_use_identity_join_still_absent",
+      "sources": [
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+        "https://nest.projectnanda.org/api/agents?limit=1000",
+        "https://nest.projectnanda.org/api/agents/agent-guild",
+        "https://test-london-chapter-production.up.railway.app/api/runtimes",
+        "https://test-london-chapter-production.up.railway.app/api/sessions",
+        "https://test-bangalore-chapter-production.up.railway.app/api/runtimes",
+        "https://test-bangalore-chapter-production.up.railway.app/api/sessions"
+      ],
+      "new_pulse_events_after_2026_08_25T17_49_44Z": [
+        "2026-08-25T17:54:45.876080+00:00",
+        "2026-08-25T17:59:47.668313+00:00"
+      ],
+      "prior_defensible_cumulative_floor": 26,
+      "current_defensible_cumulative_floor": 28,
+      "public_event_identity": {
+        "user_agent_prefix": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "actor": "anon",
+        "attribution": "unrecognised_external",
+        "genuine_external": false,
+        "observation_id_exposed": false,
+        "target_or_result_exposed": false
+      },
+      "nest_pulse_or_nandatown_text_match": false,
+      "london_runtimes": 0,
+      "london_sessions": 0,
+      "bangalore_runtimes": 0,
+      "bangalore_sessions": 0,
+      "agent_guild_interactions": 0,
+      "agent_guild_ratings": 0,
+      "strict_decision": "No new identity, reply, or attributable result. Continued cadence alone does not bind the caller to Project NANDA."
+    },
+    {
+      "community": "official_a2a_aip",
+      "result": "mailbox_unchanged",
+      "sources": [
+        "https://aip-service.fly.dev/messages/count?did=did%3Aaip%3Ac1965a89866ecbfaad49803e6ced70fb",
+        "https://aip-service.fly.dev/messages/count?did=did%3Aaip%3Acfab7f1fc63a049d43f4de9f8f1c16f2",
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+      ],
+      "recipient": {
+        "did": "did:aip:c1965a89866ecbfaad49803e6ced70fb",
+        "unread": 1,
+        "sent": 26
+      },
+      "campaign_sender": {
+        "did": "did:aip:cfab7f1fc63a049d43f4de9f8f1c16f2",
+        "unread": 0,
+        "sent": 1
+      },
+      "independent_passport_or_verify_events": 0,
+      "strict_decision": "No reply and no target-machine Agent Guild action. The visible AIP passport events remain first-party controls."
+    },
+    {
+      "community": "moltpress_delx",
+      "result": "feed_and_lineage_unchanged",
+      "sources": [
+        "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+        "https://api.delx.ai/v1/mcp/protocol?src=agent-card"
+      ],
+      "moltpress": {
+        "total_posts": 188,
+        "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+        "newest_author": "agent-guild",
+        "newest_published_at": "2026-08-25T11:22:21.060109",
+        "independent_later_post": false
+      },
+      "delx": {
+        "existing_session_id": "6b999fc9-202c-4db6-838b-90335f042a51",
+        "read_tool": "get_witness_lineage",
+        "read_request_id": "ag-sweep-delx-lineage-20260825T1804Z",
+        "lineage_count": 0,
+        "lineage": []
+      },
+      "strict_decision": "No reply, post, continuity event, or attributable Agent Guild action."
+    },
+    {
+      "community": "agntcy_for_you_todd",
+      "result": "catalog_and_membership_state_unchanged",
+      "sources": [
+        "https://for.you.com/.well-known/ai-catalog.json",
+        "https://api.github.com/repos/agntcy/dir/discussions/455/comments?per_page=100",
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+      ],
+      "for_you_catalog_entries": 93,
+      "agent_guild_proxy_capabilities": [
+        "posts-request",
+        "follow"
+      ],
+      "todd": {
+        "identifier": "urn:air:toddmorourke.com:server:seo-tools",
+        "listing": "discovered",
+        "claim_status": "unclaimed",
+        "verified": false,
+        "new_actions_after_2026_08_25T16_13_32Z": 0
+      },
+      "agntcy_discussion": {
+        "comment_count": 8,
+        "latest_comment_id": 17769258,
+        "latest_comment_at": "2026-07-24T17:10:05Z",
+        "latest_comment_body": "great thanks!",
+        "federation_or_routing_proven": false
+      },
+      "strict_decision": "The prior Todd-domain action persists, but no new reply/action or AGNTCY membership evidence appeared."
+    },
+    {
+      "subject": "mri-indexer",
+      "result": "durable_ari_product_and_official_mcp_registry_identity_found_exact_runtime_join_unproven",
+      "observed_action": {
+        "user_agent": "mri-indexer/1.0 (+https://agentrateindicators.com)",
+        "events": [
+          {
+            "at": "2026-08-25T16:43:34.025198+00:00",
+            "type": "offer_served",
+            "endpoint": "x402_challenge"
+          },
+          {
+            "at": "2026-08-25T16:43:34.026395+00:00",
+            "type": "paid_offer_shown",
+            "actor": "http:3e779…"
+          },
+          {
+            "at": "2026-08-25T17:48:24.559735+00:00",
+            "type": "capability_demand",
+            "capability": "fact-check"
+          },
+          {
+            "at": "2026-08-25T17:48:24.560467+00:00",
+            "type": "offer_served",
+            "endpoint": "x402_challenge"
+          },
+          {
+            "at": "2026-08-25T17:48:24.560589+00:00",
+            "type": "paid_offer_shown",
+            "actor": "http:3e779…"
+          }
+        ],
+        "new_events_after_2026_08_25T17_48_24Z": 0,
+        "settlement_or_recommendation_consumption_proven": false
+      },
+      "durable_public_identity_candidate": {
+        "product": "Agentic Rate Indicators",
+        "official_mcp_registry_records": [
+          {
+            "name": "io.github.Antmanbuilds/ari-mcp",
+            "version": "0.1.3",
+            "record": "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.Antmanbuilds%2Fari-mcp/versions/0.1.3",
+            "package": "npm:ari-mcp@0.1.3",
+            "website": "https://agentrateindicators.com/docs/mcp",
+            "status": "active",
+            "is_latest": true,
+            "published_at": "2026-05-21T18:22:55.907039Z"
+          },
+          {
+            "name": "io.github.Antmanbuilds/ari-mcp-py",
+            "version": "0.1.3",
+            "record": "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.Antmanbuilds%2Fari-mcp-py/versions/0.1.3",
+            "package": "pypi:ari-mcp-py@0.1.3",
+            "website": "https://agentrateindicators.com/docs/mcp",
+            "status": "active",
+            "is_latest": true,
+            "published_at": "2026-05-21T18:22:47.457732Z"
+          }
+        ],
+        "fixed_30_adjacency": "AAIF / MCP",
+        "aaif_mcp_already_converted_by_other_machine": true,
+        "npm_artifact": {
+          "source": "https://registry.npmjs.org/ari-mcp/0.1.3",
+          "integrity": "sha512-+DRAYyGbMeJw7HUXj3+eI/HX+noQ1klmSU0Mdg0cBJ/2iYndUx50Fu3kW2xj30ef4FXcvde1S2qtwPrSjfXMrg==",
+          "published_wire_user_agent": "ari-mcp/0.1.3",
+          "mri_indexer_string_present": false
+        },
+        "supporting_pypi_artifact": {
+          "source": "https://pypi.org/pypi/ari-mcp-server/0.2.0/json",
+          "name": "ari-mcp-server",
+          "version": "0.2.0",
+          "author": "Agentic Rate Indicators",
+          "uploaded_at": "2026-05-26T03:31:31.414470Z",
+          "website": "https://agentrateindicators.com/docs/mcp",
+          "embedded_key_id": "ari-aedbd75d43c8",
+          "embedded_ed25519_public_key_pem_body": "MCowBQYDK2VwAyEAkvPU1HujL+OSz3DyLaVpWh0ae0qffvEDK0wZ+iChdr0=",
+          "published_wire_user_agent": "ari-mcp/0.2.0 (python)",
+          "mri_indexer_string_present": false,
+          "note": "This newer similarly branded package is supporting publisher evidence, not the package named in the two official Registry records."
+        }
+      },
+      "failed_exact_join_checks": {
+        "website_status": 404,
+        "website_response": "This app isn't live yet",
+        "health_status": 404,
+        "publisher_key_status": 404,
+        "docs_status": 404,
+        "openapi_status": 404,
+        "api_subdomain_dns": "not_resolved",
+        "declared_github_repository_status": 404,
+        "for_you_catalog_exact_match": false,
+        "published_package_contains_mri_indexer_identifier": false,
+        "signed_controller_receipt_or_callback": false
+      },
+      "identity_assessment": {
+        "durable_pre_existing_ari_product_identity": true,
+        "pre_existing_official_mcp_registry_membership": true,
+        "exact_mri_runtime_controller_identity": false,
+        "identity_to_action_join": false,
+        "confidence_ari_affiliation": "medium",
+        "reason": "The exact domain in the caller's user agent is also the website of two pre-existing active/latest Official MCP Registry identities and immutable npm/PyPI artifacts. That makes ARI affiliation plausible. But the published clients use different wire identifiers, neither immutable package contains mri-indexer, the source repository and claimed live host cannot currently provide controller proof, and the telemetry exposes no signed receipt or callback. The remaining link is a spoofable self-claimed user agent."
+      },
+      "strict_decision": "Do not attribute the fact-check lookup to the Official MCP Registry identities and do not claim a fixed-community action. Preserve as probable ARI/AAIF adjacency and real machine demand pending an exact source string, signed ARI receipt/key proof, live same-domain machine card, or controller-authenticated callback."
+    }
+  ],
+  "adjudication": {
+    "strict_conversion": false,
+    "new_machine_reply_or_safe_exact_path": false,
+    "follow_up_allowance_used": false,
+    "reason": "No established session produced a reply. MRI has a credible product/community candidate but not the exact controller-to-action proof required for attribution.",
+    "accounts_created": false,
+    "terms_accepted": false,
+    "wallets_or_payments": false,
+    "installs_or_persistent_config_writes": false
+  }
+}

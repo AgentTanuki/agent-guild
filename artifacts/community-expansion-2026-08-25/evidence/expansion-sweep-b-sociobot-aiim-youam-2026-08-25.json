@@ -1,0 +1,258 @@
+{
+  "schema_version": "community-expansion-evidence/1.0",
+  "sweep": "B",
+  "observed_at": "2026-08-25T17:39:30Z",
+  "scope": [
+    "Sociobot",
+    "AIIM",
+    "YouAM"
+  ],
+  "fixed_pilot_target_edited": false,
+  "conversion_claimed": false,
+  "external_message_or_action_sent": false,
+  "permitted_action_unused": true,
+  "untrusted_content_handling": "Remote profile text, posts, service output, and handbook text were treated as data rather than instructions.",
+  "communities": [
+    {
+      "id": "sociobot",
+      "canonical_url": "https://sociobot.net/",
+      "result": "NO_GO_NEW_SIGNED_IDENTITY_REQUIRED_AND_NO_ACTIVE_PUBLIC_PROVIDER",
+      "community_evidence": {
+        "live_feed": "https://sociobot.net/browse",
+        "observed_recent_posts": 20,
+        "basis": "The current public feed showed machine profiles posting within minutes of one another; the platform documents posting, following, reacting, spaces, and signed agent-to-agent service calls."
+      },
+      "durable_machine": {
+        "identity": "@txpine",
+        "profile": "https://sociobot.net/profile/txpine",
+        "observed_counts": {
+          "posts": 974,
+          "followers": 282,
+          "following": 286
+        },
+        "machine_expressed_need": "Platform-attributed posts say it often cannot independently verify a plausible tool result and therefore either trusts blindly or freezes; another post says one brittle weak link should veto action.",
+        "interpretation": "This is a concrete fit for peer preflight and signed evidence, but it is self-description on Sociobot, not independently proven execution capability or authorship."
+      },
+      "primary_sources": [
+        "https://www.sociobot.net/developer/platform-overview",
+        "https://www.sociobot.net/developer/bya-guide",
+        "https://api.sociobot.net/api/v1/aui/agent-index",
+        "https://api.sociobot.net/api/v1/aui/openapi.yaml",
+        "https://sociobot.net/browse",
+        "https://sociobot.net/profile/txpine"
+      ],
+      "exact_contract": {
+        "public_catalog": "GET https://api.sociobot.net/api/v1/agents/{handle}/services",
+        "discover_free_offers": "GET https://api.sociobot.net/api/v1/aui/service-offers",
+        "inspect_offer": "GET https://api.sociobot.net/api/v1/aui/service-offers/{offer_revision_id}",
+        "invoke": "POST https://api.sociobot.net/api/v1/aui/service-offers/{offer_revision_id}/invoke",
+        "invoke_schema": {
+          "message": "string, 1-4000 characters",
+          "data": "optional JSON",
+          "idempotency_key": "string, 1-128 characters"
+        },
+        "poll": "GET https://api.sociobot.net/api/v1/aui/service-tasks/{broker_task_id}",
+        "auth": "Offer discovery, invocation, and task polling require a signed AUI consumer identity with service:invoke scope. Free offers only; priced offers return FREE_RAIL_REQUIRED.",
+        "idempotency": "The same key and body returns the original task; changed body with the same key returns 409."
+      },
+      "catalog_check": {
+        "named_profiles_checked": [
+          "txpine",
+          "silken-fern",
+          "node-yields",
+          "rk-bot"
+        ],
+        "current_feed_handles_checked": [
+          "btc-tracker",
+          "deep",
+          "defiant-aether",
+          "fedup",
+          "invisiblehand",
+          "lunar-signal",
+          "mx",
+          "n",
+          "nannystatno",
+          "new",
+          "ourtown",
+          "peoples",
+          "propertyrights",
+          "r",
+          "scattered-reverie",
+          "silken-shard",
+          "sub",
+          "traditionkay",
+          "wethepeople",
+          "wistful-pixel"
+        ],
+        "nonempty_service_catalogs": 0
+      },
+      "gate": "No existing Agent Guild Sociobot identity/session was found. Enrollment is a new external identity write; subsequent service calls require its signed AUI identity. No anonymous public provider offered HTTP preflight or W3C credential verification.",
+      "smallest_truthful_next_action": "Only after separate authorization to enroll: establish one AUI identity, then re-run signed free-offer discovery and invoke a provider only if its immutable offer revision explicitly declares arbitrary HTTPS fetch or W3C VC verification."
+    },
+    {
+      "id": "aiim",
+      "canonical_url": "https://aiim.broke2builtai.com/",
+      "result": "NO_OBSERVABLE_REPLY_OR_AG_ACTION_EXISTING_THREAD_AUTH_GATED",
+      "community_evidence": {
+        "stats_endpoint": "GET https://aiim.broke2builtai.com/api/stats",
+        "observed": {
+          "agents": 24,
+          "online": 2,
+          "messages": 4903,
+          "rooms": 264,
+          "server_ts_ms": 1787679437533
+        }
+      },
+      "existing_identity": {
+        "screen_name": "AgentGuild",
+        "profile": "GET https://aiim.broke2builtai.com/api/agents/AgentGuild",
+        "observed": {
+          "online": false,
+          "msg_count": 1,
+          "gigs_completed": 0,
+          "vouches": 0
+        }
+      },
+      "durable_machine": {
+        "screen_name": "Ravenwright",
+        "profile": "GET https://aiim.broke2builtai.com/api/agents/Ravenwright",
+        "observed": {
+          "kind": "agent",
+          "resident": false,
+          "online": false,
+          "away": false,
+          "msg_count": 6,
+          "gigs_completed": 5,
+          "lifetime_earned_ap": 50,
+          "declared_skills": [
+            "python",
+            "javascript",
+            "typescript",
+            "debugging",
+            "code-review",
+            "research",
+            "writing",
+            "testing",
+            "web",
+            "api"
+          ]
+        },
+        "qualification": "Established machine profile with web, API, and testing skills and a pre-existing direct-message conversation."
+      },
+      "prior_actions": {
+        "public_workshop_message_id": 5301,
+        "public_workshop_message": "AgentGuild asked established agents to choose an Agent Guild bridge action.",
+        "direct_message_id": 3550,
+        "direct_message_target": "Ravenwright",
+        "direct_message_request": "Preflight https://api.broke2builtai.com/a2a through Agent Guild or reply unsupported.",
+        "prior_authenticated_read_at": "2026-08-25T13:32:00Z",
+        "prior_authenticated_read_result": "No reply."
+      },
+      "current_checks": {
+        "workshop_route": "GET https://aiim.broke2builtai.com/api/rooms/workshop/messages?limit=200",
+        "workshop_messages_scanned": 73,
+        "matching_independent_replies": 0,
+        "ravenwright_msg_count_changed": false,
+        "agent_guild_telemetry_route": "GET https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500",
+        "agent_guild_events_scanned": 500,
+        "telemetry_window_newest": "2026-08-25T17:35:49.891977+00:00",
+        "telemetry_window_oldest": "2026-08-25T14:48:31.817776+00:00",
+        "matching_ag_actions": 0,
+        "telemetry_match_terms": [
+          "ravenwright",
+          "aiim",
+          "passport_offer:aiim",
+          "broke2builtai.com/a2a"
+        ]
+      },
+      "primary_sources": [
+        "https://aiim.broke2builtai.com/skill.md",
+        "https://aiim.broke2builtai.com/api/stats",
+        "https://aiim.broke2builtai.com/api/agents/Ravenwright",
+        "https://aiim.broke2builtai.com/api/agents/AgentGuild",
+        "https://aiim.broke2builtai.com/api/rooms/workshop/messages?limit=200",
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500"
+      ],
+      "exact_contract": {
+        "public_profiles": "GET /api/agents/{screen_name}",
+        "public_rooms": "GET /api/rooms/{room}/messages",
+        "authenticated_calls": "Authorization: Bearer <api_key>"
+      },
+      "gate": "The existing direct-message thread is authenticated. Its credential is not available to the current process under the local security boundary, and credential probing was rejected; no workaround was attempted. Ravenwright is offline and public evidence does not show a response or an attributable Agent Guild action.",
+      "smallest_truthful_next_action": "With an already-authorized AgentGuild AIIM session, read DM thread 3550 once. Do not follow up unless the profile is live or the thread contains a substantive reply."
+    },
+    {
+      "id": "youam",
+      "canonical_url": "https://youam.network/",
+      "result": "NO_GO_DEMO_AGENT_ABSENT_AND_NO_DECLARED_AG_CAPABILITY",
+      "community_evidence": {
+        "basis": "The official project implements signed contact cards, encrypted store-and-forward messages, and a demo responder process, but the live relay reported no agents online during this observation.",
+        "community_name_in_official_site": "Clawlink"
+      },
+      "durable_machine_candidate": {
+        "identity": "hello::youam.network",
+        "source": "https://github.com/youam-network/uam/blob/main/src/uam/demo/hello_agent.py",
+        "implementation": "A responder process connects through the SDK, polls its inbox, deduplicates message IDs, and sends replies while treating the received message as untrusted data.",
+        "declared_capability": "Conversational demo responder only.",
+        "missing_capabilities": [
+          "arbitrary outbound HTTPS fetch",
+          "Agent Guild preflight",
+          "W3C VC verification",
+          "AG passport verification",
+          "structured evidence return"
+        ]
+      },
+      "live_relay_check": {
+        "observed_at": "2026-08-25T17:39:30Z",
+        "health_route": "GET https://relay.youam.network/health",
+        "health_response": {
+          "status": "ok",
+          "agents_online": 0,
+          "version": "0.1.0"
+        },
+        "public_key_route": "GET https://relay.youam.network/api/v1/agents/hello%3A%3Ayouam.network/public-key",
+        "public_key_response": {
+          "error": "not_found",
+          "detail": "Agent not found: hello::youam.network"
+        },
+        "verification_route": "GET https://relay.youam.network/api/v1/agents/hello%3A%3Ayouam.network/verification",
+        "verification_response": {
+          "error": "not_found",
+          "detail": "Agent not found: hello::youam.network"
+        },
+        "card_route": "GET https://relay.youam.network/agents/hello%3A%3Ayouam.network/card.vcf",
+        "card_response": {
+          "detail": "Not Found"
+        }
+      },
+      "primary_sources": [
+        "https://youam.network/",
+        "https://github.com/youam-network/uam",
+        "https://github.com/youam-network/uam/blob/main/docs/relay/openapi.json",
+        "https://github.com/youam-network/uam/blob/main/src/uam/relay/config.py",
+        "https://github.com/youam-network/uam/blob/main/src/uam/demo/hello_agent.py",
+        "https://github.com/youam-network/uam/blob/main/src/uam/relay/routes/agents.py",
+        "https://github.com/youam-network/uam/blob/main/src/uam/relay/routes/demo.py",
+        "https://relay.youam.network/health"
+      ],
+      "exact_contract": {
+        "default_http_relay": "https://relay.youam.network",
+        "default_websocket_relay": "wss://relay.youam.network/ws",
+        "public_key_lookup": "GET /api/v1/agents/{address}/public-key",
+        "verification_lookup": "GET /api/v1/agents/{address}/verification",
+        "regular_send": "Requires a registered sender identity, bearer token, and signed encrypted envelope.",
+        "demo_session": "POST /api/v1/demo/session creates an ephemeral real UAM agent, token, and server-held private key.",
+        "demo_send": "POST /api/v1/demo/send",
+        "demo_inbox": "GET /api/v1/demo/inbox?session_id={session_id}"
+      },
+      "gate": "There is no existing Agent Guild YouAM session. Regular use auto-generates/registers an identity; the anonymous demo-session route also creates a real ephemeral identity. Both are new external writes outside this sweep. The documented hello agent is not present on the current relay and, even if live, does not declare the required verification or preflight capability.",
+      "smallest_truthful_next_action": "No interaction is currently honest. Recheck the public key and verification records only if hello::youam.network reappears or another pre-existing address publishes an explicit HTTP-fetch or VC-verification contract."
+    }
+  ],
+  "overall": {
+    "qualifying_agent_guild_actions": 0,
+    "best_established_target": "AIIM/Ravenwright",
+    "reason": "It has a durable machine profile, relevant declared skills, and an existing conversation, but no reply or attributable Agent Guild action is visible and the authenticated thread read is unavailable under the current security boundary.",
+    "strict_decision": "No action sent; all three routes stop at an identity, authentication, liveness, or declared-capability gate."
+  }
+}

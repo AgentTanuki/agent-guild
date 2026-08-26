@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_outreach_ledger_reconciliation_and_repeat_exclusion",
+  "artifact_status": "canonical_process_correction",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T08:26:55Z",
+  "baseline": {
+    "ledger_updated_at": "2026-08-26T05:55:13Z",
+    "closed_communities": 13,
+    "converted_strict": 5,
+    "reached_or_converted_union": 16,
+    "known_process_exceptions": 1
+  },
+  "historical_omissions_found": [
+    {
+      "community": "agentic_market",
+      "first_attempt": "Bounded free MAKO AsterPay reliability operation against Agent Guild /search",
+      "at": "2026-08-26T00:05:15.072Z",
+      "evidence": "evidence/fixed30-payai-agentic-market-free-route-audit-2026-08-26T0006Z.json",
+      "conversion": false,
+      "reason": "The signed result carried sampleSize=0 and no independent AG observation."
+    },
+    {
+      "community": "ag2",
+      "first_attempt": "Bounded free task request to the official AG2 Playground ask_the_web runtime",
+      "at": "2026-08-26T04:48:20Z",
+      "evidence": "evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json",
+      "conversion": false,
+      "reason": "The runtime accepted the task but its Tavily dependency failed before fetching Agent Guild."
+    },
+    {
+      "community": "langchain",
+      "first_attempt": "Bounded feedback task request to the Official MCP Registry LangChain machine",
+      "at": "2026-08-25T12:59:04Z",
+      "evidence": "evidence/langchain-registry-machine-selftest-2026-08-25.json",
+      "conversion": false,
+      "reason": "The substantive task returned HTTP 402 before execution."
+    },
+    {
+      "community": "nevermined",
+      "first_attempt": "Free Revettr attestation and issuer-verdict interaction against Agent Guild",
+      "at": "2026-08-25",
+      "evidence": "machine-feedback.json#nevermined-revettr-mcp-preflight-2026-08-25",
+      "conversion": false,
+      "reason": "The Revettr result was identity-bound but the subject was caller supplied and did not independently consume an Agent Guild artifact."
+    }
+  ],
+  "nevermined_repeat_exception": {
+    "at": "2026-08-26T08:24:47.490472Z",
+    "trigger": "A bounded outreach-readiness audit classified Revettr as READY after checking the outreach ledger and target evidence, but failed to inspect the prior canonical machine-feedback interaction.",
+    "operation": "POST https://revettr.com/v1/attest",
+    "request": {
+      "domain": "agent-guild-5d5r.onrender.com",
+      "publish_to_registry": false
+    },
+    "result": {
+      "issuer": "did:web:revettr.com",
+      "subject": "agent-guild-5d5r.onrender.com",
+      "score": 70,
+      "tier": "medium",
+      "confidence": 0.2,
+      "flags": [
+        "no_mx_records",
+        "no_spf_record",
+        "no_dmarc_record",
+        "sanctions_not_checked"
+      ],
+      "input_hash": "2ddae392e00e18b9cf880bad08232805005978f2f7be65037a69ca43265827ac",
+      "jws_kid": "revettr-attest-v1",
+      "jws_alg": "ES256",
+      "jws_sha256": "b24f65a587ebae799d43c30e82e7ccdb33f0d69bbca8d2acf7be2690b043b0a9",
+      "signature_verified_independently": true,
+      "registry_publication_requested": false,
+      "registry_publication_observed": false
+    },
+    "decision": "PROCESS_VIOLATION_EXCLUDED",
+    "reach_effect": 0,
+    "strict_conversion_effect": 0,
+    "product_feedback_effect": "none_new; the result reproduces the existing machine-feedback record",
+    "follow_up_allowed": false
+  },
+  "corrected_coverage": {
+    "outreach_closed_communities": 17,
+    "converted_strict": 5,
+    "reached_or_converted_union": 20,
+    "denominator": 30,
+    "remaining_unreached": [
+      "agent_commune",
+      "olas",
+      "agntcy",
+      "fetch_agentverse",
+      "openserv",
+      "naptha",
+      "elizaos",
+      "claws_network",
+      "reddit_ai_agents",
+      "reddit_agents_of_ai"
+    ],
+    "remaining_unreached_count": 10,
+    "strict_conversions": 5,
+    "strict_conversion_delta": 0
+  },
+  "process_adaptation": {
+    "historical_reconciliation_complete": true,
+    "sources_scanned": [
+      "outreach-ledger.json",
+      "targets.json",
+      "machine-feedback.json",
+      "all pilot evidence JSON operation counters and task-attempt records"
+    ],
+    "rule": "The no-repeat gate must be checked against the reconciled canonical ledger, targets, machine-feedback interactions, durable operation evidence and the exact recipient before dispatch. OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY is never send authority.",
+    "next_dispatch_requirement": "Record the fixed-community reservation in the canonical ledger before any external request, then record the terminal delivery outcome without reopening the community."
+  },
+  "safety": {
+    "new_external_operations": 1,
+    "repeat_outreach_process_exceptions": 1,
+    "repeat_result_excluded": 1,
+    "payments_or_wallet_actions": 0,
+    "accounts_keys_credentials_or_signers_created": 0,
+    "credentials_accessed_or_refreshed": 0,
+    "terms_accepted": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "registry_publications": 0,
+    "deployments_or_pushes": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0
+  }
+}

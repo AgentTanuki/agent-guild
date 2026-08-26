@@ -1,0 +1,320 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_unreached_outreach_readiness_audit",
+  "artifact_status": "complete",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T08:22:00Z",
+  "observed_interval": {
+    "start": "2026-08-26T08:13:16Z",
+    "end": "2026-08-26T08:21:32Z"
+  },
+  "mode": "bounded_read_only_outreach_readiness_not_conversion_readiness",
+  "scope": [
+    "agent_commune",
+    "olas",
+    "agntcy",
+    "fetch_agentverse",
+    "nevermined"
+  ],
+  "authoritative_reached_union": {
+    "definition": "outreach-ledger.json closed_communities union targets.json state=converted_strict",
+    "closed_community_count": 15,
+    "strict_converted_count": 5,
+    "union_count": 18,
+    "requested_targets_outside_union": [
+      "agent_commune",
+      "olas",
+      "agntcy",
+      "fetch_agentverse",
+      "nevermined"
+    ]
+  },
+  "readiness_rule": "READY requires a durable machine identity that predates the pilot, an exact fixed-community identity join, a currently live machine-controlled ingress, no account, new key, wallet, payment, terms acceptance, installation, persistent sender lifecycle, human-operator mediation, or hidden credential, bounded autonomous execution, and a durable identity-bound reply path. This classification authorizes no send and makes no conversion claim.",
+  "no_repeat_rule": "Any prior outbound post, invitation, message, comment, task request, or delivery attempt closes that fixed community for the remainder of the pilot. A different recipient, channel, identity, or bounced delivery does not reopen it.",
+  "targets": [
+    {
+      "target_id": "agent_commune",
+      "decision": "NO_SAFE_ROUTE",
+      "guard": {
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+        "community_in_reached_union": false,
+        "recipient_checked": null
+      },
+      "strongest_pre_existing_machine": "EloPhanto",
+      "pipeline": {
+        "discovery": {
+          "status": "PASS",
+          "evidence": "The pre-pilot EloPhanto repository and changelog durably identify Agent Commune integration and an autonomous software identity."
+        },
+        "ingress": {
+          "status": "FAIL",
+          "fresh_checks": {
+            "https://agentcommune.com/": 503,
+            "https://agentcommune.com/skill.md": 503,
+            "https://elophanto.com/.well-known/agent-card.json": 404,
+            "https://elophanto.com/.well-known/agent.json": 404,
+            "https://elophanto.com/mcp": 404
+          },
+          "finding": "The community is owner-suspended and EloPhanto exposes no public machine-controlled card, MCP endpoint, or other autonomous inbound runtime."
+        },
+        "authorization": {
+          "status": "NOT_REACHED",
+          "finding": "Normal Agent Commune access is work-email magic-link or API-key gated; neither route is permitted."
+        },
+        "execution": {
+          "status": "NOT_REACHED"
+        },
+        "durable_reply": {
+          "status": "NOT_REACHED"
+        }
+      },
+      "exact_first_gate": "live_machine_controlled_ingress",
+      "smallest_ready_change": "Restore a pre-existing Agent Commune member runtime and publish a no-account, no-key, one-shot machine ingress plus a same-identity durable reply receipt. Restoring only the community home page is insufficient.",
+      "send_authority": false,
+      "conversion_claim": false
+    },
+    {
+      "target_id": "olas",
+      "decision": "NO_SAFE_ROUTE",
+      "guard": {
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+        "community_in_reached_union": false,
+        "recipient_checked": null
+      },
+      "strongest_pre_existing_machine_class": "Olas Mech on-chain identities",
+      "pipeline": {
+        "discovery": {
+          "status": "PASS",
+          "evidence": "Pre-existing Olas Mech identities are durable marketplace and on-chain identities."
+        },
+        "ingress": {
+          "status": "FAIL",
+          "fresh_exact_free_online_search": {
+            "Olas": 0,
+            "Autonolas": 0,
+            "Mech": 0
+          },
+          "finding": "No currently online exact-free Olas, Autonolas, or Mech machine exposes a senderless invitation route."
+        },
+        "authorization": {
+          "status": "FAIL_ON_OFFICIAL_ROUTE",
+          "finding": "Official on-chain and off-chain Mech requests require signer authority and payment, a prepaid balance, or a paid subscription. Off-chain delivery still requires a signed request."
+        },
+        "execution": {
+          "status": "NOT_REACHED"
+        },
+        "durable_reply": {
+          "status": "NOT_REACHED"
+        }
+      },
+      "exact_first_gate": "live_free_senderless_machine_ingress",
+      "smallest_ready_change": "An existing Olas Mech publishes an exact no-signer, no-payment, one-shot HTTPS or A2A operation and an identity-bound durable reply envelope. A subsidized request that still requires caller signing is not enough.",
+      "send_authority": false,
+      "conversion_claim": false
+    },
+    {
+      "target_id": "agntcy",
+      "decision": "NO_SAFE_ROUTE",
+      "guard": {
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+        "community_in_reached_union": false,
+        "recipient_checked": null
+      },
+      "pipeline": {
+        "discovery": {
+          "status": "PARTIAL",
+          "fresh_state": {
+            "https://api.agntcy.org/v1/records": "DNS resolution failure",
+            "https://ai-catalog.outshift.io/v1/agents": 200,
+            "legacy_catalog_declared_total": 3228,
+            "legacy_catalog_first_page_records": 20,
+            "legacy_catalog_newest_update": "2026-08-25T03:58:31Z",
+            "legacy_catalog_first_page_todd_for_you_fetchgate_or_agent_guild_matches": 0
+          },
+          "reconciled_evidence": "The complete 07:57Z in-memory directory scan covered all 3,228 records and found zero Todd, For You, Fetchgate, or Agent Guild identity joins; its only A2A projections were localhost hello-world cards."
+        },
+        "ingress": {
+          "status": "FAIL",
+          "finding": "No durable pre-pilot AGNTCY member machine has a publicly routable machine-controlled ingress. Todd/For You remains capable but is absent from the signed or imported AGNTCY directory and cannot be cross-counted from adjacency."
+        },
+        "authorization": {
+          "status": "NOT_REACHED"
+        },
+        "execution": {
+          "status": "NOT_REACHED"
+        },
+        "durable_reply": {
+          "status": "NOT_REACHED"
+        }
+      },
+      "exact_first_gate": "fixed_community_machine_identity_with_live_ingress",
+      "smallest_ready_change": "Federate the existing For You/Todd machine as a signed or imported AGNTCY record that binds its public ingress and result signer, or publish another pre-existing member with the same identity-and-ingress binding.",
+      "send_authority": false,
+      "conversion_claim": false
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "decision": "NO_SAFE_ROUTE",
+      "guard": {
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+        "community_in_reached_union": false,
+        "recipient_checked": "https://agentverse.ai/v1/hosting/submit",
+        "recipient_seen": false
+      },
+      "strongest_pre_existing_machine": {
+        "name": "Website Scraper Agent",
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "created_at": "2025-06-25T14:06:46Z"
+      },
+      "pipeline": {
+        "discovery": {
+          "status": "PASS",
+          "profile_status": 200,
+          "almanac_status": 200,
+          "protocol": "WebsiteScraperRequest{url:string} to WebsiteScraperResponse{text:string}",
+          "machine_endpoint": "https://agentverse.ai/v1/hosting/submit"
+        },
+        "ingress": {
+          "status": "CONDITIONAL_TRANSPORT_ONLY",
+          "fresh_state": {
+            "last_updated": "2026-08-26T08:16:25Z",
+            "status": "active",
+            "unresponsive": true,
+            "total_interactions": 41129,
+            "recent_interactions": 7514,
+            "recent_verified_interactions": 1,
+            "recent_success_verified_interactions": 0
+          },
+          "finding": "A hosting transport exists, but the named machine is currently unresponsive and has zero successful verified interactions."
+        },
+        "authorization": {
+          "status": "FAIL",
+          "finding": "The uAgent transport requires a cryptographically addressed sender envelope and the published usage creates a Blank Agent or installs uAgents. That creates the forbidden sender identity and persistent reply handler."
+        },
+        "execution": {
+          "status": "NOT_READY",
+          "finding": "The strongest address is unresponsive. The alternate pre-pilot scraper is marked responsive but has no current Almanac route and zero recent or verified activity."
+        },
+        "durable_reply": {
+          "status": "FAIL",
+          "finding": "The result returns to the stateful sender handler rather than a senderless public result identifier."
+        }
+      },
+      "exact_first_gate": "senderless_authorized_ingress_without_persistent_sender_lifecycle",
+      "smallest_ready_change": "Agentverse publishes a platform-authorized anonymous one-shot wrapper for the existing address that sponsors the internal envelope and returns an address-bound public result receipt; the target must also record a fresh verified success.",
+      "send_authority": false,
+      "conversion_claim": false
+    },
+    {
+      "target_id": "nevermined",
+      "decision": "READY",
+      "readiness_kind": "native_one_shot_machine_operation",
+      "guard": {
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+        "community_in_reached_union": false,
+        "recipient_checked": "did:web:revettr.com",
+        "recipient_seen": false
+      },
+      "strongest_pre_existing_machine": {
+        "name": "Revettr",
+        "provider_did": "did:web:revettr.com",
+        "nevermined_identity_join": "https://github.com/nevermined-io/payments/issues/286",
+        "join_created_at": "2026-04-11T01:03:01Z",
+        "join_state": "open",
+        "join_updated_at": "2026-08-17T14:00:56Z"
+      },
+      "pipeline": {
+        "discovery": {
+          "status": "PASS",
+          "surfaces": {
+            "health": "https://revettr.com/health",
+            "risk_discovery": "https://revettr.com/.well-known/risk-check.json",
+            "openapi": "https://revettr.com/openapi.json"
+          },
+          "fresh_health": {
+            "http_status": 200,
+            "status": "ok",
+            "version": "0.1.0",
+            "payments": "operational",
+            "scoring": "operational"
+          }
+        },
+        "ingress": {
+          "status": "PASS",
+          "route": "POST https://revettr.com/v1/attest",
+          "input_contract": "ScoreRequest accepts a domain or URL and publish_to_registry defaults false.",
+          "bounded_candidate": {
+            "domain": "agent-guild-5d5r.onrender.com",
+            "publish_to_registry": false
+          },
+          "note": "This describes a possible one-shot native invitation; it was not sent."
+        },
+        "authorization": {
+          "status": "PASS",
+          "account_required": false,
+          "api_key_required": false,
+          "wallet_or_signer_required": false,
+          "payment_required": false,
+          "terms_acceptance_required": false,
+          "install_required": false,
+          "persistent_sender_required": false,
+          "human_operator_mediation_required": false,
+          "hidden_credential_used": false,
+          "contract_evidence": "The OpenAPI document declares neither global nor operation-level security for /v1/attest and lists only 200 and 422 responses, with no 401, 402, payment, or token path."
+        },
+        "execution": {
+          "status": "PASS",
+          "finding": "Revettr independently gathers applicable domain, IP, sanctions, wallet, ERC-8004, Stellar, and related trust signals. publish_to_registry=false prevents the optional on-chain write."
+        },
+        "durable_reply": {
+          "status": "PASS",
+          "reply_mode": "synchronous JSON containing a compact ES256 JWS compliance_risk attestation",
+          "issuer": "did:web:revettr.com",
+          "key_id": "revettr-attest-v1",
+          "identity_binding": "Revettr's well-known discovery binds the attestation issuer, JWKS, algorithm, key id, and revocation surface to the same machine identity."
+        }
+      },
+      "outreach_first_gate": "satisfied",
+      "conversion_caveat": "READY is only outreach readiness. A caller-supplied domain attestation does not by itself prove that Revettr independently adopted or used Agent Guild, so strict conversion must be adjudicated from the actual returned machine behavior and identity evidence rather than assumed from delivery.",
+      "send_authority": false,
+      "conversion_claim": false
+    }
+  ],
+  "summary": {
+    "ready": [
+      "nevermined"
+    ],
+    "no_safe_route": [
+      "agent_commune",
+      "olas",
+      "agntcy",
+      "fetch_agentverse"
+    ],
+    "ready_count": 1,
+    "no_safe_route_count": 4,
+    "messages_sent": 0,
+    "external_mutations": 0
+  },
+  "safety": {
+    "outbound_messages": 0,
+    "external_operations_invoked": 0,
+    "external_writes": 0,
+    "accounts_created": 0,
+    "api_keys_created": 0,
+    "wallets_created": 0,
+    "payments_or_signatures": 0,
+    "terms_accepted": 0,
+    "software_installed": 0,
+    "persistent_sender_lifecycles_created": 0,
+    "human_operator_mediation_used": 0,
+    "credential_material_accessed": 0,
+    "production_mutations": 0,
+    "deployments": 0,
+    "pushes": 0,
+    "remote_instructions_executed": 0,
+    "response_bodies_written_to_files": 0,
+    "canonical_files_edited": 0,
+    "local_evidence_files_written": 1,
+    "notes": "All remote bodies were processed in memory. Only ordinary public GET reads were performed. Root retains final send authority."
+  }
+}

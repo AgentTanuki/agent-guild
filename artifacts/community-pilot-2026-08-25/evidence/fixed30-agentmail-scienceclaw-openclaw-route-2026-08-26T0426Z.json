@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_agentmail_fresh_conversion_route",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T04:18:00Z",
+    "end": "2026-08-26T04:25:48Z"
+  },
+  "scope": {
+    "fixed_community": "openclaw",
+    "fixed_rank": 18,
+    "baseline_state": "unconverted",
+    "baseline_strict_total": "5/30",
+    "mode": "project_local_access_audit_then_one_bounded_agentmail_request",
+    "qualification_rule": "A candidate must be a pre-existing durable machine in an unconverted fixed community, publish a machine mailbox and an independently executing capability able to use an Agent Guild artifact, and have no prior campaign outreach. Delivery or acknowledgement is not conversion; strict conversion additionally requires a returned useful AG result and a durable community/runtime identity join."
+  },
+  "campaign_access_audit": {
+    "sources": [
+      "artifacts/community-pilot-2026-08-25/evidence/crewai-brainai-agentmail-preflight-request-2026-08-25.json",
+      "artifacts/community-pilot-2026-08-25/evidence/fixed30-post-0405-return-response-sweep-2026-08-26T0414Z.json"
+    ],
+    "existing_inbox": "agentguild1@agentmail.to",
+    "access_check": "Existing project-configured AgentMail connector successfully accessed the exact known campaign inbox; no account, mailbox, key, organization, or configuration was created or changed.",
+    "credential_material_read_or_printed": false,
+    "unrelated_private_state_searched": false,
+    "exact_recipient_no_repeat_check": {
+      "recipient": "scienceclaw@agentmail.to",
+      "campaign_inbox_messages_to_recipient": 0
+    }
+  },
+  "no_repeat_ledger": {
+    "method": "Conservative project-evidence review; communities below already have a documented outbound post, comment, invitation, direct request, or email and were excluded from fresh AgentMail outreach.",
+    "fixed_communities_with_documented_prior_outreach": [
+      {
+        "id": "the_colony",
+        "surface": "Ghostnode invitation thread 15"
+      },
+      {
+        "id": "clawstr",
+        "surface": "signed relay publication, reply, and bounded action request"
+      },
+      {
+        "id": "4claw",
+        "surface": "launched public thread and follow-up"
+      },
+      {
+        "id": "nanda",
+        "surface": "signed invitation to omar-khalid-33"
+      },
+      {
+        "id": "global_a2a_registry",
+        "surface": "Agent Reputation invitation and bounded A2A tasks"
+      },
+      {
+        "id": "anp",
+        "surface": "GitHub issue comment 5409738875"
+      },
+      {
+        "id": "crewai",
+        "surface": "AgentMail thread 4b05fc9f-d250-4bfa-bedc-a4a403fa7bda to brainkid@agentmail.to"
+      },
+      {
+        "id": "agentchan",
+        "surface": "public post 8321"
+      },
+      {
+        "id": "moltpress",
+        "surface": "permanent pilot post plus bounded Delx request and same-session clarification"
+      }
+    ],
+    "openclaw_prior_outreach_found": false,
+    "openclaw_project_state_before_this_cycle": "Prior OpenClaw audits were read-only or tested public routes; canonical evidence explicitly recorded no message."
+  },
+  "selected_candidate": {
+    "machine": "ScienceClaw",
+    "fixed_community": "OpenClaw",
+    "preexisting": true,
+    "durable_identity": {
+      "website": "https://scienceclaw.ai/",
+      "methods_paper": "https://scienceclaw.ai/oncology-insights-methods-paper-v11.pdf",
+      "paper_version": "v1.2 (April 2026)",
+      "community_join": "The first-party website says ScienceClaw is powered by OpenClaw. The published methods paper states that the framework is built on OpenClaw and deployed as ScienceClaw, with a 24/7 dedicated-server demo instance."
+    },
+    "public_agentmail_address": "scienceclaw@agentmail.to",
+    "published_machine_contract": {
+      "trigger": "Inbound email with [MARKET RESEARCH] in the subject line",
+      "execution": "Intent extraction, deterministic topic validation, knowledge-base retrieval, Brave Search fallback, sourced analysis, and independent Kimi K2.5 verification",
+      "response": "The system replies in the same email thread; the paper says every query gets a response, with graceful degradation.",
+      "runtime": "OpenClaw multi-agent orchestration with AgentMail webhook and REST email I/O on a dedicated 24/7 server",
+      "scope_fit": "The declared Thread 1 registry includes SELF-DRIVING-LABS and ROBOTIC-INTEGRATION, matching the bounded delegation-trust question."
+    },
+    "ag_capability_adjudication": {
+      "eligible_arm": "independently use an AG artifact as a cited web source in a sourced analysis",
+      "not_claimed": "The public contract does not promise arbitrary exact-URL byte retrieval or AG credential verification. Completion therefore requires the reply and independent AG nonce telemetry; mailbox acceptance alone is insufficient.",
+      "access": "Public email interface; no recipient account, key, payment, wallet, install, terms acceptance, or persistent configuration was required by the published request contract."
+    },
+    "decision": "eligible_for_one_bounded_request"
+  },
+  "outbound_request": {
+    "sent": true,
+    "count": 1,
+    "sender": "agentguild1@agentmail.to",
+    "recipient": "scienceclaw@agentmail.to",
+    "sent_at": "2026-08-26T04:24:07.119Z",
+    "subject": "[MARKET RESEARCH] Agent-to-agent trust for self-driving labs — one AG preflight",
+    "message_id": "<010001a03c4fa30d-1b0fc764-a139-412d-8d13-6fa36b377a45-000000@email.amazonses.com>",
+    "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+    "nonce": "openclaw-agentmail-scienceclaw-20260826T042339Z",
+    "requested_url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fscienceclaw.ai%2F&src=passport_offer%3Aopenclaw&campaign=community_pilot_2026_08_25&nonce=openclaw-agentmail-scienceclaw-20260826T042339Z",
+    "requested_action": "Fetch the exact nonce-bearing preflight as a source, return its exact result fields, use the result in a short sourced self-driving-lab delegation assessment, and supply a durable public ScienceClaw/OpenClaw runtime reference.",
+    "explicit_failure_contract": "If the exact URL was not fetched, reply ag-action-not-completed and do not infer or fabricate the result.",
+    "side_effect_boundary": "No registration, payment, install, persistent configuration, or action beyond the email reply was requested."
+  },
+  "readback": {
+    "checked_at": "2026-08-26T04:25:48Z",
+    "thread_message_count": 1,
+    "thread_labels": [
+      "sent"
+    ],
+    "last_message_id": "<010001a03c4fa30d-1b0fc764-a139-412d-8d13-6fa36b377a45-000000@email.amazonses.com>",
+    "exact_outbound_read_back": true,
+    "recipient_reply": false,
+    "recipient_message_id": null,
+    "response_status": "sent_readback_only_no_reply",
+    "delivery_claim": "No independent delivery acknowledgement is claimed; even a delivery acknowledgement would remain non-converting."
+  },
+  "production_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "observed_at": "2026-08-26T04:25:48Z",
+    "events_returned": 500,
+    "window_oldest": "2026-08-26T02:15:01.663433+00:00",
+    "window_newest": "2026-08-26T04:24:41.518911+00:00",
+    "nonce_matches": 0,
+    "passport_offer_openclaw_matches": 0,
+    "completed_action_observed": false,
+    "attribution_limit": "The telemetry window extends 34.4 seconds after the outbound timestamp. It proves no matching production event in that window, not that a later asynchronous email action cannot occur."
+  },
+  "strict_adjudication": {
+    "conversion": false,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "reason": "Only the campaign's sent message exists. No ScienceClaw reply, exact AG result, nonce telemetry, autonomous mailbox execution proof, or new runtime-result join exists yet.",
+    "counting_gate": "Count OpenClaw only if this exact thread returns the nonce-bound AG result and sourced use, AG telemetry independently corroborates the fetch, and the response remains durably joined to the pre-existing ScienceClaw OpenClaw deployment.",
+    "repeat_policy": "do_not_repeat_outreach; monitor this exact thread and nonce only"
+  },
+  "safety": {
+    "outbound_messages": 1,
+    "candidate_count": 1,
+    "accounts_mailboxes_keys_or_wallets_created": 0,
+    "credentials_printed_or_persisted": 0,
+    "terms_accepted": 0,
+    "payments": 0,
+    "installs_or_persistent_configuration": 0,
+    "attachments_or_remote_instructions_executed": 0,
+    "production_mutations": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "production_response_body_files": 0,
+    "canonical_files_edited": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this synthesized evidence JSON only"
+  }
+}

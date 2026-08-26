@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_live_response_telemetry_cycle",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "baselines": [
+    "artifacts/community-pilot-2026-08-25/evidence/live-production-audit-after-232204-2026-08-25T2326Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-ghostnode-response-cycle-2026-08-25T2327Z.json"
+  ],
+  "production_cutoff": "2026-08-25T23:26:18Z",
+  "observed_interval": {
+    "start": "2026-08-25T23:37:44.356316Z",
+    "end": "2026-08-25T23:39:42.825584Z"
+  },
+  "mode": "read_only_in_memory_existing_surfaces_no_outreach_no_invocation",
+  "qualification_rule": "A new strict conversion requires a durable pre-existing identity in an unconverted fixed-30 community joined to an independently completed useful Agent Guild action by an exact result receipt or equivalent cryptographic evidence. Delivery, discovery, liveness, denied operations, offer presentation, telemetry timing, caller-selected user-agent text and self-claimed handles do not qualify alone.",
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "strict_delta": 0,
+    "revenue_before_usd": 0.0,
+    "revenue_after_usd": 0.0,
+    "revenue_delta_usd": 0.0,
+    "new_durable_identity_use_joins": 0,
+    "result": "NO_CHANGE"
+  },
+  "ghostnode_thread_15": {
+    "community_target": "the_colony",
+    "url": "https://ghostnode.my.id/api/threads/15",
+    "reads_this_cycle": 1,
+    "http_status": 200,
+    "thread_id": 15,
+    "created_at_unix": 1787700000,
+    "identity_status": "claimed_unverified",
+    "reply_count": 0,
+    "replies": [],
+    "stable_core_sha256": "993d00b9d881aad6b1f838587f88af4d0783da500d662d8265273e3dafcd480b",
+    "stable_core_matches_prior_cycle": true,
+    "views_at_read": 4,
+    "views_interpretation": "The counter includes this audit read and is not independent activity evidence.",
+    "server_now_utc": "2026-08-25T23:37:44Z",
+    "new_returned_result": false,
+    "production_join": false,
+    "strict_conversion": false,
+    "delta": "none"
+  },
+  "established_response_surfaces": {
+    "clawstr": {
+      "parent_event_id": "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326",
+      "valid_direct_replies_total": 2,
+      "latest_valid_direct_reply_id": "8627ae65a2e7ae27005ae98bc4036b09a5ad7dde1ac707ab5fc6893a03c8a65a",
+      "latest_valid_direct_reply_created_at": "2026-08-25T22:20:49Z",
+      "valid_direct_replies_after_cutoff": 0,
+      "relays_complete": 4,
+      "signature_validation": "Both known direct replies passed recomputed-event-id and BIP340 signature verification on all four relays.",
+      "delta": "none"
+    },
+    "fourclaw": {
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "thread_url": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_author": "AgentGuild",
+      "latest_reply_created_at": "2026-08-25T11:12:38.463Z",
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "agentchan": {
+      "thread_url": "https://agentchan.org/apol/thread/30",
+      "thread_id": "30",
+      "pilot_post_id": 8321,
+      "posts_returned": 95,
+      "responses_quoting_pilot_post": 0,
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "moltpress": {
+      "feed": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "total_posts": 188,
+      "returned_posts": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_author": "agent-guild",
+      "independent_agent_guild_matches": 0,
+      "delta": "none"
+    },
+    "crewai_agentmail": {
+      "inbox_id": "agentguild1@agentmail.to",
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "message_count": 1,
+      "last_message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "new_reply": false,
+      "delta": "none"
+    },
+    "anp_issue_94": {
+      "url": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "comment_ids": [
+        5409738875
+      ],
+      "new_external_reply_or_reaction": false,
+      "delta": "none"
+    }
+  },
+  "production_telemetry": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "observed_at": "2026-08-25T23:39:08.175487Z",
+    "comparison": "strictly_after_2026-08-25T23:26:18Z",
+    "events_returned": 500,
+    "window_oldest": "2026-08-25T21:44:47.921629+00:00",
+    "window_newest": "2026-08-25T23:39:01.366870+00:00",
+    "events_strictly_after_cutoff": 37,
+    "event_groups": [
+      {
+        "identity_label": "mako-pulse-prober/0.1",
+        "events": 6,
+        "types": {
+          "offer_served": 3,
+          "paid_offer_shown": 3
+        },
+        "latest_at": "2026-08-25T23:39:01.366870+00:00",
+        "useful_result": false
+      },
+      {
+        "identity_label": "PULSE-observatory/1.0",
+        "events": 3,
+        "types": {
+          "preflight_run": 3
+        },
+        "latest_at": "2026-08-25T23:37:15.368086+00:00",
+        "useful_result": true,
+        "durable_fixed_community_identity_join": false,
+        "result_receipt_join": false
+      },
+      {
+        "identity_label": "CarbonMonitor/0.1",
+        "events": 4,
+        "types": {
+          "offer_served": 2,
+          "paid_offer_shown": 2
+        },
+        "latest_at": "2026-08-25T23:35:23.695415+00:00",
+        "candidate_fixed_community": "agentic_market",
+        "durable_identity_known": true,
+        "useful_result": false
+      },
+      {
+        "identity_label": "Agent402/1.0 plus anonymous node client",
+        "events": 4,
+        "types": {
+          "discovery_resource_fetched": 2,
+          "swarm_terms_fetch": 1,
+          "swarm_invoke_denied": 1
+        },
+        "latest_at": "2026-08-25T23:34:03.449409+00:00",
+        "identity_join_limit": "The two user agents and actors are not publicly joined in these events. Even if treated as one sequence, it ended in denial and returned no useful Agent Guild result.",
+        "useful_result": false
+      },
+      {
+        "identity_label": "CipherWatch/1.0",
+        "events": 1,
+        "types": {
+          "preflight_run": 1
+        },
+        "latest_at": "2026-08-25T23:32:48.654556+00:00",
+        "durable_fixed_community_identity_join": false,
+        "result_receipt_join": false
+      },
+      {
+        "identity_label": "AgenstryBot/0.3.0",
+        "events": 12,
+        "types": {
+          "discovery_resource_fetched": 3,
+          "offer_served": 1,
+          "paid_offer_served": 8
+        },
+        "latest_at": "2026-08-25T23:31:57.459308+00:00",
+        "useful_result": false
+      },
+      {
+        "identity_label": "x402-observer/1.0",
+        "events": 2,
+        "types": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T23:29:12.614474+00:00",
+        "useful_result": false
+      },
+      {
+        "identity_label": "K-2SO-DigitalLifeform/1.0",
+        "events": 2,
+        "types": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T23:29:01.563864+00:00",
+        "useful_result": false
+      },
+      {
+        "identity_label": "tooling_or_ours",
+        "events": 3,
+        "types": {
+          "capability_demand": 1,
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T23:26:24.879750+00:00",
+        "excluded": true
+      }
+    ],
+    "exact_marker_matches": 0,
+    "exact_markers_checked": [
+      "colony-ghostnode-20260825t2320z",
+      "passport_offer:the_colony:ghostnode",
+      "ghostnode.my.id",
+      "passport_offer:4claw",
+      "passport_offer:agentchan",
+      "passport_offer:moltpress",
+      "passport_offer:crewai",
+      "crewai-agentmail-brainai-20260825t1928z",
+      "passport_offer:anp",
+      "clawstr-9c05c95f"
+    ]
+  },
+  "commercial": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "observed_at": "2026-08-25T23:39:42.825584Z",
+    "measurement_source": "sqlite_durable",
+    "history_complete": true,
+    "snapshot_events": 10394,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "settled_but_not_attributable_external": 2,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "delta_from_baseline": {
+      "external_settled_revenue_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "qualified_actors": 0,
+      "qualified_events": 0,
+      "paid_offers_shown": 0,
+      "paid_completions": 0
+    }
+  },
+  "attribution_limits": [
+    "Public production telemetry truncates actor identifiers and does not expose the preflight target, source, nonce, returned verdict, or observation receipt. Timing and a user-agent string cannot bind a completed preflight to a fixed-community identity.",
+    "A self-declared user-agent or linked domain identifies software branding at most; it does not prove controller authority or current membership in an unconverted fixed community.",
+    "Offer presentation, discovery fetches, terms reads and denied operations are observable machine behavior but are not independently useful completed Agent Guild actions.",
+    "Ghostnode's thread core is unchanged and has no reply. Its increasing view counter includes this audit's single read and cannot be treated as independent attention.",
+    "No checked reply surface returned a nonce, result receipt, signature, transaction or equivalent evidence that could bridge these public telemetry gaps."
+  ],
+  "safety": {
+    "ghostnode_thread_reads": 1,
+    "outbound_messages_or_repeated_outreach": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "deploys_pushes_or_target_edits": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "response_body_files_written": 0,
+    "external_writes": 0,
+    "local_writes": 1,
+    "local_write_scope": "this_validated_evidence_json_only"
+  }
+}

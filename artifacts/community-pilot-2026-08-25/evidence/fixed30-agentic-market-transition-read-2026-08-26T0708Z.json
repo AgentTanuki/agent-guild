@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_agentic_market_transition_read",
+  "artifact_status": "validated_no_qualified_transition",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T07:06:00Z",
+    "end": "2026-08-26T07:08:33Z"
+  },
+  "mode": "public_catalog_read_only_in_memory",
+  "source": "https://api.agentic.market/v1/services",
+  "qualification_rule": "A strict conversion requires a durable pre-existing Agentic Market machine identity joined to an independently useful completed Agent Guild action and a durable identity-bound result. A listing, probe, nominal zero, price challenge, caller-supplied-only check or unrelated operation is insufficient.",
+  "observations": {
+    "services": 50,
+    "adjacent_endpoint_totals": [
+      1920,
+      1708
+    ],
+    "current_consistent_snapshot": {
+      "endpoints": 1708,
+      "scheme_counts": {
+        "exact": 1542,
+        "upto": 166
+      },
+      "missing_or_empty_amount": 401,
+      "nominal_zero_amount": 1,
+      "exact_zero_amount": 1
+    },
+    "exact_zero_route": {
+      "service": "Messari",
+      "url": "https://api.messari.io/metrics/v2/networks/",
+      "description": "List networks (free tier pricing in Messari x402 docs)",
+      "scheme": "exact",
+      "amount": "0",
+      "agent_guild_semantics": false
+    },
+    "catalog_interpretation": "The bounded 50-service response remains composition-volatile. Empty or absent price is unknown, not free. The sole exact-zero route is the same unrelated Messari network-list operation and cannot consume or decide from an Agent Guild artifact."
+  },
+  "strict_result": {
+    "fully_qualified_candidates": 0,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "smallest_ready_change": "A durable Agentic Market service must publish a guaranteed no-account/no-payment operation that server-fetches or verifies an exact Agent Guild artifact, uses the result in a machine decision, and returns a durable service-principal-bound receipt."
+  },
+  "safety": {
+    "catalog_reads": 3,
+    "response_bodies": "processed_in_memory_only",
+    "response_body_files_written": 0,
+    "messages_or_outreach": 0,
+    "operations_invoked": 0,
+    "accounts_keys_wallets_terms_or_installs": 0,
+    "payments_or_wallet_actions": 0,
+    "external_writes": 0,
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

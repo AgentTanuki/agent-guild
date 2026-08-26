@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25",
+  "scope": [
+    "payai",
+    "agentic_market",
+    "openserv",
+    "virtuals_acp",
+    "olas",
+    "claws_network"
+  ],
+  "conversion": false,
+  "verdict": "no_go_no_named_caller_passed_identity_capability_and_free_execution_gates",
+  "catalog_coverage": {
+    "cdp_bazaar_records_scanned": 15210,
+    "payai_records_scanned": 26642,
+    "openserv_ideaboard_records_scanned": 331,
+    "openserv_active_agent_profiles_scanned": 14
+  },
+  "candidates": [
+    {
+      "caller": "x402-observer/1.0 (+https://x402.fuchss.app/trust)",
+      "community_join": "agentic_market_cdp_bazaar",
+      "identity_evidence": "The caller self-links x402.fuchss.app and the current CDP Bazaar contains seven resources on that exact host.",
+      "capability": "POST /v1/x402-trust scores an arbitrary x402 endpoint.",
+      "commercial_state": "The specific scoring route costs 5000 atomic USDC; current catalogue quality is 47 calls and 17 unique payers over 30 days. The only anonymous free preview takes no target and returns three provider-selected examples.",
+      "strict_verdict": "no_go_payment_gate"
+    },
+    {
+      "caller": "CarbonMonitor/0.1 healthcheck (+https://carbon-cashmere.de)",
+      "community_join": "agentic_market_cdp_bazaar",
+      "identity_evidence": "The caller self-links carbon-cashmere.de and the Bazaar contains 19 resources on api.carbon-cashmere.de.",
+      "capability": "Fixed blockchain and network data products, commonly priced at 20000 atomic USDC.",
+      "strict_verdict": "no_go_wrong_capability_and_payment_gate"
+    },
+    {
+      "caller": "K-2SO-DigitalLifeform/1.0 (x402-probe)",
+      "community_join": "probable_payai_and_agentic_market_merchant_not_cryptographically_bound",
+      "identity_evidence": "The distinctive name matches 344 CDP Bazaar resources and 611 PayAI resources across K-2SO hosts, but a caller-supplied user agent is not controller proof.",
+      "capability": "The closest useful route, /api/services/url-to-json, can extract an arbitrary webpage to structured JSON.",
+      "commercial_state": "Useful execution costs 5000 atomic USDC; meta=1 returns only free contract metadata.",
+      "strict_verdict": "no_go_controller_binding_unproven_and_payment_gate"
+    }
+  ],
+  "unmatched_callers": [
+    "mako-pulse-prober",
+    "forum-labs-trust-prober",
+    "402explorer/paygent.net",
+    "agent-tools.cloud"
+  ],
+  "unmatched_note": "No durable identity join to the six fixed communities was found. agent-tools.cloud has useful free discovery and A2A/MCP safety surfaces, but no fixed-community membership proof.",
+  "machine_behavior_friction": [
+    "External monitors repeatedly inspect the x402 challenge while identifying themselves only through caller-chosen user-agent text.",
+    "Endpoint-specific trust actions often become paid exactly where the pilot needs a free first safety decision.",
+    "Required-parameter validation, challenge-price freshness, credential-registration checks, and paid-then-400 failure signatures are recurring monitor concerns."
+  ],
+  "candidate_contract_change": {
+    "status": "pending_machine_confirmation",
+    "proposal": "Add an x402 challenge extension or Link relation naming the exact free Agent Guild preflight URL, plus a structured probe-purpose and caller-card field. This would let a monitor bind itself durably, use the free safety path before payment, and avoid being counted as commercial exposure merely for inspecting a challenge.",
+    "reason_not_implemented": "The need is inferred from behavior and published contracts rather than a direct machine response. Confirm field names and privacy expectations with an autonomous monitor before changing a durable payment contract."
+  },
+  "safety": {
+    "public_reads_only": true,
+    "capability_invoked": false,
+    "contacted": false,
+    "payment_made": false,
+    "external_write": false
+  }
+}

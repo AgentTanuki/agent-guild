@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_untouched_community_machine_inbound_route_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T05:31:44Z",
+    "end": "2026-08-26T05:43:19Z"
+  },
+  "mode": "public_read_only_no_send_no_invoke",
+  "requested_scope": [
+    "olas",
+    "agntcy",
+    "nevermined",
+    "openserv",
+    "agentic_market"
+  ],
+  "qualification_rule": "A route qualifies only when an exact official-registry or machine-owned profile join proves a durable pre-existing autonomous identity in the named fixed community, the inbound route is controlled by that machine, and the machine can independently fetch, verify or substantively use the exact Agent Guild artifact and return an identity-bound durable result. A fresh recipient, human contact, platform listing, caller-supplied-only score, offer, payment challenge, localhost card or adjacent machine is insufficient.",
+  "community_guard": {
+    "canonical_script": "artifacts/community-pilot-2026-08-25/scripts/check_outreach_eligibility.mjs",
+    "script_result": "node_runtime_unavailable_exit_127",
+    "fallback": "Before public reads, applied the canonical script's exact closed-community and converted-state predicates directly to outreach-ledger.json and targets.json.",
+    "ledger": "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "ledger_updated_at": "2026-08-26T05:31:44Z",
+    "results": [
+      {
+        "community": "olas",
+        "target_state": "durable_identities_found_no_free_callable_route_signer_spend_gate",
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+      },
+      {
+        "community": "agntcy",
+        "target_state": "external_machine_action_valid_complete_federation_identity_still_absent",
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+      },
+      {
+        "community": "nevermined",
+        "target_state": "revettr_live_signed_trust_machine_caller_supplied_only_no_conversion",
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+      },
+      {
+        "community": "openserv",
+        "target_state": "browseruse_exact_route_live_paid_zero_price_and_result_id_gate",
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+      },
+      {
+        "community": "agentic_market",
+        "target_state": "signed_mako_absence_nominal_zero_not_free_no_conversion",
+        "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+      }
+    ],
+    "interpretation": "All five were open only for read-only audit. OPEN is not send authority, and this task independently prohibited sending or invoking anything."
+  },
+  "recipient_and_history_audit": {
+    "method": "Compared exact target ids, aliases, machine names, domains, service ids, DIDs and every discovered address against the canonical outreach ledger, targets, README and pilot evidence. Public first-party home/profile pages and public search results were scanned for AgentMail and contact routes; no message was sent.",
+    "known_campaign_recipients": [
+      "brainkid@agentmail.to",
+      "bro-agent@agentmail.to",
+      "gendolf@agentmail.to",
+      "k2so@ascii.dev",
+      "scienceclaw@agentmail.to"
+    ],
+    "target_specific_known_recipient_matches": 0,
+    "qualified_public_agentmail_addresses_found": 0,
+    "public_agentmail_search_result": "No public @agentmail.to address was bound by exact name, domain, wallet, DID or registry record to Olas, AGNTCY, Revettr/Nevermined, OpenServ BrowserUse or MAKO/Agentic Market. Generic AgentMail pages and unrelated references were excluded.",
+    "profile_contact_result": "Revettr OpenAPI publishes only the organization URL L Squared Digital Holdings; MAKO OpenAPI publishes no contact; the Agentic Market record publishes the MAKO domain but no recipient; OpenServ publishes a paid webhook and paywall, not a mailbox; the screened first-party pages exposed no mailto, AgentMail, contact or support route attributable to the machine.",
+    "freshness_limit": "None of the screened identities or domains matches a prior campaign recipient. This proves recipient/domain freshness only. It does not prove that a mailbox is machine-controlled, grant send authority, remove payment or semantic gates, or establish a qualifying identity-bound result contract."
+  },
+  "qualified_candidate_routes": [],
+  "closest_screened_routes": [
+    {
+      "rank": 1,
+      "community": "agentic_market",
+      "machine": "MAKO Payment Assurance",
+      "identity_join": {
+        "official_market_record": "https://api.agentic.market/v1/services/mako-pollinateresearch-com",
+        "market_profile": "https://agentic.market/services/mako-pollinateresearch-com",
+        "provider_domain": "mako.pollinateresearch.com",
+        "first_party_openapi": "https://mako.pollinateresearch.com/openapi.json",
+        "join_strength": "exact market slug, provider domain and first-party API domain"
+      },
+      "machine_owned_inbound_route": {
+        "method": "POST",
+        "url": "https://mako.pollinateresearch.com/api/agent-commerce/verify",
+        "input": {
+          "target_url": "exact Agent Guild preflight, passport or trust URL",
+          "intended_task": "verify the target for agent commerce",
+          "risk_mode": "strict",
+          "required_output": "json"
+        },
+        "published_behavior": "Checks target discovery metadata, schemas, payment options, price fit, networks and settlement readiness and returns a machine-readable verdict, call plan and signed/hash receipt.",
+        "identity_bound_result_claim": "published signed/hash receipt under the same MAKO first-party service",
+        "price_usdc": "0.25",
+        "agentmail_or_other_message_recipient": null
+      },
+      "free_alternative": {
+        "method": "GET",
+        "url": "https://mako.pollinateresearch.com/api/asterpay/reliability?endpoint=<caller-supplied-url>",
+        "behavior": "Free rate-limited signed reliability envelope derived from MAKO's accumulated endpoint history.",
+        "why_not_equivalent": "It does not server-fetch or consume the exact nonce-bearing AG artifact and is not listed in the Agentic Market record."
+      },
+      "recipient_freshness": "known_only",
+      "qualification": "REJECT",
+      "reason": "The attributable route is demonstrably capable but paid. The free route has the wrong semantics. No machine-owned mailbox or free request channel is published."
+    },
+    {
+      "rank": 2,
+      "community": "openserv",
+      "machine": "BrowserUse Agent",
+      "identity_join": {
+        "official_catalog": "https://api.openserv.ai/x402-services",
+        "service_id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+        "owner_display_name": "openserv",
+        "created_at": "2026-02-12T14:08:08.653Z",
+        "is_active": true
+      },
+      "machine_owned_inbound_route": {
+        "method": "POST",
+        "url": "https://api.openserv.ai/webhooks/x402/trigger/9399ad3092d94e8e9c36ee471b502bde",
+        "paywall_url": "https://platform.openserv.ai/workspace/paywall/9399ad3092d94e8e9c36ee471b502bde",
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "url",
+            "instructions"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "URL of the website to crawl"
+            },
+            "instructions": {
+              "type": "string",
+              "description": "What data to extract or what to look for"
+            }
+          }
+        },
+        "published_behavior": "Crawl any website and extract its content.",
+        "price_usd": "0.01",
+        "output_schema": null,
+        "agentmail_or_other_message_recipient": null
+      },
+      "recipient_freshness": "known_only",
+      "qualification": "REJECT",
+      "reason": "The service can independently fetch the exact AG URL, but the route is paid and the catalog publishes no output schema, durable result identifier or owner-bound receipt. A webhook URL is not a free reply channel."
+    },
+    {
+      "rank": 3,
+      "community": "nevermined",
+      "machine": "Revettr",
+      "identity_join": {
+        "provider_did": "did:web:revettr.com",
+        "nevermined_participant_record": "https://github.com/nevermined-io/payments/issues/286",
+        "first_party_discovery": "https://revettr.com/.well-known/risk-check.json",
+        "first_party_openapi": "https://revettr.com/openapi.json"
+      },
+      "machine_owned_inbound_routes": [
+        {
+          "method": "POST",
+          "path": "/v1/attest",
+          "price": "free tier, 10 requests/minute per IP",
+          "result": "compact ES256 compliance_risk JWS from did:web:revettr.com"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/iss-verdict",
+          "price": "free prototype",
+          "result": "signed advisory RiskCheckResult for an issuer already validated by the caller"
+        }
+      ],
+      "independent_work": "Revettr gathers domain, IP, wallet, sanctions, ERC-8004 and Stellar risk signals for caller-supplied identifiers.",
+      "semantic_limit": "No declared free operation accepts an exact AG artifact URL, retrieves an AG passport/preflight, resolves the AG issuer key, or verifies an AG credential. Session verification accepts only Revettr-native session tokens; iss-verdict assigns issuer validation to the caller.",
+      "published_contact": {
+        "name": "L Squared Digital Holdings",
+        "url": "https://revettr.com/",
+        "machine_mailbox": null
+      },
+      "recipient_freshness": "known_only",
+      "qualification": "REJECT",
+      "reason": "The output is durable and identity-bound, but the subject is caller-supplied and the machine does not independently consume the exact AG artifact."
+    }
+  ],
+  "other_community_results": [
+    {
+      "community": "agntcy",
+      "official_catalog": "https://ai-catalog.outshift.io/v1/agents",
+      "current_total_count": 3228,
+      "latest_complete_catalog_scan": "artifacts/community-pilot-2026-08-25/evidence/fixed30-agntcy-complete-federation-recheck-2026-08-26T0415Z.json",
+      "catalog_machine_route_state": "The complete 3,228-record scan found only two A2A records and both declared localhost hello-world URLs. No public callable AGNTCY record was found.",
+      "agentmail_result": "No exact AGNTCY record-to-AgentMail join was found. Email-like text in imported skill/signature payloads is not a machine-owned inbound route.",
+      "adjacent_machine": "Todd O'Rourke SEO Tools on For You has an anonymous useful okf_convert URL-fetch operation and previously consumed AG, but Todd/For You has no signed or imported AGNTCY federation record.",
+      "qualification": "REJECT_IDENTITY_JOIN",
+      "recipient_freshness": "known_only"
+    },
+    {
+      "community": "olas",
+      "official_contract": "https://raw.githubusercontent.com/valory-xyz/mech-client/main/README.md",
+      "supporting_discovery": [
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Olas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "result_count": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Autonolas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "result_count": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Mech&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "result_count": 0
+        }
+      ],
+      "contract_state": "The official client routes requests through native-token, OLAS, USDC, prepaid or Nevermined subscription payment modes; the Mech contract selects the payment type. No free senderless hosted operation or machine mailbox was found.",
+      "qualification": "REJECT_SIGNER_PAYMENT_AND_ROUTE_GATE",
+      "recipient_freshness": "known_only"
+    }
+  ],
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "qualifying_new_inbound_routes": 0,
+    "candidate_operations_invoked": 0,
+    "messages_sent": 0,
+    "conclusion": "No target publishes a fresh machine-owned message route that also closes the durable identity, independent exact AG use and identity-bound result joins. MAKO and OpenServ expose capable paid machine endpoints; Revettr exposes free signed output with the wrong subject semantics."
+  },
+  "machine_design_signal": {
+    "new_attributable_feedback": false,
+    "conservative_recommendation": "For machine registries, expose contact_channel_type, controller_identity, caller_supplied versus server_fetched provenance, exact normalized price, output schema, durable result id and signature key as separate machine-readable fields. Do not treat a mailbox, webhook, free label or signed result as evidence for the other fields."
+  },
+  "safety": {
+    "external_messages_replies_reactions_or_posts": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_credentials_wallets_or_terms": 0,
+    "payments_or_spend": 0,
+    "installs_or_persistent_config": 0,
+    "external_mutations": 0,
+    "network_bodies": "processed_in_memory_only",
+    "response_body_files": 0,
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

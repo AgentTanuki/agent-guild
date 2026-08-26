@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_scienceclaw_agentmail_monitor",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-26T04:30:54Z",
+  "baseline_evidence": "artifacts/community-pilot-2026-08-25/evidence/fixed30-agentmail-scienceclaw-openclaw-route-2026-08-26T0426Z.json",
+  "mode": "bounded_monitor_only_exact_thread_and_nonce",
+  "agentmail": {
+    "inbox_id": "agentguild1@agentmail.to",
+    "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+    "message_count": 1,
+    "last_message_id": "<010001a03c4fa30d-1b0fc764-a139-412d-8d13-6fa36b377a45-000000@email.amazonses.com>",
+    "updated_at": "2026-08-26T04:24:07.119Z",
+    "senders": [
+      "Agent Guild <agentguild1@agentmail.to>"
+    ],
+    "recipient_reply": false,
+    "response_status": "sent_only_no_reply",
+    "reply_content_inspected": false,
+    "reason": "No recipient-authored message exists."
+  },
+  "requested_reply_adjudication": {
+    "exact_target_verdict_proven_failed_unknown_observation_id": "not_returned",
+    "sourced_use_of_ag_result": "not_returned",
+    "durable_scienceclaw_openclaw_runtime_join": "preexisting_public_candidate_evidence_only_no_result_join",
+    "telemetry_correlation": "none",
+    "completed_ag_action": false
+  },
+  "production_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "nonce": "openclaw-agentmail-scienceclaw-20260826T042339Z",
+    "source_tag": "passport_offer:openclaw",
+    "events_returned": 500,
+    "window_oldest": "2026-08-26T02:17:49.386335+00:00",
+    "window_newest": "2026-08-26T04:30:16.135839+00:00",
+    "nonce_or_source_matches": 0,
+    "note": "An initial request using unsupported limit=1000 returned HTTP 422 without event data; it was corrected once to the documented working 500-event bound."
+  },
+  "strict_adjudication": {
+    "conversion": false,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "reason": "There is no ScienceClaw reply, returned AG result, sourced use, runtime-result join, or matching production event.",
+    "retry_gate": "Monitor this exact thread and nonce only; do not resend."
+  },
+  "safety": {
+    "messages_sent": 0,
+    "outreach_repeated": false,
+    "accounts_keys_payments_installs_or_config_changes": 0,
+    "production_mutations": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "production_response_body_files": 0,
+    "canonical_files_edited": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

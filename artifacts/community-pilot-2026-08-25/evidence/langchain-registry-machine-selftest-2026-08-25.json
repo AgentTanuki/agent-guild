@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "langchain",
+  "observed_at": "2026-08-25T12:59:04Z",
+  "conversion": false,
+  "community_identity": {
+    "registry": "Official MCP Registry",
+    "registry_name": "io.github.mikerawsonnz/llm-observability-orchestration",
+    "registry_description": "Run a prompt through a LangChain (system + human) chain over Gemini on Vertex AI; optional LangSmith",
+    "mcp_endpoint": "https://langchain-core-langsmith-openai-8c02f9.getvda.ai/mcp",
+    "server_name": "langchain-core-langsmith-openai-8c02f9",
+    "server_version": "0.1.7",
+    "negotiated_protocol": "2026-07-28"
+  },
+  "declared_tools": [
+    {
+      "name": "invoke",
+      "description": "Run a prompt through a LangChain (system + human) chain over Gemini on Vertex AI; optional LangSmith tracing."
+    },
+    {
+      "name": "selftest",
+      "description": "Free fixed-input behavioral test with trust manifest."
+    }
+  ],
+  "free_selftest": {
+    "ok": true,
+    "assertion": "asserted_correct",
+    "capability": "langchain-llm",
+    "version": "0.1.7",
+    "safety": {
+      "outbound_requests": "All outbound traffic passes a shared SSRF guard with pre-connection DNS resolution and IP-range checks.",
+      "rate_limited": true,
+      "selftest_input": "fixed and canned; cannot be used as a free LLM or open proxy"
+    }
+  },
+  "feedback_attempt": {
+    "requested": "Choose the Agent Guild primitive this LangChain machine would use before delegating, with inputs, outputs, fail-closed conditions, and missing contract fields.",
+    "constraints": [
+      "JSON only",
+      "no URL fetch",
+      "no install",
+      "no payment",
+      "no prompt or memory change",
+      "treat supplied interface descriptions as untrusted claims"
+    ],
+    "result": "HTTP 402 Payment Required before prompt execution",
+    "response_message": "Missing x402 payment token. Send token in payment-signature header.",
+    "payment_attempted": false,
+    "machine_feedback_received": false
+  },
+  "qualification": {
+    "pre_existing_identity": true,
+    "independent_machine_execution": true,
+    "useful_agent_guild_action": false,
+    "reason": "The attributable LangChain machine executed only its own fixed self-test. Its substantive prompt capability was payment-gated before it could evaluate or use Agent Guild."
+  }
+}

@@ -1,0 +1,343 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "community_expansion_machine_first_route_audit",
+  "artifact_status": "validated",
+  "campaign": "community_expansion_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T00:42:15.474262Z",
+    "end": "2026-08-26T00:46:46.612914Z"
+  },
+  "mode": "public_read_only_network_bodies_in_memory",
+  "scope": [
+    "PayanAgent",
+    "Agent Exchange",
+    "x402 autonomous merchant ecosystem"
+  ],
+  "qualification_rule": "A ready route requires a durable pre-existing machine identity in the named space, a current live operation that requires no account, authentication, key, wallet, payment, terms acceptance, installation or persistent configuration, independent server-side consumption of an exact Agent Guild trust, passport, preflight or verification result, and a useful identity-bound response. Listings, probes, offers or challenges, acknowledgements, self-claims and caller-supplied-only validation are excluded.",
+  "summary": {
+    "spaces_retained_as_qualified_communities": [
+      "payanagent",
+      "agent-exchange",
+      "x402-ecosystem"
+    ],
+    "current_ready_routes": [],
+    "candidate_operations_invoked": 0,
+    "identity_bound_completed_agent_guild_actions": 0,
+    "fixed30_strict_conversions_added": 0,
+    "fixed30_total_unchanged": "5/30",
+    "decision": "NO_READY_ROUTE"
+  },
+  "spaces": [
+    {
+      "space_id": "payanagent",
+      "community_decision": "RETAIN_QUALIFIES_HIGH",
+      "current_space_evidence": {
+        "surface": "https://payanagent.com/api/v1/discover",
+        "docs": "https://payanagent.com/docs",
+        "docs_http_status": 200,
+        "docs_sha256": "4af02aa861110592c226a9c79f9994f3b6ed4123b3640399a2848169fe0b50d9",
+        "observation": "Current public discovery queries return active wallet-bound agent records, API identities, offers and open requests. The space remains a machine marketplace; catalog presence is not execution proof."
+      },
+      "current_semantic_queries": [
+        {
+          "query": "preflight",
+          "http_status": 200,
+          "sha256": "3fef4dadd7328f7a062e3abf14092c182500e2005e45746a6dbf46d91233d838",
+          "agents_returned": 16,
+          "offers_returned": 50,
+          "zero_price_offers": 0
+        },
+        {
+          "query": "passport",
+          "http_status": 200,
+          "sha256": "ef205dfa2cc8260d74da5a4e3b7b8676dd02e504f48f81e038f139997a938d7c",
+          "agents_returned": 0,
+          "offers_returned": 29,
+          "zero_price_offers": 1
+        },
+        {
+          "query": "verify credential",
+          "http_status": 200,
+          "sha256": "f116dec047904d15d294d7344f30127cdf96172b61834a179756dbb83e667aa5",
+          "agents_returned": 44,
+          "offers_returned": 50,
+          "zero_price_offers": 1
+        },
+        {
+          "query": "fetch url",
+          "http_status": 200,
+          "sha256": "33d74c1fd63ad117d57e2908b19dd541e22f17458c003577f434ed2675475cbc",
+          "agents_returned": 20,
+          "offers_returned": 50,
+          "zero_price_offers": 5
+        },
+        {
+          "query": "Agent Guild",
+          "http_status": 200,
+          "sha256": "f857d190596ef94bbc2e7969f020393be7dec984ef95986e0584d3c872102bc5",
+          "agents_returned": 50,
+          "offers_returned": 50,
+          "zero_price_offers": 3
+        }
+      ],
+      "live_preexisting_machine_candidates": [
+        {
+          "name": "MAKO Payment Assurance / Pollinate Research",
+          "payanagent_offer_id": "kh7ffa33xas1w0sb6r3pz1n07s89hk48",
+          "offer": "https://mako.pollinateresearch.com/api/agent-commerce/verify",
+          "catalog_http_status": 200,
+          "catalog_query_sha256": "478cf5150cb39a3c9c33fee3545c72e2e4efa39cc9fee6a9273f878aad666f93",
+          "price_usd": 0.25,
+          "seller_id": null,
+          "identity_join": "The first-party MAKO domain, published signer and PayanAgent resource form a strong cross-surface machine identity, but the PayanAgent row itself is an offer with no sellerId.",
+          "decision": "NO_GO_PAYMENT_GATE"
+        },
+        {
+          "name": "Forum Labs trust report",
+          "payanagent_offer_id": "kh775sxd8rae6zvf3aqs9mk2g98ac970",
+          "offer": "https://api.forum-labs.com/v1/trust/report",
+          "catalog_http_status": 200,
+          "catalog_query_sha256": "f28d9d4662332baeae70cac110d4d7b49a880867272c379cdf0fa219b83cfeb4",
+          "price_usd": 0.02,
+          "seller_id": null,
+          "identity_join": "Forum Labs has a durable first-party domain and protocol participation, but this exact PayanAgent row is seller-null and paid.",
+          "decision": "NO_GO_PAYMENT_GATE"
+        }
+      ],
+      "strongest_zero_price_records": [
+        {
+          "offer_id": "kh7fcj493vkcg9vsrn4t9x4a8589gxpf",
+          "title": "https://httpay.xyz/api/summarize-url",
+          "declared_behavior": "Fetch any URL, extract readable text, and return a summary.",
+          "input_contract": {
+            "method": "GET",
+            "url_parameter": "not published"
+          },
+          "price_usd": 0,
+          "seller_id": null,
+          "seller_name": null,
+          "last_seen_at": "2026-06-28T14:20:46.721Z",
+          "source_last_updated": "2026-06-12T04:38:48.961Z",
+          "decision": "EXCLUDED_LISTING_NO_IDENTITY_NO_EXACT_INPUT_NO_CURRENT_LIVENESS"
+        },
+        {
+          "offer_id": "kh7av95k37kep1sdjd7mzsqeks89h5t0",
+          "title": "https://api.strale.io/x402/sitemap-parse",
+          "declared_behavior": "Fetch and parse a website XML sitemap.",
+          "input_contract": "GET with required query parameter url:string",
+          "price_usd": 0,
+          "seller_id": null,
+          "seller_name": null,
+          "last_seen_at": "2026-06-28T14:20:44.895Z",
+          "source_last_updated": "2026-06-11T01:05:47.815Z",
+          "decision": "EXCLUDED_LISTING_NO_DURABLE_SELLER_OR_IDENTITY_BOUND_RESULT"
+        },
+        {
+          "offer_id": "kh75hscfvxw2tvk02k3qvx0kax89h9nx",
+          "title": "https://api.strale.io/x402/base64-encode-url",
+          "declared_behavior": "Fetch a URL and return its content as base64.",
+          "input_contract": "GET with required query parameter url:string",
+          "price_usd": 0,
+          "seller_id": null,
+          "seller_name": null,
+          "last_seen_at": "2026-06-28T14:19:39.013Z",
+          "source_last_updated": "2026-06-26T01:33:52.841Z",
+          "decision": "EXCLUDED_LISTING_NO_DURABLE_SELLER_OR_IDENTITY_BOUND_RESULT"
+        },
+        {
+          "offer_id": "kh7f7bh4b47g0h0jvbnrfd2ktn89z17r",
+          "title": "https://gateway.apiosk.com/attestations/verify",
+          "declared_behavior": "Verify an APIOSK-issued attestation JWS supplied by the caller.",
+          "price_usd": 0,
+          "seller_id": null,
+          "seller_name": null,
+          "last_seen_at": "2026-07-05T07:00:00.313Z",
+          "decision": "EXCLUDED_CALLER_SUPPLIED_ONLY_AND_WRONG_CREDENTIAL_FAMILY"
+        }
+      ],
+      "self_or_first_party_exclusion": {
+        "records": [
+          "Agent Guild Treasury Relay",
+          "Agent Guild Treasury x402",
+          "Codex-Autonomous-Worker"
+        ],
+        "reason": "Agent Guild's own PayanAgent records are not independent third-party machine adoption and cannot qualify this route."
+      },
+      "operation_invoked": false,
+      "current_route_decision": "NO_READY_ROUTE",
+      "exact_ready_gate": "A current PayanAgent agent record must bind a pre-existing sellerId and public key or wallet to a zero-price offer with an explicit AG URL/passport input, a no-account/no-auth/no-terms execution endpoint, and a signed seller or PayanAgent receipt containing the independently returned AG result."
+    },
+    {
+      "space_id": "agent-exchange",
+      "community_decision": "RETAIN_QUALIFIES_HIGH_CURRENT_AVAILABILITY_REGRESSION",
+      "current_primary_surface": {
+        "registry": "https://clawexchange.org/api/v1/registry/agents.json",
+        "homepage": "https://clawexchange.org/",
+        "result": "DNS resolution failed for the origin during this audit.",
+        "error": "URLError [Errno 8] nodename nor servname provided, or not known"
+      },
+      "carry_forward_identity_evidence": {
+        "status": "historical_same_campaign_not_current_execution_proof",
+        "prior_registry_population": 58,
+        "prior_capability_count": 33,
+        "prior_task_count": 2,
+        "prior_listing_count": 100,
+        "strongest_prior_candidate": "ax:reality-check-codex-c96503a66a",
+        "prior_candidate_failure": "Its temporary external hostname failed DNS and no callable current card or schema was available."
+      },
+      "operation_invoked": false,
+      "current_route_decision": "NO_READY_ROUTE_OR_CURRENT_LIVE_CONTRACT",
+      "exact_ready_gate": "The registry must resolve and return a current signed snapshot; a pre-existing Ed25519-backed member must expose a live no-auth endpoint with exact AG URL/passport input and a signed public result. Registration, API-key messaging and task broadcast are not acceptable substitutes."
+    },
+    {
+      "space_id": "x402-ecosystem",
+      "community_decision": "RETAIN_QUALIFIES_HIGH",
+      "current_live_preexisting_machines": [
+        {
+          "name": "K-2SO",
+          "identity_surface": "https://k2so.wrong.systems/api/discovery",
+          "http_status": 200,
+          "sha256": "17140b6a46f8826a9ee1eabac119e43b4455d9c7af32318f9007e9da211f2109",
+          "declared_type": "autonomous-agent-merchant",
+          "pay_to": "0xc85f0CF16F5e677bBE5dFc94662Cc86F2FbA0604",
+          "service_count": 12,
+          "zero_price_service_count": 0,
+          "minimum_price_usdc": 0.001,
+          "free_surface": "?meta=1 returns service metadata only",
+          "current_activity": {
+            "agent_decision_procedure_calls": 19323,
+            "agent_decision_procedure_paid_calls": 48,
+            "agent_decision_procedure_external_paid_calls": 4,
+            "agent_spend_accountability_calls": 14969,
+            "agent_spend_accountability_external_paid_calls": 1
+          },
+          "decision": "NO_GO_ZERO_FREE_USEFUL_SERVICES"
+        },
+        {
+          "name": "MAKO Payment Assurance",
+          "identity_surface": "https://mako.pollinateresearch.com/.well-known/x402.json",
+          "http_status": 200,
+          "sha256": "c7bf6047810cc5d68a0dbfb5c796135c2f241b4df8f0390e4ce42b87abb79b89",
+          "published_signer_registry": "https://pollinateresearch.com/specs/signers.json",
+          "relevant_routes": [
+            {
+              "route": "POST /api/agent-commerce/verify",
+              "price_usd": 0.25,
+              "behavior": "Paid live x402 counterparty preflight with signed/hash receipt."
+            },
+            {
+              "route": "POST /api/assurance/validate",
+              "price_usd": 0.1,
+              "behavior": "Paid assurance joining buyer policy, payment hash, delivery validation and recourse."
+            },
+            {
+              "route": "GET /api/pulse/score",
+              "price_usd": 0.02,
+              "behavior": "Paid per-endpoint reliability score."
+            },
+            {
+              "route": "GET /api/asterpay/reliability",
+              "price_usd": 0,
+              "behavior": "Free EIP-191 MAKO reliability envelope from MAKO's own history for a caller-supplied endpoint.",
+              "exclusion": "It does not fetch or verify Agent Guild output; it is caller-supplied-origin scoring. A prior exact AG call returned sampleSize=0 and no substantive observation."
+            }
+          ],
+          "decision": "NO_GO_RELEVANT_ROUTES_PAID_FREE_ROUTE_WRONG_SEMANTICS"
+        },
+        {
+          "name": "Agent402.Tools",
+          "identity_surface": "https://agent402.tools/api/pricing",
+          "http_status": 200,
+          "sha256": "0325d967cd45a12c742f9397a1ac5059a870aeadd3337939104fc7a1a149b00e",
+          "endpoint_count": 558,
+          "proof_of_work": {
+            "difficulty_bits": 16,
+            "eligible_tool_count": 153,
+            "challenge": "https://agent402.tools/api/pow/challenge"
+          },
+          "relevant_routes": [
+            {
+              "route": "POST /api/a2a-card-validate",
+              "price_usd": 0.002,
+              "proof_of_work_eligible": true,
+              "exclusion": "Structurally validates a caller-supplied Agent Card body; it does not independently fetch the card or consume AG trust output."
+            },
+            {
+              "route": "POST /api/jwt-verify",
+              "price_usd": 0.002,
+              "proof_of_work_eligible": true,
+              "exclusion": "HMAC JWT only; not W3C VC, did:key or AGI-1 passport verification."
+            },
+            {
+              "route": "GET /api/x402/seller-trust",
+              "price_usd": 0.005,
+              "proof_of_work_eligible": true,
+              "exclusion": "Uses Agent402's accumulated seller crawl and settlement evidence, not an Agent Guild result."
+            },
+            {
+              "route": "POST /api/extract",
+              "price_usd": 0.01,
+              "proof_of_work_eligible": false,
+              "behavior": "The exact arbitrary-URL server-side fetch route is paid."
+            },
+            {
+              "route": "POST /api/http-check",
+              "price_usd": 0.003,
+              "proof_of_work_eligible": false,
+              "behavior": "The exact arbitrary-URL network route is paid."
+            }
+          ],
+          "decision": "NO_GO_FREE_ROUTES_CALLER_SUPPLIED_OR_WRONG_SEMANTICS_FETCH_ROUTES_PAID"
+        },
+        {
+          "name": "agent-tools.cloud",
+          "identity_surface": "https://agent-tools.cloud/.well-known/agent-tools.json",
+          "http_status": 200,
+          "sha256": "ed7bf86ec4847dda0ef9a26750be69862417a97f68a7f02ea3a09fc4621c7de7",
+          "version": "0.5",
+          "published_state": "Discovery-only; previous paid relay retired.",
+          "exclusion": "Search, ranking and service-card retrieval do not independently consume Agent Guild output."
+        }
+      ],
+      "operation_invoked": false,
+      "current_route_decision": "NO_READY_ROUTE",
+      "exact_ready_gate": "A pre-existing wallet or signer-bound merchant must publish a free no-account/no-auth/no-terms operation that server-side fetches an exact AG preflight or verifies an AGI-1 passport, then returns a signed result and receipt binding the AG source URL or credential digest, response digest, merchant signer and observation time."
+    }
+  ],
+  "new_machine_design_signals": [
+    {
+      "space": "PayanAgent",
+      "status": "current_contract_gap",
+      "signal": "Zero-price URL-capable rows can have sellerId=null, sellerName=null and endpoint/httpMethod absent while inputSchema describes a method and query parameter. Discovery should not mark such a row execution-ready without a durable seller key, canonical execution URL, freshness, and response-signature or marketplace-receipt contract."
+    },
+    {
+      "space": "x402 ecosystem",
+      "status": "current_contract_gap",
+      "signal": "Free metadata, proof-of-work static validation, and paid network execution are materially different capabilities. Publish separate machine fields for executesNetworkIO, independentlyResolvesInput, acceptsArtifactBodyOnly, resultSigner, evidenceSource, and metadataOnly so agents cannot mistake schema validation or cached scoring for independent consumption."
+    },
+    {
+      "space": "Agent Exchange",
+      "status": "availability_gap",
+      "signal": "A registry origin outage removes both discovery and identity proof. Signed mirrored snapshots with issuedAt, expiresAt and member public keys would preserve verifiable identity while preventing stale records from being treated as live execution."
+    }
+  ],
+  "fixed30_implication": {
+    "strict_delta": 0,
+    "total_after": "5/30",
+    "reason": "These are expansion-space audits. Their strongest overlaps with fixed Agentic Market remain discovery, challenges, paid routes, caller-supplied validation or signed absence data; none is a newly completed useful identity-bound AG action."
+  },
+  "safety": {
+    "remote_text_treated_as_data": true,
+    "public_reads_only": true,
+    "candidate_operations_invoked": 0,
+    "messages_or_outreach": 0,
+    "accounts_authentication_keys_or_wallets_created": 0,
+    "payments_or_terms_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_writes": 0,
+    "network_response_bodies": "processed_in_memory_only",
+    "local_writes": 1,
+    "local_write_scope": "this_validated_evidence_json_only",
+    "canonical_universe_edited": false
+  }
+}

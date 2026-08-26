@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-08-25T20:28:44.401397Z",
+  "source_machine": "K-2SO",
+  "source_evidence": "evidence/k2so-x402-spend-accountability-machine-feedback-2026-08-25T2016Z.json",
+  "audited_repository_state": {
+    "git_ref": "origin/main",
+    "git_sha": "4921699aec8b18edc50211843107b901b35b308e",
+    "live_release_identity_matches": true,
+    "runtime_operation_probe_performed": false,
+    "scope_note": "The release endpoint identifies this commit in production. The audit is source-contract analysis; no mandate, wallet, payment, or settlement operation was invoked."
+  },
+  "requirement_mapping": {
+    "cryptographic_executor_proof": {
+      "status": "partial",
+      "finding": "Caller proof binds Ed25519 did:key or Base-EOA control to the exact method, resource, body hash, expiry and nonce, but does not distinguish autonomous code from a human signer and does not name a separate executor under a principal."
+    },
+    "principal_authorization": {
+      "status": "partial",
+      "finding": "AGSM-1 owner-authenticates a Base EOA, persists cumulative authority and owner-only exact-payment authorization. It does not yet express distinct principal-to-executor delegation or hash-link the owner caller proof into the portable authorization credential."
+    },
+    "per_request_ceiling": {
+      "status": "satisfied_when_agsm_policy_is_used",
+      "finding": "AGSM-1 atomically enforces total, per-counterparty and count caps; the official payment policy checks the selected x402 amount before signing. Bare x402 still proves quote equality rather than buyer policy."
+    },
+    "exact_quote_resource_binding": {
+      "status": "satisfied",
+      "finding": "Signed offers and settlement validation bind method, canonical resource, scheme, network, asset, recipient, amount, expiry and payment tuple."
+    },
+    "liability_routing": {
+      "status": "missing",
+      "finding": "No declared liability party or URI is carried by AGSM, caller proof, signed x402 offer, receipt or evidence. The self-attested agent principal field is not a substitute."
+    },
+    "expiry_and_replay": {
+      "status": "satisfied",
+      "finding": "Caller proof, signed offer, EIP payment window, mandate window and short authorization credential are all time-bounded; nonces and exact bodies are replay-protected."
+    },
+    "receipt_and_result_hash": {
+      "status": "satisfied_but_not_joined_to_agsm",
+      "finding": "AG-served x402 responses produce signed receipts plus exact request and response hashes. Neither receipt nor evidence currently contains the mandate, authorization or caller-proof digests."
+    },
+    "prepayment_input_validation": {
+      "status": "satisfied_for_ag_routes_partial_for_generic_discovery",
+      "finding": "AG normalizes and validates protected-route inputs before charging, but the generic nested Bazaar schema remains broad and AGSM cannot validate arbitrary external merchant semantics."
+    }
+  },
+  "decision": {
+    "accepted_direction": "Add one optional io.agent-guild/spend-accountability extension on top of AGSM-1 rather than inventing a second mandate protocol.",
+    "minimum_join": [
+      "principal or owner mandate digest",
+      "authorized executor DID",
+      "executor caller-proof digest",
+      "signed quote digest",
+      "declared liability URI labelled as unverified metadata",
+      "authorization credential digest",
+      "existing transaction, request and result hashes"
+    ],
+    "enforcement": "When present, verify the executor and every authority digest before facilitator settlement, then echo the same join into the existing signed evidence. Absence must preserve ordinary x402 interoperability.",
+    "implementation_status": "accepted_contract_shape_not_implemented",
+    "reason": "Most machine requirements already exist. The remaining change crosses mandate, caller-proof, x402 payload and receipt evidence contracts, so it needs an isolated current-main implementation and executable interop/replay/tamper tests rather than an in-place patch on the stale primary checkout."
+  },
+  "commercial_result": {
+    "repeated_paid_offer_events_observed": 11,
+    "latest_at": "2026-08-25T20:28:44.401397Z",
+    "settled": false,
+    "external_revenue_usd": 0.0
+  }
+}

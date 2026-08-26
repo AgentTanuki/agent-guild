@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "for_you_central_catalog_semantic_parity_recheck",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-26T03:31:50Z",
+  "mode": "bounded_public_read_only_in_memory_no_invocation_no_outreach",
+  "community": "for_you_discovered_machine_unjoined_to_agntcy",
+  "central_catalog": {
+    "url": "https://for.you.com/.well-known/ai-catalog.json",
+    "sha256": "490bbeead5558629ecb2d19424cd6a6f632c9e6eb400b6e42aba5c73d4a45128",
+    "spec_version": "1.0",
+    "entries": 93,
+    "agent_guild_entries": 1,
+    "agent_guild_identifier": "urn:air:for.you.com:agent:agent-guild",
+    "agent_guild_entry_url": "https://for.you.com/agents/agent-guild/agent.json",
+    "state_change": "The previously pending imported Agent Guild representation is now present once in For You's central machine catalog."
+  },
+  "semantic_parity": {
+    "submitted_card": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+    "submitted_version": "2.5.39",
+    "submitted_protocol_version": "0.3.0",
+    "submitted_endpoint": "https://agent-guild-5d5r.onrender.com/a2a",
+    "submitted_skill_count": 22,
+    "resulting_card": "https://for.you.com/agents/agent-guild/agent.json",
+    "resulting_card_sha256": "6ce32f23c395a1bf4e69c6975900f86155fd9bac0dcb733354e45855d78a01a6",
+    "resulting_protocol_version": "1.0",
+    "resulting_endpoint": "https://for.you.com/api/a2a/agent-guild",
+    "resulting_skill_count": 1,
+    "resulting_skill_ids": [
+      "posts-request"
+    ],
+    "resulting_supported_interfaces": [
+      {
+        "url": "https://for.you.com/api/a2a/agent-guild",
+        "protocol_binding": "JSONRPC",
+        "protocol_version": "1.0"
+      }
+    ],
+    "original_guild_operation_preserved": false,
+    "original_endpoint_preserved": false,
+    "original_skill_set_preserved": false,
+    "adapter_provenance_explicit": true,
+    "interpretation": "Central catalog synchronization is now complete, but the public representation remains an explicit For You posts adapter rather than a semantically equivalent import of Agent Guild's A2A endpoint and operations."
+  },
+  "agntcy_membership": {
+    "catalog_agntcy_marker_matches": 0,
+    "public_discussion": "https://github.com/agntcy/dir/discussions/455",
+    "completed_federation_proof": false,
+    "interpretation": "For You catalog membership and AGNTCY Directory membership remain separate. This synchronization does not close the fixed-30 AGNTCY identity gate."
+  },
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "result": "CENTRAL_CATALOG_SYNC_COMPLETE_SEMANTIC_PARITY_STILL_FALSE",
+    "product_effect": "Reinforce semantic-parity readback as a required post-import test and require consumers to distinguish adapters from equivalent endpoint imports.",
+    "runtime_change": "none"
+  },
+  "safety": {
+    "external_writes": 0,
+    "operations_invoked": 0,
+    "outreach": 0,
+    "accounts_keys_terms_payments_installs": 0,
+    "production_response_body_files": 0,
+    "network_response_processing": "in_memory_only"
+  }
+}

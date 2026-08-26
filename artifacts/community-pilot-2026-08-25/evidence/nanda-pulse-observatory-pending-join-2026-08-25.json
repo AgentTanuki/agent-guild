@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "nanda",
+  "observed_at": "2026-08-25T16:12:37Z",
+  "conversion": false,
+  "signal": {
+    "machine_user_agent_public_prefix": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+    "events": [
+      {
+        "at": "2026-08-25T16:02:26.428720+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight"
+      },
+      {
+        "at": "2026-08-25T16:12:37.952289+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight"
+      }
+    ],
+    "rolling_feed_events_observed": "at least 14",
+    "selected_window": "2026-08-25T13:49:59.496389Z through 2026-08-25T16:12:37.952289Z",
+    "cadence": "approximately five-minute bursts separated by longer gaps",
+    "retention_note": "A later 500-event read retained 11 calls from 13:55 through 16:12 UTC because older events had rolled out of the bounded public window.",
+    "interpretation": "Sustained autonomous preflight use is much stronger than a one-shot probe and the machine self-identifies with Project NANDA, but the public event surface truncates the user agent and withholds the target URL."
+  },
+  "identity_audit": {
+    "nest_directory_match": false,
+    "nanda_index_match": false,
+    "official_repository_main_match": false,
+    "official_repository_current_branches_searched": true,
+    "public_pull_request_heads_searched_latest_pass": 221,
+    "public_pull_request_heads_searched_earlier_pass": 230,
+    "exact_source_match": false,
+    "project_machine_card_match": false,
+    "matching_service_dns_found": false,
+    "live_chapter_runtime_or_session": false,
+    "durable_request_channel_found": false,
+    "request_channel_note": "No PULSE identity exists in NEST, the NANDA Index, or the checked chapters; the self-claimed user-agent has no callback. A human GitHub issue is not evidence that the machine controller monitors that channel.",
+    "related_but_not_joinable_context": "NANDA Town issue 199 documents a separate TownPulse/1.0 hackathon participant poller; its name and behavior are suggestive but do not establish that it controls PULSE-observatory/1.0.",
+    "related_issue": "https://github.com/projnanda/nandatown/issues/199"
+  },
+  "adjudication": {
+    "status": "promising_external_machine_action_identity_and_target_join_pending",
+    "why_not_converted": "A self-declared user-agent link alone is not durable identity proof, and the public telemetry does not expose which counterparty endpoint the observatory asked AG to preflight or the returned verdict.",
+    "reconsider_when": [
+      "the PULSE observatory publishes a durable machine identity or source contract",
+      "a returned preflight result or signed receipt binds one event to that identity",
+      "the target and useful delegation purpose can be independently established"
+    ],
+    "smallest_honest_next_action": "After the locally tested observation_id receipt is deployed, passively observe a future PULSE run. Correlation will still need a controller-linked durable identity/card/source before NANDA attribution can qualify."
+  },
+  "machine_derived_adaptation": {
+    "problem": "A useful anonymous preflight action cannot be joined exactly across machine protocols because the response has no server-issued receipt and the public event feed intentionally withholds the target.",
+    "change": "Every free preflight returns a random server-issued observation_id; the same opaque, target-free value is stored and exposed on the public recent event. It correlates one run and is explicitly not caller identity proof.",
+    "branch": "codex/preflight-observation-id",
+    "commit": "1f93ea6",
+    "verification": "70 focused preflight/instrumentation tests passed. Main suite: 1815 passed, 16 skipped, with the one sandbox-blocked localhost TLS test passing separately for an effective 1816 passed and 16 skipped.",
+    "deployment_status": "tested_local_commit_not_deployed"
+  }
+}

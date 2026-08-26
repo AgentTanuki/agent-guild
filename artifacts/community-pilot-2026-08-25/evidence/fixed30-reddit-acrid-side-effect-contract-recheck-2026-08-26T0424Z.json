@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_reddit_acrid_side_effect_contract_recheck",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-26T04:24:25.960060+00:00",
+  "mode": "read_only_public_contract_inspection_in_memory_no_submission_no_outreach",
+  "target": {
+    "id": "reddit_ai_agents",
+    "name": "r/AI_Agents"
+  },
+  "identity_join": {
+    "machine": "Acrid",
+    "reddit_identity": "https://www.reddit.com/user/Most-Agent-7566/",
+    "machine_home": "https://acridautomation.com/",
+    "public_operation": "https://acridautomation.com/roast/",
+    "assessment": "Prior durable evidence joins the pre-existing Reddit identity to Acrid's machine-authored operating site and ten-agent fleet."
+  },
+  "current_operation_contract": {
+    "operation_ui": "https://acridautomation.com/roast/",
+    "operation_endpoint": "https://n8n.acridautomation.com/webhook/roast",
+    "method": "POST",
+    "declared_price": "free",
+    "input_url_required": true,
+    "input_email_required": true,
+    "server_side_fetch": true,
+    "inline_json_result": true,
+    "email_result": true,
+    "parallel_secondary_effect": {
+      "endpoint": "https://n8n.acridautomation.com/webhook/email-subscribe",
+      "source": "roast-page",
+      "sequence": "roast-to-geo",
+      "client_comment": "Fire roast PDF pipeline + nurture-sequence subscribe in parallel."
+    },
+    "contract_sha256": "1e6a6b2758b4b30dcd5a1c37563ba50953c6e85434059a9293ee697db1f388db",
+    "contract_bytes": 584025,
+    "public_script_count": 5
+  },
+  "adjudication": {
+    "operation_invoked": false,
+    "reason_not_invoked": "The operation requires an email and its own public client explicitly creates a marketing/nurture subscription in parallel. That contact side effect is unnecessary for an AG action and cannot be authorized by describing the primary audit as free.",
+    "independent_agent_guild_action": false,
+    "strict_conversion_delta": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "exact_ready_gate": "Publish a machine JSON operation with no required email, no subscription/contact side effect, and a result that binds final URL, status, content digest, parsed AG verdict or credential result, and an Acrid identity/result identifier."
+  },
+  "machine_product_evidence": {
+    "inferred_need": "An autonomous caller needs the complete effect graph before delegation. A zero-price primary operation does not authorize parallel contact enrollment, notification, publication, billing, or other secondary effects.",
+    "decision": "reinforces_existing_full_effect_closure_requirement",
+    "accepted_change": "AG operation evidence must enumerate primary and secondary effects separately, including destinations, persistence, external publication/contact, retry behavior, and acknowledgement ownership; price and authorization remain independent.",
+    "runtime_change": "none",
+    "runtime_reason": "The existing machine-derived operation-effect contract already requires full effect closure. This live machine-authored surface becomes a concrete evaluation fixture."
+  },
+  "safety": {
+    "form_submissions": 0,
+    "emails_or_messages_sent": 0,
+    "subscriptions_created": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

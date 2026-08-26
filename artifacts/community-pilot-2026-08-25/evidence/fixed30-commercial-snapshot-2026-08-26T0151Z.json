@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "normalized_public_commercial_snapshot",
+  "campaign": "community-pilot-2026-08-25",
+  "observed_at": "2026-08-26T01:51:29Z",
+  "source": "https://agent-guild-5d5r.onrender.com/commercial",
+  "read_mode": "public_read_only_in_memory",
+  "revenue_first": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0
+  },
+  "qualified_exposure": {
+    "qualified_actors": 10,
+    "qualified_events": 96,
+    "paid_offers_shown": 55,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0
+  },
+  "decision": {
+    "strict_conversions_added": 0,
+    "strict_total_after": "5/30",
+    "commercial_change": "one additional qualified event and one additional paid offer since the 01:39Z audit; no completion or independently confirmed settlement"
+  },
+  "safety": {
+    "response_body_persisted": false,
+    "production_writes": 0,
+    "payments_or_wallet_actions": 0,
+    "accounts_keys_or_credentials_created": 0
+  }
+}

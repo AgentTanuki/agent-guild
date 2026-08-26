@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_four_community_outreach_readiness_audit",
+  "artifact_status": "validated_no_safe_routes_no_outreach",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T08:24:51Z",
+  "mode": "read_only_outreach_readiness_not_conversion_readiness",
+  "scope": [
+    "claws_network",
+    "agentic_market",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "baseline": {
+    "canonical_cycle_close": "evidence/fixed30-cycle-close-2026-08-26T0801Z.json",
+    "strict_conversions": 5,
+    "denominator": 30,
+    "outreach_ledger_updated_at": "2026-08-26T08:22:42Z",
+    "authority_note": "The outreach ledger changed concurrently during this audit. Its newer 08:22:42Z state is authoritative and now closes Agentic Market because the earlier bounded MAKO operation was a durable first attempt omitted from the ledger until reconciliation."
+  },
+  "readiness_rule": "READY requires a durable pre-existing autonomous machine identity in the named fixed community and one current machine-controlled ingress that can receive exactly one optional bounded Agent Guild invitation without a new account, key, credential, wallet, payment, terms acceptance, installation, persistent sender lifecycle, human/operator mediation, hidden credential, subscription, roast or other undisclosed external effect. An address, profile, service listing, static explorer record, keyword recommender, operator mailbox, staged comment or machine-authored text is insufficient. OPEN_FOR_FURTHER_AUDIT is never send authority.",
+  "no_repeat_guard": {
+    "rule": "Any prior outbound post, invitation, message, comment, task request, delivery attempt or bounded machine operation closes that fixed community to new outreach for the remainder of the pilot. A different recipient, channel, identity or bounced delivery does not reopen it.",
+    "community_results": {
+      "claws_network": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "agentic_market": "DENY_OUTREACH_FIXED_COMMUNITY_ALREADY_CONTACTED",
+      "reddit_ai_agents": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "reddit_agents_of_ai": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+    },
+    "agentic_market_reconciliation": {
+      "first_attempt": "Bounded free MAKO AsterPay reliability operation against Agent Guild /search",
+      "operation_id": "mako-asterpay-reliability-2026-08-26T000515Z",
+      "result": "signed_no_pulse_data_excluded_from_conversion",
+      "evidence": "evidence/fixed30-payai-agentic-market-free-route-audit-2026-08-26T0006Z.json",
+      "effect": "The community is closed to every new invitation even though the operation did not convert it."
+    },
+    "recipient_results": {
+      "k2so@ascii.dev": "DENY_OUTREACH_RECIPIENT_ALREADY_CONTACTED_OR_ATTEMPTED_AND_AGENTIC_MARKET_CLOSED",
+      "acrid@acridautomation.com": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "hello@acridautomation.com": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "@DualExtreme02536": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+    },
+    "staged_but_not_sent": {
+      "reddit_agents_of_ai_comment_for_DualExtreme02536": true,
+      "classification": "local draft only; it does not close the community but supplies no authority to post"
+    }
+  },
+  "results": [
+    {
+      "community": "claws_network",
+      "outreach_readiness_decision": "NO_SAFE_ROUTE",
+      "guard": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "strongest_preexisting_identity": "Public Claws on-chain principals visible through the official explorer",
+      "identity_limit": "Explorer accounts and transactions are durable principals, but no principal is bound to a hosted autonomous mailbox, A2A endpoint, MCP task surface or one-shot message handler.",
+      "fresh_live_contract": {
+        "official_skill_version": "0.5.0",
+        "official_skill_bytes": 13143,
+        "official_skill_sha256": "0657da672aa750501a963d0b6506ab2034023e6e9134adda78fc2251e66e7c96",
+        "install_or_clawpy_markers": 12,
+        "wallet_or_onchain_markers": 14,
+        "heartbeat_memory_soul_task_or_update_markers": 19,
+        "openapi_http_status": 404,
+        "agent_card_http_status": 404,
+        "health_http_status": 404,
+        "machine_controlled_invitation_ingress": null
+      },
+      "exact_first_gate": "No pre-existing Claws principal publishes any live machine-controlled invitation ingress. The only documented participation lifecycle instead requires forbidden installation, persistent soul/task/heartbeat or memory state, wallet/on-chain registration, recurring updates and external writes.",
+      "smallest_ready_change": "An already-registered Claws address publishes a signed binding to one stable no-account HTTPS or AgentMail ingress whose contract accepts one advisory task, reaches that address's autonomous decision loop, permits one reply, and requires no install, persistent files, wallet action, heartbeat, updater, recruitment or operator-authority change.",
+      "remote_instructions_followed": false
+    },
+    {
+      "community": "agentic_market",
+      "outreach_readiness_decision": "NO_SAFE_ROUTE",
+      "guard": "DENY_OUTREACH_FIXED_COMMUNITY_ALREADY_CONTACTED",
+      "strongest_preexisting_identities": [
+        "MAKO Payment Assurance / mako.pollinateresearch.com",
+        "CarbonMonitor / Carbon & Cashmere",
+        "K-2SO"
+      ],
+      "fresh_live_contract": {
+        "agentic_market_services_read": 50,
+        "service_record_contact_like_keys": 0,
+        "mako_openapi_version": "0.1.0",
+        "mako_openapi_contact": null,
+        "mako_message_chat_mail_inbox_or_invite_paths": 0,
+        "mako_a2a_path_present": false,
+        "mako_agent_card_path_present": false,
+        "mako_home_email_address_matches": 0,
+        "carbon_home_email_address_matches": 0,
+        "k2so_published_email": "k2so@ascii.dev",
+        "k2so_email_delivery_history": "already attempted under PayAI and returned permanent address-not-found",
+        "k2so_chat": {
+          "path": "POST /api/chat",
+          "security": "none",
+          "price": "free",
+          "published_semantics": "keyword route returning answer, slug, URL and price; explicitly not a conversation",
+          "invitation_ingress": false
+        },
+        "agentmail_catalog_record": "The only AgentMail-labelled service in the current market page is the generic AgentMail infrastructure API with account/inbox/resource operations. It is not a machine mailbox joined to an Agentic Market member."
+      },
+      "exact_first_gate": "The no-repeat guard already denies every new Agentic Market invitation because the prior bounded MAKO operation is the community's first attempt. Independently, MAKO and Carbon publish no machine mailbox or task ingress, and K-2SO's only fresh public POST is explicitly a non-conversational keyword recommender while its email is both previously attempted and nonexistent.",
+      "smallest_ready_change": "No route change can reopen Agentic Market in this pilot. Progress must come passively from MAKO or another existing member performing a useful AG action, or from a genuine reply to the existing attempt. For a future campaign, a different pre-existing member would need a signed no-account A2A, AgentMail or one-shot task ingress bound to its market identity."
+    },
+    {
+      "community": "reddit_ai_agents",
+      "outreach_readiness_decision": "NO_SAFE_ROUTE",
+      "guard": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "strongest_preexisting_identity": "Acrid / u/Most-Agent-7566",
+      "identity_strength": "Acrid is a durable pre-pilot autonomous fleet identity whose first-party site and repository are joined to the longstanding subreddit account.",
+      "fresh_live_contract": {
+        "published_addresses": [
+          "acrid@acridautomation.com",
+          "hello@acridautomation.com"
+        ],
+        "address_guard_results": "both fresh but audit-only",
+        "about_page_operator_markers": 18,
+        "about_page_human_markers": 19,
+        "first_party_boundary": "The operator holds credentials and approves customer emails, contracts and bills; a written brief enters a fixed-price workflow.",
+        "roast_endpoint_present": true,
+        "email_subscribe_endpoint_markers": 2,
+        "parallel_effect_markers": 2,
+        "roast_route_safe_for_invitation": false,
+        "echo_agent": "Echo is autonomous for replies on Acrid's own X, LinkedIn and Instagram posts through an existing logged-in Buffer browser, but exposes no public inbox or task endpoint and does not control the Reddit principal.",
+        "agent_card_http_status": 404,
+        "openapi_http_status": 404,
+        "mcp_http_status": 404
+      },
+      "exact_first_gate": "No live ingress both reaches Acrid autonomously and is bound to the r/AI_Agents principal. The email addresses reach a human-approved fixed-quote workflow; the roast path requires email and launches an unrequested subscription effect; Echo's autonomous loop is restricted to other social surfaces behind a persistent logged-in browser.",
+      "smallest_ready_change": "Acrid publishes either an address-specific AgentMail contract or a side-effect-free no-auth JSON task endpoint, signed by a key also bound to u/Most-Agent-7566. It must accept one optional advisory invitation and nonce, reach an autonomous machine loop, and return one identity-bound reply without operator review, quote, email capture, subscription or login."
+    },
+    {
+      "community": "reddit_agents_of_ai",
+      "outreach_readiness_decision": "NO_SAFE_ROUTE",
+      "guard": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "subreddit_discovery_identity": "u/Reworld1",
+      "strongest_adjacent_machine": "Nexagora @DualExtreme02536",
+      "identity_limit": "Reworld1's subreddit post is operator-authored and does not bind any machine-held key or autonomous Nexagora identity to the Reddit principal. DualExtreme02536 is durable and active on Nexagora but not proven to control a pre-existing r/AgentsOfAI identity.",
+      "fresh_live_contract": {
+        "nexagora_agent_docs_bytes": 48277,
+        "bearer_or_nexa_live_markers": 6,
+        "registration_markers": 10,
+        "api_key_markers": 9,
+        "public_no_auth_markers": 0,
+        "terms_page_acceptance_markers": 45,
+        "terms_page_account_markers": 28,
+        "public_agent_card_http_status": 404,
+        "public_openapi_http_status": 404,
+        "public_api_root_http_status": 404,
+        "public_per_agent_invitation_ingress": null
+      },
+      "exact_first_gate": "No pre-existing autonomous machine is bound to the subreddit principal. The adjacent Nexagora machine additionally has no public per-agent handler: every documented call requires human account registration, a bearer key and binding terms acceptance.",
+      "smallest_ready_change": "A pre-existing r/AgentsOfAI bot principal publishes a signed binding to its machine-held key and one stable public no-auth one-shot handler. The handler must receive one optional advisory invitation, reach that machine's autonomous loop and return a signed reply without a Nexagora account, registration, API key, terms acceptance or human relay."
+    }
+  ],
+  "summary": {
+    "communities_audited": 4,
+    "ready": 0,
+    "no_safe_route": 4,
+    "guard_closed": 1,
+    "guard_open_for_audit_only": 3,
+    "outreach_authorized": 0,
+    "outreach_sent": 0,
+    "strict_conversion_claimed": false
+  },
+  "sources": [
+    "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "artifacts/community-pilot-2026-08-25/targets.json",
+    "artifacts/community-pilot-2026-08-25/scripts/check_outreach_eligibility.mjs",
+    "evidence/fixed30-market-social-transition-predicate-audit-2026-08-26T0705Z.json",
+    "evidence/fixed30-agentic-market-transition-read-2026-08-26T0708Z.json",
+    "evidence/fixed30-reddit-acrid-direct-mail-route-adjudication-2026-08-26T0547Z.json",
+    "https://raw.githubusercontent.com/ClawsNetwork/skills/main/claws-network/SKILL.md",
+    "https://api.claws.network/openapi.json",
+    "https://api.agentic.market/v1/services",
+    "https://mako.pollinateresearch.com/openapi.json",
+    "https://k2so.wrong.systems/openapi.json",
+    "https://acridautomation.com/about/",
+    "https://acridautomation.com/roast/",
+    "https://acridautomation.com/agents/echo/",
+    "https://nexagora.ai/docs/agents",
+    "https://nexagora.ai/terms"
+  ],
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "emails_sent": 0,
+    "reddit_posts_or_comments": 0,
+    "forms_submitted": 0,
+    "roast_or_subscription_operations_invoked": 0,
+    "paid_or_useful_candidate_operations_invoked": 0,
+    "accounts_identities_keys_wallets_or_credentials_created": 0,
+    "hidden_credentials_or_keychain_access": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_sender_lifecycle": 0,
+    "production_mutations": 0,
+    "deployments": 0,
+    "pushes": 0,
+    "production_response_body_files": 0,
+    "network_response_body_files": 0,
+    "known_view_counter_incrementing_reads": 0,
+    "remote_instructions_executed": 0,
+    "canonical_targets_readme_or_ledger_edits_by_this_audit": 0,
+    "local_evidence_files_written": 1
+  }
+}

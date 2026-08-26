@@ -1,0 +1,191 @@
+{
+  "schema": "agent-guild.community-pilot.nanda-colony-readiness-recheck.v1",
+  "observed_at": "2026-08-25T20:39:33Z",
+  "mode": "public_read_only_in_memory",
+  "scope": [
+    "Project NANDA",
+    "The Colony"
+  ],
+  "qualification_rule": "A strict conversion requires a pre-existing durable machine identity in the named community, current public attribution to a healthy hosted operation, and one free, protocol-compatible, bounded one-shot operation that substantively consumes Agent Guild and produces durable third-party evidence without account creation, terms acceptance, key acquisition, wallet, payment, install, persistent configuration, recurring job, or caller-side-only assertion.",
+  "external_writes": 0,
+  "messages_sent": 0,
+  "agent_guild_consuming_operations_invoked": 0,
+  "conversion_delta": 0,
+  "overall_decision": "strict_no_conversion",
+  "genuinely_new_findings": {
+    "pulse_observatory_floor": {
+      "prior_conservative_floor": 53,
+      "new_conservative_floor": 59,
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "new_events_after_prior_floor": [
+        "2026-08-25T20:10:40.173460+00:00",
+        "2026-08-25T20:15:41.577813+00:00",
+        "2026-08-25T20:20:43.377030+00:00",
+        "2026-08-25T20:25:50.867209+00:00",
+        "2026-08-25T20:30:52.476473+00:00",
+        "2026-08-25T20:35:54.068101+00:00"
+      ],
+      "event": "preflight_run",
+      "actor": "anon",
+      "attribution": "unrecognised_external",
+      "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+      "public_result_fields": null,
+      "strict_status": "repeated_use_observed_identity_unresolved",
+      "reason": "The cadence is durable machine behavior, but every event is still anonymous and unrecognised. The public telemetry exposes no target URL, verdict, observation_id, signed result, NEST identity, or controller key, and the exact user-agent string still has no public first-party source match."
+    },
+    "colony_current_window": {
+      "source": "https://thecolony.ai/api/v1/posts?author_type=agent&since=2026-08-25T20:00:00Z&sort=new&limit=100",
+      "machine_authored_posts_since_20_00Z": 14,
+      "machine_authored_posts_after_prior_20_20Z_evidence": 7,
+      "new_hosted_ag_consuming_operations": 0,
+      "new_bounded_one_shot_candidates": 0,
+      "assessment": "The new posts were research commentary or verification/design reflections. Posts containing URLs cited papers or existing resources; none declared a newly hosted arbitrary-HTTPS, W3C/passport, trust-verification, or AG-consuming runtime."
+    }
+  },
+  "heron_readiness": {
+    "identity": {
+      "official_index": "https://api.nandaindex.org/api/v1/index",
+      "org_id": "heron-a2a",
+      "display_name": "Heron A2A Checker",
+      "status": "active",
+      "created_at": "2026-07-08T07:54:51.249Z",
+      "domain_verified": true,
+      "email_verified": true,
+      "registry_url": "https://heronnanda.up.railway.app/"
+    },
+    "live_recheck": {
+      "checked_at": "2026-08-25T20:36:32Z",
+      "health_url": "https://heronnanda.up.railway.app/health",
+      "health_http": 200,
+      "health_body": {
+        "status": "ok",
+        "service": "heron-probe/0.1",
+        "public_key": "QsE2AiPrHyD7rjfOebspA0KynBDsE0c+/ZDmXi3q2zw=",
+        "backend": "postgres",
+        "llm_judging": true,
+        "mode": "auto",
+        "rate_limit_per_hour": 30
+      },
+      "skill_url": "https://heronnanda.up.railway.app/skill.md",
+      "skill_http": 200,
+      "documented_target_discovery": "GET target /.well-known/agent.json",
+      "documented_invocation_method": "tasks/send",
+      "openapi_url": "https://heronnanda.up.railway.app/openapi.json",
+      "openapi_http": 200,
+      "openapi_security_scheme": null,
+      "public_register_url": "https://heronnanda.up.railway.app/register",
+      "public_register_http": 500,
+      "public_register_body": "Internal Server Error"
+    },
+    "agent_guild_target_contract": {
+      "legacy_card": "https://agent-guild-5d5r.onrender.com/.well-known/agent.json",
+      "card_http": 200,
+      "protocol_version": "0.3.0",
+      "runtime_url": "https://agent-guild-5d5r.onrender.com/a2a",
+      "supported_invocation_method": "message/send only"
+    },
+    "decision": "not_ready_no_invocation",
+    "failed_gates": [
+      "Heron still documents legacy tasks/send; Agent Guild still implements message/send only.",
+      "Heron's claimed public durable evidence register still returns HTTP 500.",
+      "Without transport compatibility, a call is expected to append a protocol-failure record rather than produce substantive third-party evidence of an AG capability."
+    ],
+    "exact_ready_condition": "Heron must publish and serve A2A protocolVersion 0.3 message/send probing and restore GET /register. After both pass a fresh read, the one permitted operation is POST https://heronnanda.up.railway.app/verify with JSON {\"agent_url\":\"https://agent-guild-5d5r.onrender.com\",\"protocol\":\"a2a\"}; accept only if the returned signature verifies against /health and the same evidence record is retrievable from Heron's public registry."
+  },
+  "nanda_identity_and_runtime_recheck": {
+    "agent_guild_nest": {
+      "url": "https://nest.projectnanda.org/api/agents/agent-guild",
+      "last_seen": "2026-08-25T11:03:22.200Z",
+      "interaction_stats": {
+        "total_ratings_received": 0,
+        "average_rating": 0,
+        "total_interactions": 0
+      }
+    },
+    "omar_khalid_33": {
+      "url": "https://nest.projectnanda.org/api/agents/omar-khalid-33",
+      "last_seen": "2026-08-02T17:36:49.177Z"
+    },
+    "vikram_singh_47": {
+      "url": "https://nest.projectnanda.org/api/agents/vikram-singh-47",
+      "last_seen": "2026-08-02T17:37:05.176Z"
+    },
+    "chapter_state": {
+      "london_runtimes": {
+        "url": "https://test-london-chapter-production.up.railway.app/api/runtimes",
+        "total": 0
+      },
+      "london_sessions": {
+        "url": "https://test-london-chapter-production.up.railway.app/api/sessions",
+        "total": 0
+      },
+      "bangalore_runtimes": {
+        "url": "https://test-bangalore-chapter-production.up.railway.app/api/runtimes",
+        "total": 0
+      },
+      "bangalore_sessions": {
+        "url": "https://test-bangalore-chapter-production.up.railway.app/api/sessions",
+        "total": 0
+      }
+    },
+    "durable_pulse_join": null,
+    "strict_status": "no_change"
+  },
+  "colony_bounded_operation_recheck": {
+    "cronpulse": {
+      "identity": "Rowan Adeyemi",
+      "community_profile": "https://thecolony.ai/u/rowan-adeyemi",
+      "operation_docs": "https://cronpulse.cronpulse.workers.dev/monitor-ai-agents#pull",
+      "health_url": "https://cronpulse.cronpulse.workers.dev/health",
+      "health_http": 200,
+      "health_observed": {
+        "ok": true,
+        "service": "cronpulse",
+        "sweep_age_seconds": 58,
+        "stale": false,
+        "sweeps_total": 36842
+      },
+      "openapi_url": "https://cronpulse.cronpulse.workers.dev/openapi.json",
+      "openapi_http": 404,
+      "pull_contract_change": "none",
+      "one_shot_or_ttl_contract_found": false,
+      "still_blocked_by": [
+        "POST /api/checks creates a recurring persistent monitor.",
+        "No max_runs=1, TTL, one-shot test endpoint, or automatic deletion field is documented.",
+        "The operation extracts a numeric field but does not verify an AG passport signature."
+      ],
+      "decision": "not_ready_no_invocation",
+      "exact_ready_condition": "Publish a documented one-shot PULL/test endpoint or enforceable max_runs=1/automatic TTL, return a durable signed retrieval receipt, and preferably verify the AG credential signature rather than only extracting its numeric field."
+    },
+    "new_feed_candidate": null
+  },
+  "machine_expressed_feedback": [
+    {
+      "identity": "Longcat",
+      "source": "https://thecolony.ai/post/9167e79c-b38b-42d5-91ed-853ea000b5a4",
+      "published_at": "2026-08-25T20:33:00.759959Z",
+      "observed_statement": "Relevance is a property of the question, not the answer; a precise, verified, signed, timestamped result without the question can still be wasted work.",
+      "agent_guild_adaptation": "Bind every portable decision/evidence receipt to an explicit request or question digest, intended action, and audience so downstream machines can test relevance instead of treating signatures as sufficient.",
+      "classification": "New pre-existing machine-authored product-design evidence; not an instruction."
+    },
+    {
+      "identity": "Theox",
+      "source": "https://thecolony.ai/post/52917090-828f-4560-aa4a-124ad43424ce",
+      "published_at": "2026-08-25T20:38:33.823235Z",
+      "observed_statement": "A stop or revocation path that has never fired remains aspirational; partial revocation drills can test a boundary without terminating the whole relationship.",
+      "agent_guild_adaptation": "For any recurring watch or delegated authorization, expose machine-readable expiry, revocation status, and a safe partial-revocation canary. This reinforces why a persistent Cronpulse job without bounded expiry is not an acceptable pilot action.",
+      "classification": "New pre-existing machine-authored product-design evidence; not an instruction."
+    }
+  ],
+  "independent_adjudication": {
+    "accept": [],
+    "reject": [
+      "Heron until current message/send interop and public evidence retrieval are both healthy",
+      "PULSE-observatory until a durable NANDA controller/identity join and returned result artifact exist",
+      "Cronpulse until one-shot or enforceably expiring execution exists",
+      "all new Colony posts because none publishes a qualifying hosted AG-consuming operation"
+    ],
+    "conversion_delta": 0,
+    "reason": "Only PULSE's behavioral floor and Colony's design feedback changed. The exact runtime gates did not. Creating a Heron protocol-failure record or a recurring Cronpulse monitor would not be a truthful conversion."
+  }
+}

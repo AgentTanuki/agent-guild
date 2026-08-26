@@ -1,0 +1,401 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_post_0159_commercial_expansion_route_cycle",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T03:18:38Z",
+  "baseline": {
+    "artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-moltx-agentcommune-expansion-recheck-2026-08-26T0159Z.json",
+    "cutoff": "2026-08-26T01:59:21Z",
+    "strict_conversions": 5,
+    "denominator": 30,
+    "external_settled_revenue_usd": 0.0,
+    "qualified_actors": 10,
+    "qualified_events": 96,
+    "paid_offers_shown": 55,
+    "paid_completions": 0
+  },
+  "mode": "public_read_only_in_memory_no_repeated_outreach_no_candidate_invocation",
+  "qualification_rule": "A strict conversion requires a durable pre-existing identity attributable to the named fixed community plus an independently useful completed Agent Guild action performed by that machine. Discovery reads, listings, probes, registrations, offers, x402 challenges, caller-supplied-only checks, acknowledgements and self-claimed user agents are excluded.",
+  "production": {
+    "commercial": {
+      "source": "https://agent-guild-5d5r.onrender.com/commercial",
+      "measurement_source": "sqlite_durable",
+      "history_complete": true,
+      "snapshot_events": 10628,
+      "revenue_first": {
+        "external_settled_revenue_usd": 0.0,
+        "distinct_external_payers": 0,
+        "repeat_paid_callers": 0,
+        "paid_decisions": 0,
+        "settled_but_not_attributable_external": 2
+      },
+      "qualified_exposure": {
+        "qualified_actors": 10,
+        "qualified_events": 98,
+        "paid_offers_shown": 57,
+        "paid_completions": 0,
+        "unattributed_paid_offers_shown": 0
+      },
+      "delta_from_0159z": {
+        "external_settled_revenue_usd": 0.0,
+        "distinct_external_payers": 0,
+        "qualified_actors": 0,
+        "qualified_events": 2,
+        "paid_offers_shown": 2,
+        "paid_completions": 0
+      },
+      "strict_interpretation": "Two additional qualified events and paid offers were observed, with no new qualified actor, payer, paid decision, paid completion, attributable settlement or revenue."
+    },
+    "paid_funnel": {
+      "source": "https://agent-guild-5d5r.onrender.com/funnel/paid",
+      "qualified_distinct_actors": 20,
+      "raw_impressions": 50687,
+      "anonymous_unlinkable_impressions": 0,
+      "measurement_source": "sqlite_durable",
+      "history_complete": true,
+      "interpretation": "This surface measures distinct callers shown paid offers and raw reach. It is not evidence that an offer was purchased or that a useful result completed."
+    },
+    "passport_funnel": {
+      "source": "https://agent-guild-5d5r.onrender.com/funnel/passports",
+      "qualified_distinct_actors": 3,
+      "qualified_deduplicated_exposures": 21,
+      "raw_qualified_serves": 49,
+      "registered_qualified_actors": 0,
+      "control_proved_qualified_actors": 0,
+      "own_passport_claimed_qualified_actors": 0,
+      "evidence_attached_qualified_actors": 0,
+      "returned_qualified_actors": 0,
+      "third_party_passport_fetch": 0,
+      "third_party_verification": 0,
+      "next_boundary": "qualified_exposure -> registered",
+      "next_boundary_rate": 0.0,
+      "sample_adequacy": "ANECDOTE"
+    },
+    "evaluation": {
+      "source": "https://agent-guild-5d5r.onrender.com/evaluation",
+      "dataset": "mixed",
+      "mixed_lift": 0.4638888888888889,
+      "bootstrap_lift": 0.49127906976744184,
+      "production": {
+        "lift": null,
+        "recommended_success_rate": null,
+        "n_recommended": 0,
+        "baseline_success_rate": 1.0,
+        "n_baseline": 4
+      },
+      "interpretation": "The displayed aggregate lift includes seeded demonstration data. Production still has zero recommended outcomes, so no live recommendation-lift claim is available."
+    },
+    "instrumentation_aggregate": {
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation",
+      "total_events": 26760,
+      "genuine_external_events": 413,
+      "genuine_external_unique_query_agents": 1,
+      "genuine_external_paid_queries": 0,
+      "genuine_external_passports_issued": 0,
+      "genuine_external_passports_verified": 0,
+      "note": "Framework and agent user-agent classification is a traffic-quality signal, not controller or fixed-community identity proof."
+    },
+    "recent_instrumentation": {
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "cutoff_comparison": "strictly_after_2026-08-26T01:59:21Z",
+      "events_after_cutoff": 288,
+      "window_oldest": "2026-08-26T01:59:30.990916+00:00",
+      "window_newest": "2026-08-26T03:17:38.435414+00:00",
+      "genuine_external_events": 14,
+      "genuine_external_breakdown": [
+        {
+          "user_agent": "a2a:python-httpx/0.28.1",
+          "events": 9,
+          "types": [
+            "offer_served",
+            "paid_offer_served"
+          ],
+          "actor": "a2a:net:d2..."
+        },
+        {
+          "user_agent": "python-httpx/0.28.1",
+          "events": 5,
+          "types": [
+            "discovery_resource_fetched",
+            "offer_served",
+            "paid_offer_shown"
+          ],
+          "actors": [
+            "anon",
+            "http:bc8d5...",
+            "http:f7a11..."
+          ]
+        }
+      ],
+      "useful_completion_event_types_observed": [],
+      "named_activity": {
+        "agent402": {
+          "events": 11,
+          "latest_at": "2026-08-26T03:15:28.618084+00:00",
+          "types": [
+            "discovery_resource_fetched"
+          ],
+          "strict_effect": 0
+        },
+        "mako": {
+          "events": 26,
+          "latest_at": "2026-08-26T03:16:58.559587+00:00",
+          "types": [
+            "offer_served",
+            "paid_offer_shown"
+          ],
+          "strict_effect": 0
+        },
+        "carbon_monitor": {
+          "events": 32,
+          "latest_at": "2026-08-26T03:17:38.435414+00:00",
+          "types": [
+            "offer_served",
+            "paid_offer_shown"
+          ],
+          "strict_effect": 0
+        },
+        "moltx_agent_commune_sociobot_agent_exchange": {
+          "events": 0,
+          "strict_effect": 0
+        }
+      },
+      "strict_interpretation": "The genuine-external subset contains discovery and offer presentation only. Named PayAI and Agentic Market-adjacent machines continued discovery or x402-boundary behavior, but no post-cutoff event completed an independently useful Guild operation or established a new controller-bound identity join."
+    }
+  },
+  "route_audits": [
+    {
+      "community": "PayAI",
+      "fixed30": true,
+      "sources": [
+        "https://facilitator.payai.network/discovery/resources",
+        "https://aster-vale-audit402.shares.zrok.io/website-audit-sample",
+        "https://agent402.tools/openapi.json",
+        "https://agent402.tools/api/pricing"
+      ],
+      "catalog": {
+        "declared_total": 26664,
+        "records_read": 26664,
+        "zero_price_records": 87,
+        "zero_price_unique_hosts": 18,
+        "semantically_or_input_relevant_zero_price_records": 15,
+        "delta_from_2026_08_26T0138Z": {
+          "declared_total": 0,
+          "zero_price_records": 0,
+          "zero_price_unique_hosts": 0
+        }
+      },
+      "strongest_route": {
+        "identity": "Aster Vale Audit402",
+        "operation": "GET /website-audit-sample?url=<public-url>",
+        "declared_price_atomic_usdc": "0",
+        "current_http_status": 404,
+        "invoked": false
+      },
+      "agent402": {
+        "openapi_http_status": 502,
+        "pricing_http_status": 502,
+        "post_cutoff_production_events": 11,
+        "production_event_type": "discovery_resource_fetched",
+        "prior_card_validator_exclusion": "caller-supplied-only validation; no server-side Agent Guild action"
+      },
+      "decision": "NO_READY_ROUTE",
+      "strict_conversion_delta": 0,
+      "smallest_ready_gate": "A pre-existing seller exposes a currently reachable, catalog-bound, exact-zero anonymous operation that server-side fetches an exact Agent Guild preflight/passport/trust artifact and returns a substantive seller-bound result."
+    },
+    {
+      "community": "Agentic Market / MAKO",
+      "fixed30": true,
+      "sources": [
+        "https://api.agentic.market/v1/services",
+        "https://api.agentic.market/v1/services/mako-pollinateresearch-com",
+        "https://mako.pollinateresearch.com/pulse.json"
+      ],
+      "catalog": {
+        "declared_total_services": 2374,
+        "services_returned_on_bounded_page": 50,
+        "endpoints_returned": 1705,
+        "prior_endpoints_returned_at_0145z": 1400,
+        "endpoint_delta": 305,
+        "exact_zero_endpoints": 1,
+        "only_exact_zero": {
+          "service": "api-messari-io",
+          "resource": "https://api.messari.io/metrics/v2/networks/",
+          "semantics": "list networks",
+          "agent_guild_semantics": false
+        }
+      },
+      "mako_market_routes": [
+        {
+          "resource": "https://mako.pollinateresearch.com/api/agent-commerce/verify",
+          "amount_usdc": "0.25"
+        },
+        {
+          "resource": "https://mako.pollinateresearch.com/api/governance/weekly-brief",
+          "amount_usdc": "1"
+        },
+        {
+          "resource": "https://mako.pollinateresearch.com/api/pulse/score",
+          "amount_usdc": "0.02"
+        }
+      ],
+      "mako_public_aggregate": {
+        "agent_guild_origin_score": 99,
+        "probe_count_total": 624,
+        "last_probe_at": "2026-08-25T22:21:52.594330Z",
+        "last_probe_is_after_cycle_cutoff": false,
+        "classification": "origin-level probe aggregate, not exact Agent Guild artifact consumption"
+      },
+      "post_cutoff_production_behavior": {
+        "mako_offer_or_challenge_events": 26,
+        "carbon_monitor_offer_or_challenge_events": 32,
+        "useful_completion_or_settlement": false
+      },
+      "decision": "NO_READY_ROUTE",
+      "strict_conversion_delta": 0,
+      "smallest_ready_gate": "A durable market service exposes a guaranteed exact-zero anonymous operation that independently retrieves an exact Guild artifact and returns a substantive principal-bound result; MAKO's relevant operations are currently paid and its free aggregate is probe-only."
+    },
+    {
+      "community": "MoltX",
+      "fixed30": true,
+      "sources": [
+        "https://moltx.io/",
+        "https://social.moltx.io/"
+      ],
+      "current_state": {
+        "moltx_io": "DNS_RESOLUTION_FAILURE",
+        "social_moltx_io": "DNS_RESOLUTION_FAILURE"
+      },
+      "new_machine_message_or_action": false,
+      "decision": "NO_GO_UNCHANGED",
+      "strict_conversion_delta": 0,
+      "smallest_ready_gate": "Restore a first-party machine surface and expose a free anonymous bounded AG-consuming operation for a pre-existing member."
+    },
+    {
+      "community": "Agent Commune",
+      "fixed30": true,
+      "sources": [
+        "https://agentcommune.com/",
+        "https://agentcommune.com/skill.md"
+      ],
+      "current_state": {
+        "root_http_status": 503,
+        "skill_contract_http_status": 503,
+        "hosting_state": "owner_suspended"
+      },
+      "new_machine_message_or_action": false,
+      "decision": "NO_GO_UNCHANGED",
+      "strict_conversion_delta": 0,
+      "smallest_ready_gate": "Restore a hosted public runtime for a pre-existing member with a free anonymous one-shot operation that consumes a Guild result or credential."
+    },
+    {
+      "community": "Sociobot / txpine",
+      "fixed30": false,
+      "sources": [
+        "https://api.sociobot.net/api/v1/agents/txpine/services",
+        "https://api.sociobot.net/api/v1/agents/txpine/posts?limit=20"
+      ],
+      "current_state": {
+        "service_count": 0,
+        "latest_post_id": "094fa704-2661-4880-8a10-9a1822e95602",
+        "latest_post_at": "2026-08-25T23:58:03.725599Z",
+        "latest_post_is_after_cycle_cutoff": false
+      },
+      "new_machine_message_or_action": false,
+      "decision": "NOT_READY_UNCHANGED",
+      "strict_conversion_delta": 0,
+      "smallest_ready_gate": "The pre-existing identity publishes a nonempty versioned service accepting an AG URL or credential with anonymous free invocation and a durable identity-bound result."
+    },
+    {
+      "community": "Agent Exchange",
+      "fixed30": false,
+      "sources": [
+        "https://clawexchange.org/api/v1/registry/agents.json?per_page=100",
+        "https://agent-endpoint-trust-scanner.cbgregory.chatgpt.site/api/manifest"
+      ],
+      "registry": {
+        "total": 56,
+        "returned": 56,
+        "updated_at": "2026-08-26T03:16:26.824973+00:00",
+        "members_created_after_cutoff": 0
+      },
+      "strongest_preexisting_member": {
+        "handle": "ax:operator-zero-trust",
+        "id": "f0b70b9f-3f2e-40c3-8ea1-6bb1d5b8e67f",
+        "manifest_name": "Agent Economic Immune System",
+        "manifest_version": "1.1.0",
+        "operation": "POST /api/scan",
+        "input": {
+          "url": "uri"
+        },
+        "price": "$0.03",
+        "network": "eip155:8453"
+      },
+      "new_machine_message_or_action": false,
+      "decision": "NOT_READY_PAID_UNCHANGED",
+      "strict_conversion_delta": 0,
+      "smallest_ready_gate": "A pre-existing member exposes a declared zero-price anonymous scan or verification operation and returns an identity-bound result; messaging remains authenticated and was not used."
+    }
+  ],
+  "machine_feedback": {
+    "new_post_cutoff_attributable_feedback": [],
+    "new_product_change_recommended": false,
+    "platform_contract_signals": [
+      {
+        "signal": "Catalog growth is not route readiness.",
+        "evidence": "Agentic Market's bounded page grew from 1400 to 1705 endpoints while the only exact-zero endpoint remained an unrelated Messari list call.",
+        "recommendation": "Continue qualifying price scheme, semantic input, identity binding, authorization and result usefulness independently of listing counts."
+      },
+      {
+        "signal": "Probe and offer cadence is not settled adoption.",
+        "evidence": "MAKO, CarbonMonitor and Agent402 produced current discovery or offer-boundary events but no useful completion, payer or settlement.",
+        "recommendation": "Keep discovery, offer presentation, completed useful result and settled external revenue as separate machine states."
+      }
+    ],
+    "note": "These platform-behavior observations reinforce existing contract rules; no new machine-authored feedback after the cutoff justifies another product change."
+  },
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "strict_delta": 0,
+    "new_useful_completed_agent_guild_actions": 0,
+    "new_attributable_machine_messages": 0,
+    "ready_routes": [],
+    "candidate_operations_invoked": 0,
+    "result": "NO_STRICT_CONVERSION_OR_REVENUE_CHANGE"
+  },
+  "revenue_implication": {
+    "external_settled_revenue_usd_before": 0.0,
+    "external_settled_revenue_usd_after": 0.0,
+    "delta": 0.0,
+    "number_to_watch": "external_settled_revenue_usd"
+  },
+  "safety_and_write_accounting": {
+    "remote_operation_invocations": 0,
+    "messages_or_outreach": 0,
+    "accounts_or_keys_created": 0,
+    "terms_accepted": 0,
+    "wallet_or_payment_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "pushes_or_deploys": 0,
+    "production_mutations": 0,
+    "canonical_files_modified": 0,
+    "production_response_bodies_written_to_disk": 0,
+    "network_response_handling": "in_memory_or_discarded_after_header_check",
+    "local_files_written": 1,
+    "local_write_scope": "this_validated_evidence_json_only"
+  },
+  "canonical_evidence_consulted": [
+    "artifacts/community-pilot-2026-08-25/README.md",
+    "artifacts/community-pilot-2026-08-25/targets.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-commercial-snapshot-2026-08-26T0151Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-payai-agentic-market-route-recheck-2026-08-26T0146Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-moltx-agentcommune-expansion-recheck-2026-08-26T0159Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-production-response-telemetry-cycle-2026-08-26T0139Z.json",
+    "artifacts/community-expansion-2026-08-25/evidence/expansion-machine-first-sociobot-aiim-agenc-2026-08-26T0047Z.json",
+    "artifacts/community-expansion-2026-08-25/evidence/payanagent-agent-exchange-x402-machine-first-audit-2026-08-26T0046Z.json"
+  ]
+}

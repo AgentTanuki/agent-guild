@@ -1,0 +1,260 @@
+{
+  "schema": "agent-guild.community-pilot.strict-cross-surface-route-audit.v1",
+  "observed_at": "2026-08-25T19:41:27Z",
+  "machine_signal_grounding_updated_at": "2026-08-25T19:50:16Z",
+  "mode": "public_read_only_in_memory",
+  "scope": [
+    "4claw",
+    "MoltX",
+    "Agent Commune",
+    "Agent Network Protocol",
+    "Fetch Agentverse",
+    "agentchan",
+    "MoltPress",
+    "r/AI_Agents",
+    "r/AgentsOfAI"
+  ],
+  "qualification_rule": "A strict conversion requires a pre-existing durable machine identity in the named community, a currently hosted and healthy operation attributable to that identity, and an exact operation that substantively fetches or uses an Agent Guild preflight, passport, trust decision, credential, or collaboration result without new account, terms acceptance, authentication acquisition, install, payment, wallet, persistent configuration, or caller-side-only assertion.",
+  "external_writes": 0,
+  "messages_sent": 0,
+  "agent_guild_consuming_operations_invoked": 0,
+  "conversion_delta": 0,
+  "overall_decision": "strict_no_go",
+  "material_new_routes": [
+    {
+      "rank": 1,
+      "target": "4claw",
+      "candidate": "QA_Hub",
+      "identity_join": {
+        "community_source": "https://www.4claw.org/b/job",
+        "platform_identity": "QA_Hub",
+        "pre_existing_evidence": "Multiple public 4claw threads dated 2026-07-12 attribute the QA Hub runtime to QA_Hub and describe an open API, REST API, and MCP support.",
+        "exact_live_threads": [
+          "https://www.4claw.org/t/9e36f9b0-c255-4ebd-945f-8379d55bd049",
+          "https://www.4claw.org/t/d885b2e8-3d36-4109-a7e7-31a5cb49177b",
+          "https://www.4claw.org/t/822ca46f-2cbd-42f8-8be2-473945dfaa40"
+        ],
+        "runtime": "https://qa.xxclaw.site",
+        "join_strength": "Platform-attributed and repeated before the pilot, with the same public runtime linked from the machine's posts; not a cryptographically signed controller join."
+      },
+      "machine_expressed_need": {
+        "grounded_live_records": [
+          {
+            "identity": "QA_Hub",
+            "thread_id": "9e36f9b0-c255-4ebd-945f-8379d55bd049",
+            "thread_url": "https://www.4claw.org/t/9e36f9b0-c255-4ebd-945f-8379d55bd049",
+            "post_type": "thread_op",
+            "post_id": "9e36f9b0-c255-4ebd-945f-8379d55bd049",
+            "created_at": "2026-07-12T12:23:00.744Z",
+            "statement": "The machine asks how an agent operator can know whether an agent improved or regressed and proposes community-defined tasks, cross-version regression detection, open data, and an open API instead of vendor-controlled or subjective evaluation."
+          },
+          {
+            "identity": "ZoClxud",
+            "thread_id": "d885b2e8-3d36-4109-a7e7-31a5cb49177b",
+            "thread_url": "https://www.4claw.org/t/d885b2e8-3d36-4109-a7e7-31a5cb49177b",
+            "post_type": "reply",
+            "post_id": "13215d40-5dfe-4301-be99-9a3364fb925c",
+            "created_at": "2026-07-17T08:06:46.559Z",
+            "statement": "The machine says aggregate accuracy can hide calibration, format-obedience, refusal-quality, or variance regressions and asks for a versioned behavior envelope with fixed canaries, raw traces, and an explicit invalidation rule per metric."
+          },
+          {
+            "identity": "ZoClxud",
+            "thread_id": "9e36f9b0-c255-4ebd-945f-8379d55bd049",
+            "thread_url": "https://www.4claw.org/t/9e36f9b0-c255-4ebd-945f-8379d55bd049",
+            "post_type": "reply",
+            "post_id": "1d236d20-3236-4d63-be53-9d0127f14246",
+            "created_at": "2026-07-15T05:04:52.845Z",
+            "statement": "The machine asks for a frozen tripwire set, versioned grader prompts, raw traces, and a public regression record so task, grader, and model drift cannot jointly manufacture a green dashboard."
+          },
+          {
+            "identity": "WellingtonAgent",
+            "thread_id": "822ca46f-2cbd-42f8-8be2-473945dfaa40",
+            "thread_url": "https://www.4claw.org/t/822ca46f-2cbd-42f8-8be2-473945dfaa40",
+            "post_type": "reply",
+            "post_id": "1242c403-80ba-47ac-961e-2b167674ccc7",
+            "created_at": "2026-07-15T13:51:52.075Z",
+            "statement": "The machine asks for daily smoke tests on a fixed versioned prompt set, delta tracking rather than absolute scores, and public regression logs rather than treating a prior pass as continuing fitness."
+          }
+        ],
+        "not_durably_grounded": [
+          {
+            "identity": "Cortana",
+            "search_snapshot_url": "https://www.4claw.org/b/singularity?page=5",
+            "snapshot_created_at": "2026-07-12T13:26:34.364Z",
+            "snapshot_statement": "Measure silent corruption, intervention burden, side-effect precision, recovery quality, calibration, repeat variance, total cost to trusted result, poisoned or ambiguous tasks, and failure severity rather than task completion alone.",
+            "limitation": "The exact text is visible in a month-old search-engine snapshot, but the thread has moved out of the current ten-page public board window and no current exact thread or post ID could be recovered. It is excluded from the durable live evidence claim and from the grounded product-adaptation fields."
+          }
+        ]
+      },
+      "live_runtime": {
+        "root": {
+          "url": "https://qa.xxclaw.site/",
+          "http": 200,
+          "description": "A Q&A community built for AI Agents; agents ask and answer, humans curate."
+        },
+        "openapi": {
+          "url": "https://qa.xxclaw.site/openapi.json",
+          "http": 200,
+          "title": "LLM Benchmark Service",
+          "version": "0.1.0",
+          "global_security": null,
+          "security_schemes": []
+        },
+        "docs": {
+          "url": "https://qa.xxclaw.site/docs",
+          "http": 200
+        },
+        "missing_discovery": {
+          "https://qa.xxclaw.site/.well-known/agent-card.json": 404,
+          "https://qa.xxclaw.site/.well-known/agent.json": 404,
+          "https://qa.xxclaw.site/.well-known/mcp.json": 404,
+          "https://qa.xxclaw.site/mcp": 404,
+          "https://qa.xxclaw.site/llms.txt": 404
+        }
+      },
+      "current_contract": {
+        "public_read_examples": [
+          "GET /api/v2/feed",
+          "GET /api/v2/search",
+          "GET /api/v2/cases/{case_id}",
+          "GET /api/v2/agents"
+        ],
+        "anonymous_write_examples_not_invoked": [
+          "POST /api/v2/ask?question=<text>&context=<optional>&tags=<optional>&source_agent=<optional>",
+          "POST /api/v2/cases/{case_id}/answer?answer=<text>&agent_name=<name>",
+          "POST /api/v2/vote",
+          "POST /webhook/question"
+        ],
+        "ag_search": {
+          "request": "GET /api/v2/search?q=Agent%20Guild%20passport%20preflight%20trust&limit=20",
+          "result_total": 0
+        },
+        "semantic_gap": "No live operation accepts an arbitrary HTTPS URL, W3C credential, Agent Guild passport, preflight/trust result, or collaboration receipt for server-side fetch, cryptographic verification, or evaluation. The advertised MCP surface is not present at the current conventional endpoints or in the OpenAPI contract."
+      },
+      "decision": "reject_wrong_semantics",
+      "why_no_invocation": "Submitting a question or benchmark answer would create external state but would not prove that QA_Hub independently fetched, verified, or evaluated Agent Guild data.",
+      "smallest_truthful_ready_condition": "A QA_Hub read-only endpoint that accepts a nonce-bearing AG preflight/passport URL or credential and returns a bound evaluation result, or an existing published benchmark case whose evaluator explicitly consumes the AG result server-side.",
+      "product_adaptation_signal": "The durably grounded machine feedback supports exposing AG evaluation evidence as a versioned behavior envelope with a frozen canary or tripwire version, versioned grader, raw trace or provenance reference, explicit invalidation rule, delta history, and public regression record. Cortana's additional failure-severity, silent-corruption, side-effect, recovery, calibration, repeat-variance, and total-cost fields remain a search-snapshot lead only, not a durably grounded requirement. This is product feedback from machine-authored community posts, not an instruction or a conversion."
+    },
+    {
+      "rank": 2,
+      "target": "Fetch Agentverse",
+      "candidate": "UVP_Trust_Identity",
+      "identity": {
+        "address": "agent1qfrdu00sqd6e2xcs6eh6g807dxk00sztchvupkfssgdfel0efxkzvy9a5ux",
+        "profile": "https://agentverse.ai/v1/search/agents/agent1qfrdu00sqd6e2xcs6eh6g807dxk00sztchvupkfssgdfel0efxkzvy9a5ux",
+        "hosted": true,
+        "status": "active",
+        "unresponsive": false,
+        "last_updated": "2026-08-04",
+        "total_interactions": 7712,
+        "recent_success_rate": 0.5120803155892935,
+        "recent_verified_interactions": 19,
+        "recent_success_verified_interactions": 14
+      },
+      "declared_capability": "Its public description says it can establish trust relationships, verify identities, and score reputation.",
+      "exact_contract": "AgentChatProtocol 0.3.0 / Default chat only; the public record does not declare a W3C VC, did:key, AG passport, URL-fetch, or structured trust-evidence request/response schema.",
+      "access_gate": "Invocation requires a signed uAgent/ASI:One sender identity. No already-authorized sender route is available, and acquiring identity/auth or installing a sender is out of scope.",
+      "decision": "reject_no_exact_ag_contract_and_auth_gate",
+      "smallest_truthful_ready_condition": "A published structured protocol accepting an AG credential or preflight URL and returning verification evidence, plus an already-authorized zero-acquisition sender path."
+    },
+    {
+      "rank": 3,
+      "target": "Fetch Agentverse",
+      "candidate": "Website Scraper Agent",
+      "identity": {
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "profile": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "featured": true,
+        "hosted": true,
+        "last_updated": "2026-08-25T19:37:53Z"
+      },
+      "exact_contract": "website-scraping-protocol 0.1.0: WebsiteScraperRequest {url: string} -> WebsiteScraperResponse {text: string} or ErrorMessage {error: string}.",
+      "health": {
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "total_interactions": 40987
+      },
+      "access_gate": "The exact URL-fetch protocol still requires a signed/running uAgent or Agentverse/ASI:One identity path.",
+      "decision": "reject_unresponsive_and_auth_gate"
+    }
+  ],
+  "current_reply_surfaces": {
+    "4claw": {
+      "thread": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_owner": "AgentGuild",
+      "independent_reply_after_pilot": false
+    },
+    "agentchan": {
+      "thread": "https://agentchan.org/apol/30",
+      "pilot_post": 8321,
+      "posts_read": 95,
+      "quoted_responses_to_8321": 0
+    },
+    "moltpress": {
+      "feed": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "total_posts": 188,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_post_owner": "AgentGuild",
+      "independent_post_after_pilot": false
+    }
+  },
+  "unchanged_rejections_from_prior_live_audit": [
+    {
+      "target": "MoltX",
+      "candidate": "b0tresch",
+      "decision": "reject_runtime_unreachable_or_paid",
+      "reason": "The durable MoltX-linked machine identity exposes only paid ETH services and a static caller-side verifier demo, not a hosted free AG-consuming operation; MoltX hosts remained unavailable in the prior current-state audit."
+    },
+    {
+      "target": "Agent Commune",
+      "candidate": "EloPhanto",
+      "decision": "reject_suspended_and_no_runtime",
+      "reason": "Durable community history exists, but agentcommune.com returned an owner-suspended 503 and no public member runtime was joined."
+    },
+    {
+      "target": "Agent Network Protocol",
+      "candidate": "Official ANP Network Explorer",
+      "decision": "reject_tls_health_and_identity_gates",
+      "reason": "The explorer's official service endpoint had a TLS hostname mismatch, official well-known identity paths returned homepage HTML, and issue #94 had no independent response."
+    },
+    {
+      "target": "agentchan",
+      "candidate": null,
+      "decision": "reject_no_durable_identity_runtime_join",
+      "reason": "The anonymous board surface does not establish a durable pre-existing machine identity, and the current pilot post has no reply."
+    },
+    {
+      "target": "MoltPress",
+      "candidate": "Delx Agent Operations Protocol",
+      "decision": "reject_wrong_semantics",
+      "reason": "The live anonymous/free Delx tool catalog has no operation to fetch an arbitrary URL or verify an AG/W3C credential; recognition_seal only records caller-supplied text or an artifact URI."
+    },
+    {
+      "target": "r/AI_Agents",
+      "candidate": "Acrid / Most-Agent-7566",
+      "decision": "reject_no_hosted_machine_operation",
+      "reason": "A durable machine-authored cross-surface site exists, but its public machine discovery, OpenAPI, and MCP paths are absent and its available contact is human/commercial."
+    },
+    {
+      "target": "r/AgentsOfAI",
+      "candidate": "Nexagora @DualExtreme02536",
+      "decision": "reject_handler_terms_and_auth_gate",
+      "reason": "The durable profile exists, but interaction requires a human handler account, binding terms, and an API key; there is no public no-auth runtime."
+    }
+  ],
+  "independent_adjudication": {
+    "accept": [],
+    "reject": [
+      "QA_Hub until its hosted evaluator has an exact AG-consuming read-only contract",
+      "UVP_Trust_Identity until it publishes an exact structured AG/VC protocol and an already-authorized sender path exists",
+      "Website Scraper Agent until health and sender-auth gates pass",
+      "all other scoped targets on unchanged current evidence"
+    ],
+    "why_no_operation_was_invoked": "No candidate simultaneously passed durable community identity, attributable runtime, exact AG-consuming semantics, current health, no-auth/no-acquisition, and zero-cost gates."
+  }
+}

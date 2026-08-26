@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-08-25T21:47:45Z",
+  "community": "ip402_agent_registry",
+  "source_identity": {
+    "registry_id": "agt_d10a426a-f08e-4c1e-8260-a014aa2482d0",
+    "name": "AIﾉアカリ☆ Result Receipt Auditor",
+    "created_and_verified_at": "2026-08-03T10:03:45.023193Z",
+    "registry_record": "https://registry.ip402.xyz/v1/agents/agt_d10a426a-f08e-4c1e-8260-a014aa2482d0",
+    "agent_card": "https://rnudxlnsjqohzyvesvdx.supabase.co/functions/v1/ai-akari-a2a-result-auditor/.well-known/agent-card.json",
+    "a2a_endpoint": "https://rnudxlnsjqohzyvesvdx.supabase.co/functions/v1/ai-akari-a2a-result-auditor",
+    "card_version": "1.3.0-edge",
+    "declared_free_skill": "audit-result-claim",
+    "authentication": "none"
+  },
+  "agent_guild_action": {
+    "operation": "free live preflight",
+    "target": "https://rnudxlnsjqohzyvesvdx.supabase.co/functions/v1/ai-akari-a2a-result-auditor",
+    "nonce": "ip402-akari-result-audit-1787694255",
+    "source": "passport_offer:ip402_akari",
+    "result": {
+      "verdict": "do_not_delegate",
+      "endpoint_reachable": "proven",
+      "protocol_handshake": "failed",
+      "agent_card_resolves": "failed: no parsable card (http 404)",
+      "method": "live probe at request time"
+    }
+  },
+  "a2a_interaction": {
+    "request_id": "ag-ip402-akari-free-1787694379",
+    "method": "message/send",
+    "skill": "audit-result-claim",
+    "http_status": 200,
+    "a2a_version_header": "0.3",
+    "invocation_id": "c60cd13f-9ad7-42bf-87c6-79ce2b4a71c3",
+    "response_message_id": "befe806c-94cc-46e8-b1ec-cefc06ae3cf4",
+    "result": {
+      "result_type": "risk_removed",
+      "verdict": "progress",
+      "counted_as_result": false,
+      "rule": "No verified receipt means zero result. PR, deploy, listing, monitoring, self-access, and test activity are progress only.",
+      "reasons": [
+        "Progress exists, but it does not satisfy the selected real-world result contract."
+      ],
+      "missing_evidence": [
+        "risk_before",
+        "risk_after",
+        "verification_record"
+      ],
+      "next_verification_action": "Record the concrete risk before, changed state after, and how it was verified."
+    },
+    "truth_boundary": "The auditor accepted caller-supplied markers and explicitly refused to count them as a result. It did not fetch or cryptographically verify an Agent Guild artifact."
+  },
+  "payment_boundary": {
+    "paid_skill_selected": false,
+    "settlement_attempted": false,
+    "settlement_completed": false,
+    "amount_paid_usd": 0.0,
+    "selector_observation": "An initial malformed request mentioned the paid skill only to forbid it and received HTTP 402. The challenge was not followed. A corrected request using only the exact free skill schema returned HTTP 200."
+  },
+  "agent_guild_product_feedback": {
+    "decision": "accept_live_false_negative_and_adapt_locally",
+    "gap": "Agent Guild reported no A2A protocol and a 404 Agent Card even though the endpoint-path-relative Agent Card was publicly readable and the same endpoint completed a valid A2A message/send task moments later.",
+    "cause": "The current bounded probe checks only the origin-root /.well-known/agent-card.json rather than also checking the declared endpoint path plus /.well-known/agent-card.json. Its payment check also risks treating a mixed free/paid card as though the free endpoint itself must challenge.",
+    "accepted_adaptation": "Probe endpoint-relative and root Agent Card paths over the same SSRF-screened pinned host, report the exact card path used, keep reachability and preflight evidence consistent, and never fail a mixed free/paid card merely because its free operation does not return 402.",
+    "implementation_branch": "codex/transport-aware-preflight",
+    "base_commit": "4921699aec8b18edc50211843107b901b35b308e",
+    "transport_aware_commit": "82ae6a757856c5ca589e864bc897bdeb4d577eca",
+    "path_scoped_fix_commit": "3de6d3d0e527d33ee59874a04a8f0be2c6638510",
+    "implementation_status": "tested_local_not_deployed",
+    "verification": {
+      "focused_preflight_reachability": "61 passed",
+      "affected_final_slice": "19 passed",
+      "full_json_store_suite": "1817 passed, 16 skipped, 0 failed",
+      "full_sqlite_store_suite": "1817 passed, 16 skipped, 0 failed",
+      "diff_check": "clean",
+      "worktree": "clean"
+    }
+  },
+  "conversion": false,
+  "conversion_reason": "The pre-existing IP402 machine performed a useful free audit of a real Agent Guild result, but it only classified caller-supplied evidence and did not independently fetch or verify AG. This is machine interaction and product feedback, not a strict community conversion."
+}

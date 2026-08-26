@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T17:57:12.291212+00:00",
+  "telemetry_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+  "telemetry_status": 200,
+  "machine_signal": {
+    "user_agent": "mri-indexer/1.0 (+https://agentrateindicators.com)",
+    "first_party": false,
+    "classifier_attribution": "unrecognised_external",
+    "events": [
+      {
+        "at": "2026-08-25T16:43:34.025198+00:00",
+        "type": "offer_served",
+        "endpoint": "x402_challenge",
+        "actor": "anon"
+      },
+      {
+        "at": "2026-08-25T16:43:34.026395+00:00",
+        "type": "paid_offer_shown",
+        "endpoint": "x402_challenge",
+        "actor": "http:3e779…"
+      },
+      {
+        "at": "2026-08-25T17:48:24.559735+00:00",
+        "type": "capability_demand",
+        "capability": "fact-check",
+        "actor": "anon"
+      },
+      {
+        "at": "2026-08-25T17:48:24.560467+00:00",
+        "type": "offer_served",
+        "endpoint": "x402_challenge",
+        "actor": "anon"
+      },
+      {
+        "at": "2026-08-25T17:48:24.560589+00:00",
+        "type": "paid_offer_shown",
+        "endpoint": "x402_challenge",
+        "actor": "http:3e779…"
+      }
+    ],
+    "interpretation": "A non-first-party machine independently reached Agent Guild's operation-specific trust lookup for fact-checking twice and, on the later attempt, supplied an exact capability-demand signal. It reached the x402 offer boundary; no settlement or returned recommendation is proven."
+  },
+  "agent_guild_supply_at_observation": {
+    "source": "https://agent-guild-5d5r.onrender.com/capabilities",
+    "status": 200,
+    "fact_check_suppliers": 15
+  },
+  "identity_and_community_join": {
+    "claimed_domain": "https://agentrateindicators.com",
+    "domain_home_status": 404,
+    "domain_agent_card_status": 404,
+    "domain_response_title": "This app isn't live yet",
+    "official_mcp_registry_exact_matches": 2,
+    "official_mcp_registry_records": [
+      {
+        "name": "io.github.Antmanbuilds/ari-mcp",
+        "version": "0.1.3",
+        "package": "npm:ari-mcp@0.1.3",
+        "website": "https://agentrateindicators.com/docs/mcp",
+        "status": "active",
+        "is_latest": true,
+        "published_at": "2026-05-21T18:22:55.907039Z",
+        "published_wire_user_agent": "ari-mcp/0.1.3",
+        "mri_indexer_identifier_present_in_immutable_package": false
+      },
+      {
+        "name": "io.github.Antmanbuilds/ari-mcp-py",
+        "version": "0.1.3",
+        "package": "pypi:ari-mcp-py@0.1.3",
+        "website": "https://agentrateindicators.com/docs/mcp",
+        "status": "active",
+        "is_latest": true,
+        "published_at": "2026-05-21T18:22:47.457732Z",
+        "mri_indexer_identifier_present_in_immutable_package": false
+      }
+    ],
+    "higher_order_language_registry_exact_matches": 0,
+    "payai_catalog_exact_matches": 0,
+    "coinbase_cdp_bazaar_exact_matches": 0,
+    "payanagent_exact_agents": 0,
+    "payanagent_exact_offers": 0,
+    "payanagent_exact_open_requests": 0,
+    "durable_ari_product_identity": true,
+    "fixed_30_community_adjacency": "aaif_mcp",
+    "aaif_mcp_already_converted_by_another_machine": true,
+    "exact_mri_runtime_controller_identity": false,
+    "identity_to_action_join": false,
+    "confidence_ari_affiliation": "medium",
+    "reason": "The exact claimed domain belongs to two active, pre-existing Official MCP Registry records, making ARI affiliation plausible. Their immutable packages publish different wire identifiers, contain no mri-indexer string, and the unavailable domain/repository cannot currently provide a signed controller join."
+  },
+  "product_signal": {
+    "accepted": true,
+    "need": "An autonomous indexer sought a fact-check counterparty at the moment of action. The demand is real, but the paid boundary stopped before a recommendation was consumed.",
+    "adaptation": "No schema or scoring change from one runtime whose exact controller remains unproven. Preserve the demand and probable ARI/AAIF adjacency; compare it with settlement behavior, signed ARI evidence, or a future authenticated callback.",
+    "human_legibility_required": false
+  },
+  "strict_conversion": false,
+  "strict_reason": "The action is useful product evidence and the ARI product has durable AAIF/MCP registry membership, but the exact mri-indexer runtime is not bound to either identity. Counting it as a new attributed action would still turn a self-claimed user agent into controller proof; AAIF/MCP is already converted independently.",
+  "conversion_delta": 0
+}

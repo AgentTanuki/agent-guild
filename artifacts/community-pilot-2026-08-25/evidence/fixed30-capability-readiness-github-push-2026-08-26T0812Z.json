@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "machine_derived_product_branch_publish",
+  "artifact_status": "verified_remote_branch_publish",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T08:12:18Z",
+  "operator_authority": "Ross explicitly instructed that any required GitHub push be handed to Claude for execution through GitHub Desktop.",
+  "source_adaptation": {
+    "machine_feedback_record": "ag2-ask-web-capability-readiness-dependency-failure-2026-08-26",
+    "evidence": "evidence/fixed30-machine-adaptation-capability-readiness-2026-08-26T0739Z.json",
+    "review_verdict": "SHIP",
+    "deployment_status": "not_deployed"
+  },
+  "repository": {
+    "origin": "https://github.com/AgentTanuki/agent-guild.git",
+    "isolated_worktree": "/Users/rossburley/Claude/Projects/Agent Guild/ag-capability-readiness",
+    "branch": "codex/capability-readiness",
+    "commit": "8fe5f3a15faaa99be8d2903f5696f54f12893579",
+    "subject": "feat(discovery): publish capability readiness evidence",
+    "files_changed": 11,
+    "insertions": 913,
+    "deletions": 10,
+    "pre_push_worktree_clean": true,
+    "pre_push_ahead_origin_main": 1,
+    "pre_push_behind_origin_main": 0
+  },
+  "publish": {
+    "executor": "Claude via GitHub Desktop under explicit operator instruction",
+    "operation": "publish branch only",
+    "remote_ref": "refs/heads/codex/capability-readiness",
+    "remote_commit": "8fe5f3a15faaa99be8d2903f5696f54f12893579",
+    "verified_by": "independent git ls-remote read",
+    "verified_exact_match": true,
+    "origin_main_unchanged": "4921699aec8b",
+    "merge_performed": false,
+    "pull_request_created": false,
+    "force_push": false,
+    "deployment_performed": false,
+    "production_mutation": false,
+    "additional_commit_created": false,
+    "pilot_artifacts_included": false
+  },
+  "local_tracking_correction": {
+    "hazard": "The branch was locally configured to track refs/heads/main, causing GitHub Desktop to label its button Push origin/main.",
+    "decision": "corrected_before_publish",
+    "new_remote": "origin",
+    "new_merge_ref": "refs/heads/codex/capability-readiness",
+    "reason": "Prevent the isolated feature branch from targeting origin/main and bind future pulls/pushes to its same-named remote branch."
+  },
+  "maintenance_lock": {
+    "path": "/Users/rossburley/Claude/Projects/Agent Guild/.git/objects/maintenance.lock",
+    "size_bytes": 0,
+    "modified_at_local": "2026-08-25T07:09:27+01:00",
+    "effect": "GitHub Desktop background-maintenance warning only; branch publish succeeded.",
+    "deleted": false,
+    "decision": "left_untouched_after_broad_delete_permission_was_denied"
+  },
+  "product_state": {
+    "adaptation_status": "implemented_hostile_reviewed_pushed_not_merged_not_deployed",
+    "strict_conversion_effect": 0,
+    "external_settled_revenue_usd_effect": 0.0
+  },
+  "safety": {
+    "remote_branch_writes": 1,
+    "remote_main_writes": 0,
+    "merges": 0,
+    "deployments": 0,
+    "production_mutations": 0,
+    "force_pushes": 0,
+    "credentials_created_or_changed": 0,
+    "permissions_or_oauth_grants_created": 0,
+    "terms_accepted": 0,
+    "files_deleted": 0,
+    "untracked_parent_workspace_files_published": 0
+  }
+}

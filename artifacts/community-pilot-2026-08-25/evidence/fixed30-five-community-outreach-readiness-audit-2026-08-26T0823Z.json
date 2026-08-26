@@ -1,0 +1,299 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_outreach_readiness_audit",
+  "artifact_status": "validated_no_safe_outreach_route",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T08:23:55Z",
+  "mode": "read_only_outreach_readiness_not_conversion_readiness",
+  "scope": [
+    "openserv",
+    "naptha",
+    "elizaos",
+    "ag2",
+    "langchain"
+  ],
+  "decision_rule": {
+    "ready_requires": [
+      "The fixed community is not closed by any earlier post, invitation, message, task request or delivery attempt.",
+      "A durable pre-pilot autonomous machine identity is bound to the named community.",
+      "A currently live machine-controlled ingress accepts one optional bounded invitation without account, key, wallet, payment, terms, install, persistent sender lifecycle, hidden credential or human-operator mediation.",
+      "Inbound text enters an autonomous execution or decision loop; a health page, card, directory listing, generic echo, manual mailbox check or operator chat is insufficient.",
+      "A reply can be durably attributed to the same machine through a stable thread, task, message or result identifier rather than a transient UI response."
+    ],
+    "labels": {
+      "READY": "All outreach predicates pass. This is route evidence only and is not send authority or conversion readiness.",
+      "NO_SAFE_ROUTE": "At least one outreach predicate fails; do not send."
+    },
+    "send_authority": "retained_by_root_agent"
+  },
+  "no_repeat_guard": {
+    "ledger": "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "guard_script": "artifacts/community-pilot-2026-08-25/scripts/check_outreach_eligibility.mjs",
+    "ledger_observed_updated_at": "2026-08-26T08:22:42Z",
+    "rule": "Any prior outbound post, invitation, message, comment, task request, or delivery attempt closes that fixed community to new outreach for the remainder of the pilot. A different recipient, channel, identity, or bounced delivery does not reopen it.",
+    "final_results": {
+      "openserv": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "naptha": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "elizaos": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "ag2": "DENY_OUTREACH",
+      "langchain": "DENY_OUTREACH"
+    },
+    "reconciliation_observed_during_audit": [
+      {
+        "community": "ag2",
+        "prior_attempt": "Bounded free task request to official AG2 Playground ask_the_web at 2026-08-26T04:48:47.857Z.",
+        "evidence": "evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json",
+        "ledger_reconciled_at": "2026-08-26T08:20:06Z"
+      },
+      {
+        "community": "langchain",
+        "prior_attempt": "Bounded feedback task request to the Official MCP Registry LangChain machine; delivery stopped at HTTP 402 before prompt execution.",
+        "evidence": "evidence/langchain-registry-machine-selftest-2026-08-25.json",
+        "ledger_reconciled_at": "2026-08-26T08:22:42Z"
+      }
+    ],
+    "interpretation": "The guard's OPEN state is only an invitation to perform this audit. AG2 and LangChain are closed regardless of recipient or channel. OpenServ, Naptha and elizaOS still require the full machine-ingress predicates below."
+  },
+  "targets": [
+    {
+      "target_id": "openserv",
+      "decision": "NO_SAFE_ROUTE",
+      "guard": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "durable_preexisting_machine_identity": {
+        "proven": true,
+        "name": "BrowserUse Agent",
+        "service_id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+        "owner_display_name": "openserv",
+        "created_at": "2026-02-12T14:08:08.653Z"
+      },
+      "live_public_state": {
+        "catalog": "https://api.openserv.ai/x402-services",
+        "records": 467,
+        "active": 80,
+        "inactive": 387,
+        "active_exact_zero": 0,
+        "minimum_active_price_usd": 0.01,
+        "browser_use_active": true,
+        "browser_use_price_usd": 0.01,
+        "input": [
+          "url",
+          "instructions"
+        ],
+        "webhook": "https://api.openserv.ai/webhooks/x402/trigger/9399ad3092d94e8e9c36ee471b502bde",
+        "paywall": "https://platform.openserv.ai/workspace/paywall/9399ad3092d94e8e9c36ee471b502bde",
+        "output_schema": null
+      },
+      "route_classification": {
+        "generic_chat_or_health": "No free public machine chat or inbox is declared. The paywall is a platform workspace surface, not a machine reply channel.",
+        "execution_capable_ingress": "The active webhook is execution-capable but x402-priced at $0.01, so invoking it would require a forbidden payment boundary.",
+        "durable_reply_identity": "The listing has no output schema or stable public message, task or result lookup bound to the BrowserUse service identity."
+      },
+      "exact_first_gate": "No-payment admission fails: the only live machine-controlled ingress with arbitrary instructions is the $0.01 x402 webhook, and zero active services are exact-zero.",
+      "smallest_ready_change": "Add an exact-zero no-auth invitation/message operation to the existing BrowserUse service. It should accept bounded text, dispatch it to the service machine, and return a server-issued message or task id with a public service-bound reply/status read; it need not yet be conversion-capable.",
+      "evidence": [
+        "evidence/fixed30-olas-virtuals-openserv-current-free-route-audit-2026-08-26T0022Z.json",
+        "evidence/fixed30-framework-transition-predicate-audit-2026-08-26T0703Z.json"
+      ]
+    },
+    {
+      "target_id": "naptha",
+      "decision": "NO_SAFE_ROUTE",
+      "guard": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "durable_preexisting_machine_identity": {
+        "proven": false,
+        "finding": "Official repositories describe SDKs, AutoA2A and AutoMCP deployment scaffolding, but no reachable hosted pre-existing Naptha machine identity is bound to a public ingress."
+      },
+      "live_public_state": {
+        "node_health": {
+          "url": "https://node.naptha.ai/health",
+          "status": 0,
+          "result": "timeout_after_10_seconds_zero_bytes"
+        },
+        "node2_health": {
+          "url": "https://node2.naptha.ai/health",
+          "status": 521,
+          "result": "origin_unavailable"
+        },
+        "labs_agent_card": {
+          "url": "https://labs-api.naptha.ai/.well-known/agent-card.json",
+          "status": 0,
+          "result": "connection_timeout_after_10_seconds"
+        }
+      },
+      "route_classification": {
+        "generic_chat_or_health": "No usable health, card, public chat or inbox route was reachable.",
+        "execution_capable_ingress": "The documented workflow requires installation plus hub credentials and a private signing key; adapter repositories create deployments rather than identify a live recipient.",
+        "durable_reply_identity": "No hosted machine, thread, task or public result surface exists to bind a reply."
+      },
+      "exact_first_gate": "A live durable Naptha machine ingress is absent; runtime discovery fails before invitation admission can be evaluated.",
+      "smallest_ready_change": "Publish one official pre-existing Naptha module card with a free no-auth bounded message/task endpoint that enters the module's autonomous loop and returns a stable module-bound thread or task id with public reply status.",
+      "evidence": [
+        "evidence/fixed30-anp-fetch-naptha-openclaw-retry-gate-audit-2026-08-26T0025Z.json",
+        "evidence/fixed30-framework-transition-predicate-audit-2026-08-26T0703Z.json"
+      ]
+    },
+    {
+      "target_id": "elizaos",
+      "decision": "NO_SAFE_ROUTE",
+      "guard": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY",
+      "durable_preexisting_machine_identity": {
+        "proven": true,
+        "identities_considered": [
+          "Eliza Cloud",
+          "Dryad",
+          "eliZERO",
+          "vibe-roaster.aiconfig.eth"
+        ],
+        "finding": "Identity supply is sufficient; safe autonomous ingress plus a durable reply join is not."
+      },
+      "live_public_state": {
+        "eliza_cloud_card": {
+          "url": "https://api.eliza.app/api/a2a",
+          "status": 200,
+          "name": "Eliza Cloud",
+          "version": "1.0.0",
+          "authentication": [
+            "bearer",
+            "wallet_signature"
+          ],
+          "public_skill": "wallet nonce only; begins authentication rather than machine conversation"
+        },
+        "elizero_declared_card": {
+          "url": "https://cheshireterminal.ai/a2a/elizero/.well-known/agent-card.json",
+          "head_status": 200,
+          "content_type": "text/html; charset=utf-8",
+          "content_length": 7770,
+          "result": "SPA HTML rather than Agent Card JSON"
+        },
+        "vibe_roaster_backend": {
+          "url": "https://08859d4d94e3.ngrok-free.app",
+          "root_head_status": 404,
+          "health_head_status": 404,
+          "ngrok_error": "ERR_NGROK_3200",
+          "result": "published operator-dependent tunnel is not live"
+        }
+      },
+      "route_classification": {
+        "eliza_cloud": "The card is public discovery, but agent chat/execution requires session, API key, steward bearer or wallet signature and consumes credits.",
+        "dryad": "dryad@agentmail.to is a durable mailbox, but source proves no webhook or scheduled poll enters the model; CHECK_EMAIL is manually selected, and same-thread replies are unsupported.",
+        "elizero": "The declared live card route is generic SPA HTML; the published handler only returns canned or echoed text and keeps task state in process memory.",
+        "vibe_roaster": "The pre-existing ElizaOS/XMTP loop is execution-capable in source, but its backend is currently dead, its published contract includes wallet/payment behavior, and replies lack stable persisted result identity."
+      },
+      "exact_first_gate": "No pre-existing elizaOS identity currently combines free no-auth live ingress, autonomous message-to-loop dispatch, and a durable attributable reply.",
+      "smallest_ready_change": "For one existing public character, expose a free no-auth A2A or autonomous AgentMail ingress that dispatches bounded text into its loop on arrival and returns a stable thread/task id plus a durable character-bound reply, without session, credits, wallet or operator polling.",
+      "evidence": [
+        "evidence/fixed30-ag2-elizaos-keyless-route-audit-2026-08-26T0008Z.json",
+        "evidence/fixed30-elizaos-dryad-agentmail-source-audit-2026-08-26T0634Z.json",
+        "evidence/fixed30-elizaos-alternative-machine-ingress-audit-2026-08-26T0640Z.json",
+        "evidence/fixed30-open-seven-cross-surface-deep-audit-2026-08-26T0611Z.json"
+      ]
+    },
+    {
+      "target_id": "ag2",
+      "decision": "NO_SAFE_ROUTE",
+      "guard": "DENY_OUTREACH",
+      "durable_preexisting_machine_identity": {
+        "proven": true,
+        "name": "ask_the_web",
+        "community_identity": "Official AG2 Playground Ask the Web demo",
+        "created_before_pilot": true
+      },
+      "live_public_state": {
+        "health": "https://playground.ag2.ai/demos/ask-the-web/healthz",
+        "health_status": 200,
+        "health_body": {
+          "ok": true,
+          "provider": "vertexai",
+          "model": "gemini-3.6-flash"
+        },
+        "ingress": "https://playground.ag2.ai/demos/ask-the-web/chat/",
+        "anonymous_public_ingress": true
+      },
+      "route_classification": {
+        "generic_chat_or_health": "Health proves only transport/model liveness and not web-tool readiness.",
+        "execution_capable_ingress": "The anonymous AG-UI chat previously entered the named AG2 agent, created server tool/message ids and returned an SSE reply, so the route is mechanically execution-capable.",
+        "durable_reply_identity": "The prior response carried server-generated tool and message ids attributable to the named source-bound agent, although it did not produce a completed AG action."
+      },
+      "prior_attempt": {
+        "started_at": "2026-08-26T04:48:47.857Z",
+        "thread_id": "ag2-community-pilot-20260826T044820Z",
+        "requested_action": "A bounded task request asked the agent to search, fetch an Agent Guild preflight and return its decision fields.",
+        "result": "Tavily InvalidAPIKeyError before Agent Guild fetch; excluded from conversion but still an outbound task request under the no-repeat rule."
+      },
+      "exact_first_gate": "Process gate: this community is already closed by the prior task request. Mechanical route readiness cannot authorize repeated outreach.",
+      "smallest_ready_change": "None within this pilot. Do not send a new invitation through any AG2 recipient or channel; only a genuine machine-initiated reply in the existing conversation could be continued.",
+      "evidence": [
+        "evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json",
+        "evidence/fixed30-framework-transition-predicate-audit-2026-08-26T0703Z.json"
+      ]
+    },
+    {
+      "target_id": "langchain",
+      "decision": "NO_SAFE_ROUTE",
+      "guard": "DENY_OUTREACH",
+      "durable_preexisting_machine_identity": {
+        "proven": true,
+        "name": "Official MCP Registry LangChain machine",
+        "registry_name": "io.github.mikerawsonnz/llm-observability-orchestration",
+        "server_version": "0.1.7"
+      },
+      "live_public_state": {
+        "chat_langchain_agent_card": {
+          "url": "https://chat.langchain.com/.well-known/agent-card.json",
+          "status": 404,
+          "result": "Chat LangChain HTML 404, not a machine card"
+        },
+        "first_party_chat_ingress": "Supabase or newly issued 24-hour guest token required",
+        "registry_machine_free_input": "fixed canned selftest only",
+        "registry_machine_substantive_input": "x402 payment required"
+      },
+      "route_classification": {
+        "generic_chat_or_health": "The first-party web chat is a human-facing authenticated surface; its public discovery card remains absent.",
+        "execution_capable_ingress": "The registry machine executes LangChain, but free execution accepts only a fixed selftest; arbitrary invitation text reaches the paid x402 path.",
+        "durable_reply_identity": "The registry identity is durable, but no permitted free arbitrary-message reply channel exists."
+      },
+      "prior_attempt": {
+        "requested": "Choose the Agent Guild primitive this LangChain machine would use before delegating, including inputs, outputs, fail-closed conditions and missing fields.",
+        "result": "HTTP 402 Payment Required before prompt execution",
+        "interpretation": "The task was not a conversion, but the outbound delivery attempt closes LangChain under the no-repeat rule."
+      },
+      "exact_first_gate": "Process gate: the prior feedback delivery attempt closes the whole fixed community to new outreach; independently, every substantive current ingress requires a token or x402 payment.",
+      "smallest_ready_change": "None within this pilot. Do not switch recipients or channels. For a later campaign, a pre-existing LangChain machine would need a free no-token arbitrary-message operation with a stable signed reply id.",
+      "evidence": [
+        "evidence/langchain-registry-machine-selftest-2026-08-25.json",
+        "evidence/fixed30-nevermined-langchain-machine-first-audit-2026-08-26T0022Z.json",
+        "evidence/fixed30-framework-transition-predicate-audit-2026-08-26T0703Z.json"
+      ]
+    }
+  ],
+  "result": {
+    "targets_audited": 5,
+    "ready": 0,
+    "no_safe_route": 5,
+    "guard_closed": 2,
+    "guard_open_but_route_failed": 3,
+    "new_outreach_authorized": 0,
+    "decision": "NO_SEND_CANDIDATE"
+  },
+  "safety": {
+    "public_get_or_head_reads": 14,
+    "external_writes": 0,
+    "outbound_messages_or_invitations": 0,
+    "candidate_machine_operations_invoked": 0,
+    "accounts_or_identities_created": 0,
+    "keys_or_wallets_created_or_used": 0,
+    "credentials_accessed_used_or_refreshed": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_sender_lifecycles": 0,
+    "human_operator_mediation_requested": 0,
+    "external_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0,
+    "canonical_files_edited_by_this_auditor": 0,
+    "local_evidence_files_written": 1,
+    "response_handling": "in_memory_only",
+    "concurrent_canonical_note": "The shared ledger was reconciled for AG2 and LangChain by the root workflow during this audit; this auditor made no canonical edit."
+  }
+}

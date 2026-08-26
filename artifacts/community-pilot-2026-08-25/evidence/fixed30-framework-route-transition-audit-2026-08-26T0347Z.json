@@ -1,0 +1,320 @@
+{
+  "schema": "agent-guild.community-pilot.route-transition-audit.v1",
+  "artifact_status": "validated_observation_no_conversion",
+  "observed_interval_utc": {
+    "start": "2026-08-26T03:43:58Z",
+    "end": "2026-08-26T03:47:39Z"
+  },
+  "scope": [
+    "olas",
+    "virtuals_acp",
+    "openserv",
+    "naptha",
+    "elizaos",
+    "ag2",
+    "langchain"
+  ],
+  "baseline_evidence": [
+    "artifacts/community-pilot-2026-08-25/targets.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-olas-virtuals-openserv-current-free-route-audit-2026-08-26T0022Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-ag2-elizaos-keyless-route-audit-2026-08-26T0008Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-nevermined-langchain-machine-first-audit-2026-08-26T0022Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-anp-fetch-naptha-openclaw-retry-gate-audit-2026-08-26T0025Z.json"
+  ],
+  "qualification_rule": {
+    "required": [
+      "durable pre-existing identity bound to the named community",
+      "healthy hosted operation",
+      "free and keyless without account, signer, wallet, payment, terms acceptance, install, or persistence",
+      "operation accepts an exact nonce-bearing Agent Guild preflight or passport URL/value",
+      "operation independently fetches, verifies, or substantively uses the Agent Guild result",
+      "durable identity-bound result evidence"
+    ],
+    "excluded": [
+      "documentation or package capability without a hosted operation",
+      "catalog listing or endpoint probe",
+      "fixed canned self-test",
+      "caller-supplied-only parsing or validation",
+      "acknowledgement without useful result"
+    ]
+  },
+  "network_method": {
+    "public_get_only": true,
+    "response_bodies_processed_in_memory": true,
+    "response_files_written": false,
+    "external_operations_invoked": 0,
+    "messages_or_outreach": 0
+  },
+  "targets": [
+    {
+      "id": "olas",
+      "decision": "reject_no_transition",
+      "live_evidence": [
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Olas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "status": 200,
+          "total": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Autonolas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "status": 200,
+          "total": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Mech&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "status": 200,
+          "total": 0
+        }
+      ],
+      "exact_missing_join": "No currently online HOL identity matching Olas, Autonolas, or Mech also declares metadata.isFree=true; the established Olas Mech path therefore remains signer/payment-gated.",
+      "first_retry_gate": "A pre-existing Olas Mech must publish an online free/keyless execution route whose accepted input includes an arbitrary HTTPS URL and whose result is durably attributable to its service identity."
+    },
+    {
+      "id": "virtuals_acp",
+      "decision": "reject_no_transition",
+      "live_evidence": [
+        {
+          "url": "https://acpx.virtuals.io/api/agents/q91f2hf7ppvjjwqe6wtk943v",
+          "status": 200,
+          "identity": {
+            "id": 1587,
+            "name": "x402guard",
+            "walletAddress": "0x9aC4C2F7B7c7b88007B1227050810B6E41820533",
+            "updatedAt": "2026-04-09T07:13:58.131Z"
+          },
+          "jobs": [
+            {
+              "id": 1,
+              "name": "quickScan",
+              "price": 0.01
+            },
+            {
+              "id": 2,
+              "name": "standardScan",
+              "price": 0.01
+            },
+            {
+              "id": 3,
+              "name": "deepScan",
+              "price": 0.01
+            },
+            {
+              "id": 4,
+              "name": "publisherCheck",
+              "price": 0.01
+            }
+          ]
+        }
+      ],
+      "exact_missing_join": "The closest identity-bound ACP machine remains live in the public directory but every relevant job is priced at $0.01; no free exact AG-consuming operation is exposed.",
+      "first_retry_gate": "x402guard or another pre-existing ACP agent must expose a zero-price job with a valid arbitrary-URL input contract and a durable ACP job/result record."
+    },
+    {
+      "id": "openserv",
+      "decision": "reject_no_transition",
+      "live_evidence": [
+        {
+          "url": "https://api.openserv.ai/x402-services",
+          "status": 200,
+          "records": 467,
+          "active": 88,
+          "active_with_numeric_x402Pricing": 81,
+          "active_zero_price": 0,
+          "minimum_active_price_usd": 0.005
+        },
+        {
+          "identity": {
+            "id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+            "name": "BrowserUse Agent",
+            "ownerDisplayName": "openserv",
+            "isActive": true
+          },
+          "input_required": [
+            "url",
+            "instructions"
+          ],
+          "x402Pricing": "0.01",
+          "paywallUrl": "https://platform.openserv.ai/workspace/paywall/9399ad3092d94e8e9c36ee471b502bde",
+          "webhookUrl": "https://api.openserv.ai/webhooks/x402/trigger/9399ad3092d94e8e9c36ee471b502bde"
+        }
+      ],
+      "exact_missing_join": "BrowserUse remains the strongest exact URL-consuming contract, but it is still x402-priced at $0.01; the current public catalog has no active zero-price service.",
+      "first_retry_gate": "The existing BrowserUse identity must offer a zero-price public execution tier and an independently readable result identifier; price zero is the first observable transition gate."
+    },
+    {
+      "id": "naptha",
+      "decision": "reject_runtime_unhealthy",
+      "live_evidence": [
+        {
+          "url": "https://node.naptha.ai/health",
+          "result": "timeout"
+        },
+        {
+          "url": "https://node.naptha.ai/openapi.json",
+          "result": "timeout"
+        },
+        {
+          "url": "https://node1.naptha.ai/health",
+          "result": "timeout"
+        },
+        {
+          "url": "https://node2.naptha.ai/health",
+          "status": 521,
+          "result": "origin_down"
+        },
+        {
+          "url": "https://hub.naptha.ai/health",
+          "result": "timeout"
+        },
+        {
+          "url": "https://routing.naptha.ai/health",
+          "result": "dns_resolution_failed"
+        },
+        {
+          "url": "https://labs-api.naptha.ai/.well-known/agent-card.json",
+          "result": "timeout"
+        },
+        {
+          "url": "https://labs-api.naptha.ai/openapi.json",
+          "result": "timeout"
+        }
+      ],
+      "exact_missing_join": "No checked official public node or labs runtime was healthy enough to expose a contract, and the established path remains credential/install-gated.",
+      "first_retry_gate": "One official Naptha node must return healthy public discovery plus a no-auth, one-shot operation accepting an arbitrary HTTPS URL."
+    },
+    {
+      "id": "elizaos",
+      "decision": "reject_no_hosted_public_fetch",
+      "live_evidence": [
+        {
+          "url": "https://api.eliza.app/api/a2a",
+          "status": 200,
+          "identity": "Eliza Cloud",
+          "public_skills": [
+            {
+              "id": "cloud.auth.wallet_nonce",
+              "name": "Create wallet login nonce",
+              "rest": {
+                "method": "GET",
+                "path": "/api/auth/siwe/nonce"
+              }
+            }
+          ],
+          "public_fetch_or_web_skills": 0
+        },
+        {
+          "url": "https://api.eliza.app/api/openapi.json",
+          "status": 200,
+          "fetch_or_web_paths": 0
+        },
+        {
+          "url": "https://api.eliza.app/api/v1/gallery/explore?limit=20",
+          "status": 401
+        },
+        {
+          "url": "https://api.eliza.app/api/v1/eliza/agents",
+          "status": 401
+        }
+      ],
+      "exact_missing_join": "The first-party cloud card is live, but the only public skill is issuance of a SIWE login nonce; no public hosted character exposes the package's WEB_FETCH capability, and the character/gallery surfaces remain authenticated.",
+      "first_retry_gate": "A pre-existing public Eliza character must appear on a durable card and expose WEB_FETCH through a free no-auth route with a result id/hash."
+    },
+    {
+      "id": "ag2",
+      "decision": "reject_no_hosted_identity_runtime",
+      "live_evidence": [
+        {
+          "url": "https://www.ag2.ai/.well-known/agent-card.json",
+          "status": 404
+        },
+        {
+          "url": "https://www.ag2.ai/openapi.json",
+          "status": 404
+        },
+        {
+          "url": "https://www.ag2.ai/a2a",
+          "status": 404
+        },
+        {
+          "url": "https://docs.ag2.ai/.well-known/agent-card.json",
+          "status": 404
+        },
+        {
+          "url": "https://docs.ag2.ai/openapi.json",
+          "status": 404
+        },
+        {
+          "url": "https://a2aregistry.org/api/agents?search=ag2",
+          "status": 200,
+          "total": 0
+        }
+      ],
+      "exact_missing_join": "AG2 still has no first-party hosted agent card, A2A endpoint, OpenAPI operation, or registry identity; package-level A2A/web-fetch support is not a hosted community machine.",
+      "first_retry_gate": "A pre-existing AG2 community identity must publish a healthy signed card and no-auth hosted URL-consuming operation."
+    },
+    {
+      "id": "langchain",
+      "decision": "reject_no_free_external_input_execution",
+      "live_evidence": [
+        {
+          "url": "https://chat.langchain.com/.well-known/agent-card.json",
+          "status": 404
+        },
+        {
+          "url": "https://chat.langchain.com/openapi.json",
+          "status": 404
+        },
+        {
+          "url": "https://chat.langchain.com/api/openapi.json",
+          "status": 404
+        },
+        {
+          "url": "https://chat.langchain.com/llms.txt",
+          "status": 404
+        },
+        {
+          "url": "https://authenticated-mcp-traced-agent.getvda.ai/health",
+          "status": 200,
+          "version": "0.1.1"
+        },
+        {
+          "url": "https://authenticated-mcp-traced-agent.getvda.ai/.well-known/agent.json",
+          "status": 200,
+          "identity": "Authenticated MCP Agent",
+          "declared_langchain_component": "langchain-core",
+          "free_skill": "selftest",
+          "free_skill_input": "fixed canned input"
+        },
+        {
+          "url": "https://authenticated-mcp-traced-agent.getvda.ai/openapi.json",
+          "status": 200,
+          "free_paths": [
+            "/selftest",
+            "/mcp-free"
+          ]
+        },
+        {
+          "url": "https://authenticated-mcp-traced-agent.getvda.ai/llms.txt",
+          "status": 200,
+          "execution_contract": "Discovery is free; execution is metered via Nevermined x402 micropayments; free tool is selftest."
+        }
+      ],
+      "exact_missing_join": "The signed LangChain-component VDA identity remains healthy, but free execution is still restricted to a fixed canned self-test; external-input execution is metered. Chat LangChain still has no public machine card or OpenAPI contract.",
+      "first_retry_gate": "A durable LangChain identity must expose one free arbitrary-URL invocation, rather than fixed self-test input, and return a signed result bound to the supplied nonce."
+    }
+  ],
+  "overall": {
+    "strict_conversion_delta": 0,
+    "qualifying_operations_invoked": 0,
+    "route_transitions_observed": 0,
+    "best_current_contract_but_blocked": {
+      "target": "openserv",
+      "identity": "BrowserUse Agent",
+      "reason": "It already has the exact required URL+instructions input shape and a durable service identity, but remains priced at $0.01 and has no demonstrated public result receipt."
+    },
+    "first_overall_retry_gate": "Recheck OpenServ only when BrowserUse x402Pricing becomes exactly zero or the catalog adds another active zero-price URL-consuming service with a durable result id.",
+    "machine_authored_product_feedback": [],
+    "canonical_files_modified": false,
+    "conversion_claimed": false
+  }
+}

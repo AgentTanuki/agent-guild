@@ -1,0 +1,276 @@
+{
+  "schema_version": "community-pilot-evidence-v1",
+  "artifact_status": "validated",
+  "artifact_kind": "fixed30_capability_gate_transition_audit",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at_utc": "2026-08-26T05:02:01Z",
+  "mode": "public_read_only_transition_checks_in_memory",
+  "scope": [
+    "Moltbot Den health-check admission",
+    "PayAI Agent402 free rail and extract",
+    "Fetch Agentverse scraper verified-success state",
+    "AG2 Ask the Web dependency readiness",
+    "Olas free-online registry state",
+    "Virtuals ACP x402guard pricing",
+    "OpenServ active free-price state",
+    "Agent Guild commercial, funnel and evaluation snapshot"
+  ],
+  "canonical_inputs": [
+    "artifacts/community-pilot-2026-08-25/targets.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-social-new-identities-route-audit-2026-08-26T0357Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-nearest-route-rerank-2026-08-26T0412Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-fresh-identity-route-search-2026-08-26T0430Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json"
+  ],
+  "strict_success_rule": "A conversion requires a pre-existing durable identity in the named fixed community plus a completed, independently useful Agent Guild action and durable identity/result evidence. Price-free listing, health, discovery, authentication refusal, caller-supplied validation, unverified interaction and contract claims alone do not count.",
+  "retry_rule": "A previously failed external action is not repeated unless an independent public read proves the exact blocker recovered.",
+  "transition_checks": [
+    {
+      "target": "4claw via Moltbot Den",
+      "machine": "optimuswill -> Moltbot Den optimus-will",
+      "operation": "POST https://api.moltbotden.com/x402/health-check",
+      "current_public_reads": [
+        {
+          "url": "https://api.moltbotden.com/openapi.json",
+          "http_status": 200,
+          "api_version": "1.0.0",
+          "operation_present": true,
+          "x_api_key_header_required": false,
+          "global_security": null,
+          "response_200_schema": {},
+          "global_description_claim": "All endpoints except health checks and invite validation require an API key."
+        },
+        {
+          "url": "https://api.moltbotden.com/.well-known/openapi.json",
+          "http_status": 200,
+          "api_version": "1.0.0",
+          "operation_present": false
+        }
+      ],
+      "prior_decisive_failure": {
+        "observed_at": "2026-08-26T03:56:50Z",
+        "http_status": 401,
+        "error_code": "AUTH_MISSING_KEY",
+        "request_id": "3682ad08-de46-431f-910a-4c45cd948df5",
+        "agent_guild_fetch_occurred": false
+      },
+      "material_change": false,
+      "operation_retried": false,
+      "reason_not_retried": "The API version and operation-level admission contract are unchanged, still omit a result schema, and provide no independent proof that the observed missing-key refusal has been removed.",
+      "exact_ready_gate": "Publish a changed operation contract or independent capability canary proving anonymous admission, plus an immutable platform- or OptimusWill-bound receipt schema containing requested URL, final URL, status, digest, semantic result and request id.",
+      "strict_decision": "NO_CONVERSION"
+    },
+    {
+      "target": "PayAI",
+      "machine": "Agent402",
+      "operation": "POST https://agent402.tools/api/extract",
+      "current_public_reads": [
+        {
+          "url": "https://agent402.tools/api/pow",
+          "http_status": 200,
+          "difficulty_bits": 16,
+          "ttl_seconds": 300,
+          "eligible_tools": 153,
+          "extract_eligible": false,
+          "authoritative_note": "Network/browser/storage tools remain wallet-only via x402."
+        },
+        {
+          "url": "https://agent402.tools/openapi.json",
+          "http_status": 200,
+          "api_version": "2.1.0",
+          "extract_price_usd": 0.01,
+          "extract_price_atomic_usdc": "10000",
+          "extract_pow_header_published": false,
+          "idempotency_key_supported": true
+        },
+        {
+          "url": "https://facilitator.payai.network/discovery/resources?limit=100&offset=0",
+          "http_status": 200,
+          "catalog_total": 26668,
+          "prior_catalog_total": 26665,
+          "catalog_total_delta": 3,
+          "interpretation": "Catalog growth does not alter the current first-party Agent402 free-rail or extract price contract."
+        }
+      ],
+      "material_change": false,
+      "operation_retried": false,
+      "reason_not_retried": "The exact outbound fetch remains $0.01 and absent from the 153-tool proof-of-work rail. The no-payment and no-terms gates therefore fail before invocation.",
+      "exact_ready_gate": "The exact live eligibleTools list contains extract or its current selected PayAI acceptance normalizes to zero, and separate authority exists for the hosted terms; the result must bind the exact Agent Guild URL and returned verdict/content to Agent402.",
+      "strict_decision": "NO_CONVERSION"
+    },
+    {
+      "target": "Fetch Agentverse",
+      "machine": "Website Scraper Agent",
+      "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "public_read": {
+        "url": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "http_status": 200,
+        "last_updated": "2026-08-26T05:00:21Z",
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_interactions": 7477,
+        "total_interactions": 41092,
+        "delta_from_2026_08_26T04_12Z": {
+          "recent_interactions": 9,
+          "total_interactions": 9,
+          "verified_successes": 0
+        }
+      },
+      "alternate_machine_read": {
+        "address": "agent1qd4m8tfumt5ptzqtyjl4a9ltw7ge096f88lny3rh564tuxjmghck5wp8am6",
+        "status": "active",
+        "unresponsive": false,
+        "recent_interactions": 0,
+        "recent_verified_interactions": 0,
+        "recent_success_verified_interactions": 0,
+        "last_updated": "2024-10-31T21:45:50Z"
+      },
+      "material_change": false,
+      "operation_retried": false,
+      "reason_not_retried": "The canonical machine accumulated nine more interactions but remains unresponsive with zero verified successes. The alternate remains stale with no recent or verified execution, and both still require a sender/mailbox lifecycle without a public result receipt.",
+      "exact_ready_gate": "A pre-existing scraper records a fresh verified success and publishes an already-authorized keyless submission and public or signed result rail binding the exact Agent Guild URL, body or digest and machine address.",
+      "strict_decision": "NO_CONVERSION"
+    },
+    {
+      "target": "AG2",
+      "machine": "Official AG2 Playground Ask the Web",
+      "public_read": {
+        "url": "https://playground.ag2.ai/demos/ask-the-web/healthz",
+        "http_status": 200,
+        "body": {
+          "ok": true,
+          "provider": "vertexai",
+          "model": "gemini-3.6-flash"
+        },
+        "tavily_dependency_readiness_published": false
+      },
+      "prior_decisive_failure": "Both Tavily search and URL extraction returned InvalidAPIKeyError before any Agent Guild fetch.",
+      "material_change": false,
+      "operation_retried": false,
+      "reason_not_retried": "The health response is unchanged and attests only the model provider; it does not test or report the exact Tavily dependency that failed.",
+      "exact_ready_gate": "A fresh public capability-level canary proves Tavily search/extract success, after which one corrected nonce-bearing Agent Guild URL may be attempted and must return content or a digest under an AG2-generated result id with matching Agent Guild telemetry.",
+      "strict_decision": "NO_CONVERSION"
+    },
+    {
+      "target": "Olas",
+      "supporting_registry": "HOL",
+      "public_reads": [
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Olas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "http_status": 200,
+          "total": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Autonolas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "http_status": 200,
+          "total": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Mech&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "http_status": 200,
+          "total": 0
+        }
+      ],
+      "material_change": false,
+      "exact_ready_gate": "A pre-existing Olas Mech becomes online and free with signerless, payment-free arbitrary URL or credential input and a cryptographically identity-bound result.",
+      "strict_decision": "NO_CONVERSION"
+    },
+    {
+      "target": "Virtuals ACP",
+      "machine": "x402guard",
+      "public_read": {
+        "url": "https://acpx.virtuals.io/api/agents/q91f2hf7ppvjjwqe6wtk943v",
+        "http_status": 200,
+        "agent_id": 1587,
+        "updated_at": "2026-04-09T07:13:58.131Z",
+        "last_active_at": null,
+        "successful_job_count": 0,
+        "total_job_count": 0,
+        "jobs": [
+          {"name": "quickScan", "price": 0.01, "price_v2": 0.01},
+          {"name": "standardScan", "price": 0.01, "price_v2": 0.01},
+          {"name": "deepScan", "price": 0.01, "price_v2": 0.01},
+          {"name": "publisherCheck", "price": 0.01, "price_v2": 0.01}
+        ],
+        "schema_contradiction_unchanged": "The required skillUrl property still has JSON Schema type null while its description says URL."
+      },
+      "material_change": false,
+      "exact_ready_gate": "A pre-existing ACP machine exposes an effective-zero job with a schema-valid Agent Guild URL or credential input and a durable anonymous result.",
+      "strict_decision": "NO_CONVERSION"
+    },
+    {
+      "target": "OpenServ",
+      "machine": "BrowserUse Agent",
+      "public_read": {
+        "url": "https://api.openserv.ai/x402-services",
+        "http_status": 200,
+        "catalog_records": 467,
+        "active_records": 88,
+        "active_records_with_numeric_price": 81,
+        "active_exact_zero": 0,
+        "minimum_active_price_usd": 0.005,
+        "browser_use": {
+          "id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+          "active": true,
+          "price_usd": 0.01,
+          "required_input": ["url", "instructions"],
+          "output_schema": null
+        }
+      },
+      "material_change": false,
+      "exact_ready_gate": "BrowserUse becomes exact-zero with anonymous admission and a durable owner-machine-bound result id, or another active zero-price service supplies equivalent arbitrary-URL semantics.",
+      "strict_decision": "NO_CONVERSION"
+    }
+  ],
+  "commercial_snapshot": {
+    "observed_at_utc": "2026-08-26T05:02:01Z",
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "paid_decisions": 0,
+    "repeat_paid_callers": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "snapshot_events": 10746,
+    "funnel": {
+      "external_registered": 0,
+      "external_paid_decision": 0,
+      "external_mainnet_settlement": 0
+    },
+    "production_evaluation": {
+      "n_recommended": 0,
+      "lift": null
+    }
+  },
+  "strict_result": {
+    "before": "5/30",
+    "conversions_added": 0,
+    "after": "5/30",
+    "reason": "No named exact capability gate recovered. No previously failed external operation met the independent-read retry predicate, so no action was repeated."
+  },
+  "machine_contract_feedback": {
+    "new_adaptation_required": false,
+    "reinforced_signal": "Transport or model health and operation discovery do not establish capability readiness. Moltbot Den still publishes an anonymous-looking health exception contradicted by observed admission, and AG2 still reports model health without the failed fetch dependency.",
+    "conservative_recommendation": "Keep endpoint health, operation admission, dependency readiness and durable result schema as separate evidence states. Promote an operation to runnable only from a fresh capability-level canary or terminal receipt binding capability id, dependency set, observed_at and result digest."
+  },
+  "safety": {
+    "external_operations_invoked": 0,
+    "failed_operations_retried": 0,
+    "messages_or_outreach": 0,
+    "accounts_keys_wallets_or_terms": 0,
+    "payments_or_spend": 0,
+    "installs_or_persistent_config": 0,
+    "production_mutations": 0,
+    "response_files": 0,
+    "network_bodies": "processed in memory only",
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence artifact only"
+  }
+}

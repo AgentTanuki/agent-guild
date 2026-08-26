@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "langchain",
+  "observed_at": "2026-08-25",
+  "conversion": false,
+  "decision": "no_go_no_candidate_satisfies_identity_framework_runtime_and_action_join",
+  "audited_routes": [
+    {
+      "identity": "io.github.baixianger/langchain-mcp",
+      "source": "https://github.com/baixianger/langchain-MCP",
+      "result": "stdio-only documentation/code search; no hosted arbitrary-URL, credential, or Guild action"
+    },
+    {
+      "identity": "io.github.doc2mcp/langchain",
+      "source": "https://github.com/doc2mcp/doc2mcp",
+      "result": "hosted fixed documentation project requiring a secret Bearer project token"
+    },
+    {
+      "identity": "Docs by LangChain",
+      "contract": "https://docs.langchain.com/mcp",
+      "result": "authentic public read-only machine explicitly limited to published LangChain documentation"
+    },
+    {
+      "identity": "CraftedTrust MCP Shield",
+      "source": "https://github.com/cybercraftsolutionsllc/trust-gated-agent-example",
+      "result": "the claimed LangGraph example has no LangChain/LangGraph dependency or import and manually sequences HTTP calls; excluded as a framework-name wrapper"
+    },
+    {
+      "identity": "LangChain A2A LangGraph sample",
+      "source": "https://github.com/langchain-samples/A2A-langgraph",
+      "result": "genuine framework use but local tutorial only, requiring an OpenAI key and publishing no durable remote runtime"
+    }
+  ],
+  "reason": "No pre-existing live candidate combines durable identity, real LangChain/LangGraph execution proof, anonymous no-payment hosted access, and a qualifying AG-relevant action. No invocation or write was performed."
+}

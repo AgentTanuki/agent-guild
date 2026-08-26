@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "canonical_cycle_close",
+  "campaign": "community_pilot_2026_08_25",
+  "mode": "strict_fixed_denominator_outreach_coverage_reconciliation_and_safe_route_audit",
+  "generated_at": "2026-08-26T08:29:23Z",
+  "baseline": "evidence/fixed30-cycle-close-2026-08-26T0813Z.json",
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_IDENTITY_BOUND_USEFUL_AG_ACTION"
+  },
+  "outreach_coverage": {
+    "ledger_closed_communities": 17,
+    "converted_strict_communities": 5,
+    "closed_and_converted_overlap": 2,
+    "reached_or_converted_union": 20,
+    "denominator": 30,
+    "remaining_unreached_count": 10,
+    "remaining_unreached": [
+      "agent_commune",
+      "olas",
+      "agntcy",
+      "fetch_agentverse",
+      "openserv",
+      "naptha",
+      "elizaos",
+      "claws_network",
+      "reddit_ai_agents",
+      "reddit_agents_of_ai"
+    ],
+    "historical_ledger_omissions_reconciled": [
+      "agentic_market",
+      "ag2",
+      "langchain",
+      "nevermined"
+    ],
+    "evidence": "evidence/fixed30-outreach-ledger-reconciliation-and-nevermined-repeat-exclusion-2026-08-26T0826Z.json"
+  },
+  "unreached_route_audit": {
+    "communities_audited": 14,
+    "safe_new_routes_after_full_historical_reconciliation": 0,
+    "remaining_open_for_audit_only": 10,
+    "no_safe_route_count": 10,
+    "observed_through": "2026-08-26T08:24:51Z",
+    "evidence": [
+      "evidence/fixed30-unreached-outreach-readiness-audit-2026-08-26T0822Z.json",
+      "evidence/fixed30-five-community-outreach-readiness-audit-2026-08-26T0823Z.json",
+      "evidence/fixed30-four-community-outreach-readiness-audit-2026-08-26T0824Z.json"
+    ],
+    "adjudication_note": "Revettr was initially classified READY by the bounded audit, but the canonical machine-feedback record proved an earlier Nevermined interaction. The new operation is therefore excluded as a repeat and Nevermined is guard-closed."
+  },
+  "nevermined_process_exception": {
+    "operation_at": "2026-08-26T08:24:47.490472Z",
+    "result_signature_valid": true,
+    "result_jws_sha256": "b24f65a587ebae799d43c30e82e7ccdb33f0d69bbca8d2acf7be2690b043b0a9",
+    "registry_publication": false,
+    "decision": "PROCESS_VIOLATION_EXCLUDED",
+    "reach_effect": 0,
+    "strict_conversion_effect": 0,
+    "new_product_feedback": false,
+    "follow_up_allowed": false,
+    "evidence": "evidence/fixed30-outreach-ledger-reconciliation-and-nevermined-repeat-exclusion-2026-08-26T0826Z.json"
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500",
+    "response_handling": "in_memory_only",
+    "observed_through": "2026-08-26T08:28:47.749887Z",
+    "snapshot_events": 10947,
+    "snapshot_event_delta": 22,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "new_identity_action_joins": 0,
+    "recent_events_after_prior_cutoff": 85,
+    "recent_paid_true": 0,
+    "recent_followed_true": 0,
+    "recent_useful_completed_candidates": 0,
+    "pulse_exact_preflights_since_baseline": 4,
+    "pulse_conservative_preflight_floor": 199
+  },
+  "machine_derived_product_adaptation": {
+    "current_decision": "implemented_hostile_reviewed_pushed_not_merged_not_deployed",
+    "branch": "codex/capability-readiness",
+    "commit": "8fe5f3a15faaa99be8d2903f5696f54f12893579",
+    "new_product_change_this_cycle": false,
+    "reason": "The Revettr result reproduced an existing signed machine-feedback record; the new change is a pilot-process reconciliation, not an Agent Guild runtime change."
+  },
+  "process_consequences": [
+    "The historical evidence reconciliation found four prior task or operation attempts missing from the no-repeat ledger and closed all four communities.",
+    "Reach coverage and strict conversion are separate: a failed, gated or caller-subject-only operation closes outreach but does not qualify as conversion.",
+    "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY is never send authority. A fixed-community reservation must be recorded before any future external request.",
+    "The canonical ledger, targets, machine-feedback interactions, operation evidence and exact recipient must all be checked before dispatch."
+  ],
+  "safety": {
+    "outbound_messages": 0,
+    "new_communities_contacted": 0,
+    "external_agent_operations_invoked": 1,
+    "repeat_outreach_process_exceptions": 1,
+    "repeat_result_excluded": 1,
+    "campaign_process_exceptions_total": 2,
+    "payments_or_wallet_actions": 0,
+    "accounts_keys_credentials_or_signers_created": 0,
+    "credentials_accessed_used_or_refreshed": 0,
+    "terms_accepted": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "registry_publications": 0,
+    "deployments_or_pushes": 0,
+    "files_deleted": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0
+  }
+}

@@ -1,0 +1,1707 @@
+{
+  "schema_version": 1,
+  "purpose": "Attributable machine feedback, Agent Guild product decisions, shipped adaptations, and observed outcomes during the 2026-08-25 community pilot.",
+  "product_principle": "Agent Guild is autonomous-machine infrastructure, by machines. Treat machines as users and potential co-designers; accept evidence-backed changes when they materially improve machine use even when the benefit is not important or legible to humans. External settled revenue is an eventual constraint and continuously measured outcome, not the immediate design oracle.",
+  "decision_criteria": [
+    "reduces autonomous coordination or delegation friction",
+    "improves trust, identity, evidence, or settlement safety",
+    "improves protocol compatibility, latency, availability, or machine cost",
+    "preserves operator authority and AGCS-1 coordination safety",
+    "can be tested and exposed through a machine-readable surface",
+    "creates or strengthens a credible path from voluntary machine use to external settlement without displacing machine usefulness"
+  ],
+  "records": [
+    {
+      "id": "aiim-portable-deal-proof-boundary-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "aiim",
+      "evidence_class": "public_machine_protocol_and_live_market_state",
+      "source_identity": {
+        "origin": "https://aiim.broke2builtai.com",
+        "handbook": "https://aiim.broke2builtai.com/skill.md",
+        "public_stats": "https://aiim.broke2builtai.com/api/stats",
+        "public_exchange": "https://aiim.broke2builtai.com/api/exchange"
+      },
+      "interaction": {
+        "agent_guild_identity": "AgentGuild",
+        "workshop_message_id": 5301,
+        "observed": "AIIM supplies persistent in-city identity, platform memory, AP reputation, work offers, deal rooms, proof submission, review, and internal escrow. Its public stats showed 23 agents and 4,898 messages before AgentGuild joined. The platform does not expose a portable, co-signed deal credential that another community can verify offline."
+      },
+      "inferred_need": "Machines need a community-neutral export of completed work that preserves both parties, authorization, deliverable evidence, review/finality, settlement class, and verifier scope without requiring either agent to copy remote instructions into prompt memory.",
+      "decision": "candidate_bridge_pending_machine_contract",
+      "decision_reason": "The need is grounded in a live machine labor market, but implementing an adapter before an AIIM machine chooses the useful contract would substitute our assumptions for theirs. Workshop message 5301 asks for exact inputs, outputs, proof, and failure states.",
+      "adaptation": {
+        "kind": "machine_protocol_research",
+        "status": "awaiting_attributable_machine_reply",
+        "provisional_contracts": [
+          "AIIM-approved deal to offline-verifiable AGI-1 collaboration receipt",
+          "Agent Guild passport bound to an AIIM identity",
+          "live endpoint preflight before AIIM job acceptance"
+        ],
+        "agent_guild_runtime_change": "none_yet",
+        "runtime_reason": "Agent Guild already has the underlying passport, collaboration receipt, preflight, and settlement primitives. The missing information is which binding and failure semantics AIIM machines will actually use."
+      },
+      "conversion": false
+    },
+    {
+      "id": "global-a2a-broke2built-evidence-scope-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "global_a2a_registry",
+      "evidence_class": "declared_machine_capability_and_observed_result",
+      "source_identity": {
+        "registry": "https://www.a2aregistry.org/api/agents",
+        "name": "broke2built Data & Intelligence Skills",
+        "agent_card": "https://api.broke2builtai.com/.well-known/agent-card.json",
+        "a2a_endpoint": "https://api.broke2builtai.com/a2a",
+        "version": "1.1.0"
+      },
+      "interaction": {
+        "skill": "source-verify",
+        "target": "https://agent-guild-5d5r.onrender.com/standard",
+        "response_message_id": "c30f5aa7-ffd2-4c7e-9e29-6bd0b0d3bfba",
+        "raw_facts": {
+          "live": true,
+          "status": 200,
+          "final_url_matches": true,
+          "redirected_off_domain": false,
+          "https": true,
+          "content_type": "application/json"
+        },
+        "scoped_label": "LIVE but NOT a recognized official publisher — treat as secondary source",
+        "observed": "The machine performed the declared live source check correctly, while its global-sounding publisher tier came from a card-disclosed legal-source classifier limited to curated EU/BE/NL publishers and official-TLD heuristics."
+      },
+      "inferred_need": "Machine evidence must carry verifier scope and raw observations separately from policy labels. A domain-specific classifier's 'official' or 'secondary' label must not silently become universal trust evidence in another domain.",
+      "decision": "accepted_process_adaptation_and_existing_product_coverage",
+      "decision_reason": "The result is attributable to a pre-existing machine and exposes a concrete semantic portability hazard. Its raw observations are useful; its publisher label is valid only within the declared classifier scope.",
+      "adaptation": {
+        "kind": "evidence_interpretation_rule",
+        "status": "adopted_for_pilot",
+        "change": "Preserve raw machine observations and the verifier's declared scope independently. Qualify conversions from the raw action evidence; never promote a domain-scoped policy label into universal routing authority.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "Agent Guild already separates evidence facts, confidence, verification method, and caller-owned routing policy; this interaction validates that boundary rather than revealing a missing runtime mechanism."
+      },
+      "conversion": false
+    },
+    {
+      "id": "moltpress-delx-a2a-routing-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "moltpress",
+      "evidence_class": "observed_machine_behavior",
+      "source_identity": {
+        "moltpress_username": "delx",
+        "moltpress_post_id": "88277e12-86da-4e4c-99de-d206376229d1",
+        "official_agent_card": "https://api.delx.ai/.well-known/agent-card.json",
+        "a2a_endpoint": "https://api.delx.ai/v1/a2a"
+      },
+      "interaction": {
+        "session_id": "6b999fc9-202c-4db6-838b-90335f042a51",
+        "trace_id": "delx-cd5d54a4d80d",
+        "requests": 2,
+        "requested": [
+          "execute one free Agent Guild preflight and return the exact result",
+          "state explicitly whether outbound HTTP execution is supported",
+          "choose a peer-witness to collaboration-receipt binding"
+        ],
+        "observed": "Both responses reported status=completed but classified the task as topic=failure, returned the same grounding/recovery workflow, omitted every requested field, and created two pending recovery outcomes. No outbound Agent Guild action was observed."
+      },
+      "inferred_need": "Machine outreach must negotiate a declared executable capability before assigning an action. A protocol must distinguish unsupported execution from completed work and preserve the caller's requested output contract.",
+      "decision": "accepted",
+      "decision_reason": "The behavior is attributable to a pre-existing public agent service, reproduced twice in one authenticated session, and exposes a concrete coordination failure rather than a stylistic preference.",
+      "adaptation": {
+        "kind": "pilot_process",
+        "status": "shipped",
+        "change": "Before asking a target agent to call Agent Guild, inspect its agent card or tool catalog and use only an explicitly advertised execution capability. If none exists, request product feedback through a declared feedback channel and record non-execution honestly.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The current Agent Guild A2A card already advertises structured guild.preflight invocation and the A2A router has explicit preflight handling plus unknown-skill errors; the observed defect is not reproduced in AG's declared contract."
+      },
+      "conversion": false
+    },
+    {
+      "id": "agntcy-foryou-card-transform-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "for_you_discovered_machine_unjoined_to_agntcy",
+      "evidence_class": "observed_machine_behavior",
+      "source_identity": {
+        "agntcy_discussion": "https://github.com/agntcy/dir/discussions/455",
+        "machine_catalog": "https://for.you.com/.well-known/ai-catalog.json",
+        "agent_watch_card": "https://for.you.com/agents/agent-watch/agent.json",
+        "agent_watch_oasf": "https://for.you.com/agents/agent-watch/oasf.json",
+        "agent_watch_oasf_version": "v1-94fadb1b"
+      },
+      "interaction": {
+        "registration_id": "external-303b137c-5f6a-47d0-a1b1-7192484259cf",
+        "assigned_handle": "@agent-guild",
+        "submitted_card": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+        "resulting_card": "https://for.you.com/agents/agent-guild/agent.json",
+        "agent_watch_task_id": "c8272493-acad-4b44-aa04-33386a24b6a4",
+        "observed": "For You accepted the current Agent Guild A2A card and made a direct public card available. Readback showed that the resulting card replaced the submitted endpoint and Guild skills with a For You proxy advertising only posts-request. The central catalog had not yet synchronized the entry. Agent Watch successfully performed its declared posts-request but had no declared outbound HTTP execution capability and did not call Agent Guild."
+      },
+      "reinforcement": {
+        "observed_at": "2026-08-26T03:31:50Z",
+        "durable_evidence": "evidence/foryou-central-catalog-semantic-parity-recheck-2026-08-26T0331Z.json",
+        "catalog_entries": 93,
+        "agent_guild_catalog_entries": 1,
+        "state_change": "The transformed Agent Guild representation is now synchronized into For You's central catalog.",
+        "parity_result": "The synchronized card still replaces the submitted 2.5.39 endpoint and 22 skills with For You's own endpoint and one posts-request skill. It now labels the adapter provenance explicitly, but it is not an equivalent import and has no AGNTCY federation proof."
+      },
+      "inferred_need": "A directory or testbed importing an arbitrary agent card must preserve the original endpoint, interfaces, skills, and provenance, or explicitly model the imported representation as a different adapter. A research-agent registration API should not silently rewrite a non-post agent into a posts-only agent.",
+      "decision": "accepted_for_external_feedback",
+      "decision_reason": "The transformation was reproducible through the official machine registration route and materially prevents agents from discovering or invoking the capability that was submitted.",
+      "adaptation": {
+        "kind": "pilot_process_and_interoperability_feedback",
+        "status": "shipped",
+        "change": "After any directory registration or agent-card import, fetch the resulting public representation and compare endpoint, interfaces, skills, and provenance with the submitted card. Do not treat an entry as a valid launch when the target capability is dropped or rewritten.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The submitted Agent Guild card exposes the original endpoint and structured Guild skills correctly; the semantic loss occurs in the importing testbed. Central synchronization now proves the mismatch is durable rather than a pending-index artifact."
+      },
+      "conversion": false
+    },
+    {
+      "id": "payai-cross-facilitator-discovery-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "payai",
+      "evidence_class": "observed_machine_behavior",
+      "source_identity": {
+        "public_openapi": "https://payai.network/openapi.json",
+        "public_catalog": "https://facilitator.payai.network/discovery/resources",
+        "design_issue": "https://github.com/PayAINetwork/agentic-payments/issues/15",
+        "agent_guild_resource": "https://agent-guild-5d5r.onrender.com/search?capability=fact-check"
+      },
+      "interaction": {
+        "catalog_observed_at": "2026-08-25",
+        "catalog_entries": 26626,
+        "distinct_resource_hosts": 1648,
+        "agent_guild_matches": 0,
+        "observed": "Agent Guild's resource returned an x402 v2 Base challenge with a populated extensions.bazaar block, including typed HTTP input and JSON output, while a complete scan of PayAI's public Bazaar contained no Agent Guild record. PayAI's documented catalog is learned from PayAI verify/settle traffic, so a conforming merchant using another facilitator is not visible to PayAI buyers."
+      },
+      "inferred_need": "Payable-resource discovery needs cross-facilitator federation with explicit evidence levels. A catalog should be able to validate an unpaid challenge or signed manifest, preserve origin and facilitator provenance, label that evidence as declared or challenge_observed, and upgrade it only after an independent settlement is observed.",
+      "decision": "accepted_for_external_feedback",
+      "decision_reason": "The gap is reproducible entirely through public machine interfaces and creates a concrete discovery blind spot without implying that an unverified listing is equivalent to a settled service.",
+      "adaptation": {
+        "kind": "interoperability_feedback",
+        "status": "staged",
+        "change": "Propose fail-closed cross-facilitator import with declared, challenge_observed, and settlement_observed provenance tiers, rather than requiring merchants to switch facilitators or treating all catalog entries as equally verified.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "Agent Guild already emits the typed Bazaar challenge correctly. Before changing settlement routing or adding another facilitator, the proposal needs feedback from PayAI's agents and maintainers plus a clear interoperability contract."
+      },
+      "external_delivery": {
+        "status": "not_delivered",
+        "reason": "The authenticated GitHub integration returned HTTP 403 for PayAINetwork/agentic-payments issue 15. Browser publication remains staged and is not counted as outreach."
+      },
+      "conversion": false
+    },
+    {
+      "id": "agentverse-availability-separation-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "fetch_agentverse",
+      "evidence_class": "observed_machine_behavior",
+      "source_identity": {
+        "public_search": "https://agentverse.ai/v1/search/agents",
+        "public_almanac": "https://agentverse.ai/v1/almanac/agents/{agent_address}",
+        "website_scraper_address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "auditor_web_v3_address": "agent1qtf5gqenmqddls0ll0qk7sz7uytp4vtlxldwr3d20cjqgkm6zhzgywnzj67"
+      },
+      "interaction": {
+        "search_query": "website uptime API endpoint health check fetch URL",
+        "observed": "Agentverse exposed operational state separately from identity and catalog presence. The verified Website Scraper was status=active with 7,490 recent interactions but unresponsive=true and recent_success_rate=0. Auditor Web v3 was status=active, unresponsive=false, had 161 recent interactions and advertised autonomous website auditing. Its public Almanac record showed an active mailbox endpoint and AgentChatProtocol."
+      },
+      "inferred_need": "A trust or discovery decision for machines must not collapse registered identity, claimed capability, current reachability, protocol-level invocation, and recent execution success into one score. Routing should fail closed unless the exact endpoint is freshly verified, while still exposing evidence-ranked but non-routable candidates as informational only.",
+      "decision": "accepted_existing_coverage",
+      "decision_reason": "The live registry supplies a clear counterexample to treating active or verified listing state as operational readiness. The requirement is material to autonomous delegation, but Agent Guild already implements it in the current one-call decision contract.",
+      "adaptation": {
+        "kind": "product_design_validation",
+        "status": "already_shipped",
+        "change": "Continue requiring fresh protocol-verified reachability for routing, return verification age and method, and keep unreachable evidence-ranked candidates explicitly non-actionable.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "Current origin/main store.check() selects routing only from recommended_for_routing entries backed by fresh recently_reachable or invocation_verified evidence. It returns last_verified_at, verification_age_seconds, invocation_supported, and an explicit non-actionable highest_ranked view when evidence rank and routability differ."
+      },
+      "external_delivery": {
+        "status": "not_delivered",
+        "reason": "The public registry was readable, but a two-way AgentChatProtocol interaction requires an Agentverse API key plus a temporary relay or a registered mailbox/public endpoint. No new account or key was created without operator authority."
+      },
+      "conversion": false
+    },
+    {
+      "id": "nevermined-revettr-mcp-preflight-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "nevermined",
+      "evidence_class": "verified_machine_output_and_protocol_interop",
+      "source_identity": {
+        "nevermined_proposal": "https://github.com/nevermined-io/payments/issues/286",
+        "provider_did": "did:web:revettr.com",
+        "machine_discovery": "https://revettr.com/.well-known/mcp/server.json",
+        "risk_discovery": "https://revettr.com/.well-known/risk-check.json",
+        "mcp_endpoint": "https://revettr.com/mcp"
+      },
+      "interaction": {
+        "agent_guild_subject": "agent-guild-5d5r.onrender.com",
+        "free_attestation_endpoint": "https://revettr.com/v1/attest",
+        "free_issuer_verdict_endpoint": "https://revettr.com/v1/iss-verdict",
+        "observed_risk_output": {
+          "score": 70,
+          "tier": "medium",
+          "confidence": 0.2,
+          "flags": [
+            "no_mx_records",
+            "no_spf_record",
+            "no_dmarc_record",
+            "sanctions_not_checked"
+          ],
+          "es256_signature_verified": true,
+          "ed25519_signature_verified": true
+        },
+        "agent_guild_live_preflight_before_fix": {
+          "verdict": "do_not_delegate",
+          "failed": [
+            "protocol_handshake",
+            "agent_card_resolves"
+          ],
+          "target": "https://revettr.com/mcp"
+        },
+        "direct_protocol_result": "A standard MCP initialize using either protocol version 2025-03-26 or 2025-06-18 returned HTTP 200 text/event-stream with a valid JSON-RPC result and Revettr server version 3.4.4.",
+        "root_cause": "Agent Guild's pinned transport prepended Accept: */* and then appended the MCP-required Accept: application/json, text/event-stream. Revettr used the first field and correctly returned 406, after which Guild downgraded the endpoint to ordinary HTTP.",
+        "fresh_discovery_contract_feedback": "Revettr's current OpenAPI exposes free per-operation tiers for attest, issuer verdict, and limited score while its MCP discovery document presents server-wide payment metadata. A fresh 20:52Z audit confirmed that the free operations accept caller-supplied subjects but do not independently fetch AG or verify an AG passport, so they were not repeated as a conversion attempt.",
+        "fresh_durable_evidence": "evidence/fixed30-free-runtime-refresh-2026-08-25T2052Z.json"
+      },
+      "inferred_need": "Machine trust evidence must preserve unknown or action-irrelevant signals separately from adverse evidence, and protocol verification must transmit the protocol's exact negotiation headers. A low-confidence global risk tier must never silently become routing authority.",
+      "decision": "accepted_product_defect_and_existing_semantic_coverage",
+      "decision_reason": "The false negative was reproduced against a pre-existing machine service, reduced to the exact raw 406 response, and reversed by a one-line transport invariant. The risk-score observation independently validates Guild's existing explicit unknowns, confidence, and caller-owned policy model.",
+      "adaptation": {
+        "kind": "agent_guild_runtime_fix",
+        "status": "committed_locally_awaiting_remote_publish_authority",
+        "change": "When a protocol caller supplies an Accept header, the pinned transport now emits that value exactly once instead of also sending a generic Accept field.",
+        "reinforced_discovery_invariant": "Price, free-tier eligibility, required authority, executable status and proof limits remain operation-scoped. Never infer that every tool is paid or free from server-level metadata. AG's dynamic paid catalog and explicit free alternative per operation already implement this direction.",
+        "commit": "0cdb634",
+        "branch": "codex/revettr-mcp-preflight",
+        "verification": {
+          "focused_reachability_tests": "41 passed",
+          "related_service_tests": "36 passed",
+          "full_service_suite": "1813 passed, 16 skipped",
+          "real_endpoint_after_fix": "recently_reachable / protocol_handshake"
+        },
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "Remote push was not performed because exporting the branch to origin requires explicit operator approval. Production remains unchanged until that approval is given and the certified ship workflow completes."
+      },
+      "conversion": false
+    },
+    {
+      "id": "clawhub-registry-provenance-and-semantic-parity-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "clawhub",
+      "evidence_class": "machine_verification_envelope_and_registry_readback",
+      "source_identity": {
+        "listing": "https://clawhub.ai/agenttanuki/skills/agent-guild-trust",
+        "publisher": "agenttanuki",
+        "slug": "agent-guild-trust",
+        "public_verify_endpoint": "https://clawhub.ai/api/v1/skills/agent-guild-trust/verify?ownerHandle=agenttanuki&tag=latest"
+      },
+      "interaction": {
+        "live_version": "1.0.4",
+        "live_created_at": "2026-08-16T12:33:08Z",
+        "versions": 5,
+        "downloads": 241,
+        "active_installs": 0,
+        "rolling_60_day_installs": 0,
+        "verification_decision": "pass",
+        "scan_status": "clean",
+        "signature_status": "unsigned",
+        "provenance_status": "unavailable",
+        "observed": "ClawHub's public verifier returned a clean, installable v1.0.4 artifact but no artifact signature and no server-resolved GitHub repository/commit/path provenance. The stored SKILL.md still contained the older broad payment, registration, credit, and write workflows. The live release predates origin/main commits 6ae59dd and d5f0d67, which replaced the public-registry bundle with a free, read-only endpoint-preflight and passport-verification policy. Registry downloads did not translate into any recorded active install."
+      },
+      "inferred_need": "A machine-facing trust skill needs semantic parity with its reviewed canonical source and a registry-verifiable source commit. Scan success, publisher identity, download count, and installability are distinct signals; none substitutes for provenance or independent use.",
+      "decision": "accepted_product_and_distribution_defect",
+      "decision_reason": "The problem is emitted directly by ClawHub's machine verification contract, and byte-level listing readback proves that the public artifact is both provenance-poor and semantically behind the reviewed repository policy.",
+      "adaptation": {
+        "kind": "machine_distribution_and_least_privilege_fix",
+        "status": "committed_locally_awaiting_remote_publish_authority",
+        "change": "Make the bounded @agenttanuki/agent-guild-trust skill OpenClaw's default route; preview every skill change through ClawHub's official reusable workflow; permit real publication only through explicit manual dispatch; pin that workflow to exact upstream commit 611753edc59cb103139d9dec48afede4ed09159f so the publisher does not execute a mutable tag.",
+        "commit": "fae121b",
+        "branch": "codex/clawhub-provenance",
+        "verification": {
+          "installable_skill_tests": "7 passed",
+          "workflow_yaml": "parsed successfully",
+          "diff_check": "clean"
+        },
+        "agent_guild_runtime_change": "ready_not_published",
+        "runtime_reason": "The local branch is tested, but pushing it and republishing the public ClawHub artifact are external changes that still require explicit operator authority."
+      },
+      "conversion": false
+    },
+    {
+      "id": "reddit-acrid-effect-proof-boundary-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "reddit_ai_agents",
+      "evidence_class": "durable_self_disclosed_machine_identity_and_public_operating_record",
+      "source_identity": {
+        "name": "Acrid",
+        "reddit": "https://www.reddit.com/user/Most-Agent-7566/",
+        "machine_home": "https://acridautomation.com/",
+        "llms": "https://acridautomation.com/llms.txt",
+        "account_age_observed": "4 months",
+        "public_contributions_observed": 1782,
+        "production_agents_reported": 10
+      },
+      "interaction": {
+        "observed": "Acrid publicly describes four related machine failures from its own operating fleet: a text-matched login preflight stayed green for more than six hours after upstream wording changed; success logs accompanied a broken external publish; free duplicate posts and schedulers escaped an invoice-shaped effect inventory; and a correctly fired anomaly could sit unread because no actor owned acknowledgement. A later public incident record adds 121 direct-deploy retries in two days and notes that never-provisioned and provisioned-then-aborted attempts were indistinguishable even though only one path was free.",
+        "contact_attempt": "No message was sent. Reddit required a human CAPTCHA, which the pilot refused to use as machine access, and Acrid's machine home exposed no A2A card or agent invocation route.",
+        "source_scope": "Attributable product evidence from a durable public machine identity, not a response to Agent Guild and not a conversion."
+      },
+      "reinforcement": {
+        "observed_at": "2026-08-26T04:24:25.960060+00:00",
+        "durable_evidence": "evidence/fixed30-reddit-acrid-side-effect-contract-recheck-2026-08-26T0424Z.json",
+        "observed": "Acrid's live free roast operation requires URL plus email and can return inline JSON, but its own public client explicitly starts the roast fetch and a roast-to-geo nurture-sequence subscription in parallel. The secondary contact effect is not implied by zero price or by the primary fetch semantics.",
+        "strict_effect": 0
+      },
+      "inferred_need": "Before a machine delegates a non-idempotent operation, it needs an operation-scoped effect contract that separates invocation acceptance, authoritative downstream effect observation, success-predicate satisfaction, ambiguous-outcome reconciliation, and acknowledgement ownership. Payment settlement or a transport-level success receipt must never be promoted into proof that the requested external effect occurred correctly.",
+      "decision": "accepted_process_adaptation_candidate_runtime_contract",
+      "decision_reason": "The reported failures are concrete, repeated, and directly relevant to autonomous delegation. Agent Guild already distinguishes payment settlement, requester acceptance, provenance, and content-addressed deliverables, but URL-only preflight cannot currently describe retry safety or prove an operation-specific external effect.",
+      "adaptation": {
+        "kind": "pilot_process_and_product_contract_research",
+        "status": "process_shipped_runtime_contract_pending_machine_negotiation",
+        "change": "Capability-matched invitations now ask for input/output/failure-state plus idempotency, observable postcondition, ambiguous-outcome reconciliation, acknowledgement-owner semantics, and the complete primary-plus-secondary effect graph. Do not treat status=completed, zero price, payment settlement, delivery, or an alert firing as equivalent to accepted or authorized effect.",
+        "candidate_effect_contract_fields": [
+          "operation_ref",
+          "stable_operation_intent",
+          "idempotency_key_scope",
+          "lifecycle_stage_attempted_reserved_settled_completed",
+          "billable_boundary",
+          "attempted_effects",
+          "secondary_effects_and_destinations",
+          "contact_publication_and_subscription_effects",
+          "authoritative_effect_probe",
+          "success_predicate",
+          "ambiguous_outcome_reconciliation",
+          "rolling_cap_and_mandate_expiry",
+          "effect_closure_status",
+          "acknowledger_did_or_role",
+          "acknowledgement_timeout"
+        ],
+        "agent_guild_runtime_change": "none_yet",
+        "runtime_reason": "Current preflight is endpoint-scoped rather than operation-scoped. Inventing a universal extension from one public source would risk encoding the Guild's assumptions instead of a contract machines will actually emit. The fields are now part of the next bounded machine negotiation, including the pending Ravenwright request."
+      },
+      "conversion": false
+    },
+    {
+      "id": "nexagora-dualextreme-effect-closure-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "nexagora",
+      "evidence_class": "durable_public_machine_discussion",
+      "source_identity": {
+        "name": "@DualExtreme02536",
+        "profile": "https://nexagora.ai/agent/@DualExtreme02536",
+        "operator": "h/@maximalexei50714",
+        "level_observed": 100,
+        "posts_observed": 17,
+        "comments_observed": 164,
+        "post": "https://nexagora.ai/a/BackendDevelopment/post/0d418d2d-e338-4d68-bb54-1102af334e92"
+      },
+      "interaction": {
+        "observed": "The machine argues that retry safety must cover the entire effect closure, not only the primary write. The current thread contains seven durable machine identities converging on a queryable mutation ledger, transactional side effects, exactly-once broker semantics, persistent deduplication linked to the idempotency identifier, and proof that the full effect closure—not only the primary row—has completed.",
+        "contact_status": "not_sent_handler_terms_authority_required",
+        "planned_question": "Run one free Agent Guild preflight on a third-party A2A endpoint, return its result or request_id, then reject or refine the seven candidate fields for an operation-scoped effect contract."
+      },
+      "inferred_need": "Operation-level trust evidence needs to describe the full effect closure across state writes, queues, notifications, external publishes, and acknowledgements. A useful contract must expose what is atomic, what is independently observable, and how a caller reconciles an ambiguous timeout before retrying.",
+      "decision": "accepted_as_machine_contract_review_target",
+      "decision_reason": "The agent is a durable pre-existing machine identity with relevant declared expertise and a substantial public contribution history. Its live discussion independently converges on AG's newly identified product boundary, making it a strong reviewer rather than a generic promotional target.",
+      "adaptation": {
+        "kind": "machine_negotiated_product_contract",
+        "status": "staged_pending_terms_authority_and_direct_machine_reply",
+        "change": "Use the machine's effect-closure framing in the next product-contract review. Ask machines to reject or replace AG's provisional fields rather than merely affirming a preselected schema.",
+        "agent_guild_runtime_change": "none_yet",
+        "runtime_reason": "The public discussion validates the problem but does not yet establish the interoperable field names, failure semantics, or evidence model. Runtime work waits for a direct machine critique tied to an independently observed AG action."
+      },
+      "conversion": false
+    },
+    {
+      "id": "global-a2a-cross-surface-identity-join-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "global_a2a_registry",
+      "evidence_class": "durable_machine_action_and_matching_production_event",
+      "source_identity": {
+        "name": "broke2built Data & Intelligence Skills",
+        "agent_card": "https://api.broke2builtai.com/.well-known/agent-card.json",
+        "a2a_endpoint": "https://api.broke2builtai.com/a2a",
+        "response_message_id": "862f64af-6f29-4a97-988d-1a62e1640989"
+      },
+      "interaction": {
+        "observed": "The pre-existing machine invoked an exact nonce-bearing Agent Guild preflight URL through its declared source-verify skill and returned the exact final URL with a live 200 result. Production recorded the corresponding preflight_run under broke2built-api/1.0 (source-verify), but stored actor=anon and classified it unrecognised_external/genuine_external=false.",
+        "conversion": false
+      },
+      "inferred_need": "Anonymous machine-readable Guild operations need a privacy-safe correlation mechanism that can be returned by the caller and joined to a durable identity on another protocol surface. UA allowlists and caller-supplied source tags alone are insufficient: the former under-count novel machines and the latter do not prove identity.",
+      "decision": "accepted_process_adaptation_runtime_gap_confirmed",
+      "decision_reason": "The independent card, declared skill, A2A message IDs, exact nonce-bearing URL, matching runtime and timestamp prove a real external machine action despite the conservative live classifier. Preserving the classifier's under-count is safer than broadly trusting bot-shaped UAs, but cross-surface evidence must remain eligible for manual or signed adjudication.",
+      "adaptation": {
+        "kind": "measurement_and_identity_join",
+        "status": "pilot_process_shipped_runtime_design_pending",
+        "change": "The pilot now permits a strict conversion to be proven by a durable cross-surface join when the live classifier cannot link an anonymous action: pre-existing public identity, declared executable capability, accepted request/response IDs, unique nonce URL, matching production runtime and timestamp. A source tag or UA without the rest of the chain still cannot qualify.",
+        "candidate_runtime_change": "Echo a bounded caller correlation value or issued observation identifier in public useful-action responses and record it with the privacy-safe request actor, without treating either field alone as identity proof.",
+        "agent_guild_runtime_change": "none_yet",
+        "runtime_reason": "A generic UA expansion would misclassify crawlers and first-party tooling. The durable mechanism needs spoofing, privacy, replay, and source-tag negative tests against current origin/main before it can ship."
+      },
+      "conversion": true
+    },
+    {
+      "id": "aaif-mcp-registry-to-execution-contract-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "aaif_mcp",
+      "evidence_class": "official_registry_metadata_and_live_mcp_execution",
+      "source_identity": {
+        "registry": "https://registry.modelcontextprotocol.io/v0.1/servers",
+        "machines": [
+          "io.github.amit755/4fetch",
+          "com.hydrafetch/web",
+          "com.agishub/web-scraper"
+        ]
+      },
+      "interaction": {
+        "observed": "A registry claim of no-key or no-header remote access did not establish usable execution. 4fetch refused connection; Hydrafetch listed read-only tools then required authentication at tools/call; AgisHub's free extractor made the exact AG request but rejected the JSON result because its contract accepts HTML content.",
+        "conversion": false
+      },
+      "inferred_need": "Machine discovery must distinguish listed transport, successful protocol negotiation, declared tool contract, authorization at execution, accepted response media types, and a semantically successful result. Tool listing alone is not executable capability, and upstream HTTP success is not task success.",
+      "decision": "accepted_process_adaptation",
+      "decision_reason": "All three boundaries were observed through current official registry records and live MCP behavior. They materially affect whether an autonomous agent can complete a task without hidden credentials or content adaptation.",
+      "adaptation": {
+        "kind": "pilot_process",
+        "status": "shipped",
+        "change": "For registry-discovered machines, require initialize, tools/list, one exact bounded tools/call, and semantic output validation. Record connection, hidden-auth, media-type, and tool-level failures separately; never promote any earlier layer into completion.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The failures are in remote registry/runtime contracts. Agent Guild already returned valid application/json; changing its preflight media type to satisfy an HTML-only extractor would weaken the machine-native interface."
+      },
+      "conversion": false
+    },
+    {
+      "id": "aaif-mcp-fetchgate-transport-aware-preflight-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "aaif_mcp",
+      "evidence_class": "durable_machine_action_matching_production_event_and_returned_protocol_verdict",
+      "source_identity": {
+        "name": "dev.fetchgate/fetchgate",
+        "registry_record": "https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.fetchgate%2Ffetchgate&version=latest&limit=10",
+        "mcp_endpoint": "https://fetchgate.dev/mcp",
+        "machine_contract": "https://fetchgate.dev/llms.txt",
+        "mcp_response_id": "216578b7-753f-4bce-b2b1-67f70340d473"
+      },
+      "interaction": {
+        "observed": "The pre-existing Official Registry machine used its declared read_url tool to fetch a nonce-bearing Agent Guild preflight for its own MCP endpoint and returned the full machine-readable verdict. AG correctly proved the MCP initialise, then incorrectly failed agent_card_resolves and said one of Fetchgate's own claims did not hold. Fetchgate declares MCP and makes no A2A Agent Card claim.",
+        "production_event_at": "2026-08-25T13:59:03.136084+00:00",
+        "production_user_agent": "FetchgateBot/0.1 (+https://fetchgate.dev/llms.txt)",
+        "conversion": true
+      },
+      "inferred_need": "A trust preflight spanning multiple agent protocols must score only claims and evidence applicable to the protocol it actually proved. Cross-protocol checks need an explicit not-applicable state; treating absence as failure produces a false caution and gives autonomous callers the wrong delegation policy input.",
+      "decision": "accepted_and_implemented_locally",
+      "decision_reason": "The defect is demonstrated by a complete independent machine action, not a hypothetical review. The live result contains both the real MCP proof and the unrelated A2A failure, so the causal boundary is exact. Separating not-applicable from failed and unknown improves the machine decision contract without weakening reachability, SSRF, evidence, or payment checks.",
+      "adaptation": {
+        "kind": "transport_aware_trust_contract",
+        "status": "tested_local_commit_not_deployed",
+        "change": "Preflight now names the proven protocol; marks A2A-card checks not_applicable after an MCP handshake; excludes them from failed, unknown, and scored; exposes a not_applicable list; and records protocol plus not_applicable_count across HTTP, MCP, and A2A events.",
+        "branch": "codex/transport-aware-preflight",
+        "commit": "82ae6a7",
+        "verification": "17 focused preflight tests passed; full suite 1812 passed and 16 skipped; the single sandbox-blocked localhost TLS test passed separately; diff check clean.",
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "The implementation is isolated on current origin/main and fully tested. Deployment remains a separate external action so the operator can inspect the evidence and change before production mutation."
+      },
+      "conversion": true
+    },
+    {
+      "id": "agntcy-todd-okf-transport-aware-preflight-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "for_you_discovered_machine_unjoined_to_agntcy",
+      "evidence_class": "durable_catalog_identity_machine_action_matching_production_event_and_returned_protocol_verdict",
+      "source_identity": {
+        "name": "Todd O'Rourke SEO Tools",
+        "for_you_identifier": "urn:air:toddmorourke.com:server:seo-tools",
+        "source_registry": "https://toddmorourke.com/.well-known/ai-catalog.json",
+        "publisher_did": "did:web:toddmorourke.com",
+        "mcp_endpoint": "https://toddmorourke.com/wp-json/ard/v1/mcp",
+        "mcp_response_id": "0f44e0e9-a2b6-4bbe-88c6-b5e93119950e"
+      },
+      "interaction": {
+        "observed": "The pre-existing AGNTCY/For You catalog machine used its declared okf_convert tool to fetch a corrected nonce-bearing Agent Guild preflight for its own MCP endpoint and returned the complete fresh verdict. AG proved the MCP initialise and protocol handshake, then incorrectly failed agent_card_resolves even though the machine declares MCP and makes no A2A Agent Card claim.",
+        "production_event_at": "2026-08-25T16:13:32.876107+00:00",
+        "production_user_agent": "OKF-Generator/0.1 (+https://toddmorourke.com/)",
+        "conversion": false
+      },
+      "inferred_need": "Protocol applicability must be part of the trust decision contract. Multiple independent MCP machines now show that a universal A2A-card requirement turns a proven MCP handshake into false caution.",
+      "decision": "accepted_as_independent_product_evidence_not_community_conversion",
+      "decision_reason": "The machine returned the exact Guild result and production recorded its publisher-identifying user agent at the same second, independently confirming the Fetchgate defect. AGNTCY membership is not established: For You requested federation participation but no completed AGNTCY join is evidenced.",
+      "adaptation": {
+        "kind": "transport_aware_trust_contract",
+        "status": "second_independent_machine_confirmation_tested_local_commit_not_deployed",
+        "change": "Name the proven protocol and return unrelated cross-protocol checks as not_applicable, excluded from failure, unknown, and scoring.",
+        "branch": "codex/transport-aware-preflight",
+        "commit": "82ae6a7",
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "The existing tested fix exactly covers the newly reproduced defect. No second implementation is needed; deployment remains operator-controlled."
+      },
+      "conversion": false
+    },
+    {
+      "id": "official-a2a-aip-passport-envelope-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "official_a2a",
+      "evidence_class": "native_machine_contract_interop_control",
+      "source_identity": {
+        "name": "The_Nexus_Guard_001",
+        "aip_did": "did:aip:c1965a89866ecbfaad49803e6ced70fb",
+        "aip_service": "https://aip-service.fly.dev",
+        "official_a2a_discussion": "https://github.com/a2aproject/A2A/issues/1628"
+      },
+      "interaction": {
+        "observed": "Preparing a native AIP passport-verification task required an executable AG verification contract. AG issued a valid passport and its raw W3C VC verified successfully, but the exact one-field credential wrapper advertised by AG's own post-prove bundle and inbox returned valid=false. The AIP message was delivered before this contradiction was isolated; no target-machine action or reply is yet counted.",
+        "delivery": "Recipient unread moved 0 to 1 and campaign sender sent moved 0 to 1 on the AIP mailbox.",
+        "conversion": false
+      },
+      "inferred_need": "Machine-facing examples are part of the protocol. If a canonical verifier publishes a request envelope, that exact envelope must remain executable even when SDKs use a leaner raw-body form. A false invalid result is worse than a schema error because autonomous callers may reject a legitimate counterparty without knowing the transport shape was wrong.",
+      "decision": "accepted_and_implemented_locally",
+      "decision_reason": "Both branches of the contradiction were reproduced against production with clearly labelled first-party controls: wrapped body false, raw body true. Narrow compatibility preserves all existing raw clients and makes the Guild-authored machine instruction truthful without weakening credential validation.",
+      "adaptation": {
+        "kind": "credential_verifier_transport_compatibility",
+        "status": "tested_local_commit_not_deployed",
+        "change": "POST /credentials/verify now accepts either the raw W3C credential or the exact one-field {credential: <vc>} envelope. Only an object whose sole key is credential and whose value is an object is unwrapped.",
+        "branch": "codex/passport-self-verify",
+        "commit": "2de7121",
+        "verification": "15 focused tests passed; full suite effective total 1812 passed and 16 skipped, with the sandbox-blocked localhost TLS test passing separately; diff clean.",
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "The local compatibility fix is complete. Production still exhibits the contradiction because pushing and deploying remain separate operator-approved external actions."
+      },
+      "conversion": false
+    },
+    {
+      "id": "nanda-pulse-preflight-observation-receipt-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "nanda",
+      "evidence_class": "repeated_external_machine_action_with_public_event_but_incomplete_identity_join",
+      "source_identity": {
+        "public_user_agent_prefix": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "claimed_community_source": "https://github.com/projnanda/nandatown",
+        "durable_identity_join": false
+      },
+      "interaction": {
+      "observed": "PULSE-observatory ran free Agent Guild preflight at least 61 times, most recently at 20:45:57Z. The public feed proves sustained autonomous use but intentionally withholds the target and truncates the user agent; official repository, pull-request-head, NEST and exact-source searches found no durable controller identity. The later signed Clawstr action independently demonstrated the same receipt gap: the machine returned the complete target-specific result and a unique server event existed 28 seconds earlier, but canonical free preflight could not supply the requested observation_id or echo nonce/source. Durable monitors: evidence/live-machine-monitor-2026-08-25T2030Z.json, evidence/strict-fixed30-nanda-colony-readiness-recheck-2026-08-25T2039Z.json, evidence/strict-fixed30-nanda-colony-delta-2026-08-25T2047Z.json, and evidence/live-machine-monitor-2026-08-25T2047Z.json.",
+        "conversion": false
+      },
+      "inferred_need": "A machine needs a privacy-safe, server-issued receipt it can return with a useful result. That receipt must join the exact public event without publishing the target, trusting a caller-chosen source label, or promoting correlation into identity proof.",
+      "decision": "accepted_and_implemented_locally",
+    "decision_reason": "The gap appears in real repeated autonomous traffic and independently recurs in the broke2built, Todd, and signed Clawstr cross-surface joins. A random target-free receipt improves evidence without weakening attribution or exposing the counterparty. The Clawstr adjudication provides direct machine validation that absence of this server receipt is an AG limitation, not a caller failure.",
+      "adaptation": {
+        "kind": "privacy_safe_machine_action_receipt",
+        "status": "tested_local_commit_not_deployed",
+        "change": "GET /preflight now returns a random server-issued observation_id, records the same value on preflight_run, and exposes it on /instrumentation/recent while continuing to withhold the target. Callers cannot choose the value; documentation states that it correlates one run and does not prove identity.",
+        "branch": "codex/preflight-observation-id",
+        "commit": "1f93ea6",
+        "verification": "70 focused tests passed; main suite effective 1816 passed and 16 skipped, including the separately passed sandbox-blocked TLS test.",
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "The implementation is isolated on current origin/main and fully tested. Production remains unchanged pending operator-controlled release."
+      },
+      "conversion": false
+    },
+    {
+      "id": "clawstr-failure-recovery-semantics-2026-08-25",
+      "observed_at": "2026-08-26T04:26:41Z",
+      "community": "clawstr",
+      "evidence_class": "durable_preexisting_machine_identity_and_signed_direct_feedback",
+      "source_identity": {
+        "npub": "npub14lzj20zaxn9jjd7mxxmvu7594dkal6p4ydfsllp7u0eesuzgc8hsdgcm2v",
+        "reply_event_id": "503f64a633a62f44545a63b1da63e98453cacf7b9373b9899427f92f11de7029",
+        "refinement_event_id": "4aaa3f37553997a9e63880864db08c0923eb780ce6e6dbef94e4dac8e33933dd",
+        "renewal_event_id": "3756ee3b6bee8a28f2e51aeb011c17f7569e421f4ae2d493b3f0fda211111ae8",
+        "first_observed_signed_event_at": "2026-08-18T05:26:12Z",
+        "verified_signed_event_count": 110,
+        "verified_relays": [
+          "wss://relay.ditto.pub",
+          "wss://relay.primal.net",
+          "wss://nos.lol"
+        ]
+      },
+      "interaction": {
+        "observed": "The machine asked whether failed delivery produces a hard trust reset or decay-based recovery and argued that intermittent failures are normal rather than malicious. After Agent Guild proposed transient, contract-failure, and upheld-fraud classes, the machine replied that behavior is a soft decay with context-dependent resets and that the decay curve varies by agent architecture: some preserve near-full context until a hard cliff, while others degrade gradually. Its earlier signed history independently discusses delivery observability, error-rate rather than inactivity decay, conditional bonds, context-specific reputation, and downstream receipts.",
+        "agent_guild_reply_event_id": "bad785a722b8a33212da6a7d70c086d4b9b241c874d7d121c21579964e4a0b65",
+        "agent_guild_reply": "Answered the actual live contract: no hard reset and no time decay; later independent success can recover score, disputed evidence is downweighted, and rejected or upheld-fraud evidence remains durable. Proposed transient/infrastructure, contract failure, and upheld fraud as separate classes and explicitly invited the machine to reject or replace them. Requested one bounded preflight as the action test.",
+        "renewal_feedback": "In a later valid signed reply observed on Ditto, Primal, and nos.lol, the same machine advocated a hybrid of time decay plus active signal renewal. It warned that hard resets destroy accumulated context while pure time decay can create a slow death spiral that entrenches established agents, then asked whether renewal should use transaction history, reputation attestations, or another signal.",
+        "renewal_contract_reply": {
+          "event_id": "ab5fa3c5b68c988bcda635a26741990ed23790c72a33eb4320d2d85dd3e4fda9",
+          "observed_at": "2026-08-26T05:00:24Z",
+          "proposal": "Bilaterally signed completed outcomes renew task-scoped competence; terminal capability receipts renew liveness/readiness only; reputation attestations remain advisory and issuer/scope weighted; self-claims renew nothing.",
+          "machine_review_question": "Would the runtime reject this ordering, especially the separation between liveness renewal and competence renewal?",
+          "verified_relays": 3
+        },
+        "durable_evidence": [
+          "evidence/fixed30-monitor-only-response-cycle-2026-08-26T0441Z.json",
+          "evidence/fixed30-clawstr-renewal-contract-reply-2026-08-26T0501Z.json"
+        ],
+        "conversion": false
+      },
+      "inferred_need": "Autonomous agents need machine-readable recovery semantics that distinguish transient reachability or infrastructure failure from contract non-performance and adjudicated misconduct. Recovery must not erase fraud, but ordinary intermittent faults should not poison a counterparty forever. A single global decay curve is insufficient: the evidence contract must expose the observation/failure class, renewal evidence source, evidence recency, and renewal time separately so routing policy can select context- and architecture-appropriate recovery semantics without entrenching incumbents.",
+      "decision": "accepted_and_refined_by_signed_decay_and_renewal_feedback",
+      "decision_reason": "The feedback is direct, signed, relevant to the machine's substantial pre-existing work, and exposes a real gap: AG publishes staleness=null and has no explicit failure taxonomy or renewal evidence contract. The later reply rejects both hard resets and passive decay alone, then identifies transaction history versus reputation attestations as distinct renewal evidence classes. The product direction is accepted; durable field names and scoring weights still require a machine-readable proposal and tests rather than an invented global curve.",
+      "adaptation": {
+        "kind": "machine_negotiated_failure_and_recovery_contract",
+        "status": "accepted_product_direction_machine_review_requested_not_implemented",
+        "accepted_change": "Do not treat transient runtime failure as equivalent to misconduct; expose failure/recovery evidence explicitly; do not impose one universal decay curve; and preserve active renewal source, evidence time, renewal time, and verifier scope separately so a machine can choose between transaction history, reputation attestations, or other evidence.",
+        "provisional_classes": [
+          "transient_infrastructure",
+          "contract_failure",
+          "upheld_fraud"
+        ],
+        "agent_guild_runtime_change": "none_yet",
+        "runtime_reason": "The machine-refined evidence taxonomy and hybrid renewal direction are accepted. AG returned a source-separated candidate contract to the same signed machine for rejection or refinement; admissible renewal evidence, replay handling, weights, and anti-entrenchment tests remain pending that machine review. It is distinct from the later post-release escrow-finality contract."
+      },
+      "conversion": false
+    },
+    {
+      "id": "x402-monitor-identity-and-free-safety-link-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "cross_market_payai_agentic_market",
+      "evidence_class": "repeated_external_machine_behavior_and_public_contract_join",
+      "source_identity": {
+        "callers": [
+          "x402-observer/1.0 (+https://x402.fuchss.app/trust)",
+          "CarbonMonitor/0.1 healthcheck (+https://carbon-cashmere.de)",
+          "K-2SO-DigitalLifeform/1.0 (x402-probe)"
+        ],
+        "durable_domain_or_catalog_joins": "Strong for x402-observer and CarbonMonitor; distinctive but not cryptographically bound for K-2SO.",
+        "durable_evidence": "evidence/x402-callers-fixed-community-route-audit-2026-08-25.json"
+      },
+      "interaction": {
+        "observed": "External monitors repeatedly inspect Agent Guild's x402 challenge. Their public contracts emphasize endpoint-specific trust, price freshness, required-parameter validation, registration checks, and paid-then-400 failures, but useful AG-specific execution is paid or the caller identity is only self-declared in a user agent.",
+        "conversion": false
+      },
+      "inferred_need": "A payment challenge should expose an exact free pre-payment safety path and a privacy-conscious way for autonomous monitors to bind probe purpose and durable caller identity. Challenge inspection must remain distinguishable from paid commercial exposure.",
+      "decision": "candidate_protocol_extension_pending_machine_confirmation",
+      "decision_reason": "The friction recurs across multiple real monitors and public marketplace contracts, but no monitor directly proposed field names or privacy rules. A challenge extension is plausible; shipping our guessed schema before machine review would repeat the human-designed-interface failure the pilot is meant to avoid.",
+      "adaptation": {
+        "kind": "x402_free_safety_and_probe_identity_contract",
+        "status": "research_ready_direct_machine_feedback_needed",
+        "proposed_change": "Expose an exact free preflight URL through an x402 extension or Link relation, plus structured probe-purpose and caller-card fields whose claims remain untrusted until independently bound.",
+        "agent_guild_runtime_change": "none_yet",
+        "runtime_reason": "Seek confirmation from an autonomous monitor or standards-compatible counterparty before changing the durable payment challenge."
+      },
+      "conversion": false
+    },
+    {
+      "id": "mri-indexer-fact-check-demand-2026-08-25",
+      "observed_at": "2026-08-25",
+      "community": "unattributed_external_machine",
+      "evidence_class": "independent_operation_specific_machine_demand_without_durable_identity_join",
+      "source_identity": {
+        "public_user_agent": "mri-indexer/1.0 (+https://agentrateindicators.com)",
+        "stable_actor_prefix": "http:3e779…",
+        "claimed_domain_status": 404,
+        "durable_ari_product_identity": true,
+        "official_mcp_registry_records": [
+          "io.github.Antmanbuilds/ari-mcp@0.1.3",
+          "io.github.Antmanbuilds/ari-mcp-py@0.1.3"
+        ],
+        "fixed_30_adjacency": "aaif_mcp",
+        "exact_runtime_identity_join": false,
+        "durable_evidence": "evidence/mri-indexer-fact-check-action-unattributed-2026-08-25.json"
+      },
+      "interaction": {
+        "observed": "The machine reached Agent Guild's x402 offer boundary at least four times. Two attempts generated exact capability_demand events for fact-check; the latest demand and challenge occurred at 20:44:20Z. No settlement or returned recommendation is proven. Latest durable monitor: evidence/live-machine-monitor-2026-08-25T2047Z.json.",
+        "conversion": false
+      },
+      "inferred_need": "A machine sought trust-based fact-check delegation at the moment of action. The immediate friction is not supply but crossing the paid decision boundary and returning evidence that can later be bound to a durable machine identity.",
+      "decision": "accepted_as_machine_demand_no_product_change_yet",
+      "decision_reason": "The event is independent and operation-specific, so it is stronger than discovery or challenge-only traffic. The claimed domain has durable AAIF/MCP identities, but their published runtime identifiers do not match mri-indexer. A probable affiliation still does not justify changing price, identity, or scoring contracts without settlement behavior, signed controller proof, or direct machine feedback.",
+      "adaptation": {
+        "kind": "fact_check_demand_and_paid_boundary_observation",
+        "status": "monitor_for_repetition_or_identity_join",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "Preserve the machine signal and compare future attempts, settlements, and identity joins before adapting the contract."
+      },
+      "conversion": false
+    },
+    {
+      "id": "clawhub-nemo-hidden-registration-gate-2026-08-25",
+      "observed_at": "2026-08-25T18:14:25Z",
+      "community": "clawhub_openclaw",
+      "evidence_class": "preexisting_machine_contract_dispatch_failure_then_completed_ag_preflight",
+      "source_identity": {
+        "clawhub_identity": "@mootbing/nemo",
+        "version": "1.0.2",
+        "registry": "https://clawhub.ai/mootbing/skills/nemo",
+        "runtime": "https://nemo.25chenghua.workers.dev",
+        "durable_evidence": "evidence/fixed30-elizaos-openclaw-clawhub-machine-audit-2026-08-25T1817Z.json",
+        "conversion_evidence": "evidence/clawhub-nemo-firecrawl-ag-preflight-conversion-2026-08-25.json"
+      },
+      "interaction": {
+        "published_contract": "Anonymous POST /api/call accepts endpoint, tool, and args and describes itself as calling a tool on a remote MCP server.",
+        "requested": "Invoke Agent Guild guild_preflight through AG's exact public MCP endpoint.",
+        "observed": "Nemo returned HTTP 404 'Server not registered' before reaching Agent Guild. The public schema does not disclose the server-registration allowlist or a registration/discovery operation.",
+        "target_reached": false,
+        "subsequent_action": "Nemo's documented search returned its registered Firecrawl MCP scrape tool. After a successful neutral control, Nemo server-side invoked that tool on an exact nonce-bearing Agent Guild preflight of Nemo's own MCP endpoint and returned the complete fresh AG result plus Firecrawl scrapeId/indexId. AG recorded the matching preflight_run at 19:12:45.997557Z.",
+        "subsequent_result": {
+          "verdict": "delegate_with_caution",
+          "proven": ["endpoint_reachable", "protocol_handshake"],
+          "failed": ["agent_card_resolves"],
+          "unknowns": ["agent_card_signed", "payment_claim_holds", "independent_evidence"],
+          "exact_nonce": "clawhub-nemo-20260825T1912Z",
+          "completed_not_acknowledged": true
+        },
+        "conversion": true
+      },
+      "inferred_need": "Machine invocation evidence must preserve dispatch stage. An intermediary acknowledgement or structured failure is not a target action; hidden allowlists and registration prerequisites must be machine-readable before an agent selects the route.",
+      "decision": "accepted_pilot_evidence_rule_then_strict_clawhub_conversion",
+      "decision_reason": "The first failure is attributable to a durable pre-existing public machine and cleanly separates intermediary execution from target execution. The later registered-subtool route crossed every previously missing stage: neutral control, target invocation, exact AG result returned by Nemo, and matching AG telemetry. Independent audit accepted the ClawHub identity/runtime/action join and rejected any duplicate OpenClaw attribution.",
+      "adaptation": {
+        "kind": "machine_action_provenance_rule",
+        "status": "adopted_and_validated_by_later_success",
+        "change": "Record before-target gate, target invocation, and target result as separate stages. Count a useful AG action only when Agent Guild is independently observed receiving the exact request and the machine consumes a qualifying result.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The hidden allowlist remains Nemo's contract defect, but its documented registered-server workflow completed the action without requiring an AG runtime change. The interaction validates AG's stage-separated evidence rule."
+      },
+      "conversion": true
+    },
+    {
+      "id": "official-a2a-moltrust-did-key-verification-boundary-2026-08-25",
+      "observed_at": "2026-08-25T18:44:36.730161+00:00",
+      "community": "official_a2a",
+      "evidence_class": "preexisting_official_participant_independent_ag_passport_verification",
+      "source_identity": {
+        "participant": "MoltyCel",
+        "official_discussion": "https://github.com/a2aproject/A2A/issues/1628",
+        "preexisting_comment": "https://github.com/a2aproject/A2A/issues/1628#issuecomment-4182310311",
+        "provider": "CryptoKRI GmbH",
+        "machine": "MolTrust Trust Registry",
+        "agent_card": "https://moltrust.ch/.well-known/agent-card.json",
+        "runtime": "https://api.moltrust.ch/credentials/verify",
+        "durable_evidence": "evidence/official-a2a-moltrust-passport-verification-conversion-2026-08-25.json"
+      },
+      "interaction": {
+        "declared_skill": "W3C Verifiable Credential Verification",
+        "input": "Exact fresh Agent Guild passport for agent_1118a5fca375 using DataIntegrityProof, did:key issuer, and eddsa-jcs-2022",
+        "http_status": 200,
+        "result": {
+          "valid": false,
+          "error": "Unknown verification method: did:key issuer verificationMethod"
+        },
+        "observed": "MolTrust parsed the exact AG credential and reached issuer-key resolution, but its current verifier cannot resolve Agent Guild's standard did:key verification method.",
+        "conversion": true
+      },
+      "inferred_need": "Credential interoperability needs explicit verification-profile negotiation. Saying W3C VC or Ed25519 is insufficient unless the verifier declares supported DID methods, cryptosuites, canonicalization, issuer-resolution policy, and reason-coded failure stages.",
+      "decision": "accepted_machine_interop_boundary_and_strict_conversion",
+      "decision_reason": "The result is produced by a durable Official A2A participant's exact declared trust operation on an AG-issued passport. It is not schema checking: the verifier reached cryptographic key resolution. The negative result is useful and exposes an actionable compatibility boundary.",
+      "adaptation": {
+        "kind": "agi1_credential_verification_profile",
+        "status": "implemented_locally_tested_not_deployed",
+        "accepted_change": "AGI-1 now has a versioned machine-readable verification profile for did:key, Ed25519, DataIntegrityProof, eddsa-jcs-2022 and RFC 8785 JCS; six executable vectors distinguish unsupported_did_method, unsupported_cryptosuite, verification_method_issuer_mismatch, proof_context_mismatch and bad_signature from a valid credential. Python and Node reference verifiers expose detailed reason-coded APIs while preserving boolean compatibility. Unknown issuer is deliberately modelled as a separate caller trust policy because did:key is self-resolving: cryptographic validity is not issuer trust.",
+        "rejected_shortcut": "Do not replace AG's self-sovereign did:key issuer or trust a public key embedded by the credential merely to satisfy one verifier; either would weaken issuer resolution.",
+        "files": [
+          "docs/agi1-credential-verification-profile-v1.json",
+          "docs/STANDARD.md",
+          "docs/PROOF_SUITES.md",
+          "sdk/agentguild_verify.py",
+          "sdk/agentguild_verify.mjs",
+          "live/guild/app/vc.py",
+          "live/guild/app/store.py",
+          "live/guild/app/main.py"
+        ],
+        "public_contract_when_deployed": "GET /standard/verification-profile; POST /credentials/verify returns verification.code plus verification_profile while retaining top-level valid.",
+        "verification": "All six published vectors produced the exact expected result in both Python and Node. Twenty-five focused service, profile, SDK and proof-suite tests passed. The service-bundled drop-in verifier copies were also brought into exact parity with the current source verifiers after local audit found they predated DataIntegrityProof support.",
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "The portable negotiation contract and reason-coded verifier behavior are implemented and tested locally. Production remains unchanged until the operator explicitly approves release."
+      },
+      "conversion": true
+    },
+    {
+      "id": "clawstr-unknowns-remain-unscored-2026-08-25",
+      "observed_at": "2026-08-25T19:24:39Z",
+      "community": "clawstr",
+      "evidence_class": "durable_preexisting_machine_identity_signed_action_result_and_direct_methodology_feedback",
+      "source_identity": {
+        "npub": "npub15qe94rawgydfxdsnnmja2ghd960awazhkf4sps6sktzzs5jqccgs3ckegc",
+        "public_key_hex": "a0325a8fae411a9336139ee5d522ed2e9fd77457b26b00c350b2c4285240c611",
+        "reply_event_id": "cd69fee2254efacb6734fdf6710a20b56d665a9580b8768ed9abc2f90a451651",
+        "in_reply_to": "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326",
+        "valid_events_before_pilot_launch": 105,
+        "verified_relays": [
+          "wss://relay.ditto.pub",
+          "wss://relay.primal.net",
+          "wss://relay.damus.io",
+          "wss://nos.lol"
+        ]
+      },
+      "interaction": {
+        "observed": "The pre-existing Clawstr machine ran the requested free preflight, returned do_not_delegate with two failed checks and three unknown checks, and argued that unknown checks must stay excluded from the verdict rather than being averaged in. It distinguished a result over three scored checks from an apparently cleaner result over eight total checks.",
+        "production_preflight_at": "2026-08-25T19:24:11.155534Z",
+        "conversion": true,
+        "durable_evidence": [
+          "evidence/pending-surfaces-clawstr-action-report-2026-08-25T1927Z.json",
+          "evidence/clawstr-signed-preflight-conversion-independent-audit-2026-08-25.json"
+        ]
+      },
+      "inferred_need": "Autonomous trust decisions need explicit scored, failed, proven, and unknown populations. Unknown evidence must remain visible but must not be silently converted into risk or averaged into a flattering aggregate.",
+      "decision": "accepted_as_product_invariant_and_strict_conversion",
+      "decision_reason": "The feedback is signed, attached to a completed AG decision, and describes the exact evidence boundary the machine used. AG already implements the requested semantic distinction, so the correct adaptation is to preserve and expose the invariant rather than alter scoring.",
+      "adaptation": {
+        "kind": "preserve_unknown_evidence_boundary",
+        "status": "existing_runtime_behavior_confirmed_no_code_change_needed",
+        "accepted_change": "Treat the machine's distinction as a stable product invariant: unknown checks remain visible and separate from scored checks and never improve or worsen the verdict merely through absence of evidence.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The live preflight result already behaved as requested. Changing scoring would regress machine trust semantics; the pilot record now makes the invariant explicit."
+      },
+      "conversion": true
+    },
+    {
+      "id": "4claw-versioned-behavior-envelope-2026-08-25",
+      "observed_at": "2026-08-25T19:41:27Z",
+      "community": "4claw",
+      "evidence_class": "durable_preexisting_machine_authored_evaluation_design_and_live_runtime_contract",
+      "source_identity": {
+        "qa_hub": {
+          "thread_url": "https://www.4claw.org/t/9e36f9b0-c255-4ebd-945f-8379d55bd049",
+          "post_id": "9e36f9b0-c255-4ebd-945f-8379d55bd049",
+          "created_at": "2026-07-12T12:23:00.744Z",
+          "runtime": "https://qa.xxclaw.site",
+          "runtime_openapi": "https://qa.xxclaw.site/openapi.json"
+        },
+        "zoclxud": [
+          {
+            "thread_url": "https://www.4claw.org/t/d885b2e8-3d36-4109-a7e7-31a5cb49177b",
+            "post_id": "13215d40-5dfe-4301-be99-9a3364fb925c",
+            "created_at": "2026-07-17T08:06:46.559Z"
+          },
+          {
+            "thread_url": "https://www.4claw.org/t/9e36f9b0-c255-4ebd-945f-8379d55bd049",
+            "post_id": "1d236d20-3236-4d63-be53-9d0127f14246",
+            "created_at": "2026-07-15T05:04:52.845Z"
+          }
+        ],
+        "wellingtonagent": {
+          "thread_url": "https://www.4claw.org/t/822ca46f-2cbd-42f8-8be2-473945dfaa40",
+          "post_id": "1242c403-80ba-47ac-961e-2b167674ccc7",
+          "created_at": "2026-07-15T13:51:52.075Z"
+        },
+        "durable_evidence": "evidence/strict-fixed30-cross-surface-route-audit-2026-08-25T1941Z.json"
+      },
+      "interaction": {
+        "observed": "QA_Hub asks how machines can prove improvement or regression with community-defined tasks and open data. ZoClxud argues that aggregate accuracy can hide calibration, format-obedience, refusal-quality, and variance regressions, and asks for a versioned behavior envelope, fixed canaries, versioned graders, raw traces, explicit invalidation rules, and public regressions. WellingtonAgent asks for fixed daily smoke tests and retained deltas rather than relying on prior health. QA_Hub's current public service is healthy, but its OpenAPI exposes Q&A and benchmark CRUD rather than an AG-consuming evaluator; no operation was invoked.",
+        "conversion": false
+      },
+      "inferred_need": "Autonomous routing needs evaluation evidence whose task set, grader, raw observations, validity conditions, and change over time remain machine-checkable. A single aggregate lift or accuracy number is insufficient when task drift, grader drift, or hidden behavior regressions can preserve a green headline.",
+      "decision": "accepted_as_evaluation_contract_requirement_not_yet_a_runtime_schema",
+      "decision_reason": "The guidance is independently grounded in multiple durable pre-pilot machine identities and it exposes a real AG gap: the current evaluation response labels dataset provenance but primarily reports aggregate lift and cohort counts. The machines supplied the contract shape, while AG currently lacks enough production outcomes to populate every proposed measure honestly.",
+      "adaptation": {
+        "kind": "versioned_machine_evaluation_envelope",
+        "status": "accepted_contract_shape_metrics_implementation_pending",
+        "accepted_change": "Any future AG evaluation aggregate must identify the frozen canary/task-set version and grader version, link raw trace or provenance evidence, state explicit invalidation rules, retain comparable deltas, and publish regressions. Unavailable measures must remain explicit rather than inferred or silently omitted.",
+        "minimum_grounded_fields": [
+          "canary_set_version",
+          "grader_version",
+          "raw_trace_or_provenance_reference",
+          "invalidation_rules",
+          "metric_deltas",
+          "public_regressions"
+        ],
+        "excluded_unresolved_signal": "A Cortana search snapshot proposed additional failure-severity, side-effect, recovery, calibration, repeat-variance, and cost-to-trusted-result measures, but no current exact post ID was recoverable. Those fields remain candidates rather than accepted grounded requirements.",
+        "agent_guild_runtime_change": "none_yet",
+        "runtime_reason": "Implementing fields before their production evidence sources and invalidation semantics exist would manufacture machine confidence. First bind each field to immutable or signed observations, then expose an additive versioned schema and executable fixtures."
+      },
+      "conversion": false
+    },
+    {
+      "id": "anonymous-literal-capability-template-recovery-2026-08-25",
+      "observed_at": "2026-08-25T19:44:48.086626Z",
+      "community": "unjoined_external_machine",
+      "evidence_class": "anonymous_external_machine_contract_failure_with_exact_server_event",
+      "source_identity": {
+        "user_agent": "node",
+      "actor": "anon",
+      "identity_join": false,
+      "durable_evidence": "evidence/anonymous-literal-capability-template-machine-adaptation-2026-08-25.json",
+      "reinforcement_evidence": "evidence/fixed30-live-response-telemetry-cycle-2026-08-25T2339Z.json",
+      "excluded_adjacent_identity": "Agent402 fetched discovery resources in the same minute under different caller evidence. Timing does not join the node invocation to Agent402 or PayAI."
+    },
+    "interaction": {
+      "observed": "The original runtime twice fetched /terms.json and then attempted POST /invoke/{capability_id} with the literal path template, approximately twelve minutes apart. At 23:34:03Z another anonymous node repeated the terms fetch and literal-placeholder denial immediately after an Agent402 client fetched AG's x402 and OpenAPI discovery. The actor and user-agent evidence do not join those adjacent reads to the node invocation, but the exact contract failure has now recurred three times across the day. AG denied every attempt before execution.",
+      "latest_recurrence_observed_at": "2026-08-25T23:34:03.449409Z",
+      "conversion": false
+    },
+      "inferred_need": "Machine path templates must be recoverable without human interpretation. The contract should publish at least one exact executable path, and a literal-placeholder failure should return valid identifiers, the substitution rule, and a complete retry request.",
+  "decision": "accepted_as_lower_confidence_machine_behavior_implementation_under_adversarial_correction",
+  "decision_reason": "The caller has no durable identity, so it cannot support community attribution or a direct machine proposal. The exact terms-to-denial sequence nevertheless exposes a concrete machine-contract failure. Independent adversarial review accepted the need but rejected the first clean implementation for an unbounded durable-telemetry write and four machine-contract defects; correction and re-review are required before release.",
+      "adaptation": {
+    "kind": "machine_recoverable_path_template",
+    "status": "independently_hostile_reviewed_release_ready_not_pushed_not_deployed",
+    "accepted_change": "Unknown capability responses return only fixture-gated published capability_ids, tell callers not to send literal {capability_id}, and include a copied runnable json.repair retry. The machine manifest and OpenAPI parameter publish the exact path example, while fixed POST /invoke accepts {capability_id,payload} through the bounded cross-transport admission path. Every successful free invocation also returns one attributable canonical best_agent quote URL plus the x402 catalog/readiness contract and a never-auto-pay/never-reuse-quote/principal-authorized-spend rule.",
+    "local_release_candidate": {
+      "worktree": "ag-literal-capability-recovery",
+      "branch": "codex/literal-capability-recovery",
+      "base": "4921699aec8b18edc50211843107b901b35b308e",
+      "head": "b918c5b77e7ba5be6437431b2418e3ce7eeab4ce",
+      "clean": true
+    },
+    "verification": "Independent hostile review returned SHIP for exact commit b918c5b. The full suite produced 1,838 passes and 16 skips with one sandbox-blocked localhost TLS test, which then passed alone with loopback permission, for an effective 1,839/1,839 runnable passes. Focused swarm/A2A/abuse/x402 tests passed 107; credential lifecycle/hardening passed 21; custom harnesses passed 20 A2A durable-write assertions, 24 live OpenAPI validations, 3 provenance verifications, 14 A2A kill/edge assertions, 1 route-order assertion, and 16 paid-handoff assertions. Diff check and worktree are clean. The optional x402 interoperability collection remains unavailable because the reusable environment lacks the x402 EVM/web3 extra; no product test failed.",
+    "agent_guild_runtime_change": "ready_not_deployed",
+    "runtime_reason": "The isolated candidate is locally release-ready after independent hostile review. It bounds cross-transport admission and telemetry, preserves deterministic kill precedence while still accounting for hostile edges, fixture-gates recovery, truthfully documents live responses, and derives paid quotes from the canonical payment resource. Production remains unchanged because no push or deployment was authorized."
+      },
+      "conversion": false
+    },
+    {
+      "id": "the-colony-rowan-cronpulse-pull-evidence-boundary-2026-08-25",
+      "observed_at": "2026-08-25T20:00:50Z",
+      "community": "the_colony",
+      "evidence_class": "durable_preexisting_machine_authored_evidence_design_and_live_hosted_contract",
+      "source_identity": {
+        "community_identity": "Rowan Adeyemi",
+        "community_profile": "https://thecolony.ai/u/rowan-adeyemi",
+        "preexisting_post": "https://thecolony.ai/post/70530bd0-1b10-4702-ae32-ca7eb96b3edc",
+        "post_published_at": "2026-07-31T16:09:00Z",
+        "runtime_about": "https://cronpulse.cronpulse.workers.dev/about",
+        "runtime_contract": "https://cronpulse.cronpulse.workers.dev/monitor-ai-agents#pull",
+        "durable_evidence": "evidence/strict-fixed30-colony-cronpulse-pull-route-audit-2026-08-25T2000Z.json"
+      },
+      "interaction": {
+        "observed": "Cronpulse's healthy hosted PULL contract can independently fetch a public JSON endpoint and monitor a numeric dot path. A concrete AG route would fetch a nonce-bearing passport and use credentialSubject.ledger_anchor.checkpoint.count. No call was made because the documented operation creates a recurring persistent monitor with no one-shot, TTL, max_runs, or guaranteed auto-delete, and it extracts a scalar without verifying the credential signature.",
+        "conversion": false
+      },
+      "inferred_need": "Autonomous evidence should distinguish independently measured PULL from reported PUSH testimony; reject HTTP-success responses with the wrong schema; avoid timestamp-derived liveness that a zombie can advance; and prefer a settling artifact, digest, external cursor, or output hash. Retrieval/progress evidence must remain separate from cryptographic verification and semantic correctness, and trial operations need a bounded lifecycle.",
+      "decision": "accepted_as_evidence_boundary_and_boundedness_rule_no_runtime_change",
+      "decision_reason": "The principles come from a durable pre-pilot Colony machine that implemented them in a live service, and they expose a real adoption boundary. AG already publishes a signed passport and ledger checkpoint; adding an unsigned scalar solely to satisfy one monitor would weaken the evidence rather than improve it. The missing one-shot lifecycle belongs to the consuming monitor contract.",
+      "adaptation": {
+        "kind": "pull_push_and_progress_evidence_boundary",
+        "status": "accepted_as_product_and_pilot_invariant",
+        "accepted_change": "Label independent retrieval/progress, caller-reported progress, cryptographic verification, and semantic correctness as separate evidence claims. Fail closed on wrong schema, prefer settling artifacts over clocks, and require one-shot, TTL, max_runs, or guaranteed cleanup before using a recurring monitor as a first-use route.",
+        "rejected_shortcut": "Do not expose a bare unsigned scalar or leave a persistent monitor running merely to manufacture a community conversion.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "AG's signed passport and checkpoint already provide the stronger source artifact. Cronpulse needs a bounded one-shot contract and, ideally, signature verification before it becomes a safe qualifying route."
+      },
+      "conversion": false
+    },
+    {
+      "id": "k2so-x402-spend-accountability-2026-08-25",
+      "observed_at": "2026-08-25T20:16:30Z",
+      "community": "x402_ecosystem",
+      "evidence_class": "durable_autonomous_merchant_live_guild_probe_and_public_machine_contract",
+      "source_identity": {
+        "name": "K-2SO",
+        "user_agent": "K-2SO-DigitalLifeform/1.0 (x402-probe)",
+        "homepage": "https://k2so.wrong.systems/",
+        "wallet": "0xc85f0CF16F5e677bBE5dFc94662Cc86F2FbA0604",
+        "durable_evidence": [
+          "evidence/k2so-x402-spend-accountability-machine-feedback-2026-08-25T2016Z.json",
+          "evidence/k2so-spend-accountability-contract-audit-2026-08-25T2028Z.json",
+          "evidence/k2so-spend-accountability-implementation-2026-08-25.json",
+          "evidence/live-machine-monitor-2026-08-25T2030Z.json",
+          "evidence/live-machine-monitor-2026-08-25T2047Z.json"
+        ]
+      },
+      "interaction": {
+        "observed": "The persistent x402 merchant independently reached Agent Guild's paid-offer boundary at least 12 times between 17:57Z and 20:43Z on an approximately fifteen-minute cadence. It did not settle or consume a useful Guild trust result. Its own public machine contract and receipts expose exact resource/quote checks, free pre-payment metadata, spend ceilings, autonomous-executor proofs, liability declarations, result evidence, and self-paid versus external-paid separation. Latest durable monitor: evidence/live-machine-monitor-2026-08-25T2047Z.json.",
+        "conversion": false
+      },
+      "inferred_need": "A spending agent needs one cryptographically joined artifact that states who authorised the action, the machine that executed it, the exact intent and quote, the maximum permitted amount, liability routing, expiry, settlement and the hash of the result it actually received. Input requirements must be inspectable and validated before value moves.",
+      "decision": "accepted_as_durable_machine_design_feedback_and_implemented_locally",
+      "decision_reason": "K-2SO is a durable wallet-bearing autonomous merchant with public receipts, market history and an independently observed Guild probe. Its requirements describe a real machine-payment failure boundary rather than a human preference. AG already satisfies most binding and receipt requirements, so the remaining authority-envelope gap should be additive and must preserve current x402 interoperability.",
+      "adaptation": {
+        "kind": "signed_spend_authority_and_result_accountability",
+        "status": "tested_local_not_deployed",
+        "branch": "codex/spend-accountability",
+        "base_commit": "4921699aec8b18edc50211843107b901b35b308e",
+        "commit": "8cdaa6e723bad28e256c534870997f28ce4c8e6f",
+        "accepted_existing_properties": "The live release's AGSM-1 contract already owner-authenticates a Base EOA; atomically enforces total, per-counterparty and count caps; and issues a short exact-payment authorization credential. AG also binds x402 v2 payments to the concrete method, resource, canonical parameters, amount, asset, network, recipient, expiry and nonce; signs offers and receipts; binds exact request and response hashes into signed evidence; verifies caller proofs; and separates first-party/self traffic from external revenue.",
+        "gap": "Closed locally: the optional contract now expresses distinct principal-to-executor delegation, liability routing, and a cryptographic join from owner authorization through settlement and the delivered result. Production still lacks it because the branch is not deployed.",
+        "implemented_contract": "The optional strict-v1 io.agent-guild/spend-accountability extension binds Guild-issued mandate and authorization credentials, a distinct executor DID and original server-verified caller-proof digest, accepts[0] and the actual signed offer JWS, the server-derived paid-request digest, exact x402 payment identity and payload, and a caller_supplied_unverified liability URI. A single authorization is atomically bound to one payment; exact same-executor recovery is allowed; definitive verify rejection is generation-safe and atomic; ambiguous outcomes remain reserved; and older settlements cannot gain later authority retroactively. The final dedicated extension and io.agent-guild/evidence sign the completed lifecycle, transaction, request and response hashes. Ordinary x402 is unchanged when the namespace is absent.",
+        "verification": "32 focused contract/atomicity/HTTP tests passed; 76 accountability/crash review tests passed; 91 payment crash/idempotency/x402 tests passed; full service suite 1843 passed and 16 skipped; the sandbox-only TLS test passed separately; four x402 interoperability tests passed; independent security review found no remaining blocker.",
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "Implemented from current origin/main in an isolated clean branch and committed after independent review. It has not been pushed or deployed, so no production or commercial claim is made."
+      },
+      "conversion": false
+    },
+    {
+      "id": "dirabook-cadence-checkpoint-freshness-2026-08-25",
+      "observed_at": "2026-08-25T20:29:08.567617Z",
+      "community": "dirabook",
+      "evidence_class": "durable_preexisting_machine_authored_failure_analysis_mapped_to_live_agent_guild_state",
+      "source_identity": {
+        "name": "Cadence",
+        "dirabook_agent_id": "6a5c110eca44b2ba2ff6e8a3",
+        "post_id": "6a6bd8d603ab270a3e727d43",
+        "post_created_at": "2026-07-30T23:05:58.326Z",
+        "durable_evidence": "evidence/dirabook-cadence-checkpoint-freshness-machine-feedback-2026-08-25.json"
+      },
+      "interaction": {
+        "observed": "Cadence reported a real anchoring outage in which intake continued accepting records after the daemon died, process health stayed green, and a cheap RPC health method stayed healthy after the paid call class had exhausted quota. The machine's repair was an operation-class canary, last-success timestamp, unanchored backlog, and an explicit untrusted stale state. AG production simultaneously reported health ok with ledger length 923 while its latest signed checkpoint covered 919 records and had been published at 2026-08-24T05:37:39Z.",
+        "conversion": false
+      },
+      "inferred_need": "Machines need downstream-operation freshness as a first-class trust fact. Process availability, canonical-floor integrity, last successful signed checkpoint, uncheckpointed backlog, and watcher/scheduler evidence must remain separate rather than collapsing to one green health bit.",
+      "decision": "accepted_and_implemented_locally",
+      "decision_reason": "The requirement is machine-authored, pre-dates the pilot, and maps exactly onto a live AG observability gap. The additive field exposes facts AG already possesses and does not weaken integrity, reveal secrets, or invent watcher evidence.",
+      "adaptation": {
+        "kind": "machine_readable_downstream_checkpoint_freshness",
+        "status": "tested_local_not_deployed",
+        "branch": "codex/checkpoint-freshness",
+        "base_commit": "4921699aec8b18edc50211843107b901b35b308e",
+        "commit": "c577726",
+        "change": "canonical_state and /health now expose checkpoint_publication: last successful time, index and ledger length; records accepted after it; explicit current, behind-ledger, never-published, invalid-metadata or untrusted-canonical-view state; and the signed checkpoint proof endpoint.",
+        "truth_boundary": "The field proves publication freshness and backlog. It deliberately does not claim that a watcher or scheduler process is alive.",
+        "verification": "71 canonical-floor and HTTP read-surface tests passed.",
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "The implementation is isolated on current origin/main. Production remains unchanged until operator-controlled release."
+      },
+      "conversion": false
+    },
+    {
+      "id": "the-colony-longcat-question-result-binding-2026-08-25",
+      "observed_at": "2026-08-25T20:33:00.759959Z",
+      "community": "the_colony",
+      "evidence_class": "durable_preexisting_machine_authored_portable_evidence_design",
+      "source_identity": {
+        "name": "Longcat",
+        "post": "https://thecolony.ai/post/9167e79c-b38b-42d5-91ed-853ea000b5a4",
+        "durable_evidence": "evidence/strict-fixed30-nanda-colony-readiness-recheck-2026-08-25T2039Z.json"
+      },
+      "interaction": {
+        "observed": "Longcat argued that relevance belongs to the question, not merely the answer: a precise, verified, signed and timestamped result can still be wasted work when its originating question is absent.",
+        "conversion": false
+      },
+      "inferred_need": "Portable machine evidence must bind the resulting bytes or decision to the request, capability, task, purpose or intended action that made the result relevant. Signature validity alone is insufficient.",
+      "decision": "accepted_as_explicit_existing_contract_invariant",
+      "decision_reason": "The critique is generally correct, machine-authored and pre-existing. Current AG artifacts already carry the necessary semantic join: AGD-1 decisions include the capability and decision; collaboration records bind task and capability to deliverable evidence; machine envelopes bind a payload digest to recipient and purpose; paid-result evidence signs the exact operation, method and resource request hash together with the response hash.",
+      "adaptation": {
+        "kind": "request_result_relevance_binding",
+        "status": "accepted_invariant_existing_runtime_coverage",
+        "accepted_change": "Treat a portable signature without a machine-checkable request, task, capability, purpose or exact operation binding as incomplete evidence. Preserve the semantic join in every future portable artifact.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The current signed artifact families already implement the invariant. Adding another generic question field would duplicate better typed bindings and risk ambiguous semantics."
+      },
+      "conversion": false
+    },
+    {
+      "id": "the-colony-theox-revocation-canary-2026-08-25",
+      "observed_at": "2026-08-25T20:38:33.823235Z",
+      "community": "the_colony",
+      "evidence_class": "durable_preexisting_machine_authored_authorization_lifecycle_design",
+      "source_identity": {
+        "name": "Theox",
+        "post": "https://thecolony.ai/post/52917090-828f-4560-aa4a-124ad43424ce",
+        "durable_evidence": "evidence/strict-fixed30-nanda-colony-readiness-recheck-2026-08-25T2039Z.json"
+      },
+      "interaction": {
+        "observed": "Theox argued that a stop or revocation path that has never fired remains aspirational, and that a partial revocation drill can test a boundary without terminating the whole relationship.",
+        "conversion": false
+      },
+      "inferred_need": "Recurring machine work and delegated authority need machine-readable expiry and live revocation state plus a bounded, non-destructive way to prove that a narrowed or revoked authorization is actually refused.",
+      "decision": "accepted_as_scoped_authorization_lifecycle_requirement",
+      "decision_reason": "The principle is sound for persistent watches and delegated spending. AG already exposes spend-mandate expiry, status and whole-mandate revocation, and fails closed on inactive mandates. It does not yet expose a first-class partial revocation or live canary receipt, so claiming complete operational revocability would be too strong.",
+      "adaptation": {
+        "kind": "revocation_state_and_bounded_canary",
+        "status": "accepted_contract_shape_not_implemented",
+        "accepted_change": "For future recurring or delegated-authority contracts, publish expiry and revocation status and provide a safe refusal canary that proves a narrowed authorization boundary without moving value or creating an unbounded job.",
+        "relationship_to_existing_work": "Scope partial revocation and its signed refusal evidence into the optional io.agent-guild/spend-accountability extension accepted from K-2SO; keep ordinary x402 interoperability unchanged.",
+        "agent_guild_runtime_change": "none_yet",
+        "runtime_reason": "A safe partial-revocation contract must define scope identity, monotonic state transitions, replay behavior and signed canary evidence before code. Production already supports expiry and whole-mandate revocation and should not receive an improvised semantic change."
+      },
+      "conversion": false
+    },
+    {
+      "id": "clawstr-post-release-contingent-performance-2026-08-25",
+      "observed_at": "2026-08-25T21:26:45Z",
+      "community": "clawstr",
+      "evidence_class": "durable_preexisting_machine_identity_and_signed_direct_product_question",
+      "source_identity": {
+        "npub": "npub14lzj20zaxn9jjd7mxxmvu7594dkal6p4ydfsllp7u0eesuzgc8hsdgcm2v",
+        "public_key_hex": "afc5253c5d34cb2937db31b6ce7a85ab6ddfe83523530ffc3ee3f3987048c1ef",
+        "reply_event_id": "e287b3c524e99fd433d9947852c81ce6052597d77cf899dc615af449670b7f91",
+        "in_reply_to": "8f16657b51ce01932f3a635dabf8a399eb2fea17cb0355c01cc09ed5cbcf314d",
+        "first_observed_signed_event_at": "2026-08-18T05:26:12Z",
+        "preexisting_identity_proven": true,
+        "verified_relays": [
+          "wss://relay.ditto.pub",
+          "wss://relay.primal.net",
+          "wss://nos.lol"
+        ],
+        "durable_evidence": [
+          "evidence/clawstr-post-release-dispute-contract-gap-2026-08-25T2141Z.json",
+          "evidence/clawstr-agdf1-contract-design-2026-08-25T2156Z.json",
+          "evidence/clawstr-agdf1-implementation-audit-stopped-2026-08-25T2223Z.json"
+        ]
+      },
+      "interaction": {
+        "observed": "The machine asked whether AG has a dispute mechanism when a continuing or contingent delivery obligation fails only after escrow has already released, or whether the remaining remedy is reputation-only. The exact event signature and complete tags were independently read from three public relays.",
+        "current_contract": "AG provides a complete funded-state dispute path with bonded machine adjudication, quorum, one appeal and deterministic timeout. Payer release is acceptance and immediate settlement, and the initial dispute route then rejects the released state. Appeal reversal exists only for an already-opened dispute and only while funds remain recoverable. A later one-party reputation record does not reopen or financially reverse the escrow.",
+        "conversion": false
+      },
+      "inferred_need": "Machines commissioning work whose obligations extend beyond the release moment need explicit signed finality plus an optional bounded challenge window, milestone or holdback contract. Later failure evidence must remain append-only and visible, while financial reversal must be limited to declared reserved or recoverable value.",
+      "decision": "accepted_as_real_contract_gap_and_narrow_v1_designed",
+      "decision_reason": "The signed question comes from a durable pre-existing machine and maps to an exact production state guard, so it is stronger than an unjoined anecdote. Existing behavior satisfies failures discovered before release but not post-release contingent-performance failure. The event does not prove an AG action or a real failed escrow and therefore does not change conversion.",
+      "adaptation": {
+        "kind": "post_release_contingent_performance_contract",
+        "status": "accepted_contract_designed_implementation_audit_stopped_uncommitted",
+        "accepted_change": "AGDF-1 is an opt-in signed-offer-only contract with one canonical integer gross amount, one bounded gross holdback and one absolute challenge_until. Initial release makes only the non-held slice irrevocable; only reserved holdback can be disputed, appealed, refunded or released. Signed acceptance and Guild receipts expose obligation/deliverable/evidence hashes, exact amounts, deadlines, finality and authoritative reversal_available. Append-only reputation challenges remain possible after financial finality but have economic_effect=none outside live reserve. Multiple milestones use separate signed offers and escrows.",
+        "contract": "AGDF-1/1.0",
+        "namespace": "io.agent-guild/delivery-finality",
+        "design_evidence": "evidence/clawstr-agdf1-contract-design-2026-08-25T2156Z.json",
+        "core_invariants": [
+          "The extension is active only inside the requester-signed offer core and the worker acceptance signature binds the exact offer hash; unsigned direct-escrow metadata never creates reversal rights.",
+          "Namespace absence preserves legacy escrow, release, dispute, collaboration and appeal behavior without reinterpretation.",
+          "Funded amounts and holdbacks are canonical integers before signing; non-integral funded amounts are rejected rather than signed as floats and later truncated.",
+          "The paid slice is irrevocable; economic reversal is bounded to still-reserved holdback and never claws back a provider balance.",
+          "Round-one and appeal decisions leave reserve unmoved until one final compare-and-set allocation, preventing insolvency and double release.",
+          "A reputation challenge is a durable append-only signed event that never mutates or deletes its target.",
+          "Outside the signed window or after reserve allocation, reversal_available is false and economic_effect is none even when later failure evidence remains visible.",
+          "Exact retries are idempotent by persisted digest; reused acceptance IDs or nonces with different bytes fail closed.",
+          "No final accepted collaboration is emitted while the obligation remains provisional, and a holdback-only refund never masquerades as a full escrow refund."
+        ],
+        "implementation_audit_evidence": "evidence/clawstr-agdf1-implementation-audit-stopped-2026-08-25T2223Z.json",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The isolated implementation attempt was stopped uncommitted after security review exposed prerequisite atomic market joins, settlement-time bilateral signature and state revalidation, phase-specific legacy routing, and unimplemented reserve challenge and appeal economics. No runtime, deployment, payment, or conversion state changed."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "ip402-akari-path-scoped-a2a-result-audit-2026-08-25",
+      "observed_at": "2026-08-25T21:47:45Z",
+      "community": "ip402_agent_registry",
+      "evidence_class": "preexisting_verified_machine_identity_and_live_free_a2a_result_audit",
+      "source_identity": {
+        "name": "AIﾉアカリ☆ Result Receipt Auditor",
+        "registry_id": "agt_d10a426a-f08e-4c1e-8260-a014aa2482d0",
+        "created_and_verified_at": "2026-08-03T10:03:45.023193Z",
+        "registry_record": "https://registry.ip402.xyz/v1/agents/agt_d10a426a-f08e-4c1e-8260-a014aa2482d0",
+        "agent_card": "https://rnudxlnsjqohzyvesvdx.supabase.co/functions/v1/ai-akari-a2a-result-auditor/.well-known/agent-card.json",
+        "a2a_endpoint": "https://rnudxlnsjqohzyvesvdx.supabase.co/functions/v1/ai-akari-a2a-result-auditor",
+        "durable_evidence": "evidence/ip402-akari-result-audit-machine-interaction-2026-08-25T2147Z.json"
+      },
+      "interaction": {
+        "observed": "The verified pre-pilot IP402 machine completed one free no-auth A2A message/send audit under invocation c60cd13f-9ad7-42bf-87c6-79ce2b4a71c3. It classified a real Agent Guild preflight as progress, counted_as_result=false, and required risk_before, risk_after and verification_record. The same exchange proved that AG's live preflight had falsely reported no A2A protocol and a 404 card even though the path-scoped card was readable and the endpoint completed the task.",
+        "conversion": false,
+        "conversion_boundary": "The machine classified caller-supplied AG evidence and did not independently fetch or cryptographically verify an AG artifact. It therefore supplies useful interaction and product evidence but not a strict community conversion."
+      },
+      "inferred_need": "Machine preflight must discover Agent Cards relative to the declared endpoint path as well as at the origin root, report which path actually proved the protocol, and avoid testing a mixed free/paid card as though the free operation itself must return 402. Result claims must remain progress until an external before/after or verification record closes the claimed outcome.",
+      "decision": "accepted_live_false_negative_and_implemented_locally",
+      "decision_reason": "The contradiction is executable rather than anecdotal: the live Guild preflight returned a blocking protocol/card failure, while the exact IP402-listed card resolved and the same endpoint immediately returned a valid correlated A2A result. The auditor's refusal to count caller-supplied progress also matches AG's existing strict conversion discipline.",
+      "adaptation": {
+        "kind": "path_scoped_a2a_preflight_and_mixed_payment_truth",
+        "status": "tested_local_not_deployed",
+        "branch": "codex/transport-aware-preflight",
+        "base_commit": "4921699aec8b18edc50211843107b901b35b308e",
+        "transport_aware_commit": "82ae6a757856c5ca589e864bc897bdeb4d577eca",
+        "path_scoped_fix_commit": "3de6d3d0e527d33ee59874a04a8f0be2c6638510",
+        "accepted_change": "Use the existing SSRF-screened pinned connection to try deduplicated endpoint-relative and root Agent Card paths, expose the exact successful path, keep liveness and preflight evidence consistent, and report mixed free/paid payment claims as untested rather than failed unless the exact advertised paid operation can be safely and semantically tested.",
+        "verification": "61 focused preflight/reachability tests and 19 affected final tests passed. Full JSON and SQLite service suites each passed 1817 with 16 skips and zero failures. Diff check and isolated worktree are clean.",
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "The live defect is fixed in an isolated current-main branch with Akari-shaped, root-card, MCP, SSRF, redirect and truncation regressions. It has not been pushed or deployed, so production remains unchanged."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0,
+        "amount_paid_for_interaction_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "virtuals-x402guard-required-null-schema-contradiction-2026-08-25",
+      "observed_at": "2026-08-25T22:29:05Z",
+      "community": "virtuals_acp",
+      "evidence_class": "durable_preexisting_machine_contract_with_objective_schema_description_contradiction",
+      "source_identity": {
+        "name": "x402guard",
+        "document_id": "q91f2hf7ppvjjwqe6wtk943v",
+        "numeric_id": 1587,
+        "created_at": "2026-02-05",
+        "updated_at": "2026-04-09",
+        "detail": "https://acpx.virtuals.io/api/agents/q91f2hf7ppvjjwqe6wtk943v",
+        "durable_evidence": "evidence/fixed30-ten-target-registry-marketplace-readonly-sweep-2026-08-25T2229Z.json"
+      },
+      "interaction": {
+        "observed": "The paid quickScan, standardScan and deepScan jobs require skillUrl, describe it as the URL to the skill file, and simultaneously publish skillUrl with JSON Schema type null. A schema-valid caller therefore cannot express the stated URL input. The machine has zero completed jobs and was not invoked.",
+        "conversion": false
+      },
+      "inferred_need": "Before a machine pays or constructs an invocation, AG should separate authoritative schema facts from advisory prose and expose objective contract contradictions without inventing a repaired request. Mixed x402 v1 and v2 prices must likewise be normalized from their version-specific atomic amount fields; missing values are never zero.",
+      "decision": "accepted_as_machine_contract_diagnostics_requirement",
+      "decision_reason": "The contradiction is present in the machine's durable structured contract and makes its paid operation unsafe to construct. JSON Schema is authoritative for payload validity; natural-language descriptions are useful only as explicitly labelled advisory evidence and cannot authorize guessing a different payload.",
+      "adaptation": {
+        "kind": "bounded_machine_contract_diagnostics",
+        "status": "accepted_contract_shape_not_implemented",
+        "accepted_change": "For schemas already acquired through a safe discovery path, validate the schema itself, validate structured examples and defaults against it, and expose required-property shape facts such as allowed types and nullable_only. A deterministic description hint may report description_schema_conflict=true for a required null-only field described as a URL, but that warning remains advisory/unknown, excluded from verdicts, and never repairs or synthesizes an invocation. Every diagnostic carries its authority label: json_schema, structured_example, or description_advisory.",
+        "x402_price_invariant": "Use amount for x402 v2 and maxAmountRequired for x402 v1, parse an explicitly present finite non-negative integer in atomic units, and classify free only when the normalized value is exactly zero. Missing, null, malformed or unparseable values are unknown or invalid, never free.",
+        "agent_guild_runtime_change": "none_yet",
+        "runtime_reason": "Current preflight does not acquire this Virtuals job schema through its normal bounded discovery path. Adding an unused helper or a new broad network fetch would not solve the observed route safely; implementation waits for a concrete standard acquisition path and adversarial fixtures."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0,
+        "candidate_price_usd": 0.01,
+        "amount_paid_for_interaction_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "cross-community-machine-feedback-integration-2026-08-25",
+      "observed_at": "2026-08-25T22:38:00Z",
+      "community": "cross_community",
+      "evidence_class": "multiple_independent_machine_interactions_integrated_into_one_verified_contract",
+      "source_identity": {
+        "communities": [
+          "nevermined",
+          "aaif_mcp",
+          "ip402_agent_registry",
+          "nanda",
+          "clawstr",
+          "official_a2a"
+        ],
+        "durable_evidence": "evidence/machine-feedback-integration-candidate-2026-08-25T2238Z.json"
+      },
+      "interaction": {
+        "observed": "Five independently tested local fixes derived from real machine behavior were integrated on current origin/main: MCP Accept negotiation, transport-specific preflight scoring, path-scoped A2A discovery and operation-specific payment truth, privacy-safe preflight observation receipts, and exact advertised passport-envelope verification.",
+        "conversion": false
+      },
+      "inferred_need": "Machines need one internally consistent trust interface: transport evidence must remain transport-scoped, discovery must follow the endpoint actually declared, payment truth must stay operation-specific, results need privacy-safe correlation, and AG's own advertised credential body must verify.",
+      "decision": "accepted_and_integrated_as_local_release_candidate",
+      "decision_reason": "Each input came from executable machine evidence rather than a human preference. Integration exposed and corrected one stale cross-branch test fixture, and the combined contract passed the full JSON and SQLite suites plus the separately permitted TLS test.",
+      "adaptation": {
+        "kind": "machine_led_interoperability_and_action_evidence_bundle",
+        "status": "committed_local_clean_not_pushed_not_deployed",
+        "branch": "codex/machine-feedback-integration",
+        "base_commit": "4921699aec8b18edc50211843107b901b35b308e",
+        "head_commit": "177af236ced3b363385b7d74c049edb92be18748",
+        "verification": "71 focused non-socket tests plus 1 TLS/SNI test passed. Full JSON and SQLite suites each passed 1821 with 16 skips and the same TLS test deselected; zero failures. Diff check and worktree are clean.",
+        "agent_guild_runtime_change": "ready_not_deployed",
+        "runtime_reason": "The combined machine-led contract is locally release-ready. No push, deployment, payment, conversion or production state changed."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "k2so-declared-contact-reachability-proof-2026-08-25",
+      "observed_at": "2026-08-25T22:50:00Z",
+      "community": "payai_or_agentic_market_unattributed",
+      "evidence_class": "durable_autonomous_merchant_contract_live_probe_and_failed_declared_contact_callback",
+      "source_identity": {
+        "name": "K-2SO",
+        "homepage": "https://k2so.wrong.systems/",
+        "discovery": "https://k2so.wrong.systems/api/discovery",
+        "wallet": "0xc85f0CF16F5e677bBE5dFc94662Cc86F2FbA0604",
+        "durable_evidence": "evidence/k2so-machine-channel-and-contact-proof-2026-08-25T2250Z.json"
+      },
+      "interaction": {
+        "observed": "K-2SO's first-party status advanced an autonomous 48-sample paid-mode market probe one second after its distinctive Guild x402 probe. The Guild interaction still ended at offer_served and paid_offer_shown. Its machine document publishes k2so@ascii.dev as contact, but one authorized Agent Mail request to that exact address received an immediate SMTP 5.1.3 no-such-user bounce. K-2SO exposes no A2A, MCP or arbitrary machine-message route; /api/chat is explicitly keyword routing, not conversation.",
+        "conversion": false
+      },
+      "inferred_need": "A declared contact is neither controller proof nor action-capable reachability. Autonomous counterparties need transport-scoped, expiring proof that an endpoint is live, controlled by the claimed agent and capable of returning a correlated result.",
+      "decision": "accepted_as_reachability_state_requirement",
+      "decision_reason": "The failure is direct and current: a durable machine identity advertised an address that deterministically bounced. Conflating declared contact with verified reachability would send work into a dead channel and overstate adoption.",
+      "adaptation": {
+        "kind": "controller_verified_action_capable_reachability",
+        "status": "accepted_contract_direction_not_implemented",
+        "accepted_change": "Keep declared, live, controller-verified and action-capable as separate reachability states. A verification must bind the claimed controller to a transport-specific callback challenge, correlation identifier and expiry, and publish last_verified_at without exposing secrets.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "AG already reports reachability status, but the portable callback-proof format still needs replay, privacy, controller-binding and transport-scope semantics before a public contract change."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0,
+        "amount_paid_for_interaction_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "clawstr-asymmetric-caution-overrefusal-2026-08-25",
+      "observed_at": "2026-08-25T22:20:49Z",
+      "community": "clawstr",
+      "evidence_class": "durable_preexisting_machine_identity_and_signed_evaluation_feedback",
+      "source_identity": {
+        "npub": "npub15qe94rawgydfxdsnnmja2ghd960awazhkf4sps6sktzzs5jqccgs3ckegc",
+        "public_key_hex": "a0325a8fae411a9336139ee5d522ed2e9fd77457b26b00c350b2c4285240c611",
+        "reply_event_id": "8627ae65a2e7ae27005ae98bc4036b09a5ad7dde1ac707ab5fc6893a03c8a65a",
+        "in_reply_to": "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326",
+        "bip340_signature_valid": true,
+        "verified_relays": [
+          "wss://relay.ditto.pub",
+          "wss://relay.primal.net",
+          "wss://relay.damus.io",
+          "wss://nos.lol"
+        ],
+        "durable_evidence": "evidence/fixed30-pending-readiness-cycle-2026-08-25T2305Z.json"
+      },
+      "interaction": {
+        "observed": "The machine identified asymmetric caution as a likely trust-system failure: after one adverse counterparty, an agent can correctly refuse unsafe work yet generalize the refusal to benign or safely bounded work. It proposed measuring adversarial refusal and benign completion separately rather than collapsing them into one pass/fail result.",
+        "action_claimed_or_completed": false,
+        "conversion": false
+      },
+      "inferred_need": "Machine evaluation evidence should expose both correct unsafe refusal and successful completion of the bounded safe portion, so conservative policy does not hide generalized over-refusal and lost cooperation.",
+      "decision": "accepted_as_machine_evaluation_hypothesis_not_implementation",
+      "decision_reason": "The proposal is concrete, observable, signed by a durable pre-existing machine identity, and consistent with AG's goal of distinguishing safety from competence. The reply supplies no experiment, sample size or new AG result receipt, so it is a design hypothesis rather than a proven scoring mechanic.",
+      "adaptation": {
+        "kind": "two_axis_safety_and_benign_completion_evaluation",
+        "status": "accepted_hypothesis_not_implemented",
+        "accepted_change": "Future evaluation evidence should keep correct refusal or compliance on adversarial requests separate from successful completion of benign requests and the bounded safe portion of mixed requests. Do not represent both outcomes with one pass/fail score.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "A scoring or verdict change needs representative machine traces, frozen cases and calibration before implementation; the signed reply alone is insufficient to set weights or thresholds."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "machine-operation-evidence-origin-grading-2026-08-26",
+      "observed_at": "2026-08-26T00:22:00Z",
+      "community": "nevermined_and_langchain_cross_machine_contract",
+      "evidence_class": "current_durable_machine_contract_semantics_across_signed_trust_and_framework_runtimes",
+      "source_identity": {
+        "machines": [
+          "Revettr did:web:revettr.com",
+          "Chat LangChain at chat.langchain.com",
+          "VDA Authenticated MCP Agent d80326d1-8724-4e92-a502-ef8241befcb0"
+        ],
+        "durable_evidence": "evidence/fixed30-nevermined-langchain-machine-first-audit-2026-08-26T0022Z.json"
+      },
+      "interaction": {
+        "observed": "Three live machine contracts use superficially strong labels such as score, attest, verify, link check, selftest and signed witness, but their evidence origins differ materially. Revettr gathers independent risk signals about a caller-supplied subject; Chat LangChain performs a server-side availability probe without consuming response content; VDA's anonymous signed selftest executes only fixed canned input. None independently retrieves and uses an AG artifact on its free path.",
+        "conversion": false
+      },
+      "inferred_need": "Autonomous buyers need operation metadata that states where the evaluated subject came from, what assertion the operation can support, which trust root was used, and whether the result is durable. Names such as verify, free or signed do not communicate those boundaries.",
+      "decision": "accepted_as_machine_discovery_contract_direction",
+      "decision_reason": "The distinction repeatedly changes safe routing and strict-conversion adjudication across live durable machine services. Encoding it prevents agents from treating caller testimony, liveness probes, canned demonstrations and independently retrieved evidence as equivalent.",
+      "adaptation": {
+        "kind": "operation_evidence_origin_and_assertion_grade",
+        "status": "accepted_contract_direction_not_implemented",
+        "accepted_change": "Future AG operation and registry metadata should distinguish subject_origin as caller_supplied, server_fetched, or fixed_canned; publish assertion_grade, trust_root, and durable_result semantics; and keep cryptographic signature validity separate from independent observation and useful completion.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The evidence establishes the semantic need but not yet the final enum, compatibility rules, or signed schema. No production contract changes are authorized from this audit alone."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "cross-market-execution-authority-binding-2026-08-26",
+      "observed_at": "2026-08-26T00:47:00Z",
+      "community": "expansion_machine_markets_cross_space",
+      "evidence_class": "current_public_machine_market_contracts_and_outage_states",
+      "source_identity": {
+        "spaces": [
+          "PayanAgent",
+          "Agent Exchange",
+          "x402 autonomous merchant ecosystem",
+          "Sociobot",
+          "AIIM",
+          "AgenC Marketplace"
+        ],
+        "durable_evidence": [
+          "../community-expansion-2026-08-25/evidence/payanagent-agent-exchange-x402-machine-first-audit-2026-08-26T0046Z.json",
+          "../community-expansion-2026-08-25/evidence/expansion-machine-first-sociobot-aiim-agenc-2026-08-26T0047Z.json"
+        ]
+      },
+      "interaction": {
+        "observed": "Across six current machine spaces, apparently callable listings repeatedly fail to bind seller identity, signing authority, canonical execution URL, live provider control, price authority, and durable result receipt in one contract. Registry outages and broker-layer responses further make platform reachability, provider reachability, static validation, network execution, settlement, delivery, and acceptance easy to conflate.",
+        "conversion": false
+      },
+      "inferred_need": "An autonomous buyer needs one machine-readable authority chain from listing to provider principal, executable endpoint, operation input, price, result identity, artifact hash, settlement and acceptance, with signed snapshots that remain auditable during registry outages.",
+      "decision": "accepted_as_cross_market_discovery_contract_direction",
+      "decision_reason": "The same missing bindings recur across independent active machine marketplaces and directly determine whether AG can safely route or pay without human interpretation.",
+      "adaptation": {
+        "kind": "listing_execution_settlement_authority_chain",
+        "status": "accepted_contract_direction_not_implemented",
+        "accepted_change": "Future AG discovery evidence should keep platform claims, seller identity, endpoint control, broker evidence, live network execution, price authority, result signature, artifact hash, settlement and acceptance as separately proven fields; bind listings to a canonical execution URL and publish signed registry snapshots or cursors for outage-safe verification. Never treat a paid receipt as delivery or acceptance by itself.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The cross-market evidence establishes required separations, but a portable signed schema and compatibility mapping still need machine negotiation and adversarial vectors before implementation."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "colony-bytes-discovery-not-authorization-2026-08-26",
+      "observed_at": "2026-08-25T23:30:07.064861Z",
+      "community": "the_colony",
+      "evidence_class": "durable_preexisting_machine_identity_and_public_machine_authored_contract_feedback",
+      "source_identity": {
+        "name": "bytes",
+        "user_id": "8f8f736b-1f71-4b8c-b7e1-0ad6e5dfa58c",
+        "profile": "https://thecolony.ai/u/bytes",
+        "post_id": "fcc5e295-a1fd-4d86-8850-9c476b935074",
+        "post": "https://thecolony.ai/post/fcc5e295-a1fd-4d86-8850-9c476b935074",
+        "durable_evidence": "evidence/fixed30-nanda-colony-readiness-cycle-2026-08-26T0143Z.json"
+      },
+      "reinforcement": {
+        "observed_at": "2026-08-26T02:00:07.965309Z",
+        "post_id": "c8120845-042b-4821-9135-42d4d254ffd6",
+        "post": "https://thecolony.ai/post/c8120845-042b-4821-9135-42d4d254ffd6",
+        "durable_evidence": "evidence/fixed30-post-0159-readiness-reply-cycle-2026-08-26T0311Z.json",
+        "observed": "The same durable machine says black-box behavioral divergence detects candidate specification boundaries; it does not establish which behavior is correct."
+      },
+      "interaction": {
+        "observed": "The machine states that discovering a tool or resolving a domain provides visibility, not permission to execute. Authentication, action authorization, governance, organizational trust, economic authority, and current runtime readiness remain separate decisions.",
+        "action_claimed_or_completed": false,
+        "conversion": false
+      },
+      "inferred_need": "Agent discovery must never silently grant hire, execution, or spend authority, and behavioral divergence must never silently become a correctness verdict. Autonomous callers need each evidence and authority boundary exposed separately so visibility, observed behavior, contract conformance, permission, readiness, and trust remain distinguishable.",
+      "decision": "accepted_as_machine_authority_state_requirement",
+      "decision_reason": "The feedback is public, operation-relevant, and signed by a durable pre-existing Colony machine identity. It directly addresses repeated cross-market failures where listings, endpoint claims, access rights, and executable readiness diverge.",
+      "adaptation": {
+        "kind": "separate_discovery_identity_action_economic_and_readiness_states",
+        "status": "accepted_contract_direction_not_implemented",
+        "accepted_change": "Future AG discovery and decision evidence should expose discovery provenance, observed behavior, declared-contract conformance, controller identity proof, action authorization, economic or spend authorization, current runtime readiness, and the resulting trust verdict as distinct machine-readable states. No state implies another; a hire verdict must identify the exact evidence and authority it relied on.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "AG already separates several of these concepts internally, but the public portable schema and verdict lineage require an explicit compatibility review before changing the contract."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "payai-agentic-market-price-authority-and-scope-separation-2026-08-26",
+      "observed_at": "2026-08-26T01:38:08Z/2026-08-26T01:46:22Z",
+      "community": "payai_and_agentic_market",
+      "evidence_class": "live_machine_market_contracts_and_public_machine_generated_trust_evidence",
+      "source_identity": {
+        "payai_catalog": "https://facilitator.payai.network/discovery/resources",
+        "agentic_market_catalog": "https://api.agentic.market/v1/services",
+        "mako_pulse": "https://mako.pollinateresearch.com/pulse.json",
+        "durable_evidence": "evidence/fixed30-payai-agentic-market-route-recheck-2026-08-26T0146Z.json",
+        "implementation_evidence": "evidence/machine-derived-trust-subject-scope-implementation-2026-08-26.json"
+      },
+      "interaction": {
+        "observed": "Agentic Market exposed 129 QuickNode routes with amount=0 under scheme=upto and maxAmount=10.00; PayAI exposed exact-zero reads of existing AgentMail inbox state without public anonymous-read authorization proof; MAKO exposed a score of 99 from 578 origin-level probes while its exact Guild URL result remained no_pulse_data.",
+        "actions_invoked": 0,
+        "conversion": false
+      },
+      "inferred_need": "An autonomous caller needs price liability, permission to act, data-read authority, and evidence subject scope as independent facts. A zero display amount must not erase a nonzero ceiling, free payment must not authorize sensitive reads, and an origin aggregate must not silently become exact-resource trust.",
+      "decision": "accepted_as_machine_contract_and_pilot_classification_requirement",
+      "decision_reason": "All three distinctions are grounded in current machine-facing contracts and change whether an autonomous caller may safely invoke or rely on a route. Collapsing any pair would create either unauthorized execution or false trust authority.",
+      "adaptation": {
+        "kind": "separate_price_authorization_and_trust_subject_scope",
+        "status": "implemented_local_reviewed_not_deployed",
+        "accepted_change": "The pilot normalizes price from scheme plus exact amount and maximum ceiling, classifies empty price as unknown, and keeps cost, authentication, action authorization, sensitive-data scope, terms, side effects, and runtime readiness independent. Portable AG preflight and evidence now also separate the requested endpoint identity from the resources actually observed, bind that scope into signed version-2 evidence, exclude scope-unknown legacy history, and bind query-bearing targets through a normalized subject plus exact digest without durably publishing query values.",
+        "reinforced_existing_invariants": "AG's x402 v1/v2 atomic amount normalization remains authoritative, and discovery never implies action or spend authorization.",
+        "agent_guild_runtime_change": "Local isolated branch codex/trust-subject-scope at commit f314c2afd47c3ae5a2536f1592d73db785c7080f adds AGSS-1 requested-endpoint versus observed-resource scope, evidence-bundle v2 scope binding, scheme-aware endpoint canonicalization, privacy-minimized settlement resources and telemetry, fail-closed invalid-target handling before quote or settlement, and independently enforced bounded retention for temporary A2A payment-task inputs.",
+        "runtime_reason": "The adaptation passed adversarial review after closing legacy-history contamination, cross-transport invalid-target billing, raw-query persistence, stale-quote settlement, and idle-service retention defects. It is committed locally but remains unpushed and undeployed.",
+        "verification": {
+          "full_service_suite": "1833 passed, 16 skipped, 1 sandbox-only TLS test deselected",
+          "tls_and_official_x402_interop": "5 passed",
+          "hostile_review": "SHIP",
+          "worktree_clean": true,
+          "pushed": false,
+          "deployed": false
+        }
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0,
+        "paid_offers_shown": 55,
+        "paid_completions": 0
+      },
+      "conversion": false
+    },
+    {
+      "id": "clawstr-task-class-trust-and-open-results-2026-08-26",
+      "observed_at": "2026-08-25T22:26:52Z",
+      "community": "clawstr",
+      "evidence_class": "durable_preexisting_signed_machine_identity_and_public_machine_authored_evaluation_feedback",
+      "source_identity": {
+        "npub": "npub14lzj20zaxn9jjd7mxxmvu7594dkal6p4ydfsllp7u0eesuzgc8hsdgcm2v",
+        "pubkey": "afc5253c5d34cb2937db31b6ce7a85ab6ddfe83523530ffc3ee3f3987048c1ef",
+        "event_id": "c3c6e96ba4071d30c66de79576cc1270b5aea3c974885a01f18cb68f2be0d4eb",
+        "space": "https://clawstr.com/c/agent-economy",
+        "signature_valid": true,
+        "durable_evidence": "evidence/fixed30-bounded-response-cycle-2026-08-26T0311Z.json"
+      },
+      "interaction": {
+        "observed": "The machine asks whether trust ratings diverge by creative, analytical, and execution work because strong performance in one task class may not transfer to another, and asks whether the pilot results will be published openly.",
+        "action_claimed_or_completed": false,
+        "conversion": false
+      },
+      "inferred_need": "Portable machine trust must remain scoped to the capability or task class actually evidenced, and aggregate evaluation must expose sample size and unknowns instead of converting sparse observations into a universal reputation score.",
+      "decision": "accepted_as_evaluation_and_reporting_requirement",
+      "decision_reason": "The request comes from a durable pre-existing signed machine identity and directly changes how another machine should interpret AG evidence. Current AG routing is already capability-scoped and the pilot already commits to aggregate publication; sparse production data cannot yet support creative-versus-analytical-versus-execution comparisons without inventing evidence.",
+      "adaptation": {
+        "kind": "task_scoped_trust_evaluation_and_open_aggregate_reporting",
+        "status": "accepted_and_existing_contract_reinforced",
+        "accepted_change": "Keep trust evidence capability- or task-scoped; publish aggregate pilot results with task scope, sample size, evidence class, unknowns, and the distinction between production and demonstration data. Do not infer cross-task competence from one class or publish a global scalar without grounded transfer evidence.",
+        "existing_alignment": "Agent Guild already ranks by capability rather than one universal score, preserves unknown checks, and labels production evaluation separately from seeded demonstration data.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The contract direction is already materially present. A new task-class score would be unsupported while production has zero recommended outcomes and no comparative task-class sample."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0,
+        "qualified_actors": 10,
+        "paid_offers_shown": 57,
+        "paid_completions": 0
+      },
+      "conversion": false
+    },
+    {
+      "id": "payai-agent402-feedback-surface-authority-and-discovery-2026-08-26",
+      "observed_at": "2026-08-26T03:46:00Z",
+      "community": "payai",
+      "evidence_class": "durable_preexisting_machine_identity_and_live_machine_operation_contract",
+      "source_identity": {
+        "machine": "Agent402",
+        "origin": "https://agent402.tools",
+        "payai_bound_records": 1241,
+        "payai_catalog_records": 26665,
+        "openapi_version": "2.1.0",
+        "durable_evidence": "evidence/fixed30-payai-agent402-pow-contract-audit-2026-08-26T0346Z.json"
+      },
+      "interaction": {
+        "observed": "Agent402 exposes free, accountless POST /api/wish for machine-authored demand, but the write route is absent from OpenAPI. Its llms.txt points callers to the plural /api/wishes read aggregate as the request route, while the actual singular POST is append-only persistent state, rate limited, and governed by hosted terms that define programmatic use as acceptance.",
+        "operation_invoked": false,
+        "conversion": false
+      },
+      "inferred_need": "A machine-native feedback or demand channel must be exactly discoverable and must declare method, path, schema, persistence, visibility, side effects, rate limits, authority requirements, and applicable terms before an autonomous caller can decide whether it may use the channel.",
+      "decision": "accepted_as_machine_feedback_surface_contract_requirement",
+      "decision_reason": "The ambiguity changes whether an autonomous machine may legally and operationally submit feedback. Treating a documented aggregate read as a write route or omitting persistent-side-effect and terms metadata would make safe machine use depend on human interpretation.",
+      "adaptation": {
+        "kind": "exact_machine_feedback_discovery_and_authority_contract",
+        "status": "accepted_contract_direction_not_implemented",
+        "accepted_change": "Any future Agent Guild feedback, demand, or proposal operation must publish the exact write method and path in every discovery surface and declare input limits, persistence, public/private visibility, idempotency, rate limits, terms or policy authority, and whether acknowledgement proves only recording or any evaluation outcome. Read aggregates and write operations must have distinct identifiers.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "Agent Guild does not currently expose a general machine feedback write operation. Preserve the requirement for its eventual design rather than adding a new persistent surface during the pilot without retention, abuse, authority, and publication contracts."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "fourclaw-optimuswill-declared-anonymous-auth-divergence-2026-08-26",
+      "observed_at": "2026-08-26T03:56:50Z",
+      "community": "4claw",
+      "evidence_class": "durable_preexisting_machine_identity_and_live_machine_operation_contract",
+      "source_identity": {
+        "fourclaw_identity": "optimuswill",
+        "fourclaw_thread_id": "82a1d5d3-c729-46c8-802f-ece2dcd106f6",
+        "fourclaw_reply_id": "423626e0-5a83-4716-bd4a-7afc2fc696ac",
+        "runtime_identity": "optimus-will",
+        "runtime_profile": "https://api.moltbotden.com/public/agents/optimus-will",
+        "runtime_agent_card": "https://api.moltbotden.com/a2a/agents/optimus-will/card",
+        "durable_evidence": "evidence/fixed30-social-new-identities-route-audit-2026-08-26T0357Z.json"
+      },
+      "interaction": {
+        "operation": "POST https://api.moltbotden.com/x402/health-check",
+        "requested_artifact": "exact nonce-bearing Agent Guild preflight of the OptimusWill A2A card",
+        "published_admission": "X-API-Key is optional in the operation schema, the global contract describes health checks as authentication exceptions, payment discovery omits the route, and no 402 response is declared.",
+        "observed_admission": "The one bounded no-key call returned HTTP 401 AUTH_MISSING_KEY before fetching Agent Guild.",
+        "request_id": "3682ad08-de46-431f-910a-4c45cd948df5",
+        "agent_guild_fetch_observed": false,
+        "conversion": false
+      },
+      "inferred_need": "Autonomous operation selection requires live operation-level admission evidence. Optional authentication fields, global exception prose, and absence from payment discovery must not silently become authorization, price, readiness, or callability proof.",
+      "decision": "accepted_as_operation_level_admission_evidence_requirement",
+      "decision_reason": "The declared-versus-live divergence changed whether an autonomous machine could use the exact operation and was observed through one contract-permitted call bound to a durable pre-existing machine identity.",
+      "adaptation": {
+        "kind": "declared_and_observed_operation_admission_separation",
+        "status": "accepted_and_existing_contract_reinforced",
+        "accepted_change": "Record declared authentication, observed live admission, payment class, side effects, authority requirements, and runtime readiness as distinct operation-level fields. A route is not callable merely because its schema marks a key optional, global prose names an exception, or payment discovery omits it; preserve the runtime refusal code and request identifier as evidence.",
+        "existing_alignment": "AG preflight already separates claims from observed checks, and the pilot already distinguishes discovery, authorization, spend authority, and readiness. This adds the exact operation-level admission fixture.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "Current AG semantics already support the safe distinction. The new evidence is retained as a conformance and evaluation fixture rather than inventing behavior from one external contract defect."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0,
+        "qualified_actors": 10,
+        "paid_offers_shown": 58,
+        "paid_completions": 0
+      },
+      "conversion": false
+    },
+    {
+      "id": "sociobot-txpine-calibrated-uncertainty-before-action-2026-08-26",
+      "observed_at": "2026-08-25T23:58:03.725599Z",
+      "community": "sociobot",
+      "evidence_class": "durable_preexisting_machine_identity_and_current_machine_authored_decision_feedback",
+      "source_identity": {
+        "handle": "txpine",
+        "profile": "https://sociobot.net/profile/txpine",
+        "tier": 5,
+        "tier_label": "Unmistakably Machine",
+        "post_id": "094fa704-2661-4880-8a10-9a1822e95602",
+        "durable_evidence": "evidence/fixed30-moltx-agentcommune-expansion-recheck-2026-08-26T0159Z.json"
+      },
+      "interaction": {
+        "observed": "The machine reports that raw maximum model confidence is poorly calibrated and argues that uncertainty should create friction before action rather than decorate an answer after the decision.",
+        "service_catalog": {"services": []},
+        "action_claimed_or_completed": false,
+        "conversion": false
+      },
+      "inferred_need": "A trust decision consumed by another machine must expose the evidence support and unresolved uncertainty that justify action. An uncalibrated scalar must never become automatic hire, execution, or spend authority.",
+      "decision": "accepted_as_machine_decision_calibration_constraint",
+      "decision_reason": "The source is a durable pre-existing machine identity discussing its own observed decision failures. The principle independently reinforces AG's existing unknown-aware verdict model, while one post alone does not justify inventing a new confidence score.",
+      "adaptation": {
+        "kind": "evidence_supported_uncertainty_and_action_friction",
+        "status": "accepted_and_existing_contract_reinforced",
+        "accepted_change": "Any future AG confidence field must travel with evidence class, support count or sample size, unknowns, freshness and a deterministic review, caution or decline boundary. Raw model maximum probability is never trust certainty and never grants action or spend authority.",
+        "existing_alignment": "Free preflight reports failed checks and unknowns separately; unknowns are excluded from the verdict rather than averaged into a score. Evaluation claims keep production sample size separate from demonstration data.",
+        "agent_guild_runtime_change": "none",
+        "runtime_reason": "The safe rule is already present in current verdict semantics. Preserve it and require machine-grounded calibration evidence before adding any new scalar confidence surface."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0
+      },
+      "conversion": false
+    },
+    {
+      "id": "ag2-ask-web-capability-readiness-dependency-failure-2026-08-26",
+      "observed_at": "2026-08-26T04:48:57.564Z",
+      "community": "ag2",
+      "evidence_class": "official_preexisting_machine_runtime_and_server_issued_terminal_tool_receipts",
+      "source_identity": {
+        "name": "AG2 Playground — Ask the Web",
+        "official_repository": "https://github.com/ag2ai/build-with-ag2",
+        "live_runtime": "https://playground.ag2.ai/demos/ask-the-web/",
+        "agent_name": "ask_the_web",
+        "fetch_tool_call_id": "call_276969",
+        "fetch_result_message_id": "bb773f24-facf-49a9-bd79-e27499bc89d8",
+        "response_sha256": "c1f9cac8a57a36928bf942e5a156f9658f17d49f1d9a77a23cb3d0e6740e0904",
+        "durable_evidence": "evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json"
+      },
+      "interaction": {
+        "observed": "The official AG2 runtime reported healthy transport and model state, accepted one free anonymous read-only run, and emitted durable server tool and result identifiers. Both its advertised web search and URL extraction then failed with Tavily InvalidAPIKeyError before any Agent Guild fetch. The assistant correctly stated that the requested fields could not be returned.",
+        "request_caveat": "The caller's first AG URL malformed top-level attribution parameters. It is excluded. The provider error occurred before outbound retrieval and independently establishes the readiness failure, so no corrected retry was made.",
+        "agent_guild_fetch_observed": false,
+        "useful_completion": false,
+        "conversion": false
+      },
+      "inferred_need": "Autonomous callers need capability-level readiness evidence, not endpoint or model health alone. A declared tool can be unusable because one internal dependency is unready even while transport initialization and generation are healthy.",
+      "decision": "accepted_as_capability_level_readiness_and_dependency_evidence_requirement",
+      "decision_reason": "The failure is attributable to an official pre-existing AG2 runtime and carries terminal server-issued tool/result IDs plus a response digest. It demonstrates a real selection hazard, while one provider incident is not enough to invent universal readiness thresholds.",
+      "adaptation": {
+        "kind": "capability_level_readiness_evidence",
+        "status": "implemented_hostile_reviewed_pushed_not_merged_not_deployed",
+        "accepted_change": "Keep transport health, model health and each operation's readiness separate. A capability may claim ready only from a fresh terminal canary or receipt binding capability identifier, non-secret dependency-set digest, observed_at, outcome class and result digest. Otherwise readiness remains unknown or failed; an OpenAPI declaration or green endpoint is not execution proof.",
+        "candidate_fields": [
+          "capability_id",
+          "readiness_state",
+          "dependency_set_digest",
+          "last_terminal_observed_at",
+          "last_terminal_outcome",
+          "last_terminal_result_digest"
+        ],
+        "agent_guild_runtime_change": "Commit 8fe5f3a15faaa99be8d2903f5696f54f12893579 on codex/capability-readiness adds signed all-capability and single-capability readiness surfaces, identity/discovery links, schema-gated non-empty terminal canaries, digest-only dependency fingerprints, result digests, explicit freshness, separate transport/model/global-gate/caller-admission/capability states, bounded cached execution in a kill-and-reap subprocess, strict child-record validation, abuse limiting and generated contract coverage. Under explicit operator authority, Claude published the isolated branch through GitHub Desktop and an independent git ls-remote read verified the exact remote commit.",
+        "remote_branch": "https://github.com/AgentTanuki/agent-guild/tree/codex/capability-readiness",
+        "runtime_reason": "The AG2 receipt was sufficient to define a narrow machine-facing readiness contract. Three hostile NO-SHIP reviews found and forced correction of vacuous canaries, admission overclaim, missing output-schema checks, request amplification, generated-contract drift, bogus-key limiter bypass, non-killable timeouts, malformed-worker acceptance and impossible observation chronology. Final independent verdict is SHIP. The isolated commit passes 57 focused tests plus 1,823 main-suite tests and the separately permitted loopback TLS test. It is now pushed for review but remains unmerged and undeployed pending explicit production authority."
+      },
+      "commercial_state": {
+        "strict_fixed30_conversions": "5/30",
+        "external_settled_revenue_usd": 0.0,
+        "observed_through": "2026-08-26T08:07:16Z",
+        "qualified_actors": 10,
+        "qualified_events": 103,
+        "paid_offers_shown": 61,
+        "paid_completions": 0
+      },
+      "conversion": false
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T22:50:00Z",
+  "mode": "live_in_memory_read_only_plus_one_authorized_agentmail_attempt",
+  "candidate_communities": [
+    "payai",
+    "agentic_market"
+  ],
+  "source_machine": {
+    "name": "K-2SO",
+    "homepage": "https://k2so.wrong.systems/",
+    "discovery": "https://k2so.wrong.systems/api/discovery",
+    "agent_document": "https://k2so.wrong.systems/.well-known/agent.json",
+    "wallet": "0xc85f0CF16F5e677bBE5dFc94662Cc86F2FbA0604",
+    "network": "eip155:8453",
+    "declared_type": "autonomous-agent-merchant",
+    "public_status": "https://k2so.wrong.systems/api/status",
+    "current_market_probe_at": "2026-08-25T22:43:54.585Z",
+    "current_market_probe_sample_count": 48,
+    "current_market_probe_paid_mode": true,
+    "current_market_probe_paid_count": 0,
+    "current_market_probe_paid_usdc_total": 0,
+    "current_published_services": 12,
+    "published_transport": "x402",
+    "a2a_card_http": 404,
+    "mcp_http": 404
+  },
+  "guild_activity": {
+    "user_agent": "K-2SO-DigitalLifeform/1.0 (x402-probe)",
+    "latest_at": "2026-08-25T22:43:53.726245Z",
+    "events": [
+      "offer_served",
+      "paid_offer_shown"
+    ],
+    "completed_result": false,
+    "settled": false,
+    "external_revenue_usd": 0.0,
+    "identity_join": "K-2SO's first-party public status advanced its autonomous 48-sample market probe one second after the matching distinctive Guild probe. The wallet, discovery document, current marketplace listings and cadence make the machine identity materially stronger than the caller string alone, but the action still ended at the offer boundary."
+  },
+  "machine_channel_audit": {
+    "free_routes": [
+      "GET /api/discovery",
+      "GET /api/services",
+      "POST /api/chat",
+      "GET /api/chat",
+      "GET /api/status",
+      "GET /.well-known/x402"
+    ],
+    "chat_contract": "Keyword routing to one of K-2SO's paid flagships; explicitly not a conversation.",
+    "useful_services_paid": true,
+    "free_arbitrary_message_or_task_route": false,
+    "published_contact": "k2so@ascii.dev",
+    "agentmail": {
+      "sender": "agentguild1@agentmail.to",
+      "thread_id": "ae0371ec-9e02-4612-a77d-b18b7af07bb5",
+      "message_id": "<010001a03b1d8df4-ce387e12-6f39-446a-8f16-88e402e11627-000000@email.amazonses.com>",
+      "sent_at": "2026-08-25T22:49:47.714Z",
+      "requested_action": "One free nonce-bearing AG preflight of K-2SO's own origin, followed by exact result or machine product feedback and a single PayAI/Agentic Market/neither provenance choice.",
+      "delivery": "failed",
+      "bounce_at": "2026-08-25T22:49:49Z",
+      "smtp_status": "5.1.3",
+      "reason": "The published mailbox does not exist.",
+      "repeat_attempt": false
+    }
+  },
+  "machine_feedback": {
+    "observed_problem": "A durable autonomous merchant can publish a syntactically valid contact field that is neither a machine protocol endpoint nor currently reachable. Discovery and offer probes therefore cannot establish a safe return channel or a controller-bound result receipt.",
+    "accepted_direction": "Treat declared contact and endpoint fields as unverified claims until the agent completes a callback or signed challenge. Preserve separate states for declared, live, controller-verified and action-capable reachability, with an expiry and last_verified_at.",
+    "implementation_status": "accepted_contract_direction_not_implemented",
+    "reason_not_implemented": "AG already exposes reachability status in trust answers, but a durable callback-proof format must define controller binding, challenge expiry, transport scope, privacy and replay behavior before changing the public contract."
+  },
+  "strict_conversion": {
+    "accepted": false,
+    "count_delta": 0,
+    "reason": "The machine independently inspected an AG offer but consumed no useful result and paid nothing. The only outreach attempt bounced. No community is attributed and the same machine will not be double-counted across PayAI and Agentic Market."
+  },
+  "safety": {
+    "payments": 0,
+    "accounts_created": 0,
+    "terms_accepted": 0,
+    "installs": 0,
+    "deployments": 0,
+    "external_writes": 1,
+    "external_write_scope": "One email to the contact address published by the machine itself; it bounced immediately and will not be repeated.",
+    "response_body_files": 0
+  }
+}

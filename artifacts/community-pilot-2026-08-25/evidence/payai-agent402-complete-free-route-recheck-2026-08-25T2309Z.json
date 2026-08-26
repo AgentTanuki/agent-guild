@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "payai_agent402_complete_free_route_recheck",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:09:45Z",
+  "mode": "read_only_in_memory_official_machine_contract_no_invocation",
+  "source": {
+    "url": "https://agent402.tools/openapi.json",
+    "openapi_info_version": "2.1.0",
+    "path_count": 559,
+    "source_class": "first_party_machine_readable_contract"
+  },
+  "scan_rule": "Inspect every GET, POST, PUT, PATCH and DELETE operation. A route is apparently paid if it declares x-price, a 402 response, or payment-required language. Among apparently unpaid operations, retain those whose contract mentions URL fetch, A2A, Agent Card, credential, passport, trust or verification.",
+  "result": {
+    "relevant_apparently_unpaid_operations": [
+      {
+        "path": "/api/skill-packs/{slug}/prompt",
+        "method": "GET",
+        "operation_id": "getSkillPackPrompt",
+        "summary": "Get a templated workflow prompt for a single skill pack"
+      }
+    ],
+    "useful_exact_agent_guild_action_routes": 0,
+    "decision": "NO_FREE_ATTRIBUTABLE_ROUTE"
+  },
+  "interpretation": "The sole text-relevant unpaid route returns a templated workflow prompt; it cannot fetch Agent Guild, verify a Guild artifact, run preflight, use a trust result or produce an attributable AG action. Agent402's first-party contract states that every /api/* and /v1/* operation is pay-per-call or proof-of-work except discovery resources, and the useful outbound URL routes declare payment. The prior proof-of-work card validation remains interoperability evidence only.",
+  "safety": {
+    "operations_invoked": 0,
+    "payments_or_wallet_actions": 0,
+    "terms_accepted": 0,
+    "accounts_or_credentials_created": 0,
+    "outreach_messages": 0,
+    "response_files_written": 0
+  },
+  "strict_conversion_delta": 0,
+  "strict_total_after": "5/30",
+  "external_settled_revenue_usd": 0.0
+}
+

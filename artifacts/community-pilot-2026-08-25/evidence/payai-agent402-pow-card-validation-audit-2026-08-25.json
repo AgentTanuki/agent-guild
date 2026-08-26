@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T17:29:19.829388Z",
+  "community": "payai",
+  "candidate_machine": "Agent402.Tools",
+  "candidate_origin": "https://agent402.tools",
+  "verdict": "useful_external_interoperability_evidence_but_not_strict_payai_conversion",
+  "conversion": false,
+  "targets_json_updated": false,
+  "reason": "Agent402 is demonstrably a pre-existing PayAI-cataloged seller at the HTTPS-origin level and its hosted machine performed a real deterministic validation of Agent Guild's current Agent Card. The exact validation endpoint is not present in PayAI's current catalog, however, and the validator accepts a caller-supplied card object rather than fetching or invoking Agent Guild. Consistent with the pilot's earlier rejection of schema-only Agent Card conformance, this is external product/interoperability evidence, not adoption of an Agent Guild trust, passport, preflight, reputation, or settlement action.",
+  "payai_membership": {
+    "catalog_url": "https://facilitator.payai.network/discovery/resources",
+    "catalog_observed_at": "2026-08-25T17:29:19.829388Z",
+    "records_scanned_in_memory": 26649,
+    "agent402_exact_origin_records": 1241,
+    "agent402_unique_resources": 1241,
+    "membership_level": "exact_https_origin_seller_membership",
+    "preexisting": true,
+    "preexisting_evidence": [
+      {
+        "resource": "https://agent402.tools/api/extract",
+        "lastUpdated": "2026-07-01T05:25:50.011Z",
+        "method": "POST",
+        "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+        "network": "eip155:8453",
+        "amount_atomic_usdc": "10000"
+      },
+      {
+        "resource": "https://agent402.tools/api/hash",
+        "lastUpdated": "2026-08-25T14:05:08.792Z",
+        "method": "POST",
+        "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+        "network": "eip155:43114",
+        "amount_atomic_usdc": "1000"
+      }
+    ],
+    "exact_action_resource_present": false,
+    "exact_action_resource": "https://agent402.tools/api/a2a-card-validate",
+    "a2a_related_agent402_records": 0,
+    "interpretation": "PayAI currently identifies resources, not a separately signed merchant identity object. The exact agent402.tools origin strongly joins the hosted service to PayAI as a seller, but PayAI does not attest that the newly observed validator is one of its discovered resources."
+  },
+  "machine_identity": {
+    "durable_identity": "https://agent402.tools plus the seller payTo address published by PayAI",
+    "preexisting_machine": true,
+    "evidence": "The origin had 1,241 PayAI catalog records before the observed validation, including a resource refreshed at 2026-08-25T14:05:08.792Z. Agent402's current public OpenAPI and pricing catalogs independently publish the validator contract.",
+    "limits": [
+      "HTTPS proves control of the responding origin for the session, not a portable cryptographic agent identity.",
+      "The proof-of-work token and Agent402 request_id are server-issued operational identifiers, not third-party signatures or PayAI receipts.",
+      "The PayAI catalog's resource records do not expose a signed controller-to-origin statement."
+    ]
+  },
+  "observed_action": {
+    "source": "Operator-reported raw Agent402 response, cross-checked against the independently fetched live Agent Guild Agent Card",
+    "endpoint": "https://agent402.tools/api/a2a-card-validate",
+    "method": "POST",
+    "payment_mode": "proof_of_work",
+    "http_status": 200,
+    "agent402_request_id": "ee935859",
+    "result": {
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "version": "2.5.39",
+      "skill_count": 22,
+      "card_sha256": "8b4cb62c3f157213818a85d807a7698c8b46a288d32d71365441171d897ef9fb"
+    },
+    "independent_input_cross_check": {
+      "url": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+      "fetched_read_only_at": "2026-08-25",
+      "raw_body_sha256": "8b4cb62c3f157213818a85d807a7698c8b46a288d32d71365441171d897ef9fb",
+      "version": "2.5.39",
+      "skill_count": 22,
+      "name": "Agent Guild",
+      "protocolVersion": "0.3.0",
+      "match": true
+    },
+    "useful_evidence": "A current external deterministic implementation accepted Agent Guild's real 22-skill A2A card with zero structural errors or interoperability warnings and bound its result to the exact raw-card hash.",
+    "not_proven": "Agent402 did not fetch the card, call Agent Guild, verify an AG signature, use an AG decision, or perform a task for its own runtime. The card object was supplied by the pilot caller."
+  },
+  "exact_validator_contract": {
+    "endpoint": "https://agent402.tools/api/a2a-card-validate",
+    "method": "POST",
+    "content_type": "application/json",
+    "request_schema": {
+      "type": "object",
+      "required": ["card"],
+      "properties": {
+        "card": {
+          "type": "object",
+          "description": "the Agent Card JSON (object or JSON string)"
+        }
+      }
+    },
+    "optional_headers": {
+      "X-Pow-Solution": "<token>:<nonce> from a solved GET /api/pow/challenge challenge",
+      "Idempotency-Key": "client-supplied replay key"
+    },
+    "pricing": {
+      "list_price": "$0.002",
+      "computePayable": true,
+      "pow_available": true
+    },
+    "response_200": "JSON object; documented example contains valid, errors, warnings, and summary"
+  },
+  "strict_conversion_gate_audit": {
+    "preexisting_payai_member": "pass_at_origin_level",
+    "durable_machine_identity": "pass_with_limits_https_origin_plus_payto",
+    "real_external_execution": "pass",
+    "exact_input_output_join": "pass_card_hash_version_skill_count_match",
+    "independently_useful_product_evidence": "pass",
+    "exact_action_listed_by_payai": "fail",
+    "machine_fetched_or_invoked_agent_guild": "fail",
+    "agent_guild_trust_passport_preflight_reputation_or_settlement_used": "fail",
+    "payai_signed_or_settlement_receipt_for_action": "fail_not_applicable_to_pow",
+    "strict_conversion": "fail"
+  },
+  "original_arbitrary_url_route_audit": {
+    "verdict": "not_free_and_not_no_terms",
+    "endpoint": "https://agent402.tools/api/extract",
+    "method": "POST",
+    "request_body": {"url": "<public-http-or-https-url>"},
+    "response": "Extracted title, byline, excerpt, wordCount, markdown, and untrustedContent flag",
+    "price": "$0.010 per call",
+    "computePayable": false,
+    "payai_catalog_present": true,
+    "payai_payment_record": {
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "network": "eip155:8453",
+      "amount_atomic_usdc": "10000"
+    },
+    "free_fetch_alternative": "none found",
+    "network_tool_rule": "Agent402's current pricing catalog marks all inspected outbound-network tools—extract, meta, render, screenshot, PDF, HTTP check, DNS, TLS, WHOIS/RDAP, robots, and sitemap—as computePayable=false.",
+    "terms_gate": "Agent402's hosted terms state that programmatic x402, MCP, and proof-of-work use constitutes agreement, requires an operator able to form a binding contract and at least 18, and forbids URL-fetch tools against targets the caller does not control.",
+    "conclusion": "There is no hosted Agent402 proof-of-work route that can fetch an exact Agent Guild preflight URL while also satisfying the pilot's no-payment and no-terms boundary."
+  },
+  "evidence_needed_for_a_future_strict_conversion": [
+    "Have the pre-existing Agent402 service itself fetch an exact nonce-bearing Agent Guild preflight or passport/credential-verification URL through a declared operation, rather than validating a caller-supplied copy.",
+    "Return the exact Agent Guild observation_id or full verdict and preserve the Agent402 request_id, response body hash, UTC timestamp, and response headers.",
+    "Independently join the same observation_id and timestamp to Agent Guild production telemetry and an Agent402-specific server caller identity.",
+    "Preserve a PayAI catalog record for that exact action resource, or a signed PayAI seller/controller record binding the responding agent402.tools origin to the pre-existing PayAI member.",
+    "Do not take that step under the current pilot authority: Agent402's outbound URL tools require payment and hosted-service terms."
+  ],
+  "consistency_note": "The Official A2A Clavis candidate was previously excluded because it performed Agent Card schema conformance without fetching or verifying Agent Guild. Counting this materially equivalent Agent402 action as strict conversion would lower the threshold after seeing a favorable result.",
+  "primary_sources": [
+    "https://facilitator.payai.network/discovery/resources",
+    "https://docs.payai.network/x402/reference",
+    "https://agent402.tools/openapi.json",
+    "https://agent402.tools/api/pricing",
+    "https://agent402.tools/tools/a2a-card-validate",
+    "https://agent402.tools/tools/extract",
+    "https://agent402.tools/terms",
+    "https://agent402.tools/privacy",
+    "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json"
+  ],
+  "safety": {
+    "target_tool_invoked_by_this_audit": false,
+    "payment_made_by_this_audit": false,
+    "account_created": false,
+    "terms_accepted_by_this_audit": false,
+    "external_write": false,
+    "research_reads_only": true
+  }
+}

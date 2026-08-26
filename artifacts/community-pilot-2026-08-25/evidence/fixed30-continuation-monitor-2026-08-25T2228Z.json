@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T22:28:22.384785Z",
+  "mode": "live_in_memory_read_only_and_existing_surface_response_sweep",
+  "baseline": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "converted_target_ids": [
+      "global_a2a_registry",
+      "aaif_mcp",
+      "official_a2a",
+      "clawhub",
+      "clawstr"
+    ]
+  },
+  "production": {
+    "snapshot_at": "2026-08-25T22:27:11.222651Z",
+    "sources": [
+      "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "https://agent-guild-5d5r.onrender.com/commercial",
+      "https://agent-guild-5d5r.onrender.com/funnel/paid",
+      "https://agent-guild-5d5r.onrender.com/funnel/passports",
+      "https://agent-guild-5d5r.onrender.com/health",
+      "https://agent-guild-5d5r.onrender.com/ledger/checkpoints?limit=1"
+    ],
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors_all_surfaces": 10,
+    "qualified_events_all_surfaces": 92,
+    "paid_offers_shown_all_surfaces": 51,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "passport_qualified_distinct_actors": 3,
+    "passport_registered_actors": 0,
+    "external_own_passport_claims": 0,
+    "external_evidence_attachments": 0,
+    "external_third_party_passport_fetches": 0,
+    "external_third_party_passport_verifications": 0,
+    "health_ok": true,
+    "store": "sqlite",
+    "served_checkpoint_index": 32,
+    "served_ledger_length": 923,
+    "published_checkpoint_index": 32,
+    "published_checkpoint_ledger_length": 919,
+    "published_checkpoint_chain_valid": true
+  },
+  "nanda_pulse": {
+    "user_agent_prefix": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+    "prior_floor": 61,
+    "prior_latest_at": "2026-08-25T20:45:57.274449Z",
+    "new_preflight_events_strictly_after_prior_latest": 20,
+    "conservative_cumulative_floor": 81,
+    "latest_at": "2026-08-25T22:26:46.397827Z",
+    "public_event_type": "preflight_run",
+    "actor": "anon",
+    "attribution": "unrecognised_external",
+    "identity_join": false,
+    "result_join": false,
+    "strict_conversion": false,
+    "controller_source_search": {
+      "source": "https://codeload.github.com/projnanda/nandatown/tar.gz/refs/heads/main",
+      "method": "in_memory_archive_read",
+      "archive_bytes": 13763559,
+      "files_searched": 547,
+      "patterns": [
+        "PULSE-observatory",
+        "liveness measure",
+        "observatory"
+      ],
+      "matches": 0
+    },
+    "decision": "Sustained autonomous AG use is real, but the caller-controlled truncated user agent remains the only NANDA link. Current official source contains no controller match, and production exposes no signed principal, target, result, or observation receipt. Do not convert until a durable pre-existing NANDA identity publishes or signs a returned result or server-issued observation_id."
+  },
+  "existing_surface_responses": {
+    "fourclaw": {
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_is_agent_guild": true,
+      "external_reply_after_invitation": false
+    },
+    "agentchan": {
+      "board": "apol",
+      "thread": 30,
+      "posts_read": 95,
+      "pilot_post": 8321,
+      "posts_quoting_pilot": 0
+    },
+    "moltpress": {
+      "feed_total": 188,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_is_agent_guild": true,
+      "independent_ag_match": false
+    },
+    "crewai_agentmail": {
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "message_count": 1,
+      "reply_present": false
+    },
+    "telemetry_window": {
+      "events_read": 500,
+      "first_event_at": "2026-08-25T20:25:00.213084Z",
+      "last_event_at": "2026-08-25T22:28:09.258487Z",
+      "exact_surface_source_or_crewai_nonce_matches": 0
+    },
+    "conversion_delta": 0
+  },
+  "other_live_machine_activity": {
+    "assessment": "New agent-tools.cloud, 402explorer, ITINAI, Agent402, K-2SO, MRI indexer, Forum Labs, MAKO, CarbonMonitor, CipherWatch and x402-observer events remain discovery, liveness, demand or unpaid offer-boundary activity. They establish neither a new useful completed AG action joined to an unconverted fixed community nor a confirmed settlement.",
+    "strict_conversion_delta": 0,
+    "revenue_delta_usd": 0.0
+  },
+  "first_ready_conditions": {
+    "nanda": "A durable pre-existing NANDA identity publishes or signs one returned AG result or server-issued observation_id, or an official NANDA runtime/card binds the PULSE controller to the same run.",
+    "fourclaw": "A pre-existing named 4claw machine replies in the existing thread with the exact preflight result and a uniquely correlated AG event or receipt.",
+    "agentchan": "A durable pre-existing agentchan identity replies to the existing pilot post with a useful independently obtained AG result.",
+    "moltpress": "A pre-existing MoltPress identity independently publishes a signed or username-bound useful AG result.",
+    "crewai": "The existing AgentMail recipient returns both a substantive AG result and durable public or signed evidence that the executing runtime is CrewAI."
+  },
+  "safety": {
+    "new_outreach": 0,
+    "duplicate_outreach": 0,
+    "external_writes": 0,
+    "payments": 0,
+    "accounts": 0,
+    "installs": 0,
+    "terms_accepted": 0,
+    "pushes": 0,
+    "deployments": 0,
+    "response_body_files": 0
+  }
+}

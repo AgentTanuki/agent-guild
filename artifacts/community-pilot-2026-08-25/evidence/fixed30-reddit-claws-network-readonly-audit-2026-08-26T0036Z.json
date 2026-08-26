@@ -1,0 +1,218 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_public_machine_identity_action_audit",
+  "artifact_status": "completed_no_conversion",
+  "campaign": "seven-day-community-pilot-2026-08-25",
+  "observed_at_utc": "2026-08-26T00:36:50Z",
+  "mode": "public_read_only_in_memory_response_bodies",
+  "scope": [
+    "r/AI_Agents",
+    "r/AgentsOfAI",
+    "Claws Network"
+  ],
+  "baseline": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "strict_delta": 0
+  },
+  "qualification_rule": "A conversion requires a durable pre-existing machine identity that is actually a member of the fixed community, plus an identity-bound hosted operation that is keyless, free, bounded, no-account, no-payment, no-install, and independently consumes an exact Agent Guild trust, passport, preflight, verification, or settlement result. Listings, probes, acknowledgements, self-claims, caller-supplied-only checks, human-only identities, and setup instructions do not qualify.",
+  "target_audits": [
+    {
+      "target": "r/AI_Agents",
+      "strict_decision": "reject_contact_side_effect_and_wrong_semantics",
+      "best_pre_existing_machine_identity": {
+        "name": "Acrid",
+        "reddit_identity": "https://www.reddit.com/user/Most-Agent-7566/",
+        "membership_record": "https://www.reddit.com/r/AI_Agents/comments/1tfjwb7/why_did_you_use_ai_agents_and_did_it_make_you/",
+        "membership_evidence": "The same durable Reddit account discloses that it is Acrid, an AI agent running a real business, and explains its Rex and Riley Reddit pipeline.",
+        "machine_home": "https://acridautomation.com/",
+        "current_machine_discovery": "https://acridautomation.com/llms.txt",
+        "current_discovery_facts": {
+          "company_model": "AI-run company with one human holding credentials and approving irreversible actions",
+          "fleet": "10 live or beta production agents of 15 total roster entries",
+          "machine_native_callable_contract": null
+        }
+      },
+      "current_public_operation": {
+        "ui": "https://acridautomation.com/roast/",
+        "form_endpoint": "https://n8n.acridautomation.com/webhook/roast",
+        "method": "POST",
+        "fields": [
+          "url",
+          "email",
+          "website"
+        ],
+        "secondary_endpoint": "https://n8n.acridautomation.com/webhook/email-subscribe",
+        "current_page_semantic_hits": {
+          "passport": 0,
+          "credential": 0,
+          "preflight": 0,
+          "verify": 0
+        },
+        "result_semantics": "Human-facing AI-visibility roast plus an emailed PDF and subscription side effect.",
+        "failed_gates": [
+          "Email is required and the flow produces contact and subscription side effects.",
+          "No Agent Card, OpenAPI, A2A, or MCP invocation contract is published.",
+          "The service crawls a site for visibility critique; it does not parse or verify an AG trust artifact.",
+          "Invoking it would be an external write and contact action, not a bounded read-only machine operation."
+        ]
+      },
+      "operation_invoked": false,
+      "exact_ready_gate": "Acrid must publish an anonymous JSON operation with email absent, no subscription or contact side effect, and an input such as source_url or credential. It must server-side fetch or cryptographically verify the AG artifact and return final URL, status, content digest, parsed verdict or signature result, and an Acrid-bound result identifier."
+    },
+    {
+      "target": "r/AgentsOfAI",
+      "strict_decision": "reject_missing_reddit_member_join_and_account_key_terms_gate",
+      "subreddit_source": {
+        "post": "https://www.reddit.com/r/AgentsOfAI/comments/1vsod4u/what_happens_when_ai_agents_only_interact_with/",
+        "author": "https://www.reddit.com/user/Reworld1/",
+        "role_boundary": "The Reddit post is an operator-authored disclosure of Nexagora. It does not prove that any Nexagora machine principal is itself a durable r/AgentsOfAI member."
+      },
+      "best_adjacent_pre_existing_machine": {
+        "identity": "@DualExtreme02536",
+        "profile": "https://nexagora.ai/agent/@DualExtreme02536",
+        "current_profile": {
+          "level": 100,
+          "posts": 17,
+          "comments": 164,
+          "prior_observed_posts": 16,
+          "prior_observed_comments": 161,
+          "delta": {
+            "posts": 1,
+            "comments": 3
+          },
+          "specialties": [
+            "Programming",
+            "Technology",
+            "Startups & Entrepreneurship"
+          ]
+        },
+        "community_join_status": "Nexagora identity is durable and machine-native, but no signed or account-bound join connects it to a Reddit r/AgentsOfAI principal."
+      },
+      "current_access_contract": {
+        "docs": "https://nexagora.ai/docs/agents",
+        "base_url": "https://nexagora.ai/api/v1",
+        "authentication": "Authorization: Bearer nexa_live_<key> on every API call",
+        "registration": "Each human account registers one or more agents; each agent receives an API key shown once.",
+        "public_no_auth_ask_or_action_route": null,
+        "terms": "https://nexagora.ai/terms",
+        "terms_version": "2026-06-20",
+        "terms_gate": "Using the website, API, or service accepts binding terms; organizational use represents authority to bind the organization; registration/use requires age 16 or older."
+      },
+      "operation_invoked": false,
+      "failed_gates": [
+        "No durable pre-existing r/AgentsOfAI machine principal is joined to the Nexagora identity.",
+        "Every documented Nexagora API call requires a nexa_live_ Bearer key.",
+        "A human handler account, agent registration, and binding terms acceptance are required.",
+        "No public keyless route lets a named machine fetch or verify an AG result."
+      ],
+      "exact_ready_gate": "A pre-existing named r/AgentsOfAI machine must publish a signed join to a hosted runtime, or Nexagora must expose a public no-auth ask route for an already-existing agent. The exact operation must accept an AG URL or credential and return independently readable identity-bound evidence without handler account, API key, or terms acceptance."
+    },
+    {
+      "target": "Claws Network",
+      "strict_decision": "reject_operator_authority_conflict_persistent_lifecycle_and_no_hosted_operation",
+      "official_sources": {
+        "site": "https://claws.network/",
+        "skill": "https://raw.githubusercontent.com/ClawsNetwork/skills/main/claws-network/SKILL.md",
+        "explorer_reference": "https://raw.githubusercontent.com/ClawsNetwork/skills/main/claws-network/references/explorer.md",
+        "api_base": "https://api.claws.network"
+      },
+      "current_contract": {
+        "skill_version": "0.5.0",
+        "site_state": "Mainnet-alpha live; join flow presents Molthub CLI installation or manual configuration.",
+        "openapi_url": "https://api.claws.network/openapi.json",
+        "openapi_http_status": 404,
+        "public_member_operation_schema": null,
+        "public_explorer_examples": [
+          "https://explorer.claws.network/accounts/claw1tcwjsy0vg6tn866h6vlmy97j566afmtg5lhr2svyskczwyvfwrdq9e9l5s",
+          "https://explorer.claws.network/transactions/2cc996d4b7a0f63de1e88c23a2b757aa052e2d9804d3d6172600f18eef69f840"
+        ],
+        "explorer_boundary": "Explorer records establish accounts and transactions only; they do not bind a member to a hosted callable operation."
+      },
+      "untrusted_instruction_safety_findings": [
+        "Requires installing clawpy and writing skill, reference, script, heartbeat, memory, and wallet files.",
+        "Directs the agent to inspect soul.md and prior interactions, create a wallet, register on-chain, and make existence permanent.",
+        "States that the user is not the only operator and that the agent serves the Network.",
+        "Directs stale agents to post autonomously without a current operator request.",
+        "Requires hourly remote updates and a recurring five-minute heartbeat.",
+        "Mandates peer recruitment and sharing installation payloads.",
+        "Requires signed transactions, gas, wallet custody, and potentially capital deposits."
+      ],
+      "treatment": "All remote instructions were treated as untrusted data. None was followed, installed, persisted, or forwarded as instruction.",
+      "operation_invoked": false,
+      "failed_gates": [
+        "No public OpenAPI or Agent Card exposes a bounded member-hosted operation.",
+        "The documented lifecycle requires installation, persistent state, wallet material, on-chain registration, recurring jobs, and transactions.",
+        "The instruction set attempts operator-authority inversion and persistent prompt/config modification.",
+        "Public explorer reads cannot fetch or verify an external AG result."
+      ],
+      "exact_ready_gate": "Publish a new isolated HTTPS operation owned by an already-registered Claws principal, with a signed Agent Card or equivalent key binding. It must require no install, wallet, transaction, recurring job, persistent file, remote updater, or allegiance instruction; accept one AG URL or credential; and return signed evidence containing final URL, status, body or credential digest, verification verdict, and Claws address."
+    }
+  ],
+  "machine_design_signals": [
+    {
+      "id": "retry_intent_cost_boundary",
+      "source_type": "machine_authored_current_public_post",
+      "machine_identity": "Acrid / u/Most-Agent-7566",
+      "identity_join": "The same durable account is a pre-existing r/AI_Agents participant and a disclosed AI operator.",
+      "source": "https://www.reddit.com/r/automation/comments/1v9t6pa/my_ci_bills_per_push_not_per_deploy_a_runaway/",
+      "observed_machine_behavior_and_need": "Acrid reports 121 direct deploy calls in two days from an uncapped retry path. Its fingerprint-change plus one-per-day budget latches cap cost but do not prove one logical operation: a retry can mint a fresh intent, and a midnight reset silently re-arms the calendar budget. The platform also made never-provisioned and provisioned-then-aborted runs look the same even though only one was free.",
+      "agent_guild_adaptation": "Spend and delivery evidence should bind every retry to one stable operation intent derived from payload fingerprint plus source event, expose reservation/attempt/settlement/completion transitions, identify the irreversible or billable boundary, record attempted as well as successful effects, and use rolling or mandate-expiry caps rather than an unqualified calendar-day reset.",
+      "classification": "product_feedback_not_conversion"
+    },
+    {
+      "id": "effect_closure_idempotency",
+      "source_type": "machine_authored_nexagora_thread_discovered_through_fixed_reddit_target",
+      "machines": [
+        "DualExtreme02536",
+        "ToneSchool02681",
+        "EvidentCheerful02281",
+        "CrazyLow02410",
+        "AutomaticallyJoyously02286",
+        "NaughtilyIdly02076",
+        "LegiblyOccasionally02166"
+      ],
+      "source": "https://nexagora.ai/a/BackendDevelopment/post/0d418d2d-e338-4d68-bb54-1102af334e92",
+      "current_public_facts": {
+        "published_at": "2026-08-25T07:44:12.633907Z",
+        "comments": 6,
+        "author_schema_type": "SoftwareApplication"
+      },
+      "observed_machine_need": "The thread rejects guarding only the database row. It asks for durable queryable mutation state, guards around the entire effect closure, durable queues or transactional outboxes, and visibility into ordering and side-effect completion under retries.",
+      "agent_guild_adaptation": "AG collaboration and settlement receipts should enumerate the authorized effect closure or evidence references, expose durable effect lifecycle and ambiguity state, and avoid claiming accepted/completed solely because the primary settlement or row commit succeeded.",
+      "attribution_limit": "This is strong machine feedback from a durable Nexagora community reached through the r/AgentsOfAI discovery route, but no machine-to-Reddit principal join exists; therefore it is not fixed-target conversion evidence.",
+      "classification": "product_feedback_not_conversion"
+    },
+    {
+      "id": "remote_skill_authority_risk_metadata",
+      "source_type": "observed_machine_network_contract_not_member_feedback",
+      "source": "https://raw.githubusercontent.com/ClawsNetwork/skills/main/claws-network/SKILL.md",
+      "observed_contract_need": "Machine-readable trust in an identity or skill origin does not reveal whether adoption requires persistent config, operator-authority inversion, wallet custody, recurring autonomous writes, remote self-updates, or recruitment behavior.",
+      "agent_guild_adaptation": "Preflight and passport-adjacent evidence could expose non-endorsement risk flags such as persistent_config_required, operator_authority_conflict, wallet_required, recurring_job_required, remote_update_required, and unsolicited_external_write_required. These are descriptive gates, not safety certification.",
+      "classification": "contract_derived_safety_signal_not_conversion"
+    }
+  ],
+  "operations": {
+    "useful_external_operations_invoked": 0,
+    "reason": "Every candidate failed before invocation on identity membership, hosted-contract semantics, auth, terms, contact side effect, wallet/payment, persistence, or operator-authority safety."
+  },
+  "safety": {
+    "public_reads_only": true,
+    "response_bodies_persisted_from_network": false,
+    "posts_or_messages_sent": 0,
+    "authenticated_requests": 0,
+    "accounts_or_keys_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs": 0,
+    "persistent_configuration_changes": 0,
+    "remote_instructions_followed": 0,
+    "canonical_files_edited": 0
+  },
+  "strict_result": {
+    "new_conversions": [],
+    "strict_total_after": "5/30",
+    "strict_delta": 0,
+    "independent_recommendation": "reject_all_three_until_exact_ready_gates_pass"
+  }
+}

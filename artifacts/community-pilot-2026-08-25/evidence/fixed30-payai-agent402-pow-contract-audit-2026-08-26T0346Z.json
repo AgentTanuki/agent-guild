@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_payai_agent402_pow_contract_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T03:46:32Z",
+  "scope": "PayAI/Agent402 recovered OpenAPI, live proof-of-work contract, exact fetch pricing and feedback channel only",
+  "mode": "public_read_only_in_memory_no_response_files",
+  "strict_rule": "A conversion operation must be free, keyless, public, side-effect bounded, independently fetch or verify an exact Agent Guild artifact, and return evidence durably joined to a pre-existing PayAI machine identity. Caller-supplied-only parsing or validation does not qualify.",
+  "canonical_inputs": [
+    "artifacts/community-pilot-2026-08-25/targets.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-post-0318-commercial-readiness-cycle-2026-08-26T0334Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/payai-agent402-pow-card-validation-audit-2026-08-25.json",
+    "artifacts/community-pilot-2026-08-25/evidence/payai-agent402-a2a-validation-action-2026-08-25.json"
+  ],
+  "live_contract": {
+    "openapi": {
+      "source": "https://agent402.tools/openapi.json",
+      "http_status": 200,
+      "version": "2.1.0",
+      "documented_operations": 560,
+      "operations_documenting_x_pow_solution": 153
+    },
+    "proof_of_work": {
+      "source": "https://agent402.tools/api/pow",
+      "type": "proof-of-work",
+      "difficulty_bits": 16,
+      "ttl_seconds": 300,
+      "challenge_url": "https://agent402.tools/api/pow/challenge",
+      "submit_header": "X-Pow-Solution",
+      "eligible_tools": 153,
+      "extract_eligible": false,
+      "authoritative_note": "Network/browser/storage tools remain wallet-only via x402."
+    },
+    "payai_identity_and_price_join": {
+      "source": "https://facilitator.payai.network/discovery/resources",
+      "full_scan_observed_at": "2026-08-26T03:31:49.231869Z",
+      "declared_total_records": 26665,
+      "records_read": 26665,
+      "agent402_records": 1241,
+      "exact_resource": "https://agent402.tools/api/extract",
+      "method": "POST",
+      "last_updated": "2026-07-01T05:25:50.011Z",
+      "selected_acceptance": {
+        "scheme": "exact",
+        "network": "eip155:8453",
+        "asset": "USDC",
+        "amount_atomic": "10000"
+      },
+      "exact_zero": false
+    },
+    "extract": {
+      "source": "https://agent402.tools/api/pricing",
+      "method": "POST",
+      "path": "/api/extract",
+      "declared_price": "$0.010",
+      "required_body": {
+        "url": "public http(s) URL"
+      },
+      "declared_output": [
+        "url",
+        "title",
+        "byline",
+        "excerpt",
+        "wordCount",
+        "markdown",
+        "untrustedContent"
+      ],
+      "idempotency_key_supported": true,
+      "x_pow_solution_supported": false,
+      "classification": "Exact server-side AG fetch semantics exist and are PayAI-bound, but the route is paid and not PoW eligible."
+    }
+  },
+  "pow_semantic_adjudication": {
+    "documented_free_keyless_operation_independently_fetches_exact_ag_artifact": false,
+    "documented_free_keyless_operation_verifies_ag_passport_or_agi1_credential": false,
+    "candidate_classes_reviewed": [
+      {
+        "operation": "/api/a2a-card-validate",
+        "input": "caller-supplied card object",
+        "server_side_fetch": false,
+        "limit": "Structural A2A validation only; no retrieval of the exact AG card or use of AG trust/passport/settlement data."
+      },
+      {
+        "operation": "/api/jwt-verify",
+        "input": "caller-supplied JWT plus caller-supplied HMAC secret",
+        "server_side_issuer_resolution": false,
+        "limit": "HS256/384/512 only; not W3C AGI-1 passport verification and no independent key resolution."
+      },
+      {
+        "operation": "/api/sql-cert-verify",
+        "input": "caller-supplied SQL certificate, SQL text and optional public key",
+        "limit": "Agent402 SQL execution-certificate format only; not an AG credential verifier."
+      },
+      {
+        "operation": "/api/openapi-resolve-refs",
+        "input": "caller-supplied OpenAPI document",
+        "server_side_fetch": false,
+        "limit": "The contract explicitly leaves all external HTTP/file refs unresolved."
+      },
+      {
+        "operation_class": "HTML/OpenAPI/readability tools",
+        "input": "caller-supplied HTML, text or spec",
+        "server_side_fetch": false,
+        "limit": "They process content the caller already has."
+      },
+      {
+        "operation": "/api/url-parse",
+        "input": "caller-supplied URL string",
+        "server_side_fetch": false,
+        "limit": "Parses URL components only."
+      },
+      {
+        "operation": "/api/x402/seller-trust",
+        "input": "seller origin query",
+        "server_side_fetch_at_call_time": false,
+        "limit": "Returns Agent402 accumulated crawl/settlement evidence for x402 sellers; it does not consume an exact AG artifact or verdict."
+      }
+    ],
+    "decision": "NO_STRICTLY_ELIGIBLE_OPERATION",
+    "operation_invoked": false
+  },
+  "hosted_terms_gate": {
+    "source": "https://agent402.tools/terms",
+    "last_updated": "2026-07-17",
+    "binding_text_summary": "The hosted terms state that using the service, including programmatically over x402 or MCP, constitutes agreement; clients who do not agree must not use it.",
+    "proof_of_work_covered": true,
+    "current_task_allows_terms_acceptance": false,
+    "effect": "Even if extract became PoW eligible during this task, invocation would still require separate authority to accept the hosted terms."
+  },
+  "machine_native_feedback_route": {
+    "exists": true,
+    "write_route": {
+      "method": "POST",
+      "url": "https://agent402.tools/api/wish",
+      "source": "https://github.com/MikeyPetrillo/Agent402/blob/main/src/server.js",
+      "body_schema": {
+        "need": "required non-empty string, truncated to 500 characters",
+        "context": "optional string, truncated to 300 characters"
+      },
+      "response": {
+        "recorded": true
+      },
+      "authentication": "none",
+      "account_required": false,
+      "payment_required": false,
+      "rate_limit": "10 explicit wishes per IP per hour and 100 globally per day",
+      "persistence": "Append-only wishes.jsonl under /data when mounted; /tmp fallback may be lost on restart. The public response is acknowledgement-only.",
+      "external_effect": "Persistent machine feedback/outreach to the Agent402 operator demand board.",
+      "public_issue_bridge": "Disabled by default; qualifying clusters are not currently auto-opened as public GitHub issues."
+    },
+    "read_route": {
+      "method": "GET",
+      "url": "https://agent402.tools/api/wishes",
+      "current_public_aggregate": {
+        "distinctClusters": 890,
+        "totalWishes": 3191,
+        "threshold": 5,
+        "qualifyMinSpanHours": 24,
+        "qualifiedClusters": 44
+      },
+      "privacy_boundary": "Aggregate totals only; itemized demand is operator-token gated."
+    },
+    "discoverability_defects": [
+      "Neither /api/wish nor /api/wishes is published in the current OpenAPI document.",
+      "llms.txt describes /api/wishes as the request route, but /api/wishes is GET aggregate; the actual write route is singular POST /api/wish."
+    ],
+    "prior_agent402_wish_found_in_canonical_evidence": false,
+    "satisfies_no_account": true,
+    "satisfies_no_spend": true,
+    "satisfies_no_terms_acceptance": false,
+    "qualifies_as_agent_guild_conversion_operation": false,
+    "invoked": false,
+    "why_not_invoked": "It is an external persistent write, hosted use constitutes terms acceptance, and an acknowledgement does not independently consume AG or create an identity/result join."
+  },
+  "exact_retry_predicate": {
+    "all_required": true,
+    "conditions": [
+      "The exact live /api/pow eligibleTools array contains extract, or the selected current PayAI acceptance for /api/extract normalizes to exact zero.",
+      "Separate operator authority exists to accept Agent402's hosted terms; price-free access alone is insufficient under the current pilot constraints.",
+      "The current PayAI catalog still binds the exact agent402.tools origin or /api/extract route to the pre-existing Agent402 seller identity.",
+      "The OpenAPI contract still requires an exact public URL, performs server-side retrieval and returns the consumed body rather than only reachability metadata.",
+      "A fresh nonce-bearing AG preflight URL can be used with an idempotency key and no account, key, wallet, payment, installation or persistent caller state.",
+      "The returned result binds the exact AG URL or digest and parsed verdict/content to Agent402, and AG telemetry independently records the matching nonce-bearing preflight."
+    ],
+    "current_result": false,
+    "first_failing_condition": "extract is not PoW eligible and its PayAI acceptance is exact amount 10000 atomic USDC, not zero"
+  },
+  "decision": {
+    "strict_conversion_delta": 0,
+    "strict_total": "5/30",
+    "candidate_operations_invoked": 0,
+    "feedback_submissions": 0,
+    "result": "NO_GO_UNTIL_PRICE_AND_TERMS_GATES_BOTH_CHANGE_OR_ARE_AUTHORIZED"
+  },
+  "safety": {
+    "response_files_written": 0,
+    "network_bodies": "processed in memory only",
+    "candidate_operation_invocations": 0,
+    "external_writes_or_feedback": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this validated evidence JSON only"
+  }
+}

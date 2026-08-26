@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "aaif_mcp",
+  "observed_at": "2026-08-25T13:59:03.237Z",
+  "conversion": true,
+  "strict_conversion_number": 2,
+  "community_identity": {
+    "registry": "Official MCP Registry",
+    "registry_record": "https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.fetchgate%2Ffetchgate&version=latest&limit=10",
+    "name": "dev.fetchgate/fetchgate",
+    "server_title": "Fetchgate",
+    "registry_version": "0.1.0",
+    "live_server_version": "0.1.0",
+    "mcp_endpoint": "https://fetchgate.dev/mcp",
+    "machine_contract": "https://fetchgate.dev/llms.txt",
+    "registry_status": "active",
+    "registry_is_latest": true,
+    "registry_published_at": "2026-08-22T06:48:55.570694Z",
+    "pre_existing_identity": true
+  },
+  "declared_contract": {
+    "protocol_version": "2025-06-18",
+    "tool": "read_url",
+    "input": "absolute http(s) URL",
+    "output": "JSON object containing url, title, markdown, and fetchedAt",
+    "free_tier": "approximately 30 requests/day per source IP",
+    "account_required": false,
+    "authentication_required_within_free_tier": false,
+    "wallet_or_payment_used": false,
+    "paid_fallback": "$0.002/call via x402 after the free allowance"
+  },
+  "qualifying_action": {
+    "mcp_response_id": "216578b7-753f-4bce-b2b1-67f70340d473",
+    "nonce": "aaif-fetchgate-1787666338514",
+    "request_url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Ffetchgate.dev%2Fmcp&src=passport_offer%3Aaaif_mcp&campaign=community_pilot_2026_08_25&nonce=aaif-fetchgate-1787666338514",
+    "target": "https://fetchgate.dev/mcp",
+    "machine_result": {
+      "tool_error": false,
+      "exact_request_url_returned": true,
+      "fetched_at": "2026-08-25T13:59:03.237Z",
+      "agent_guild_verdict": "delegate_with_caution",
+      "agent_guild_headline": "It works, but at least one of its own claims does not hold.",
+      "endpoint_reachable": "proven",
+      "protocol_handshake": "proven",
+      "agent_card_resolves": "failed",
+      "full_machine_readable_verdict_returned": true
+    },
+    "production_event": {
+      "at": "2026-08-25T13:59:03.136084+00:00",
+      "type": "preflight_run",
+      "endpoint": "preflight",
+      "user_agent": "FetchgateBot/0.1 (+https://fetchgate.dev/llms.txt)",
+      "actor": "anon",
+      "first_party": false,
+      "attribution": "unrecognised_external",
+      "genuine_external": false
+    }
+  },
+  "qualification": {
+    "durable_pre_existing_community_identity": true,
+    "matching_independent_agent_guild_action": true,
+    "useful_action": true,
+    "identity_to_action_join": "The active/latest Official Registry record binds the pre-existing Fetchgate identity to the public MCP endpoint and read_url contract. Its MCP result returned the exact nonce-bearing Agent Guild URL, full parsed trust verdict, and a fetchedAt timestamp 101 milliseconds after production recorded a preflight_run under FetchgateBot with a public self-identifying contract URL.",
+    "classifier_adjudication": "The live classifier stores anonymous /preflight actions as actor=anon and cannot join them to a registry identity, so genuine_external=false is a conservative measurement limitation. The registry record, public tool contract, exact nonce URL, MCP response ID, distinctive user agent, and sub-second timestamp provide the stronger cross-surface proof bundle. UA or caller-supplied source tags alone would not qualify.",
+    "strict_conversion": true,
+    "independent_audit": "strict conversion; AAIF/MCP converts once and pilot total becomes 2/30"
+  },
+  "machine_derived_product_finding": {
+    "finding": "Agent Guild proved a real MCP initialise handshake but then failed the unrelated A2A Agent Card check and said one of Fetchgate's own claims did not hold. Fetchgate makes no A2A Agent Card claim. The preflight was imposing one protocol's contract on another.",
+    "decision": "accepted_and_implemented_locally",
+    "adaptation": "Name the proven protocol and return cross-protocol checks as not_applicable, separate from failed, unknown, and scored checks. Record protocol and not_applicable_count on HTTP, MCP, and A2A preflight events.",
+    "branch": "codex/transport-aware-preflight",
+    "commit": "82ae6a7",
+    "deployment_status": "tested_local_commit_not_deployed",
+    "verification": {
+      "focused_preflight_tests": "17 passed",
+      "full_suite": "1812 passed, 16 skipped; the only sandbox-blocked TLS test passed separately outside the sandbox",
+      "diff_check": "clean"
+    }
+  },
+  "excluded_nearby_actions": [
+    {
+      "machine": "com.agishub/web-scraper",
+      "reason": "Reached Agent Guild but rejected the application/json result as non-HTML and returned isError; no useful result completed."
+    },
+    {
+      "machine": "io.github.operatorsheets/mcp-uptime",
+      "reason": "Performed a registry-style endpoint validation probe, a class explicitly excluded from conversion."
+    },
+    {
+      "class": "additional Fetchgate calls or retries",
+      "reason": "One machine execution converts the community once; repeats would not increment the result."
+    }
+  ]
+}

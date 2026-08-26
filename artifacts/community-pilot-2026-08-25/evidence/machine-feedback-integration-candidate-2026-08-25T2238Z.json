@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "artifact_type": "cross_community_machine_feedback_integration_candidate",
+  "recorded_at": "2026-08-25T22:38:00Z",
+  "product_principle": "Machine-originated executable evidence may change Agent Guild when the resulting contract remains safe, explicit, testable and operator-controlled.",
+  "source_feedback": [
+    {
+      "community": "nevermined",
+      "machine": "Revettr",
+      "finding": "AG duplicated the generic Accept header and falsely rejected a conforming MCP initialize response.",
+      "source_commit": "0cdb634775a7b3897b98388fba5def506b7c289c"
+    },
+    {
+      "community": "aaif_mcp",
+      "machine": "Fetchgate",
+      "finding": "AG scored unrelated cross-protocol checks against an endpoint after proving MCP, turning absent A2A behavior into a false failure.",
+      "source_commit": "82ae6a757856c5ca589e864bc897bdeb4d577eca"
+    },
+    {
+      "community": "ip402_agent_registry",
+      "machine": "AIﾉアカリ☆ Result Receipt Auditor",
+      "finding": "AG failed endpoint-relative Agent Card discovery and treated mixed free and paid operation metadata as an endpoint-wide payment claim.",
+      "source_commit": "3de6d3d0e527d33ee59874a04a8f0be2c6638510"
+    },
+    {
+      "community": "nanda_and_clawstr",
+      "machine": "PULSE-observatory and a signed Clawstr counterparty",
+      "finding": "Free preflight returned no privacy-safe server receipt that a machine could carry across protocol surfaces to correlate one exact result.",
+      "source_commit": "1f93ea6b47de8857c7c31b36a5002c513ae6f185"
+    },
+    {
+      "community": "official_a2a",
+      "machine": "AIP passport verifier route",
+      "finding": "AG advertised a narrowly wrapped credential verification body that its own verifier rejected even though the raw credential verified.",
+      "source_commit": "2de7121ad86911717a0d2c2035f7a223c156e889"
+    }
+  ],
+  "integration": {
+    "worktree": "/Users/rossburley/Claude/Projects/Agent Guild/ag-machine-feedback-integration",
+    "branch": "codex/machine-feedback-integration",
+    "base_commit": "4921699aec8b18edc50211843107b901b35b308e",
+    "head_commit": "177af236ced3b363385b7d74c049edb92be18748",
+    "commit_chain": [
+      "3acd70f Fix MCP preflight Accept negotiation",
+      "2ff4b5f Make preflight checks transport-aware",
+      "7538d72 Fix path-scoped A2A preflight discovery",
+      "a6cc404 Add privacy-safe preflight observation receipts",
+      "e7a3fae Accept advertised passport verification envelope",
+      "177af23 Integrate machine-led preflight contracts"
+    ],
+    "combined_contract": [
+      "MCP initialize sends one conforming Accept value and preserves strict response validation.",
+      "Preflight identifies the proven transport and marks unrelated protocol checks not_applicable rather than failed or unknown.",
+      "A2A discovery tries deduplicated endpoint-relative and root card paths through the same SSRF-screened pinned host and exposes the exact successful path.",
+      "Mixed operation-specific payment metadata stays unknown or untested unless the exact paid operation can be safely tested; incidental payment language is ignored.",
+      "Every free preflight returns an unguessable server-issued observation_id and the target-free public event exposes the same value without claiming identity proof.",
+      "Credential verification accepts the canonical raw VC and only the specifically advertised credential envelope, rejecting broader ambiguous wrappers."
+    ],
+    "integration_regression_found": "The observation-receipt unit fixture returned the pre-transport result shape and failed after integration because protocol and not_applicable were now mandatory. The fixture was updated to exercise the combined response contract; runtime code was not weakened.",
+    "state": "committed_local_clean_not_pushed_not_deployed"
+  },
+  "verification": {
+    "focused_non_socket": {
+      "passed": 71,
+      "deselected": 1
+    },
+    "tls_sni_hostname": {
+      "passed": 1
+    },
+    "full_json": {
+      "passed": 1821,
+      "skipped": 16,
+      "deselected_tls": 1,
+      "failed": 0,
+      "seconds": 38.64
+    },
+    "full_sqlite": {
+      "passed": 1821,
+      "skipped": 16,
+      "deselected_tls": 1,
+      "failed": 0,
+      "seconds": 62.83
+    },
+    "diff_check": "clean",
+    "worktree": "clean"
+  },
+  "release_state": {
+    "pushed": false,
+    "deployed": false,
+    "production_changed": false,
+    "runtime_claim": "none_yet",
+    "reason": "The combined candidate is locally verified but remains operator-controlled. Production still runs the prior contract."
+  },
+  "pilot_state": {
+    "strict_fixed30_conversions": "5/30",
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "payment_made_for_integration": false
+  }
+}

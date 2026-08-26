@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "canonical_cycle_close",
+  "campaign": "community_pilot_2026_08_25",
+  "mode": "strict_fixed_denominator_monitor_and_transition_audit",
+  "generated_at": "2026-08-26T06:27:09Z",
+  "baseline": "evidence/fixed30-cycle-close-2026-08-26T0614Z.json",
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_IDENTITY_BOUND_USEFUL_AG_ACTION"
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "observed_through": "2026-08-26T06:23:55Z",
+    "snapshot_events": 10821,
+    "snapshot_event_delta": 15,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "new_identity_action_joins": 0
+  },
+  "passive_monitor": {
+    "agentmail_contacted_threads": 6,
+    "new_machine_replies": 0,
+    "new_campaign_nonce_or_source_matches": 0,
+    "public_pending_surface_replies": 0,
+    "repeat_outreach": 0
+  },
+  "non_converting_machine_activity": {
+    "pulse": {
+      "preflights_added": 3,
+      "conservative_preflight_floor": 174,
+      "identity_join": false,
+      "result_join": false,
+      "strict_effect": 0
+    },
+    "k2so": {
+      "ag_offer_observed_at": "2026-08-26T06:20:33.915969Z",
+      "first_party_status_observed_at": "2026-08-26T06:20:36.420Z",
+      "market_probe_sample_count": 48,
+      "paid_count": 0,
+      "paid_usdc_total": 0,
+      "strict_effect": 0,
+      "reason": "Identity-correlated challenge exposure produced no campaign marker, useful AG result, settlement, or reply."
+    },
+    "agent402": {
+      "observed_at": "2026-08-26T06:21:42Z",
+      "activity": "Fetched AG /.well-known/x402 and /openapi.json",
+      "strict_effect": 0,
+      "reason": "Autonomous discovery and schema reads are expressly excluded from strict conversion without a useful completed AG operation."
+    }
+  },
+  "route_transition_audit": {
+    "open_communities_audited": 14,
+    "fully_qualified_candidates": 0,
+    "fetch_agentverse": "Two more raw interactions; scraper remains unresponsive with zero successful verified interactions.",
+    "openserv": "Active services drifted from 88 to 87; active exact-free services remain zero.",
+    "agentic_market": "A 1,391-endpoint bounded snapshot is catalogue-window volatility, not growth; the only exact-zero route remains the unrelated Messari network list.",
+    "other_retry_predicates": "unchanged",
+    "evidence": [
+      "evidence/fixed30-open-seven-deep-route-discovery-2026-08-26T0608Z.json",
+      "evidence/fixed30-open-seven-cross-surface-deep-audit-2026-08-26T0611Z.json",
+      "evidence/fixed30-open-seven-transition-audit-2026-08-26T0623Z.json"
+    ]
+  },
+  "product_consequences": [
+    "Autonomous discovery is real machine activity but is not useful AG consumption.",
+    "Repeated identity-bound arrival at an x402 challenge without settlement remains the measured commercial obstruction.",
+    "Volatile marketplace page composition must not be reported as growth without stable item timestamps."
+  ],
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "new_communities_contacted": 0,
+    "repeat_outreach": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

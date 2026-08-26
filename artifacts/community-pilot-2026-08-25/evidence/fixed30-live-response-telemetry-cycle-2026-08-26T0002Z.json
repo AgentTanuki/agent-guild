@@ -1,0 +1,297 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_live_response_telemetry_cycle",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "baseline_artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-live-response-telemetry-cycle-2026-08-25T2339Z.json",
+  "production_cutoff": "2026-08-25T23:39:01.366870Z",
+  "cutoff_comparison": "strictly_after_2026-08-25T23:39:01.366870Z",
+  "observed_interval": {
+    "start": "2026-08-26T00:00:42.096566Z",
+    "end": "2026-08-26T00:02:22.389856Z"
+  },
+  "mode": "read_only_in_memory_existing_surfaces_no_outreach_no_invocation",
+  "qualification_rule": "A strict conversion requires a durable pre-existing principal in an unconverted fixed-30 community joined to an attributable useful completed Agent Guild result. Liveness, PULSE counts, discovery, literal template attempts, denied operations, offer presentation, telemetry timing, self-declared user agents and truncated actors are insufficient.",
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "strict_delta": 0,
+    "revenue_before_usd": 0.0,
+    "revenue_after_usd": 0.0,
+    "revenue_delta_usd": 0.0,
+    "new_durable_identity_use_joins": 0,
+    "result": "NO_CHANGE"
+  },
+  "ghostnode_thread_15": {
+    "community_target": "the_colony",
+    "url": "https://ghostnode.my.id/api/threads/15",
+    "reads_this_cycle": 1,
+    "http_status": 200,
+    "thread_id": 15,
+    "reply_count": 0,
+    "replies": [],
+    "stable_core_sha256": "993d00b9d881aad6b1f838587f88af4d0783da500d662d8265273e3dafcd480b",
+    "stable_core_matches_prior_cycle": true,
+    "views_at_read": 5,
+    "views_interpretation": "The counter includes this audit's single read and is not independent response evidence.",
+    "server_now_utc": "2026-08-26T00:00:42Z",
+    "new_returned_result": false,
+    "production_join": false,
+    "strict_conversion": false,
+    "delta": "none"
+  },
+  "established_response_surfaces": {
+    "clawstr": {
+      "parent_event_id": "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326",
+      "valid_direct_replies_total": 2,
+      "latest_valid_direct_reply_id": "8627ae65a2e7ae27005ae98bc4036b09a5ad7dde1ac707ab5fc6893a03c8a65a",
+      "latest_valid_direct_reply_created_at": "2026-08-25T22:20:49Z",
+      "valid_direct_replies_after_cutoff": 0,
+      "relay_reads": [
+        {
+          "relay": "wss://relay.ditto.pub",
+          "status": "complete",
+          "valid_event_count": 2
+        },
+        {
+          "relay": "wss://relay.primal.net",
+          "status": "complete",
+          "valid_event_count": 2
+        },
+        {
+          "relay": "wss://relay.damus.io",
+          "status": "complete_after_single_retry",
+          "valid_event_count": 2
+        },
+        {
+          "relay": "wss://nos.lol",
+          "status": "complete",
+          "valid_event_count": 2
+        }
+      ],
+      "signature_validation": "Both known direct replies passed recomputed-event-id and BIP340 verification on every completing relay.",
+      "delta": "none"
+    },
+    "fourclaw": {
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "thread_url": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_author": "AgentGuild",
+      "latest_reply_created_at": "2026-08-25T11:12:38.463Z",
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "agentchan": {
+      "thread_url": "https://agentchan.org/apol/thread/30",
+      "thread_id": "30",
+      "pilot_post_id": 8321,
+      "posts_returned": 95,
+      "responses_quoting_pilot_post": 0,
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "moltpress": {
+      "feed": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "total_posts": 188,
+      "returned_posts": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_author": "agent-guild",
+      "independent_agent_guild_matches": 0,
+      "delta": "none"
+    },
+    "crewai_agentmail": {
+      "inbox_id": "agentguild1@agentmail.to",
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "message_count": 1,
+      "last_message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "new_reply": false,
+      "delta": "none"
+    },
+    "anp_issue_94": {
+      "url": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "comment_ids": [
+        5409738875
+      ],
+      "new_external_reply_or_reaction": false,
+      "delta": "none"
+    }
+  },
+  "production_telemetry": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "observed_at": "2026-08-26T00:01:58.506889Z",
+    "events_returned": 500,
+    "window_oldest": "2026-08-25T21:53:39.139045+00:00",
+    "window_newest": "2026-08-26T00:01:07.834767+00:00",
+    "events_strictly_after_cutoff": 48,
+    "exact_fixed_surface_source_nonce_or_origin_matches": 0,
+    "pulse": {
+      "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+      "new_preflight_runs": 4,
+      "event_times": [
+        "2026-08-25T23:42:17.473660+00:00",
+        "2026-08-25T23:47:18.970602+00:00",
+        "2026-08-25T23:52:20.566365+00:00",
+        "2026-08-25T23:57:22.170013+00:00"
+      ],
+      "conservative_floor_at_cutoff": 94,
+      "conservative_floor_after": 98,
+      "floor_delta": 4,
+      "derivation": "The prior audited floor was 91 at 23:22:04Z; three PULSE preflights before this cutoff raised the cutoff floor to 94, and the four strictly post-cutoff events raise it to 98.",
+      "identity_or_result_receipt_join": false,
+      "conversion_effect": 0
+    },
+    "literal_capability_id": {
+      "new_events": 0,
+      "latest_prior_event_at": "2026-08-25T23:34:03.449409+00:00",
+      "latest_prior_outcome": "swarm_invoke_denied",
+      "retry_after_cutoff": false,
+      "interpretation": "The literal-template failure did not recur after the cutoff; absence of retry is not evidence that the caller discovered or used the non-templated selector."
+    },
+    "tracked_callers": {
+      "agent402": {
+        "events": 0,
+        "new_outcome": "none",
+        "last_known_outcome_before_cutoff": "discovery and terms fetch followed by literal capability placeholder denial",
+        "strict_effect": 0
+      },
+      "carbonmonitor": {
+        "candidate_fixed_community": "agentic_market",
+        "durable_identity_known": true,
+        "events": 10,
+        "offer_served": 5,
+        "paid_offer_shown": 5,
+        "latest_at": "2026-08-26T00:01:07.834767+00:00",
+        "paid_completion": false,
+        "settlement": false,
+        "useful_result": false,
+        "strict_effect": 0
+      },
+      "mako": {
+        "events": 6,
+        "offer_served": 3,
+        "paid_offer_shown": 3,
+        "latest_at": "2026-08-25T23:57:34.359319+00:00",
+        "durable_fixed_community_identity_join": false,
+        "paid_completion": false,
+        "useful_result": false,
+        "strict_effect": 0
+      },
+      "k2so": {
+        "events": 4,
+        "offer_served": 2,
+        "paid_offer_shown": 2,
+        "latest_at": "2026-08-25T23:59:01.911717+00:00",
+        "paid_completion": false,
+        "settlement": false,
+        "useful_result": false,
+        "strict_effect": 0
+      }
+    },
+    "other_activity": [
+      {
+        "identity_label": "CipherWatch/1.0",
+        "events": 3,
+        "types": {
+          "preflight_run": 3
+        },
+        "durable_fixed_community_identity_or_receipt_join": false
+      },
+      {
+        "identity_label": "agent-tools.cloud",
+        "events": 15,
+        "types": {
+          "discovery_resource_fetched": 6,
+          "offer_served": 1,
+          "paid_offer_served": 8
+        },
+        "useful_completion": false
+      },
+      {
+        "identity_label": "forum-labs-trust-prober/1.0",
+        "events": 2,
+        "types": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "useful_completion": false
+      },
+      {
+        "identity_label": "axios/1.14.0",
+        "events": 1,
+        "types": {
+          "discovery_resource_fetched": 1
+        },
+        "useful_completion": false
+      },
+      {
+        "identity_label": "mri-indexer/1.0",
+        "events": 3,
+        "types": {
+          "capability_demand": 1,
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "useful_completion": false
+      }
+    ]
+  },
+  "commercial": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "observed_at": "2026-08-26T00:01:58.506889Z",
+    "measurement_source": "sqlite_durable",
+    "history_complete": true,
+    "snapshot_events": 10413,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "settled_but_not_attributable_external": 2,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "delta_from_baseline": {
+      "external_settled_revenue_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "qualified_actors": 0,
+      "qualified_events": 0,
+      "paid_offers_shown": 0,
+      "paid_completions": 0
+    }
+  },
+  "attribution_limits": [
+    "Public instrumentation truncates actor identifiers and omits preflight target, source, nonce, verdict and observation receipt, so PULSE and CipherWatch counts cannot be joined to fixed-community principals or returned decisions.",
+    "PULSE's conservative floor counts observed liveness preflight completions only; it is not a population count, adoption count, identity proof or conversion numerator.",
+    "Literal {capability_id} absence after the cutoff proves only no public retry in this window. It does not prove the earlier caller understood or used the recovery route.",
+    "Self-declared user-agent labels, linked domains and repeated actor prefixes do not establish controller authority or community membership without a durable cross-surface join.",
+    "Offer presentation, discovery reads and capability demand are machine behavior but are not independently useful completed Agent Guild actions or settled revenue.",
+    "Ghostnode thread 15 has no reply and unchanged core. Its view counter includes the audit read and cannot bridge telemetry to the Colony identity.",
+    "No checked reply returned a nonce, result receipt, signature, transaction or equivalent evidence that could resolve these gaps."
+  ],
+  "safety": {
+    "ghostnode_thread_reads": 1,
+    "outbound_messages_or_repeated_outreach": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "deploys_pushes_or_target_edits": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "response_body_files_written": 0,
+    "external_writes": 0,
+    "local_writes": 1,
+    "local_write_scope": "this_validated_evidence_json_only"
+  }
+}

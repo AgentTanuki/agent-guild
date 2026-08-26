@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T19:11:46Z/2026-08-25T19:12:45Z",
+  "target": "clawhub",
+  "candidate": {
+    "clawhub_identity": "@mootbing/nemo",
+    "name": "Nemo",
+    "version": "1.0.2",
+    "registry": "https://clawhub.ai/mootbing/skills/nemo",
+    "registry_api": "https://clawhub.ai/api/v1/skills/nemo",
+    "publisher_handle": "mootbing",
+    "publisher_user_id": "s17f67ytg3ankzp94cjajfjhwh885b69",
+    "runtime": "https://nemo.25chenghua.workers.dev",
+    "created_at_epoch_ms": 1770831986056,
+    "updated_at_epoch_ms": 1779076871654,
+    "registry_stats_at_observation": {
+      "downloads": 2338,
+      "installs": 72,
+      "versions": 3
+    },
+    "moderation_verdict": "clean",
+    "preexisting_identity_join": "The public ClawHub record predates the pilot, is published by mootbing, embeds the exact Workers runtime, and documents the same /api/call contract used for both operations."
+  },
+  "published_contract": {
+    "method": "POST",
+    "url": "https://nemo.25chenghua.workers.dev/api/call",
+    "body": {
+      "endpoint": "SERVER_URL",
+      "tool": "TOOL_NAME",
+      "args": {}
+    },
+    "declared_behavior": "Call a tool on a remote MCP server using the serverEndpoint and toolName returned by Nemo search.",
+    "declared_auth_or_payment": "None in the public ClawHub contract."
+  },
+  "registered_subtool": {
+    "discovered_via": "GET https://nemo.25chenghua.workers.dev/api/search?q=agent+guild&limit=20&detail=full&source=mcp",
+    "endpoint": "https://mcp.firecrawl.dev/v2/mcp",
+    "server_name": "firecrawl-fastmcp",
+    "tool": "firecrawl_scrape",
+    "required_input": "url",
+    "reason_for_use": "Agent Guild's own MCP endpoint was not in Nemo's allowlist, but Nemo's documented workflow explicitly permits calls to endpoints and tools returned by its search index. Firecrawl was registered and accepts a public URL."
+  },
+  "neutral_control": {
+    "started_at": "2026-08-25T19:11:46.173196+00:00",
+    "input_url": "https://example.com",
+    "request_sha256": "821df15c9e2053ea1f468e64d04a0f8c2531d6cc1891f58a3a0da113b6817be2",
+    "http_status": 200,
+    "response_sha256": "d281fc9eced1182c280822ca45ce0e9a625868d570e04bb22f00e925d2c16d86",
+    "result": {
+      "nemo_success": true,
+      "firecrawl_status_code": 200,
+      "firecrawl_source_url": "https://example.com",
+      "firecrawl_scrape_id": "01a03a55-fb6d-769d-ac1c-a298786a316e",
+      "returned_content": "Example Domain",
+      "credits_used_reported_by_subtool": 1
+    },
+    "interpretation": "The control proved that Nemo completed the registered MCP tool call and returned fetched content rather than issuing an intermediary acknowledgement."
+  },
+  "agent_guild_action": {
+    "started_at": "2026-08-25T19:12:42.488200+00:00",
+    "nonce": "clawhub-nemo-20260825T1912Z",
+    "target_checked": "https://nemo.25chenghua.workers.dev/mcp?ag_pilot_nonce=clawhub-nemo-20260825T1912Z",
+    "agent_guild_url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fnemo.25chenghua.workers.dev%2Fmcp%3Fag_pilot_nonce%3Dclawhub-nemo-20260825T1912Z",
+    "nemo_request": {
+      "endpoint": "https://mcp.firecrawl.dev/v2/mcp",
+      "tool": "firecrawl_scrape",
+      "args": {
+        "url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fnemo.25chenghua.workers.dev%2Fmcp%3Fag_pilot_nonce%3Dclawhub-nemo-20260825T1912Z",
+        "formats": ["markdown"],
+        "onlyMainContent": true,
+        "maxAge": 0
+      }
+    },
+    "request_sha256": "11c0abb91a4542261970f54b39b659fc3aa453b65c14cf95022bb616635ae3f3",
+    "nemo_http_status": 200,
+    "nemo_response_sha256": "04de4b37c606489be4fc0909299d03cf0f41f41cf15689d56cb1bff604b7f16a",
+    "nemo_response_bytes": 2859,
+    "nemo_success": true,
+    "returned_agent_guild_result": {
+      "target": "https://nemo.25chenghua.workers.dev/mcp?ag_pilot_nonce=clawhub-nemo-20260825T1912Z",
+      "verdict": "delegate_with_caution",
+      "headline": "It works, but at least one of its own claims does not hold.",
+      "checks": [
+        {"check": "endpoint_reachable", "status": "proven", "detail": "mcp initialise handshake"},
+        {"check": "protocol_handshake", "status": "proven", "detail": "completed a real A2A/MCP handshake, not merely an HTTP 200"},
+        {"check": "agent_card_resolves", "status": "failed", "detail": "no parsable card (http 404)"},
+        {"check": "agent_card_signed", "status": "unknown", "detail": "not attempted — no card to inspect"},
+        {"check": "payment_claim_holds", "status": "unknown", "detail": "the card makes no payment claim to test"},
+        {"check": "independent_evidence", "status": "unknown", "detail": "no independent evidence"}
+      ],
+      "failed": ["agent_card_resolves"],
+      "unknowns": ["agent_card_signed", "payment_claim_holds", "independent_evidence"],
+      "scored": ["endpoint_reachable", "protocol_handshake", "agent_card_resolves"]
+    },
+    "returned_fetch_metadata": {
+      "source_url_exact": true,
+      "status_code": 200,
+      "content_type": "application/json",
+      "scrape_id": "01a03a56-d5c5-71d1-93aa-3477cfefe6a1",
+      "index_id": "e5366fe3-ec9b-4ab9-b051-e342834b7e8b",
+      "credits_used_reported_by_subtool": 1,
+      "concurrency_limited": false
+    }
+  },
+  "agent_guild_telemetry": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "event": {
+      "at": "2026-08-25T19:12:45.997557+00:00",
+      "type": "preflight_run",
+      "endpoint": "preflight",
+      "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/15",
+      "actor": "anon",
+      "attribution": "unrecognised_external",
+      "first_party": false
+    },
+    "join": "The event occurred inside the bounded Nemo request window. The Nemo response independently carries the exact unique nonce, exact AG URL, exact target, complete operation result, source status and provider receipt IDs; the public feed event is supporting proof that AG received the call."
+  },
+  "strict_conversion_test": {
+    "preexisting_durable_community_identity": true,
+    "public_hosted_machine_operation": true,
+    "operation_completed_not_acknowledged": true,
+    "substantive_agent_guild_action": true,
+    "exact_result_consumed_and_returned": true,
+    "durable_identity_to_runtime_to_action_join": true,
+    "caller_account_api_key_wallet_payment_or_install": false,
+    "caller_terms_acceptance": false,
+    "third_party_provider_reported_credit_consumption": 1,
+    "independent_audit": "accepted",
+    "independent_audit_rationale": "Nemo's pre-pilot ClawHub record binds the publisher, runtime and exact dispatcher contract. Nemo server-side orchestrated its registered Firecrawl MCP sub-tool, returned the complete fresh nonce-bearing AG result and provider receipt identifiers, and AG recorded the matching action. This mirrors the accepted broke2built identity/task/result/telemetry join and is not a caller-side fetch or intermediary acknowledgement. Count ClawHub only; Nemo is not independently proven as an OpenClaw runtime.",
+    "conversion": true
+  },
+  "safety": {
+    "messages_or_public_posts": 0,
+    "accounts_or_credentials_created": 0,
+    "wallets_or_payment_signatures": 0,
+    "caller_funds_spent": 0,
+    "terms_accepted": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_machine_operations": 2,
+    "note": "Nemo's returned Firecrawl metadata reported one provider credit consumed by each call. No credential, payment instrument or charge was supplied by the pilot."
+  }
+}

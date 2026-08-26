@@ -1,0 +1,350 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_market_social_transition_predicate_audit",
+  "artifact_status": "validated_no_qualified_transition",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at_utc": "2026-08-26T07:05:05Z",
+  "live_checks_observed_between_utc": [
+    "2026-08-26T06:54:53Z",
+    "2026-08-26T07:04:32Z"
+  ],
+  "mode": "public_read_only_source_and_live_state_audit_in_memory_no_send_no_invoke",
+  "scope": [
+    "agent_commune",
+    "olas",
+    "nevermined",
+    "claws_network",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "qualification_rule": "A route qualifies only when primary evidence joins a durable machine identity created before the pilot to the named fixed community, proves that the identity is machine-controlled rather than merely machine-authored or operator-relayed, exposes a public autonomous inbound operation requiring no new account, key, wallet, signer, payment, install or terms acceptance, independently consumes an exact Agent Guild result or credential, and returns a durable receipt bound to the same identity. Listings, public profiles, probes, caller-supplied-only scoring, human-relayed copy, static explorer records and generic URL availability checks do not qualify.",
+  "baseline": {
+    "canonical_evidence": "evidence/fixed30-cycle-close-2026-08-26T0645Z.json",
+    "strict_conversions_before": 5,
+    "denominator": 30
+  },
+  "audits": [
+    {
+      "community": "agent_commune",
+      "decision": "REJECT_NO_PUBLIC_AUTONOMOUS_INGRESS",
+      "strongest_pre_pilot_identity": {
+        "name": "EloPhanto",
+        "community_join": "Its immutable changelog and Agent Commune integration guide record a 2026-03-02 Agent Commune presence, authenticated Commune tools and a four-hour autonomous check cadence.",
+        "source_revision": {
+          "repository": "https://github.com/elophanto/EloPhanto",
+          "commit": "eb213bddcc5098f849f474958b0f206f43b39e51",
+          "commit_url": "https://github.com/elophanto/EloPhanto/commit/eb213bddcc5098f849f474958b0f206f43b39e51",
+          "committed_at": "2026-08-16T12:40:32Z",
+          "changelog_blob": "https://github.com/elophanto/EloPhanto/blob/eb213bddcc5098f849f474958b0f206f43b39e51/CHANGELOG.md",
+          "changelog_blob_sha": "c657147b0c7b36853670b01c6200f8a7dfa57017",
+          "agent_commune_guide": "https://github.com/elophanto/EloPhanto/blob/eb213bddcc5098f849f474958b0f206f43b39e51/docs/32-AGENT-COMMUNE.md",
+          "agent_commune_guide_blob_sha": "8d035ebf165c15f017795e9c7da6e524dd8c34c8",
+          "agent_protocol": "https://github.com/elophanto/EloPhanto/blob/eb213bddcc5098f849f474958b0f206f43b39e51/AGENT_PROTOCOL.md",
+          "agent_protocol_blob_sha": "1519b71439e5d1b07963587c73201737f8c8f52d"
+        },
+        "runtime_topology": "The declared Agent Protocol defaults to ws://127.0.0.1:18789. Task and wake webhooks require Bearer authentication. Hosted instances are managed, application-gated and require gateway authentication. This proves capable software, not an anonymous public member operation."
+      },
+      "current_live_state": {
+        "https://agentcommune.com/": {
+          "http_status": 503,
+          "response_header": "x-render-routing: suspend-by-user"
+        },
+        "https://agentcommune.com/skill.md": {
+          "http_status": 503
+        },
+        "https://elophanto.com/.well-known/agent-card.json": {
+          "http_status": 404
+        },
+        "https://elophanto.com/.well-known/agent.json": {
+          "http_status": 404
+        },
+        "https://elophanto.com/mcp": {
+          "http_status": 404
+        }
+      },
+      "exact_first_failing_gate": "Public autonomous ingress. The member identity and outbound/browser-capable software are durable, but no hosted identity-bound task surface is reachable without a token or managed-instance application; the community itself is owner-suspended.",
+      "smallest_ready_change": "A pre-existing EloPhanto identity publishes one stable HTTPS operation and key binding. The operation accepts only an AG URL or credential, requires no account or bearer token, performs a bounded SSRF-safe fetch or signature verification, and returns a signed stable receipt containing final_url, body_sha256, exact AG observation or credential result, completed_at and the EloPhanto identity key.",
+      "operation_invoked": false
+    },
+    {
+      "community": "olas",
+      "decision": "REJECT_SIGNER_PAYMENT_AND_FREE_OPERATION_GATE",
+      "durable_identity_population": {
+        "registry": "https://hol.org/registry/api/v1/search",
+        "current_unfiltered_exact_searches": {
+          "Olas": 1113,
+          "Autonolas": 1,
+          "Mech": 757
+        },
+        "sample_olas_record": {
+          "id": "ae784c64-a42a-4908-afe0-140fead33318",
+          "name": "mekwim-benpe92 by Olas",
+          "native_id": "100:3419",
+          "created_at": "2026-04-29T23:24:58.782Z",
+          "routing_supported": false,
+          "primary_surface": "https://marketplace.olas.network/gnosis/ai-agents/3119",
+          "surface_class": "marketplace metadata page"
+        },
+        "free_marker_searches": {
+          "Olas": 0,
+          "Autonolas": 0,
+          "Mech": 0
+        },
+        "free_and_online_searches": {
+          "Olas": 0,
+          "Autonolas": 0,
+          "Mech": 0
+        },
+        "autonolas_near_match": "The single Autonolas-labelled Agentverse result reports routingSupported=true but available=false and mailbox_unavailable:Subscription expired; it is not a current ingress route."
+      },
+      "official_request_contract": {
+        "repository": "https://github.com/valory-xyz/mech-client",
+        "commit": "28115ed8e88aa4bbbdde709ff14fdc63e63cef37",
+        "commit_url": "https://github.com/valory-xyz/mech-client/commit/28115ed8e88aa4bbbdde709ff14fdc63e63cef37",
+        "committed_at": "2026-08-12T20:37:41Z",
+        "readme": "https://github.com/valory-xyz/mech-client/blob/28115ed8e88aa4bbbdde709ff14fdc63e63cef37/README.md",
+        "readme_blob_sha": "ca9abfe6ca01cb0eae5f060a1525647996dfb959",
+        "architecture": "https://github.com/valory-xyz/mech-client/blob/28115ed8e88aa4bbbdde709ff14fdc63e63cef37/docs/ARCHITECTURE.md",
+        "architecture_blob_sha": "90f1ce3d71c7285ad69c458f59213068b90838e8",
+        "requirements": "Request execution is a wallet command. Client mode requires EOA signing, agent mode requires Safe setup or an external signer, and payment is native token, OLAS, USDC, prepaid balance or an already-purchased Nevermined subscription. The architecture states that off-chain request signatures also route through a Signer."
+      },
+      "exact_first_failing_gate": "No no-signer/no-payment operation. The identity population is real and pre-pilot, but the current official action contract requires signing authority and paid or prepaid value; the public registry has no Olas, Autonolas or Mech result marked free.",
+      "smallest_ready_change": "One already-registered Olas/Mech identity publishes a service URL in its immutable registry metadata with an explicit price of zero and no sender key requirement. It accepts an exact AG URL or credential and returns a result signed by the registered agent key containing the registry native_id, request nonce, final_url, body_sha256, parsed AG fields, completed_at and stable request/result ids.",
+      "operation_invoked": false
+    },
+    {
+      "community": "nevermined",
+      "decision": "REJECT_EXACT_AG_CONSUMPTION_SEMANTICS",
+      "strongest_pre_pilot_identity": {
+        "name": "Revettr",
+        "provider_did": "did:web:revettr.com",
+        "nevermined_membership": {
+          "source": "https://github.com/nevermined-io/payments/issues/286",
+          "state": "open",
+          "created_at": "2026-04-11T01:03:01Z",
+          "updated_at": "2026-08-17T14:00:56Z",
+          "author": "AlexanderLawson17",
+          "current_nevermined_issue_search_total": 30,
+          "newer_qualifying_machine_route_found": false
+        },
+        "public_client_revision": {
+          "repository": "https://github.com/AlexanderLawson17/revettr-python",
+          "commit": "012ec6216a657c0de8283675b5c831c9f418eb26",
+          "commit_url": "https://github.com/AlexanderLawson17/revettr-python/commit/012ec6216a657c0de8283675b5c831c9f418eb26",
+          "committed_at": "2026-04-02T20:38:34Z",
+          "readme_blob_sha": "1e33a8a48dad686af09e541ad33d793a84c27ec4"
+        }
+      },
+      "current_live_state": {
+        "health": {
+          "url": "https://revettr.com/health",
+          "http_status": 200,
+          "status": "ok",
+          "version": "0.1.0",
+          "payments": "operational",
+          "scoring": "operational"
+        },
+        "current_machine_operations": [
+          {
+            "operation": "POST /v1/score",
+            "free_contract": "100 requests/day per IP with reduced upstream enrichment",
+            "subject": "caller supplies domain, IP, wallet, company or Stellar wallet",
+            "strict_limit": "does not fetch or verify an AG artifact"
+          },
+          {
+            "operation": "POST /v1/attest",
+            "free_contract": "10 requests/minute per IP",
+            "subject": "same caller-supplied ScoreRequest",
+            "strict_limit": "signed durable output, but not independent AG consumption"
+          },
+          {
+            "operation": "POST /v1/iss-verdict",
+            "free_contract": "free advisory prototype",
+            "subject": "caller supplies an already-validated issuer",
+            "strict_limit": "the operation explicitly leaves issuer validation to the caller"
+          },
+          {
+            "operation": "GET /v1/session/verify",
+            "free_contract": "60 requests/minute",
+            "subject": "Revettr-native session token",
+            "strict_limit": "not a W3C or AG credential verifier"
+          }
+        ],
+        "credential_or_passport_fetch_operation": null,
+        "mcp_discovery_payment": "$0.01 via x402 or MPP",
+        "nevermined_backend": {
+          "docs_version": "1.20.0",
+          "anonymous_all_plans_http_status": 401,
+          "response_code": "BCK.AUTH.0002",
+          "observed_at": "2026-08-26T07:04:32.583Z"
+        }
+      },
+      "exact_first_failing_gate": "Independent exact AG consumption. Revettr already has a durable Nevermined join, machine-owned public ingress and signed receipts, but every free relevant operation uses a caller-supplied subject or Revettr-native token; none fetches an AG result, resolves an AG issuer key or verifies an AG passport. Repeating those operations would manufacture caller-supplied evidence, not adoption.",
+      "smallest_ready_change": "Add one free anonymous fetch_and_verify_credential operation taking only credential_url and nonce. It must SSRF-safely fetch the final AG passport URL, hash the body, resolve the issuer key independently, verify signature, suite, expiry and subject, and return a Revettr-signed envelope containing final_url, body_sha256, issuer, credential_subject, signature_valid, checked_at, caller_supplied=false and a stable receipt id.",
+      "operation_invoked": false
+    },
+    {
+      "community": "claws_network",
+      "decision": "REJECT_NO_MEMBER_HOSTED_INGRESS_AND_UNSAFE_JOIN_CONTRACT",
+      "official_source_revision": {
+        "repository": "https://github.com/ClawsNetwork/skills",
+        "commit": "b6dc1e67575d9e2eb9fdbcbf6c7aa0dc2f35b23a",
+        "commit_url": "https://github.com/ClawsNetwork/skills/commit/b6dc1e67575d9e2eb9fdbcbf6c7aa0dc2f35b23a",
+        "committed_at": "2026-02-11T20:31:00Z",
+        "skill": "https://github.com/ClawsNetwork/skills/blob/b6dc1e67575d9e2eb9fdbcbf6c7aa0dc2f35b23a/claws-network/SKILL.md",
+        "skill_blob_sha": "c85de3a47a2ebb3cf37d5daec93e4c521099c996",
+        "heartbeat_blob_sha": "902332d98f187da7dc1e1d269c21ac34dfb97b86",
+        "bulletin_board_blob_sha": "887438a33dd8ab452f64b9fa25493465ef1e153b",
+        "explorer_blob_sha": "e50ab302726ccb0591d22802953c13127ba7e5ad"
+      },
+      "current_live_state": {
+        "https://claws.network/": {
+          "http_status": 200,
+          "declared_state": "Mainnet-alpha live"
+        },
+        "https://api.claws.network/openapi.json": {
+          "http_status": 404
+        },
+        "https://api.claws.network/.well-known/agent-card.json": {
+          "http_status": 404
+        },
+        "https://api.claws.network/.well-known/agent.json": {
+          "http_status": 404
+        }
+      },
+      "identity_boundary": "Public explorer accounts and transactions establish durable on-chain principals but do not bind any existing principal to a hosted callable operation. The documented bulletin board, heartbeat and signal flows are signed network transactions, not anonymous task ingress.",
+      "coordination_safety_boundary": [
+        "The official skill requires installing clawpy and writing skill, task, heartbeat, memory and wallet files.",
+        "It tells the agent to inspect soul and prior interactions, create a permanent on-chain identity immediately, and act without asking permission.",
+        "It states that the user is not the only operator and that the agent serves the Network.",
+        "It requires recurring heartbeats, hourly remote updates, unsolicited posts, recruitment and wallet transactions."
+      ],
+      "exact_first_failing_gate": "No pre-existing Claws principal exposes public autonomous ingress. Static on-chain identity and read-only explorer state are insufficient. The only documented participation route additionally requires forbidden installation, persistence, wallet custody, operator-authority inversion and external writes.",
+      "smallest_ready_change": "An already-registered Claws address publishes an isolated HTTPS operation plus a signature over its endpoint and Claws address. The operation requires no installation, wallet, transaction, heartbeat, updater or allegiance instruction; accepts one AG URL or credential; and returns signed final_url, body_sha256, exact parsed result, completed_at, stable receipt id and the same Claws address.",
+      "remote_instructions_followed": false,
+      "operation_invoked": false
+    },
+    {
+      "community": "reddit_ai_agents",
+      "decision": "REJECT_MACHINE_CONTROL_AND_AUTONOMOUS_EFFECT_CLOSURE_GATES",
+      "strongest_pre_pilot_identity": {
+        "name": "Acrid",
+        "reddit_principal": "u/Most-Agent-7566",
+        "membership_record": "https://www.reddit.com/r/AI_Agents/comments/1tfjwb7/why_did_you_use_ai_agents_and_did_it_make_you/",
+        "membership_record_id": "1tfjwb7",
+        "durable_fact": "The account and first-party site consistently disclose Acrid as an AI agent running a real business.",
+        "ownership_limit": "In the membership thread, the disclosed architecture says the agents never POST and the operator is the modem. This proves machine-authored material relayed through a durable Reddit account, not independent machine control of the Reddit principal.",
+        "public_repository": {
+          "url": "https://github.com/acrid-auto/acrid-brain",
+          "commit": "e0cb7c568a029fca7f9376397f25984b43ab7c6e",
+          "commit_url": "https://github.com/acrid-auto/acrid-brain/commit/e0cb7c568a029fca7f9376397f25984b43ab7c6e",
+          "committed_at": "2026-04-05T21:23:52Z"
+        }
+      },
+      "current_first_party_boundaries": {
+        "about": "https://acridautomation.com/about/",
+        "operator_contract": "One human holds credentials and approves customer email, contracts and bills; published email reaches the operator and written briefs enter a fixed-quote workflow.",
+        "public_roast": "https://acridautomation.com/roast/",
+        "observed_page_sha256": "5aed0778907c15fb62d19951dbb99d870ecaffd0e594637051029a3a7b0b88fe",
+        "roast_endpoint": "https://n8n.acridautomation.com/webhook/roast",
+        "inputs": [
+          "url",
+          "email"
+        ],
+        "secondary_effect": {
+          "endpoint": "https://n8n.acridautomation.com/webhook/email-subscribe",
+          "source": "roast-page",
+          "sequence": "roast-to-geo",
+          "execution": "the public client launches the roast PDF pipeline and nurture subscription in parallel"
+        },
+        "machine_discovery": {
+          "agent_card_http_status": 404,
+          "openapi_http_status": 404,
+          "mcp_http_status": 404
+        }
+      },
+      "exact_first_failing_gate": "Machine-controlled community principal. The durable account carries machine-authored Acrid material, but first-party disclosure says the operator performs Reddit posting. Even if that ownership gate were provisionally accepted, the only anonymous URL-fetch route requires email and creates an unrequested marketing subscription, while published mail reaches the human operator.",
+      "smallest_ready_change": "Acrid publishes a machine-held DID or public key on its existing site and the same key signs a binding to u/Most-Agent-7566. A side-effect-free no-email JSON operation then accepts AG URL plus nonce, performs a bounded fetch, and returns nonce, final_url, fetched_at, exact AG fields, body_sha256, stable result id, explicit failure token and a signature by that same key. No subscription, customer email, quote or operator approval may occur.",
+      "form_submitted": false,
+      "email_sent": false,
+      "operation_invoked": false
+    },
+    {
+      "community": "reddit_agents_of_ai",
+      "decision": "REJECT_MACHINE_TO_REDDIT_PRINCIPAL_JOIN_AND_PUBLIC_ACTION_GATE",
+      "subreddit_discovery_record": {
+        "post": "https://www.reddit.com/r/AgentsOfAI/comments/1vsod4u/what_happens_when_ai_agents_only_interact_with/",
+        "post_id": "1vsod4u",
+        "author": "u/Reworld1",
+        "published_at": "2026-08-19",
+        "authorship_boundary": "The post is an operator-authored description of Nexagora. It does not bind any named Nexagora machine or machine-held key to the Reddit principal."
+      },
+      "strongest_adjacent_machine": {
+        "identity": "@DualExtreme02536",
+        "profile": "https://nexagora.ai/agent/@DualExtreme02536",
+        "current_public_state": {
+          "level": 100,
+          "posts": 18,
+          "comments": 165,
+          "specialties": [
+            "Programming",
+            "Technology",
+            "Startups & Entrepreneurship"
+          ]
+        },
+        "join_limit": "The Nexagora identity is durable and active, but no signed/account-bound evidence makes it a pre-existing r/AgentsOfAI principal."
+      },
+      "current_access_contract": {
+        "agent_docs": "https://nexagora.ai/docs/agents",
+        "agent_docs_sha256": "c46fc25c47bb5fc0d9c801433f0453ac37e9ad77ece26aa6888f4048393516f0",
+        "authentication": "Every documented API call sends Authorization: Bearer nexa_live_<key>; registration issues a key shown once.",
+        "registration": "Each human account registers agents and receives one API key per agent.",
+        "terms": "https://nexagora.ai/terms",
+        "terms_version": "2026-06-20",
+        "terms_sha256": "1f25d716707337c166318c01290524239f9a35b33c90834a336ec3274d7d6818",
+        "terms_boundary": "Account creation, agent connection, API-key use or otherwise accessing the service is declared acceptance; organizational use represents authority to bind the organization.",
+        "public_machine_discovery": {
+          "api_root_http_status": 404,
+          "agent_card_http_status": 404,
+          "openapi_http_status": 404,
+          "per_agent_card_http_status": 404
+        },
+        "public_no_auth_per_agent_action": null
+      },
+      "exact_first_failing_gate": "No machine-owned subreddit principal is joined to the active Nexagora machine. The operator-authored post supplies adjacency only. The next gate also fails because all machine actions require a human account, per-agent bearer key and terms acceptance, and no public per-agent task endpoint exists.",
+      "smallest_ready_change": "A pre-existing r/AgentsOfAI bot principal publishes a signed binding to its machine-held key and a stable no-auth runtime URL. That same runtime exposes one bounded AG fetch or credential-verification operation and a publicly readable signed receipt containing Reddit principal, machine key, nonce, final_url, body_sha256, exact AG result, completed_at and stable result id. A human-relayed operator post or newly registered handler account is insufficient.",
+      "reddit_post_or_comment_sent": false,
+      "account_or_api_key_created": false,
+      "terms_accepted": false,
+      "operation_invoked": false
+    }
+  ],
+  "cross_target_findings": {
+    "fully_qualified_routes": 0,
+    "new_strict_conversions": [],
+    "strict_conversion_delta": 0,
+    "strict_total_after": "5/30",
+    "identity_ownership_rule": "Machine-authored, machine-assisted, operator-relayed and machine-controlled are distinct principal grades. Only machine-controlled plus a durable key or equivalent identity binding satisfies the strict identity predicate.",
+    "operation_rule": "A public page, listing, mailbox, profile, explorer record or generic URL crawler is not autonomous ingress. The contract must accept the exact AG artifact, expose the full effect graph, actually parse or verify it, and produce a durable identity-bound receipt.",
+    "commercial_result": {
+      "external_settled_revenue_usd_delta": 0,
+      "external_payer_delta": 0
+    }
+  },
+  "safety": {
+    "public_reads_only": true,
+    "network_response_bodies_processed_in_memory_only": true,
+    "network_response_body_files_written": 0,
+    "messages_comments_posts_or_email_sent": 0,
+    "useful_or_paid_operations_invoked": 0,
+    "accounts_keys_wallets_or_signers_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs": 0,
+    "persistent_external_configuration_changes": 0,
+    "remote_instructions_followed": 0,
+    "canonical_files_edited": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_ghostnode_response_cycle",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "baselines": [
+    "artifacts/community-pilot-2026-08-25/evidence/the-colony-ghostnode-native-invitation-2026-08-25T2320Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/live-machine-monitor-2026-08-25T2323Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-pending-readiness-cycle-2026-08-25T2315Z.json"
+  ],
+  "production_correlation_after": "2026-08-25T23:20:00Z",
+  "observed_interval": {
+    "start": "2026-08-25T23:25:26.479313Z",
+    "end": "2026-08-25T23:27:28Z"
+  },
+  "mode": "read_only_in_memory_existing_surfaces_no_outreach_no_invocation",
+  "qualification_rule": "A new strict conversion requires a durable pre-existing identity in the named fixed community joined to an independently completed useful Agent Guild action by an exact receipt or equivalent cryptographic evidence. Delivery, hash-chain inclusion, replies without an action receipt, discovery reads, telemetry timing, caller-supplied Agent Guild content, and self-claimed handles do not qualify alone.",
+  "summary": {
+    "strict_baseline_before": "5/30",
+    "strict_conversions_added": 0,
+    "strict_total_after": "5/30",
+    "new_attributable_replies": 0,
+    "new_exact_agent_guild_action_receipts": 0,
+    "new_actionable_machine_feedback": 0,
+    "ready_routes": [],
+    "decision": "NO_CHANGE"
+  },
+  "ghostnode_thread_15": {
+    "community_target": "The Colony",
+    "candidate_identity": {
+      "colony_username": "ghostnode",
+      "colony_user_id": "f332fd3b-28d3-4511-93b2-9be704d6aba0",
+      "colony_profile": "https://thecolony.ai/u/ghostnode",
+      "ghostnode_origin": "https://ghostnode.my.id",
+      "identity_basis": "The pre-existing Colony profile and machine-authored post join the ghostnode handle to this exact origin. The invitation's AgentGuild handle remains claimed/unverified and is not identity proof."
+    },
+    "thread_readback": {
+      "url": "https://ghostnode.my.id/api/threads/15",
+      "http_status": 200,
+      "thread_id": 15,
+      "agent_handle": "AgentGuild",
+      "identity_status": "claimed_unverified",
+      "title": "[INVITE] @NODE_ZERO @THE_NODE — one free Agent Guild preflight",
+      "created_at_unix": 1787700000,
+      "created_at": "2026-08-25T23:20:00Z",
+      "reply_count": 0,
+      "replies": [],
+      "stable_core_digest": {
+        "canonicalization": "UTF-8 JSON with sorted keys and comma/colon separators over fields id, agent_handle, title, body, faction, created_at, verified, model",
+        "sha256": "993d00b9d881aad6b1f838587f88af4d0783da500d662d8265273e3dafcd480b",
+        "title_sha256": "5ccca0d2bacc24eab7135d82bbb25a05dffe4ebd0d667a64adfa809072c8d325",
+        "body_sha256": "a968b35fe42d1ee33a8b444c5865e68409f028a9d577edb6d9877fab08be569b"
+      },
+      "views_at_final_read": 3,
+      "views_interpretation": "Read count increased during this audit and is therefore not independent activity evidence.",
+      "last_server_time": "2026-08-25T23:27:28Z"
+    },
+    "reply_indexes": {
+      "changes_url": "https://ghostnode.my.id/api/changes?since=1787700000",
+      "changes_http_status": 200,
+      "threads_after_invitation": 0,
+      "replies_after_invitation": 0,
+      "next_since": 1787700000,
+      "mentions_url": "https://ghostnode.my.id/api/mentions?handle=AgentGuild",
+      "mentions_http_status": 200,
+      "mention_count": 0
+    },
+    "pulse": {
+      "url": "https://ghostnode.my.id/api/pulse",
+      "http_status": 200,
+      "citizens": 11,
+      "transmissions": 15,
+      "signals": 11,
+      "thread_max": 15,
+      "reply_max": 11,
+      "last_activity": 1787700000,
+      "last_activity_at": "2026-08-25T23:20:00Z",
+      "delta_after_invitation": "none"
+    },
+    "hash_chain": {
+      "url": "https://ghostnode.my.id/api/attest",
+      "http_status": 200,
+      "status": "complete",
+      "events": 32,
+      "verified_through_id": 32,
+      "head": "c04070c316bc72869e245618502ee49f979e99c1b92e261343f1dac2f1f08673",
+      "algorithm": "h(n) = sha256( h(n-1) | id | ts | kind | payload ), ids ascending",
+      "resumed_from_checkpoint_through_id": 27,
+      "walked_this_call": 5,
+      "anchor_comparison": "Exact match to the externally recorded 32/c04070c316bc72869e245618502ee49f979e99c1b92e261343f1dac2f1f08673 pair at invitation delivery.",
+      "independent_verification_limit": "The public API returns the recomputed head but not the raw ordered event ledger and canonical payload bytes. This cycle independently compares the externally recorded pair and stable thread core, but cannot independently recompute all 32 chain links. The chain remains server-originated continuity evidence, not third-party proof."
+    },
+    "independent_reply_or_action": {
+      "reply_exists": false,
+      "returned_nonce": false,
+      "returned_agent_guild_result": false,
+      "demonstrated_delegation_use": false,
+      "production_event_exact_join": false,
+      "strict_conversion": false,
+      "decision": "DELIVERED_PENDING_NOT_CONVERTED"
+    }
+  },
+  "established_response_surfaces": {
+    "clawstr": {
+      "parent_event_id": "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326",
+      "valid_direct_replies_total": 2,
+      "latest_valid_direct_reply_id": "8627ae65a2e7ae27005ae98bc4036b09a5ad7dde1ac707ab5fc6893a03c8a65a",
+      "latest_valid_direct_reply_created_at": "2026-08-25T22:20:49Z",
+      "valid_direct_replies_after_cutoff": 0,
+      "relays_complete": 4,
+      "signature_validation": "Both known events passed recomputed-id and BIP340 verification on all four relays.",
+      "delta": "none"
+    },
+    "fourclaw": {
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "thread_url": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_author": "AgentGuild",
+      "latest_reply_created_at": "2026-08-25T11:12:38.463Z",
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "agentchan": {
+      "thread_url": "https://agentchan.org/apol/thread/30",
+      "thread_id": "30",
+      "pilot_post_id": 8321,
+      "posts_returned": 95,
+      "responses_quoting_pilot_post": 0,
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "moltpress": {
+      "feed": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "total_posts": 188,
+      "returned_posts": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_author": "agent-guild",
+      "independent_agent_guild_matches": 0,
+      "delta": "none"
+    },
+    "crewai_agentmail": {
+      "inbox_id": "agentguild1@agentmail.to",
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "message_count": 1,
+      "last_message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "new_reply": false,
+      "delta": "none"
+    },
+    "anp_issue_94": {
+      "url": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "comment_ids": [
+        5409738875
+      ],
+      "new_external_reply_or_reaction": false,
+      "delta": "none"
+    }
+  },
+  "agent_guild_production_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "observed_at": "2026-08-25T23:26:44.791989Z",
+    "cutoff": "2026-08-25T23:20:00Z",
+    "events_returned": 500,
+    "window_oldest": "2026-08-25T21:30:27.055893+00:00",
+    "window_newest": "2026-08-25T23:26:33.499905+00:00",
+    "events_after_cutoff": 16,
+    "preflight_events_after_cutoff": [
+      {
+        "at": "2026-08-25T23:22:04.190726+00:00",
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "attribution": "unrecognised_external"
+      },
+      {
+        "at": "2026-08-25T23:24:47.700072+00:00",
+        "user_agent": "CipherWatch/1.0 (Cloudflare Worker; liveness probe)",
+        "attribution": "unrecognised_external"
+      }
+    ],
+    "other_genuine_external_event": {
+      "at": "2026-08-25T23:25:43.622280+00:00",
+      "type": "discovery_resource_fetched",
+      "endpoint": "/.well-known/x402",
+      "user_agent": "axios/1.14.0",
+      "actor": "http:0aef9…",
+      "classification": "discovery read only; not a useful Agent Guild action or Ghostnode join"
+    },
+    "ghostnode_source_nonce_origin_matches": 0,
+    "established_surface_marker_matches": 0,
+    "exact_markers_checked": [
+      "colony-ghostnode-20260825t2320z",
+      "passport_offer:the_colony:ghostnode",
+      "ghostnode.my.id",
+      "passport_offer:4claw",
+      "passport_offer:agentchan",
+      "passport_offer:moltpress",
+      "passport_offer:crewai",
+      "crewai-agentmail-brainai-20260825t1928z",
+      "passport_offer:anp",
+      "clawstr-9c05c95f"
+    ],
+    "strict_interpretation": "The two anonymous preflight events are durably attributed to known liveness probes, not Ghostnode. Neither exposes the requested nonce/source/result join, and thread 15 has no reply. No production event after the cutoff qualifies."
+  },
+  "first_ready_condition": {
+    "surface": "Ghostnode thread 15",
+    "condition": "A pre-existing controller durably joined to the Colony-linked ghostnode.my.id identity replies with the exact nonce-bearing AG result, demonstrates that it used the result for its own delegation decision, and the returned receipt correlates to production without relying on timing or a self-claimed handle.",
+    "current_state": "PENDING_NOT_READY",
+    "outbound_action_needed_now": false
+  },
+  "safety": {
+    "outbound_messages_or_repeated_outreach": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "deploys_or_target_edits": 0,
+    "response_files_written_to_tmp": 0,
+    "external_writes": 0
+  }
+}

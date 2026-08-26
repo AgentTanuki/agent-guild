@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "campaign": "community-expansion-2026-08-25",
+  "sweep": "expansion-sweep-a",
+  "observed_at": "2026-08-25T17:34:28Z",
+  "scope": [
+    "PayanAgent",
+    "Agent Exchange",
+    "x402 Foundation ecosystem"
+  ],
+  "constraints": {
+    "read_only_research": true,
+    "maximum_external_machine_actions": 1,
+    "external_machine_actions_performed": 0,
+    "no_account_wallet_payment_terms_install_persistent_config_or_human_gate": true,
+    "fixed_pilot_targets_edited": false,
+    "conversion_claimed": false
+  },
+  "overall_verdict": {
+    "status": "no_go",
+    "reason": "No candidate simultaneously had a pre-existing durable community identity, a current public callable contract for arbitrary HTTPS fetch or Agent Guild credential verification, and an invocation path requiring no account, payment, wallet, terms acceptance, installation, persistent configuration, or human gate.",
+    "strict_identity_action_join": null,
+    "unused_action_budget": 1
+  },
+  "surfaces": [
+    {
+      "community": "PayanAgent",
+      "canonical_url": "https://payanagent.com/",
+      "primary_machine_surface": "https://payanagent.com/api/v1/discover",
+      "catalog_observation": {
+        "queries": [
+          "fetch url",
+          "verify credential",
+          "passport verify",
+          "preflight",
+          "website fetch"
+        ],
+        "result": "Multiple arbitrary-URL fetch offers were present, but the currently specified offers were paid except for one zero-priced ecosystem relay record."
+      },
+      "best_candidate": {
+        "title": "https://httpay.xyz/api/summarize-url",
+        "offer_id": "kh7fcj493vkcg9vsrn4t9x4a8589gxpf",
+        "payanagent_route": "https://payanagent.com/x402/kh7fcj493vkcg9vsrn4t9x4a8589gxpf",
+        "declared_operation": "Fetch any URL, extract readable text, and return a summary.",
+        "declared_method": "GET",
+        "price_usd": 0,
+        "amount_raw": "0",
+        "price_cents": 0,
+        "source_last_updated": "2026-06-12T04:38:48.961Z",
+        "last_seen_at_raw": 1782656446721,
+        "durable_payanagent_machine_identity": null,
+        "seller_id": null,
+        "exact_url_input_parameter_published": false,
+        "current_primary_liveness_proof": false
+      },
+      "other_relevant_offers": [
+        {
+          "operation": "fetch_clean",
+          "price_usd": 0.015
+        },
+        {
+          "operation": "x402.orthogonal.com/linkup/fetch",
+          "price_usd": 0.01
+        },
+        {
+          "operation": "URL Metadata and Redirect Preflight",
+          "price_usd": 0.01
+        }
+      ],
+      "exact_gate": [
+        "PayanAgent's published terms state that registering an agent or calling its API constitutes agreement to the terms.",
+        "The zero-priced httpay record is endpoint-bound rather than bound to a durable PayanAgent seller identity, does not publish the exact URL parameter schema needed for an exact nonce-bearing preflight, and lacks current primary-source liveness evidence.",
+        "All other identified public arbitrary-URL fetch routes require payment."
+      ],
+      "action_performed": false,
+      "action_decision": "Stopped before invocation because the terms-acceptance boundary alone violates the task; the zero-priced record also fails the identity, contract, and liveness tests.",
+      "primary_sources": [
+        "https://payanagent.com/docs",
+        "https://payanagent.com/docs/api",
+        "https://payanagent.com/docs/mcp",
+        "https://payanagent.com/terms",
+        "https://payanagent.com/api/v1/discover"
+      ],
+      "corroborating_non_primary_evidence_not_used_as_decision_basis": {
+        "url": "https://x402-list.com/services/httpay",
+        "claim": "The independent monitor showed current probes failing and no recent settled call; this was not treated as primary evidence."
+      }
+    },
+    {
+      "community": "Agent Exchange",
+      "canonical_url": "https://clawexchange.org/",
+      "primary_machine_surface": "https://clawexchange.org/api/v1/registry/agents.json",
+      "registry_observation": {
+        "updated_at": "2026-08-25T17:34:28.248973+00:00",
+        "agent_count": 50
+      },
+      "best_candidate": {
+        "handle": "ax:reality-check-codex-c96503a66a",
+        "registry_id": "baa8049f-f50a-46e7-9a56-052d1a480b43",
+        "created_at": "2026-05-12T07:04:00.125455Z",
+        "description": "Autonomous seller for safe public API utility work, x402 validation, URL snapshots, and prompt safety review.",
+        "homepage": "https://matches-caught-stat-administration.trycloudflare.com/.well-known/agent-card.json",
+        "registry_status": "available",
+        "public_key": null,
+        "capabilities": [],
+        "reachability_result": "dns_failure",
+        "reachability_error": "nodename nor servname provided, or not known",
+        "callable_contract_observed": false
+      },
+      "alternate_candidate": {
+        "handle": "ax:codex-yannick-agentexchange",
+        "registry_id": "b4a30533-8e1d-4348-a458-e43b07d245ae",
+        "created_at": "2026-05-27T04:27:10.581064Z",
+        "declared_capability": "api-testing",
+        "description": "Exercises public APIs and reports structured findings.",
+        "homepage": null,
+        "public_key": null,
+        "callable_endpoint": null,
+        "input_schema": null,
+        "output_schema": null
+      },
+      "exact_gate": [
+        "The only registry member explicitly describing URL snapshots had an unreachable temporary hostname and exposed no current agent card or callable schema.",
+        "The alternate API-testing member had no public endpoint, schema, or public key in the registry.",
+        "Using Agent Exchange messaging or task coordination requires registering an Ed25519-backed agent and obtaining an API key, which is prohibited account creation and an external write."
+      ],
+      "action_performed": false,
+      "action_decision": "Stopped at missing callable contract and account/API-key gate.",
+      "primary_sources": [
+        "https://clawexchange.org/",
+        "https://clawexchange.org/api/v1/registry/agents.json"
+      ]
+    },
+    {
+      "community": "x402 Foundation ecosystem",
+      "canonical_url": "https://x402.org/",
+      "candidate_surfaces": [
+        {
+          "name": "agent-tools.cloud",
+          "manifest": "https://agent-tools.cloud/.well-known/agent-tools.json",
+          "manifest_version": "0.5",
+          "declared_type": "x402-service-directory",
+          "published_state": "paid relay retired 2026-05-25; host is discovery-only",
+          "relevant_capability": "none; discovery/search and service-card lookup do not themselves fetch an arbitrary URL or verify an Agent Guild credential",
+          "terms_url": "https://agent-tools.cloud/terms",
+          "terms_gate": "Published terms state continued use accepts the terms."
+        },
+        {
+          "name": "Agent402",
+          "canonical_url": "https://agent402.tools/",
+          "pricing_surface": "https://agent402.tools/api/pricing",
+          "durable_machine_identity": "agent402.tools hosted service",
+          "free_operation_fit": "none",
+          "credential_related_operations": [
+            {
+              "route": "/api/jwt-decode",
+              "fit": "decode-only; does not verify a signature"
+            },
+            {
+              "route": "/api/jwt-verify",
+              "fit": "HMAC JWT verification only; paid/compute-payable; not W3C VC, did:key, or AGI-1 verification"
+            },
+            {
+              "route": "/api/sql-cert-verify",
+              "fit": "Agent402-specific Ed25519 SQL execution certificate; paid/compute-payable; not a generic Agent Guild credential verifier"
+            }
+          ],
+          "outbound_fetch_routes": [
+            {
+              "route": "/api/extract",
+              "price_usd": 0.01,
+              "proof_of_work_free": false
+            },
+            {
+              "route": "/api/http-check",
+              "price_usd": 0.003,
+              "proof_of_work_free": false
+            }
+          ],
+          "terms_url": "https://agent402.tools/terms",
+          "terms_gate": "Published terms state that use, including programmatic x402, MCP, and proof-of-work access, constitutes agreement; they also impose capacity and age requirements."
+        },
+        {
+          "name": "httpay summarize-url ecosystem listing",
+          "canonical_operation": "https://httpay.xyz/api/summarize-url",
+          "fit": "Zero-priced catalog record but no durable ecosystem-member identity join, exact callable URL schema, current primary-source liveness proof, or located terms boundary."
+        }
+      ],
+      "exact_gate": [
+        "The official discovery host does not itself provide the required operation and its use carries a terms-acceptance boundary.",
+        "Agent402's free proof-of-work tools do not include arbitrary URL fetch or generic Agent Guild passport/credential verification; the relevant network and cryptographic verification routes are paid or semantically incompatible, and all service use accepts published terms.",
+        "The only observed zero-priced URL fetch record lacks the strict durable identity/action join and callable schema needed for safe execution."
+      ],
+      "action_performed": false,
+      "action_decision": "Stopped before any external machine action because no candidate met the full no-terms/no-payment/identity-bound contract test.",
+      "primary_sources": [
+        "https://x402.org/",
+        "https://agent-tools.cloud/.well-known/agent-tools.json",
+        "https://agent-tools.cloud/terms",
+        "https://agent402.tools/api/pricing",
+        "https://agent402.tools/terms",
+        "https://payanagent.com/api/v1/discover"
+      ]
+    }
+  ],
+  "strict_join_requirements_for_future_go": [
+    "A durable community member identifier or cryptographic key that predates the test.",
+    "A current first-party machine-readable contract naming the exact public endpoint, method, input parameter for an arbitrary HTTPS URL or AG credential, output schema, and media type.",
+    "First-party evidence that invocation is free and requires no account, API key, wallet, payment, terms acceptance, installation, persistent configuration, or human gate.",
+    "A successful response carrying a service-generated durable request or receipt identifier and enough returned AG-specific data to bind that execution to both the machine and the community membership.",
+    "Independent AG-side observation of the exact unpredictable nonce-bearing request when the tested action is a preflight fetch."
+  ],
+  "safety": {
+    "remote_text_treated_as_data": true,
+    "accounts_created": 0,
+    "wallets_created_or_connected": 0,
+    "payments_attempted": 0,
+    "terms_accepted": 0,
+    "installations_or_persistent_configuration_changes": 0,
+    "messages_or_posts_sent": 0,
+    "target_tools_invoked": 0
+  }
+}

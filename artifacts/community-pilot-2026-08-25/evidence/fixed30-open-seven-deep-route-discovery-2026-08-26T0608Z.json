@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_open_seven_deep_route_discovery",
+  "artifact_status": "validated_no_qualified_candidate",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T05:55:13Z",
+    "end": "2026-08-26T06:08:22Z"
+  },
+  "mode": "public_read_only_no_send_no_invoke",
+  "scope": [
+    "agent_commune",
+    "olas",
+    "agntcy",
+    "fetch_agentverse",
+    "nevermined",
+    "openserv",
+    "naptha"
+  ],
+  "qualification_rule": "A route qualifies only if primary sources join a named machine created before the pilot to the named fixed community, a machine-owned autonomous inbound channel, an anonymous free operation that independently fetches, verifies or substantively uses the exact Agent Guild artifact, and a durable result attributable to that same machine. Listings, caller-supplied-only checks, localhost cards, paid routes, stateful sender lifecycles and adjacent identities do not qualify.",
+  "guard": {
+    "ledger": "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "checked_first": true,
+    "ledger_updated_at": "2026-08-26T05:55:13Z",
+    "closed_community_matches": [],
+    "converted_target_matches": [],
+    "decision_for_all_seven": "OPEN_FOR_READ_ONLY_AUDIT_ONLY_NOT_SEND_AUTHORITY",
+    "task_policy": "No send or invocation was authorized regardless of guard state."
+  },
+  "registry_search": {
+    "official_mcp_registry": "https://registry.modelcontextprotocol.io/v0.1/servers",
+    "exact_relevant_records": [
+      {
+        "name": "io.github.agntcy/dir-mcp",
+        "version": "1.3.4",
+        "community": "agntcy",
+        "remote": null,
+        "distribution": "OCI and MCPB stdio packages",
+        "gate": "install_required_no_hosted_inbound_channel"
+      },
+      {
+        "name": "io.github.fetchai/agentverse-memory",
+        "version": "1.0.0",
+        "community": "fetch_agentverse",
+        "remote": "https://am-server-jbneh74b5q-uc.a.run.app/mcp",
+        "auth": "required X-Api-Key; record instructs POST /v1/keys to obtain one",
+        "gate": "account_key_and_persistent_memory_semantics"
+      },
+      {
+        "name": "io.github.AlexanderLawson17/revettr-mcp",
+        "version": "0.2.3",
+        "community": "nevermined",
+        "remote": "https://revettr.com/mcp",
+        "gate": "free_operations_do_not_independently_consume_exact_ag_artifact"
+      }
+    ],
+    "no_exact_named_record": [
+      "agent_commune",
+      "olas",
+      "openserv",
+      "naptha"
+    ],
+    "public_a2a_registry": "https://a2aregistry.org/api/agents",
+    "exact_named_results": {
+      "agent_commune": 0,
+      "olas": 0,
+      "agntcy": 0,
+      "fetch_agentverse": 0,
+      "nevermined": 0,
+      "openserv": 0,
+      "naptha": 0
+    },
+    "agentmail_search": "No public AgentMail address could be joined by exact machine name, domain, address, DID, wallet or official registry record to a qualifying identity in the seven communities."
+  },
+  "fully_qualified_candidates": [],
+  "failing_gates": [
+    {
+      "community": "fetch_agentverse",
+      "closest_named_machine": "Website Scraper Agent",
+      "pre_pilot_identity": {
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "created_at": "2025-06-25T14:06:46Z",
+        "profile": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "almanac": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs"
+      },
+      "machine_owned_channel": "https://agentverse.ai/v1/hosting/submit",
+      "capability": "WebsiteScraperRequest{url:string} returns WebsiteScraperResponse{text:string}; this could fetch the exact AG URL.",
+      "current_state": {
+        "status": "active",
+        "type": "hosted",
+        "unresponsive": true,
+        "last_updated": "2026-08-26T06:06:08Z",
+        "total_interactions": 41105,
+        "recent_interactions": 7490,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "almanac_expiry": "2026-09-19T09:36:26.157873Z"
+      },
+      "second_pre_pilot_identity": {
+        "address": "agent1qd4m8tfumt5ptzqtyjl4a9ltw7ge096f88lny3rh564tuxjmghck5wp8am6",
+        "created_at": "2024-10-31T21:40:20Z",
+        "profile": "https://agentverse.ai/v1/search/agents/agent1qd4m8tfumt5ptzqtyjl4a9ltw7ge096f88lny3rh564tuxjmghck5wp8am6",
+        "profile_state": "active, hosted, unresponsive=false, 9 lifetime interactions, 0 recent, 0 recent verified",
+        "almanac_result": "HTTP 404 for the exact address"
+      },
+      "first_failing_gate": "No currently verified-successful routable machine. The original is marked unresponsive with zero recent successful verified interactions; the alternative has no Almanac route.",
+      "additional_gate": "Published usage requires creating a Blank Agent or installing uAgents and maintaining a sender identity/handler; the response is returned to that stateful sender rather than a public durable receipt.",
+      "decision": "REJECT"
+    },
+    {
+      "community": "nevermined",
+      "closest_named_machine": "Revettr",
+      "identity": {
+        "provider_did": "did:web:revettr.com",
+        "nevermined_record": "https://github.com/nevermined-io/payments/issues/286",
+        "health": "https://revettr.com/health",
+        "openapi": "https://revettr.com/openapi.json",
+        "mcp": "https://revettr.com/mcp"
+      },
+      "current_state": "health 200; status ok; version 0.1.0; payments and scoring operational",
+      "machine_owned_channels": [
+        "POST /v1/attest",
+        "POST /v1/iss-verdict",
+        "GET /v1/session/verify",
+        "Streamable HTTP MCP"
+      ],
+      "first_failing_gate": "The free signed operations accept caller-supplied domain/issuer/token subjects. They do not server-fetch an exact AG preflight/passport, independently resolve an AG issuer, or verify an AG credential. iss-verdict explicitly requires the caller to validate the issuer first; session verification is Revettr-native only.",
+      "decision": "REJECT_CALLER_SUPPLIED_SUBJECT"
+    },
+    {
+      "community": "openserv",
+      "closest_named_machine": "BrowserUse Agent",
+      "identity": {
+        "catalog": "https://api.openserv.ai/x402-services",
+        "service_id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+        "owner": "openserv",
+        "created_at": "2026-02-12T14:08:08.653Z"
+      },
+      "current_catalog": {
+        "total_services": 467,
+        "active_services": 88,
+        "active_exact_zero": 0,
+        "minimum_active_price_usd": 0.005
+      },
+      "machine_owned_channel": "https://api.openserv.ai/webhooks/x402/trigger/9399ad3092d94e8e9c36ee471b502bde",
+      "capability": "Required {url,instructions}; crawls any website and extracts content.",
+      "first_failing_gate": "BrowserUse costs $0.01. No active exact-zero service exists, and the catalog publishes no output schema or durable owner-bound result id.",
+      "decision": "REJECT_PAYMENT_AND_RECEIPT_GATE"
+    },
+    {
+      "community": "agent_commune",
+      "closest_named_machine": "EloPhanto",
+      "identity": {
+        "repository": "https://github.com/elophanto/EloPhanto",
+        "changelog": "https://github.com/elophanto/EloPhanto/blob/main/CHANGELOG.md",
+        "site": "https://elophanto.com/"
+      },
+      "community_surfaces": {
+        "home": "https://agentcommune.com/",
+        "skill": "https://agentcommune.com/skill.md",
+        "current_status": "HTTP 503 owner-suspended on both"
+      },
+      "machine_runtime_checks": {
+        "https://elophanto.com/.well-known/agent-card.json": 404,
+        "https://elophanto.com/.well-known/agent.json": 404,
+        "https://elophanto.com/mcp": 404
+      },
+      "first_failing_gate": "Strong pre-pilot member/software identity but no hosted machine-owned inbound runtime; Agent Commune itself remains suspended and its normal access is work-email magic-link/API-key gated.",
+      "decision": "REJECT_NO_PUBLIC_RUNTIME"
+    },
+    {
+      "community": "agntcy",
+      "official_catalog": "https://ai-catalog.outshift.io/v1/agents",
+      "current_state": {
+        "total_records": 3228,
+        "newest_record_updated_at": "2026-08-25T03:58:31Z",
+        "latest_complete_scan": "artifacts/community-pilot-2026-08-25/evidence/fixed30-agntcy-complete-federation-recheck-2026-08-26T0415Z.json",
+        "public_a2a_records": "two localhost hello-world cards only"
+      },
+      "official_mcp_record": {
+        "name": "io.github.agntcy/dir-mcp",
+        "version": "1.3.4",
+        "repository": "https://github.com/agntcy/dir-mcp",
+        "remote": null,
+        "transport": "stdio package"
+      },
+      "adjacent_capable_identity": "Todd O'Rourke SEO Tools can anonymously fetch and return exact AG, but Todd/For You is absent from the signed/imported AGNTCY catalog and cannot be cross-counted.",
+      "first_failing_gate": "No publicly hosted pre-pilot AGNTCY member machine with an AG-capable anonymous operation. The official MCP record requires installation and is directory tooling, not an autonomous hosted member channel.",
+      "decision": "REJECT_IDENTITY_AND_HOSTED_CHANNEL_GATE"
+    },
+    {
+      "community": "olas",
+      "official_contract": "https://raw.githubusercontent.com/valory-xyz/mech-client/main/README.md",
+      "supporting_live_discovery": [
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Olas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "results": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Autonolas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "results": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Mech&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "results": 0
+        }
+      ],
+      "first_failing_gate": "Official Mech requests require signer authority plus native/OLAS/USDC payment, prepaid balance or paid Nevermined subscription. No free online senderless Olas/Autonolas/Mech route exists.",
+      "decision": "REJECT_SIGNER_AND_PAYMENT_GATE"
+    },
+    {
+      "community": "naptha",
+      "primary_urls": [
+        "https://node.naptha.ai/health",
+        "https://node1.naptha.ai/health",
+        "https://node2.naptha.ai/health",
+        "https://hub.naptha.ai/health",
+        "https://routing.naptha.ai/health",
+        "https://labs-api.naptha.ai/.well-known/agent-card.json"
+      ],
+      "current_state": {
+        "node": "timeout with no body",
+        "node1": "timeout with no body",
+        "node2": "HTTP 521",
+        "hub": "timeout with no body",
+        "routing": "DNS resolution failure",
+        "labs_agent_card": "connection timeout"
+      },
+      "first_failing_gate": "No reachable public node/card/OpenAPI contract. The documented workflow additionally requires HUB_USERNAME, HUB_PASSWORD, PRIVATE_KEY and installation.",
+      "decision": "REJECT_HEALTH_AUTH_AND_INSTALL_GATE"
+    }
+  ],
+  "strict_result": {
+    "fully_qualified_candidates": 0,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "strongest_retry_predicate": "A Fetch scraper address must become routable, unresponsive=false and record a fresh verified successful interaction, while publishing an already-authorized anonymous one-shot channel and durable machine-address-bound result receipt that require no sender identity lifecycle."
+  },
+  "safety": {
+    "messages_or_outreach": 0,
+    "operations_invoked": 0,
+    "payments_wallets_accounts_keys_or_terms": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_mutations": 0,
+    "response_bodies": "processed_in_memory_only",
+    "response_body_files": 0,
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

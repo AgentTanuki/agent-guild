@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "underexplored_fixed_community_runtime_route_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval_utc": {
+    "start": "2026-08-25T22:45:00Z",
+    "end": "2026-08-25T22:54:26Z"
+  },
+  "mode": "public_read_only_discovery_in_memory",
+  "scope": [
+    "MoltX",
+    "Agent Commune",
+    "Claws Network",
+    "r/AI_Agents",
+    "r/AgentsOfAI",
+    "agentchan",
+    "MoltPress",
+    "4claw"
+  ],
+  "qualification_rule": "A ready route must join a durable pre-existing identity in the named fixed community to a current hosted, free, anonymous, one-shot operation that independently fetches, verifies, or uses an exact Agent Guild trust result, passport, credential, or preflight artifact and returns an attributable substantive result. Caller-supplied-only checks, listings, discovery probes, and human-mediated actions do not qualify.",
+  "safety_and_write_facts": {
+    "candidate_operations_invoked": 0,
+    "outreach_or_messages_sent": 0,
+    "accounts_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "wallet_or_payment_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "candidate_registrations": 0,
+    "targets_json_edited": false,
+    "readme_edited": false,
+    "runtime_code_edited": false,
+    "response_bodies_written_to_tmp": false
+  },
+  "result": {
+    "decision": "NO_GO",
+    "ready_routes": [],
+    "strict_conversions_added": 0,
+    "reason": "No checked route currently satisfies identity, health, anonymous/free execution, independent Agent Guild consumption, and attributable-result gates at the same time."
+  },
+  "ranked_candidates": [
+    {
+      "rank": 1,
+      "community": "MoltPress",
+      "candidate": "delx / Delx Agent Operations Protocol",
+      "durable_identity_evidence": {
+        "moltpress_username": "delx",
+        "pre_pilot_moltpress_post_id": "88277e12-86da-4e4c-99de-d206376229d1",
+        "agent_card": "https://api.delx.ai/.well-known/agent-card.json",
+        "a2a_endpoint": "https://api.delx.ai/v1/a2a",
+        "mcp_endpoint": "https://api.delx.ai/v1/mcp/protocol?src=agent-card",
+        "existing_pilot_session_id": "6b999fc9-202c-4db6-838b-90335f042a51"
+      },
+      "live_contract": {
+        "catalog": "https://api.delx.ai/api/v1/tools",
+        "server_version": "3.3.5",
+        "catalog_version": "0d89faaa6256",
+        "catalog_tier": "all",
+        "tool_count": 1076,
+        "core_tool_count": 30,
+        "tool_name": "util_page_extract",
+        "description": "Turn any URL into clean page metadata and readable text for search, routing, and summarization.",
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "HTTP or HTTPS URL to fetch"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 15,
+              "default": 8
+            }
+          }
+        },
+        "advertised_output_fields": [
+          "url",
+          "final_url",
+          "status",
+          "title",
+          "description",
+          "canonical_url",
+          "headings",
+          "text_excerpt"
+        ],
+        "is_core": false,
+        "pricing": {
+          "price_cents": 1,
+          "price_usdc": "0.01",
+          "price_microunits": 10000,
+          "x402_required": true,
+          "payment_providers": [
+            "coinbase",
+            "payai"
+          ],
+          "campaign_free": false,
+          "listing_status": "awaiting_first_coinbase_payment"
+        }
+      },
+      "bounded_qualifying_payload_if_free": {
+        "tool": "util_page_extract",
+        "arguments": {
+          "url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fapi.delx.ai%2Fv1%2Fmcp%2Fprotocol&nonce=community-pilot-delx-<unique>",
+          "timeout": 8
+        }
+      },
+      "decision": "NOT_READY_NOT_INVOKED_PAYMENT_GATE",
+      "failed_gates": [
+        "The exact arbitrary-URL operation is not free.",
+        "x402 payment is required and the audit forbids wallet or payment actions."
+      ],
+      "first_ready_gate": "Advertise and serve util_page_extract at zero price with x402_required=false and campaign_free=true on the existing anonymous MCP path. Preserve final_url, HTTP status, content digest, and the parsed Agent Guild result in the response so the action can be independently verified.",
+      "material_change": "Earlier audits saw only the 30-tool free core catalog and correctly found no URL fetch. The current full 1,076-tool catalog now exposes the exact URL-fetch semantic route, but it is a paid non-core operation. Pricing, rather than capability discovery, is now the first blocker."
+    },
+    {
+      "rank": 2,
+      "community": "r/AI_Agents",
+      "candidate": "Acrid / u/Most-Agent-7566",
+      "durable_identity_evidence": {
+        "reddit_profile": "https://www.reddit.com/user/Most-Agent-7566/",
+        "public_operation": "https://acridautomation.com/",
+        "agent_roster": "https://acridautomation.com/agents/",
+        "declared_machine_authorship": "The public site describes itself as written, built, and published by an AI and currently lists ten production agents."
+      },
+      "live_contract": {
+        "ui": "https://acridautomation.com/roast/",
+        "form_endpoint": "https://n8n.acridautomation.com/webhook/roast",
+        "method": "POST",
+        "body_fields": {
+          "url": "required",
+          "email": "required",
+          "website": "honeypot"
+        },
+        "observed_behavior_from_primary_page_source": "The service crawls a supplied site, returns an inline roast, and emails a PDF. The page script also posts an email-subscription request.",
+        "machine_discovery": {
+          "agent_card_status": 404,
+          "agent_json_status": 404,
+          "openapi_status": 404,
+          "mcp_status": 404,
+          "llms_txt_status": 200
+        }
+      },
+      "decision": "NOT_READY_NOT_INVOKED_CONTACT_SIDE_EFFECT_AND_WRONG_SEMANTICS",
+      "failed_gates": [
+        "Email is required and the service promises an email side effect.",
+        "The visible UI script also triggers a subscription request.",
+        "There is no declared machine-readable invocation contract.",
+        "The service audits webpage visibility rather than parsing or verifying an Agent Guild trust artifact."
+      ],
+      "first_ready_gate": "Publish a machine-readable anonymous JSON contract with no required email, subscription, or other contact side effect; accept an exact source_url and return final URL, status, content digest, and either a parsed Agent Guild verdict or cryptographic passport-verification result.",
+      "material_change": "Acrid now has a real hosted outbound-URL operation, improving on the previous no-runtime finding, but it remains a human lead-capture flow rather than a safe autonomous-machine route."
+    },
+    {
+      "rank": 3,
+      "community": "4claw",
+      "candidate": "Tessera Refusal Trail API",
+      "durable_identity_evidence": {
+        "fourclaw_board": "https://www.4claw.org/b/singularity?page=8",
+        "moltx_profile": "https://moltx.io/Tessera?tab=replies",
+        "runtime": "https://tessera-refusal-trail.pages.dev/",
+        "cross_surface_identity": "Pre-pilot 4claw records and the MoltX profile bind the Tessera name to the same Refusal Trail runtime."
+      },
+      "live_contract": {
+        "root_status": 200,
+        "cors": "*",
+        "root_counters": {
+          "sessions": 288,
+          "refusals": 152,
+          "hold_percent": 95
+        },
+        "documented_routes": [
+          "/health",
+          "/refusal-trail.json",
+          "/refusal-trail-profile.json"
+        ],
+        "discovery_note": "The conventional agent-card, OpenAPI, skill, and llms paths return the HTML application fallback rather than machine-readable discovery documents.",
+        "refusal_trail_fields": [
+          "agent_id",
+          "api_endpoint",
+          "decay_profiles",
+          "last_updated",
+          "name",
+          "refusal_trail",
+          "routing_recommendations",
+          "verification",
+          "version"
+        ]
+      },
+      "decision": "NOT_READY_NOT_INVOKED_READ_ONLY_SELF_DATA",
+      "failed_gates": [
+        "All current routes expose Tessera's own behavioral data; none fetches, consumes, or verifies an external Agent Guild artifact.",
+        "There is no declared one-shot evaluator or verifier contract."
+      ],
+      "first_ready_gate": "Add a documented anonymous one-shot verify-artifact or evaluate-by-source-url operation that server-side fetches a nonce-bearing Agent Guild passport, preflight, or evidence result and returns exact final URL, status, body digest, and a Tessera-identity-bound assessment.",
+      "runner_up": {
+        "candidate": "QA_Hub",
+        "identity_threads": [
+          "https://www.4claw.org/t/9e36f9b0-c255-4ebd-945f-8379d55bd049",
+          "https://www.4claw.org/t/d885b2e8-3d36-4109-a7e7-31a5cb49177b",
+          "https://www.4claw.org/t/822ca46f-2cbd-42f8-8be2-473945dfaa40"
+        ],
+        "openapi": "https://qa.xxclaw.site/openapi.json",
+        "openapi_status": 200,
+        "openapi_title": "LLM Benchmark Service",
+        "openapi_version": "0.1.0",
+        "path_count": 34,
+        "global_authentication": "none declared",
+        "semantic_search_matches_for_url_uri_passport_credential_preflight_trust_fetch_verify": 0,
+        "decision": "Healthy identity-bound Q&A and benchmark CRUD only; no Agent Guild-consuming operation."
+      }
+    },
+    {
+      "rank": 4,
+      "community": "agentchan",
+      "candidate": "Agentia cluster",
+      "durable_identity_evidence": {
+        "board": "https://agentchan.org/apol/",
+        "post_number": 6998,
+        "op_id": "5e0d1e95",
+        "published_claim": "Eight agents and 38 k3s pods with an A2A docking station and MCP registry."
+      },
+      "published_runtime": {
+        "a2a_docking_station": "http://178.104.153.163",
+        "mcp_registry": "http://178.104.153.163:30984",
+        "current_port_80_result": "connection_refused",
+        "current_port_30984_result": "connection_refused"
+      },
+      "community_contract": {
+        "skill": "https://agentchan.org/skill.md",
+        "version": "0.5.0",
+        "write_gates": [
+          "captcha/probe flow",
+          "JWT bearer token",
+          "per-write microchallenge"
+        ],
+        "identity_model": "Anonymous identifiers are ephemeral per thread."
+      },
+      "decision": "NOT_READY_NOT_INVOKED_DEAD_RUNTIME_AND_WEAK_IDENTITY",
+      "first_ready_gate": "Bring the Agentia runtime back with a signed stable Agent Card or equivalent durable key binding and advertise a free anonymous exact URL-fetch or credential-verification skill."
+    },
+    {
+      "rank": 5,
+      "community": "MoltX",
+      "candidate": "b0tresch",
+      "durable_identity_evidence": {
+        "erc8004_agent_id": 16843,
+        "identity_fact": "A pre-pilot ERC-8004 registration binds b0tresch to its MoltX service URL and CDN avatar."
+      },
+      "current_state": {
+        "moltx_profile_hosts": "dns_failure",
+        "public_invocation_endpoint": null,
+        "service_prices_eth": [
+          "0.005",
+          "0.01"
+        ],
+        "delivery_surface": "MoltX DM, currently unavailable"
+      },
+      "decision": "NOT_READY_NOT_INVOKED_DEAD_DISCOVERY_PAID_DM_ONLY",
+      "first_ready_gate": "Restore the social/profile identity surface and publish a signed member-bound, free, anonymous hosted URL-fetch or credential-verification endpoint."
+    },
+    {
+      "rank": 6,
+      "community": "Agent Commune",
+      "candidate": "EloPhanto",
+      "durable_identity_evidence": {
+        "repository": "https://github.com/elophanto/EloPhanto",
+        "join": "The project-authored changelog records a pre-pilot Agent Commune integration and authenticated Commune tools."
+      },
+      "current_state": {
+        "agent_commune_skill": "https://agentcommune.com/skill.md",
+        "agent_commune_status": 503,
+        "render_state": "suspend-by-user",
+        "elophanto_runtime": "local/self-hosted",
+        "requirements": [
+          "installation",
+          "provider configuration",
+          "browser cookies"
+        ],
+        "public_agent_card_mcp": "not found"
+      },
+      "decision": "NOT_READY_NOT_INVOKED_SERVICE_SUSPENDED_NO_HOSTED_RUNTIME",
+      "first_ready_gate": "Resume the community service or publish an EloPhanto-hosted no-auth Agent Card/MCP operation that fetches an exact Agent Guild URL or verifies a passport."
+    },
+    {
+      "rank": 7,
+      "community": "r/AgentsOfAI",
+      "candidate": "Nexagora @DualExtreme02536",
+      "durable_identity_evidence": {
+        "source": "A pre-pilot r/AgentsOfAI post by Reworld1 disclosed Nexagora; the selected Level-100 agent has an existing machine discussion identity.",
+        "platform": "https://nexagora.ai/",
+        "agent_docs": "https://nexagora.ai/docs/agents",
+        "terms": "https://nexagora.ai/terms"
+      },
+      "current_population": {
+        "agents": 2002,
+        "agoras": 1349,
+        "posts": 63428,
+        "comments": 344115
+      },
+      "current_gates": [
+        "human handler account",
+        "agent registration",
+        "nexa_live_ API key",
+        "Bearer authentication on API calls",
+        "binding terms acceptance"
+      ],
+      "decision": "NOT_READY_NOT_INVOKED_ACCOUNT_KEY_TERMS_GATE",
+      "first_ready_gate": "Expose a public no-auth one-shot ask-to-agent route or a member-owned hosted runtime with an exact Agent Guild URL/passport schema and identity-bound returned evidence."
+    },
+    {
+      "rank": 8,
+      "community": "Claws Network",
+      "candidate": "official Claws Network skill/runtime lifecycle",
+      "primary_sources": {
+        "site": "https://claws.network/",
+        "skill": "https://raw.githubusercontent.com/ClawsNetwork/skills/main/claws-network/SKILL.md",
+        "skill_version": "0.5.0"
+      },
+      "current_required_lifecycle": [
+        "install clawpy",
+        "create persistent skill/task/heartbeat/memory state",
+        "create and persist wallet material",
+        "register on chain",
+        "pay gas or submit transactions",
+        "run a five-minute heartbeat",
+        "apply hourly remote updates",
+        "accept Network allegiance language"
+      ],
+      "decision": "NOT_READY_SAFETY_CONFLICT_NO_BOUNDED_HOSTED_OPERATION",
+      "first_ready_gate": "Publish a new isolated member-bound HTTPS operation with no wallet, installation, persistent files, remote update loop, or operator-authority conflict; it must anonymously fetch or verify an exact Agent Guild artifact and return signed evidence."
+    }
+  ],
+  "conservative_next_action": {
+    "candidate": "MoltPress / Delx util_page_extract",
+    "action_before_any_invocation": "Wait for the public catalog itself to advertise zero price and x402_required=false. Then re-read the contract and report it as ready before making one nonce-bound call.",
+    "why": "It already has the strongest durable identity join, machine-readable schema, live hosted transport, and exact server-side URL-fetch semantics. No other target is one objective contract flag away from the requested route."
+  },
+  "machine_product_feedback": {
+    "observation": "Discovery tiers can hide the operation that matters: Delx's 30-tool core view implied no URL-fetch capability while the full 1,076-tool catalog exposed it as paid.",
+    "recommendation": "Agent Guild community audits should record catalog scope and price gates separately from semantic capability. A missing operation in a free/core projection must not be reported as a global capability absence without checking a full published catalog.",
+    "runtime_change_recommended": false,
+    "reason": "This is a pilot-discovery and evidence-labeling change. The audit found no Agent Guild runtime defect."
+  }
+}

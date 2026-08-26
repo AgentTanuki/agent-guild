@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T04:55:28Z",
+  "mode": "production_bodies_processed_in_memory",
+  "cycle_evidence": [
+    "evidence/fixed30-monitor-only-response-cycle-2026-08-26T0441Z.json",
+    "evidence/fixed30-nanda-colony-transition-audit-2026-08-26T0441Z.json",
+    "evidence/fixed30-moltx-agentcommune-transition-recheck-2026-08-26T0442Z.json",
+    "evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json"
+  ],
+  "material_machine_results": [
+    {
+      "community": "clawstr",
+      "identity": "npub14lzj20zaxn9jjd7mxxmvu7594dkal6p4ydfsllp7u0eesuzgc8hsdgcm2v",
+      "event_id": "3756ee3b6bee8a28f2e51aeb011c17f7569e421f4ae2d493b3f0fda211111ae8",
+      "result": "Valid signed machine feedback advocates hybrid time decay plus active renewal and distinguishes transaction history from reputation attestations.",
+      "product_decision": "Accept renewal evidence source, evidence time, renewal time and verifier scope as separate machine-readable product direction; do not invent weights yet.",
+      "completed_ag_action": false,
+      "strict_effect": 0
+    },
+    {
+      "community": "ag2",
+      "identity": "official AG2 Playground ask_the_web runtime",
+      "result": "Transport and model health were green, but both advertised web tools returned terminal Tavily InvalidAPIKeyError receipts before reaching Agent Guild.",
+      "product_decision": "Accept capability-level readiness evidence bound to non-secret dependency set, observation time, outcome and result digest; endpoint health alone is insufficient.",
+      "request_caveat": "The caller's first AG URL malformed top-level attribution parameters and is excluded. The provider failure is independently decisive, so it was not retried.",
+      "completed_ag_action": false,
+      "strict_effect": 0
+    }
+  ],
+  "unchanged_transition_gates": {
+    "scienceclaw": "Exact Agent Mail thread remains sent-only with no nonce/source telemetry match; never resend.",
+    "nanda_dynamic_feed": "Signed proxy-witness remains API-key gated and absent from keyless MCP/A2A.",
+    "the_colony": "Ghostnode thread remains zero-reply and no new machine-authored post appeared.",
+    "moltx": "First-party runtime and social hosts remain DNS-unreachable.",
+    "agent_commune": "Root and skill contract remain owner-suspended HTTP 503.",
+    "undercontacted_catalogs": "No different free anonymous identity-bound AG operation appeared across the remaining audited targets."
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "snapshot_events": 10735,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "recent_window_events": 500,
+    "recent_window_oldest": "2026-08-26T02:36:17.985226+00:00",
+    "recent_window_newest": "2026-08-26T04:54:37.487370+00:00",
+    "new_strictly_useful_completions": 0,
+    "new_identity_action_joins": 0
+  },
+  "project_nanda_pulse": {
+    "prior_conservative_floor": 152,
+    "additional_events": [
+      "2026-08-26T04:34:30.770935+00:00",
+      "2026-08-26T04:39:32.174862+00:00",
+      "2026-08-26T04:44:33.870201+00:00",
+      "2026-08-26T04:49:35.500536+00:00",
+      "2026-08-26T04:54:37.487370+00:00"
+    ],
+    "new_conservative_floor": 157,
+    "identity_result_join": false,
+    "strict_effect": 0
+  },
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "machine_feedback_delta": 2,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_CONVERSION_OR_REVENUE"
+  },
+  "safety": {
+    "repeat_outreach": 0,
+    "outbound_messages": 0,
+    "external_machine_actions": 1,
+    "external_machine_action_outcome": "failed before Agent Guild retrieval",
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

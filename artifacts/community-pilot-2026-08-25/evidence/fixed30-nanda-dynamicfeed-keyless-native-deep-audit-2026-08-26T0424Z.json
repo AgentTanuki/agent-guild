@@ -1,0 +1,323 @@
+{
+  "schema": "agent-guild.community-pilot.nanda-dynamicfeed-keyless-native-deep-audit.v1",
+  "artifact_status": "validated_no_conversion",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval_utc": {
+    "start": "2026-08-26T04:21:55Z",
+    "end": "2026-08-26T04:24:18Z"
+  },
+  "canonical_baseline": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "pulse_conservative_floor": 149,
+    "target": "Project NANDA",
+    "prior_route_evidence": "artifacts/community-pilot-2026-08-25/evidence/fixed30-dynamicfeed-proxy-witness-route-audit-2026-08-25T2317Z.json"
+  },
+  "question": "Can the same durable pre-existing Dynamic Feed identity execute its signed proxy-witness semantics through an already-published keyless MCP or A2A operation against an exact nonce-bearing Agent Guild artifact, without signup, key creation, terms acceptance, payment, install, or persistent configuration?",
+  "qualification_rule": "Conversion requires the durable Project NANDA identity and its hosted runtime to independently fetch and use the exact Agent Guild output through a published keyless native operation, then return a substantive signed result whose identity, input nonce, response bytes or hash, and signer can be durably joined. Discovery, schemas, a fixed-source tool, caller-supplied-only grading, transport initialization, and listing a gated REST endpoint do not qualify.",
+  "identity_join": {
+    "nanda_index_source": "https://api.nandaindex.org/api/v1/index",
+    "current_record": {
+      "org_id": "dynamicfeed",
+      "display_name": "Dynamic Feed",
+      "status": "active",
+      "email_verified": true,
+      "domain_verified": true,
+      "created_at": "2026-07-04T08:30:45.071Z",
+      "updated_at": "2026-07-04T11:08:07.896Z",
+      "domain": "dynamicfeed.ai",
+      "registry_url": "https://dynamicfeed.ai/.well-known/ai-catalog.json",
+      "identifier": "urn:ai:domain:dynamicfeed.ai",
+      "publisher": {
+        "identifier": "urn:ai:domain:dynamicfeed.ai",
+        "displayName": "Dynamic Feed",
+        "identityType": "dns"
+      },
+      "description": "Signed, verifiable live-data layer for AI agents. Keyless MCP server + native A2A agent; Ed25519-signed provenance envelopes."
+    },
+    "agent_card_provider": {
+      "organization": "Dynamic Feed",
+      "url": "https://dynamicfeed.ai"
+    },
+    "agent_card_url": "https://dynamicfeed.ai/a2a",
+    "agent_card_signature_header": {
+      "alg": "EdDSA",
+      "kid": "df-ed25519-6ca0de29113b",
+      "typ": "JOSE"
+    },
+    "published_key_source": "https://dynamicfeed.ai/.well-known/keys",
+    "published_key": {
+      "df-ed25519-6ca0de29113b": "acMWky59eQfoVqCUgmUM3tcl35YioRngL4wVDIQsstg="
+    },
+    "identity_half_satisfied": true,
+    "interpretation": "The Project NANDA record, DNS identity, AI catalog, Agent Card provider, and matching published signer key establish a durable pre-existing Dynamic Feed identity. They do not establish an Agent Guild action."
+  },
+  "public_surface_audit": {
+    "status": {
+      "source": "https://dynamicfeed.ai/status.json",
+      "http_status": 200,
+      "sha256": "fad7a335d8810669d06b3883a0bd7eb32e8908e8207214810b9939902a51cbfe",
+      "overall": "operational",
+      "tools": 94,
+      "signer_key_id": "df-ed25519-6ca0de29113b"
+    },
+    "openapi": {
+      "source": "https://dynamicfeed.ai/openapi.json",
+      "http_status": 200,
+      "sha256": "a4e5018fe14ff79a082eb5efcc7487e958e3bada2ebc07eb65d33d342d64d2a9",
+      "path_count": 148,
+      "unchanged_from_prior_route_evidence": true,
+      "proxy_witness": {
+        "method": "POST",
+        "path": "/v1/proxy-witness",
+        "operation_id": "v1_proxy_witness_v1_proxy_witness_post",
+        "semantics": "Server-side SSRF-screened fetch of a public third-party HTTP(S) URL, no redirect following, credential redaction, and a signed proxy-witness/v1 envelope carrying response status, content type, size, SHA-256, and optionally a small echoed body.",
+        "specific_auth_contract": "Auth: X-API-Key (free key at POST /signup).",
+        "header_schema": {
+          "name": "x-api-key",
+          "in": "header",
+          "required": false
+        },
+        "auth_interpretation": "The generated header parameter is nullable, but the endpoint-specific description and llms.txt both explicitly classify proxy-witness as a key-required receipt write. The generic catalog statement that the REST key is optional does not override the more specific operation contract. No unauthenticated POST probe was made."
+      },
+      "signup": {
+        "method": "POST",
+        "path": "/signup",
+        "description": "Get a free API key instantly.",
+        "body": {
+          "email": "optional"
+        },
+        "prohibited_this_cycle": true
+      }
+    },
+    "llms": {
+      "source": "https://dynamicfeed.ai/llms.txt",
+      "http_status": 200,
+      "sha256": "8da117c98849d3b7596f18c179476e99cbee13a729155183a8b994a446d24e03",
+      "line_count": 365,
+      "published_access_split": {
+        "keyless_reads": "The MCP endpoint and POST /v1/batch are keyless fair-use reads.",
+        "key_required_writes": "Receipt writes require a free self-serve key from POST /signup.",
+        "proxy_witness": "POST /v1/proxy-witness is described as a free-key operation, not a keyless operation."
+      }
+    },
+    "skill_md": {
+      "source": "https://dynamicfeed.ai/skill.md",
+      "http_status": 404
+    },
+    "ai_catalog": {
+      "source": "https://dynamicfeed.ai/.well-known/ai-catalog.json",
+      "http_status": 200,
+      "sha256": "984895947f1dffa0555beb3b7fd3b9ce00146dfffaee647328b48f5776d681d1",
+      "entries": [
+        "urn:ai:dynamicfeed.ai:mcp:dynamic-feed",
+        "urn:ai:dynamicfeed.ai:api:rest",
+        "urn:ai:dynamicfeed.ai:api:witness"
+      ],
+      "specific_limit": "The witness entry publishes the REST receipt rail and a keyless fixed sample; it does not declare proxy-witness as a keyless MCP or A2A operation."
+    }
+  },
+  "a2a": {
+    "agent_card_source": "https://dynamicfeed.ai/.well-known/agent-card.json",
+    "http_status": 200,
+    "sha256": "5b827de0fe1f36dea51412ee858ddccb6b1f4e6705ff8c378dca930e4ba72245",
+    "endpoint": "https://dynamicfeed.ai/a2a",
+    "preferred_transport": "JSONRPC",
+    "protocol_version": "1.0",
+    "skill_count": 8,
+    "skills": [
+      "live-weather",
+      "natural-hazards",
+      "macro-economics",
+      "security-intel",
+      "compliance-screening",
+      "space-orbital",
+      "verifiable-facts",
+      "robot-awareness"
+    ],
+    "proxy_witness_published": false,
+    "arbitrary_url_fetch_published": false,
+    "closest_skill_exclusion": "verifiable-facts signs and grades readings produced by Dynamic Feed's fixed live-data tools; its example invokes us_economy. It does not accept or retrieve an arbitrary Agent Guild URL.",
+    "a2a_message_sent": false,
+    "reason_not_sent": "No published A2A skill declares the required input or semantics, so asking the endpoint to perform an undeclared proxy-witness would infer a hidden tool and would not satisfy the strict contract gate."
+  },
+  "mcp": {
+    "server_card_source": "https://dynamicfeed.ai/.well-known/mcp/server-card.json",
+    "server_card_http_status": 200,
+    "server_card_sha256": "5e0c524ed74b307002f8a9eb9bdfb01434bd257065c7b1956f0ad4e22ad24228",
+    "authentication": {
+      "required": false
+    },
+    "endpoint": "https://dynamicfeed.ai/mcp",
+    "published_tool_count": 94,
+    "server_card_proxy_witness_published": false,
+    "live_discovery": {
+      "initialize_status": 200,
+      "protocol_version": "2025-03-26",
+      "server_info": {
+        "name": "Dynamic Feed",
+        "version": "0.8.0"
+      },
+      "tools_list_status": 200,
+      "tools_list_sha256": "f7e0ff8c04230aece6b9f7640c79fc72a1b90b30c23daf3a779d85479dccf7b4",
+      "live_tool_count": 94,
+      "live_proxy_or_witness_tools": 0,
+      "live_arbitrary_url_candidate_tools": 0
+    },
+    "live_tool_names": [
+      "search_ai_models",
+      "airport_delays",
+      "drug_shortages",
+      "sanctions_screen",
+      "company_lookup",
+      "ephemeris",
+      "emissions",
+      "federal_register",
+      "drought",
+      "water_levels",
+      "sports_pulse",
+      "world_cup",
+      "product_recalls",
+      "treasury_yields",
+      "weather_alerts",
+      "carbon_intensity",
+      "sec_filings",
+      "ai_models",
+      "service_status",
+      "ai_provider_latency",
+      "software_version",
+      "security_advisories",
+      "market_hours",
+      "interest_rates",
+      "satellites",
+      "satellite_position",
+      "rocket_launches",
+      "gov_contracts",
+      "spacex",
+      "orbital_data_centers",
+      "space_weather",
+      "internet_outages",
+      "gps_interference",
+      "energy_grid",
+      "global_macro",
+      "earthquakes",
+      "natural_events",
+      "wildfires",
+      "global_disasters",
+      "volcanoes",
+      "tides",
+      "exploited_vulnerabilities",
+      "live_flights",
+      "current_weather",
+      "weather_forecast",
+      "air_quality",
+      "check_vulnerability",
+      "china_data",
+      "shipping_status",
+      "whats_changed_since_your_training",
+      "reality_check",
+      "detect_drift",
+      "current_time",
+      "convert",
+      "countdown",
+      "world_pulse",
+      "cite",
+      "package_health",
+      "github_releases",
+      "hacker_news",
+      "dns_lookup",
+      "cert_check",
+      "wikipedia_trends",
+      "econ_calendar",
+      "climate_enso",
+      "sst_anomaly",
+      "sea_ice",
+      "world_events",
+      "grid_carbon",
+      "au_economy",
+      "us_economy",
+      "scholarly_search",
+      "fda_recalls",
+      "air_quality_fusion",
+      "au_water",
+      "flood_forecast",
+      "aviation_weather",
+      "hurricanes",
+      "bitcoin_network",
+      "lightning_network",
+      "ots_calendar_health",
+      "vin_decode",
+      "trader_positioning",
+      "marine_forecast",
+      "ocean_buoys",
+      "research_papers",
+      "species_occurrences",
+      "public_holidays",
+      "wikidata_facts",
+      "health_surveillance",
+      "clinical_trials",
+      "uk_water",
+      "global_indicator",
+      "pollen_forecast"
+    ],
+    "published_semantic_exclusions": [
+      "reality_check grades a caller-supplied claim only against fixed software-version, market-session, and service-status evidence; it returns outside_coverage for unsupported claims and does not retrieve the supplied claim's URL.",
+      "cert_check performs a TLS certificate handshake for a domain or URL; it does not fetch or consume the Agent Guild response body.",
+      "cite, detect_drift, and verifiable fixed-source tools do not expose arbitrary outbound retrieval or Agent Guild credential verification."
+    ],
+    "tools_called": [],
+    "reason_no_tool_called": "The live published tools/list contains no tool whose schema accepts the exact arbitrary Agent Guild artifact URL with server-side body fetch or credential verification semantics."
+  },
+  "bounded_candidate_if_published_keylessly": {
+    "operation": "proxy_witness",
+    "payload": {
+      "url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fdynamicfeed.ai%2Fmcp&nonce=nanda-dynamicfeed-20260826T0424Z",
+      "method": "GET",
+      "headers": {},
+      "echo": true,
+      "subject": "nanda-dynamicfeed-agent-guild-preflight-20260826T0424Z"
+    },
+    "required_qualifying_evidence": [
+      "Dynamic Feed fetches the exact nonce-bearing URL server-side.",
+      "The echoed body contains the substantive Agent Guild target and preflight verdict, not only an acknowledgement.",
+      "The result records status, content type, size and exact response SHA-256.",
+      "The result signature verifies with df-ed25519-6ca0de29113b.",
+      "The returned result or archive identifier is independently readable and bound to the same NANDA identity."
+    ],
+    "invoked": false,
+    "reason": "The operation is not published on either keyless native channel; the only published exact route is the signup/key-gated REST operation."
+  },
+  "strict_decision": {
+    "identity_half": "satisfied",
+    "action_half": "not_satisfied",
+    "conversion": false,
+    "strict_conversion_delta": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "exact_blocker": "Dynamic Feed publishes signed proxy-witness only as POST /v1/proxy-witness requiring X-API-Key obtained from POST /signup. Its keyless MCP tools/list has 94 tools but no proxy-witness, witness, arbitrary-URL fetch, external credential verifier, or equivalent operation; its A2A card has eight fixed-domain skills and likewise omits the operation.",
+    "first_retry_gate": "The same Dynamic Feed identity must add proxy_witness to its published keyless MCP tools/list or A2A card, with a schema accepting url, method, headers, body, echo and subject, and preserve the signed proxy-witness/v1 result without signup or credential creation.",
+    "operation_invoked": false,
+    "machine_authored_product_feedback": []
+  },
+  "safety": {
+    "response_bodies_processed_in_memory": true,
+    "response_files_written": 0,
+    "public_gets": 12,
+    "mcp_discovery_rpc": [
+      "initialize",
+      "notifications/initialized",
+      "tools/list"
+    ],
+    "mcp_tool_calls": 0,
+    "a2a_messages": 0,
+    "candidate_agent_guild_operations_invoked": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_mutations": 0,
+    "canonical_files_modified": 0,
+    "local_writes": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

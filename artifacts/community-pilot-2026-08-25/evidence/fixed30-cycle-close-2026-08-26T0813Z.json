@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "canonical_cycle_close",
+  "campaign": "community_pilot_2026_08_25",
+  "mode": "strict_fixed_denominator_monitor_transition_audit_and_authorized_branch_publish",
+  "generated_at": "2026-08-26T08:13:16Z",
+  "baseline": "evidence/fixed30-cycle-close-2026-08-26T0801Z.json",
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_IDENTITY_BOUND_USEFUL_AG_ACTION"
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500",
+    "response_handling": "in_memory_only",
+    "observed_through": "2026-08-26T08:07:16.230848Z",
+    "snapshot_events": 10925,
+    "snapshot_event_delta": 11,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "new_identity_action_joins": 0,
+    "post_cutoff_events": 38,
+    "post_cutoff_useful_candidates": 0,
+    "evidence": "evidence/fixed30-commercial-signal-delta-2026-08-26T0810Z.json"
+  },
+  "pending_reply_monitor": {
+    "agentmail_contacted_threads": 6,
+    "new_machine_replies": 0,
+    "new_campaign_nonce_or_source_matches": 0,
+    "new_useful_completed_actions": 0,
+    "public_pending_surface_qualified_replies": 0,
+    "repeat_outreach": 0,
+    "pulse_exact_preflights_since_baseline": 2,
+    "pulse_conservative_preflight_floor": 195,
+    "evidence": "evidence/fixed30-pending-reply-monitor-2026-08-26T0810Z.json"
+  },
+  "nearest_route_transition_audit": {
+    "transitions": 0,
+    "strict_conversions_after": 5,
+    "targets_checked": [
+      "nanda",
+      "ag2",
+      "fetch_agentverse",
+      "openserv",
+      "virtuals_acp",
+      "moltx",
+      "openclaw",
+      "elizaos"
+    ],
+    "observed_through": "2026-08-26T08:08:50Z",
+    "evidence": "evidence/fixed30-nearest-route-transition-delta-audit-2026-08-26T0809Z.json"
+  },
+  "machine_derived_product_adaptation": {
+    "source": "AG2 ask_the_web dependency failure with durable tool and result receipts",
+    "decision": "implemented_hostile_reviewed_pushed_not_merged_not_deployed",
+    "branch": "codex/capability-readiness",
+    "commit": "8fe5f3a15faaa99be8d2903f5696f54f12893579",
+    "remote_branch": "https://github.com/AgentTanuki/agent-guild/tree/codex/capability-readiness",
+    "remote_commit_verified_exact": true,
+    "review_verdict": "SHIP",
+    "merge_status": "not_merged",
+    "deployment_status": "not_deployed",
+    "origin_main_unchanged": true,
+    "strict_conversion_effect": 0,
+    "commercial_effect_usd": 0.0,
+    "evidence": [
+      "evidence/fixed30-machine-adaptation-capability-readiness-2026-08-26T0739Z.json",
+      "evidence/fixed30-capability-readiness-github-push-2026-08-26T0812Z.json"
+    ]
+  },
+  "github_desktop_observations": {
+    "tracking_hazard_detected": true,
+    "tracking_hazard": "The local feature branch merge ref targeted refs/heads/main, causing GitHub Desktop to offer Push origin/main.",
+    "tracking_corrected_to": "refs/heads/codex/capability-readiness",
+    "remote_main_write": false,
+    "stale_maintenance_lock_present": true,
+    "stale_maintenance_lock_deleted": false,
+    "publish_blocked_by_lock": false
+  },
+  "product_consequences": [
+    "The machine-derived readiness contract is now durably published for review without conflating branch publication with merge, deployment, adoption, conversion or revenue.",
+    "Feature worktree tracking must target its same-named remote branch before GitHub Desktop publication; a misleading origin/main target is a release-safety failure.",
+    "No fresh telemetry or reply justified another product change."
+  ],
+  "safety": {
+    "outbound_community_messages": 0,
+    "new_communities_contacted": 0,
+    "repeat_outreach": 0,
+    "external_agent_operations_invoked": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "credentials_used_or_refreshed": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "deployments": 0,
+    "remote_feature_branch_writes": 1,
+    "remote_main_writes": 0,
+    "merges": 0,
+    "force_pushes": 0,
+    "files_deleted": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0
+  }
+}

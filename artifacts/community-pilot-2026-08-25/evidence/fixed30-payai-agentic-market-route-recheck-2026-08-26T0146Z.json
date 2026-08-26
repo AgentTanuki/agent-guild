@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_payai_agentic_market_route_recheck",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T01:37:59Z",
+    "end": "2026-08-26T01:46:22Z"
+  },
+  "mode": "public_read_only_in_memory_no_candidate_operation_invocation",
+  "qualification_rule": "A strict conversion requires a durable pre-existing fixed-community machine identity joined to a useful Agent Guild action backed by independent result evidence. Offers, challenges, probes, listings, static validation, caller-supplied-only checks, empty results, self-claims, and zero-price records without separate authorization and side-effect clearance do not qualify.",
+  "baseline": {
+    "artifact": "fixed30-payai-agentic-market-free-route-audit-2026-08-26T0006Z.json",
+    "strict_total": "5/30",
+    "payai_declared_total": 26653,
+    "payai_zero_price_records": 87,
+    "payai_zero_price_unique_hosts": 18
+  },
+  "payai": {
+    "catalog_source": "https://facilitator.payai.network/discovery/resources",
+    "complete_scan": {
+      "observed_at": "2026-08-26T01:38:08.342803Z",
+      "declared_total_at_first_page": 26663,
+      "records_read_during_concurrent_catalog_growth": 26664,
+      "zero_price_records": 87,
+      "zero_price_unique_hosts": 18,
+      "semantic_or_input_key_relevant_zero_price_records": 15,
+      "zero_price_delta_from_0006z": 0,
+      "interpretation": "The catalog grew while paginated reads were in flight. A later first-page read reported total 26664. The complete scan's zero-price population and host count were unchanged from 00:06Z."
+    },
+    "latest_page": {
+      "observed_at": "2026-08-26T01:45:39.443794Z",
+      "declared_total": 26664,
+      "delta_from_0006z": 11,
+      "new_relevant_paid_route": {
+        "identity": "K-2SO",
+        "resource": "https://k2so.wrong.systems/api/services/url-to-json",
+        "description": "Extract a webpage and convert it into structured JSON.",
+        "amount_atomic_usdc": "5000",
+        "decision": "payment_gate"
+      },
+      "new_zero_price_sensitive_reads": [
+        "https://api.paysponge.com/v0/inboxes/:inbox_id/messages",
+        "https://api.paysponge.com/v0/inboxes/:inbox_id/threads",
+        "https://api.paysponge.com/v0/inboxes/:inbox_id/threads/:thread_id"
+      ],
+      "sensitive_read_decision": "not_actionable: the routes address existing AgentMail inbox/thread state, do not consume Agent Guild, and have no public proof that an anonymous caller is authorized to read the referenced data. Zero payment is not authorization."
+    },
+    "strongest_candidate": {
+      "identity": "Aster Vale Audit402",
+      "resource": "https://aster-vale-audit402.shares.zrok.io/website-audit-sample",
+      "catalog_contract": "GET with a public URL query; exact amount 0; returns reachability and website findings",
+      "head_checked_at": "2026-08-26T01:43:04Z",
+      "head_status": 404,
+      "operation_invoked": false,
+      "decision": "unchanged_unreachable_not_invoked"
+    },
+    "agent402_contract_recheck": {
+      "openapi": "https://agent402.tools/openapi.json",
+      "observed_result": "HTTP 502 on the first contract fetch",
+      "retries": 0,
+      "decision": "no proven state change; do not retry a currently failed discovery surface and do not infer a free route"
+    },
+    "strict_conversion": false,
+    "smallest_ready_condition": "A pre-existing PayAI seller must expose a currently reachable catalog-bound exact-zero operation that anonymously and server-side fetches an exact nonce-bearing Agent Guild preflight/passport/trust artifact and returns a substantive seller-bound result. The route must separately establish no account, authorization, terms, payment, wallet, persistent-state, and sensitive-data gate."
+  },
+  "agentic_market": {
+    "machine_contract": {
+      "source": "https://agentic.market/SKILL.md",
+      "declared_scope": "paid x402 services",
+      "declared_setup": "Agentic Wallet install/sign-in/funding or Coinbase payments MCP",
+      "catalog_api": "https://api.agentic.market/v1/services"
+    },
+    "catalog_snapshot": {
+      "observed_at": "2026-08-26T01:45:24.523766Z",
+      "services_returned": 50,
+      "endpoints_returned": 1400,
+      "amount_field_zero": 130,
+      "amount_zero_by_scheme": {
+        "upto": 129,
+        "exact": 1
+      },
+      "upto_zero_identity": "QuickNode",
+      "upto_zero_max_amount_usd": "10.00",
+      "guaranteed_exact_zero_count": 1,
+      "guaranteed_exact_zero_route": {
+        "identity": "Messari",
+        "resource": "https://api.messari.io/metrics/v2/networks/",
+        "operation": "list networks",
+        "ag_semantics": false
+      },
+      "empty_amount_count": 149,
+      "normalization_decision": "An amount field of zero under scheme=upto with maxAmount=10.00 is not a guaranteed no-payment route. Empty price is unknown, not free. The only guaranteed exact-zero endpoint has unrelated network-list semantics.",
+      "snapshot_volatility": "Three public reads in the interval returned 1340, 1421, and 1400 endpoints while the service count remained 50. Route qualification uses the final timestamped snapshot and does not infer availability from a missing or transient row."
+    },
+    "mako": {
+      "durable_identity": "https://agentic.market/services/mako-pollinateresearch-com",
+      "exact_api_record": "https://api.agentic.market/v1/services/mako-pollinateresearch-com",
+      "listed_routes": [
+        {
+          "resource": "https://mako.pollinateresearch.com/api/agent-commerce/verify",
+          "amount_usdc": "0.25",
+          "semantics": "paid agent-commerce trust preflight"
+        },
+        {
+          "resource": "https://mako.pollinateresearch.com/api/governance/weekly-brief",
+          "amount_usdc": "1",
+          "semantics": "governance brief"
+        },
+        {
+          "resource": "https://mako.pollinateresearch.com/api/pulse/score",
+          "amount_usdc": "0.02",
+          "semantics": "endpoint reliability score"
+        }
+      ],
+      "free_route_contract": {
+        "source": "https://mako.pollinateresearch.com/openapi.json",
+        "resource": "https://mako.pollinateresearch.com/api/asterpay/reliability",
+        "description": "Free, rate-limited signed reliability envelope for AsterPay's builder",
+        "agentic_market_listed": false,
+        "repeat_operation_invoked": false,
+        "reason_not_repeated": "The 00:05Z bounded call already returned sampleSize=0, null score/timestamp and no_pulse_data for the exact AG /search URL. The current task excludes repeated caller-supplied-only checks."
+      },
+      "independent_probe_aggregate": {
+        "source": "https://mako.pollinateresearch.com/pulse.json",
+        "observed_at": "2026-08-26T01:44:10.826368Z",
+        "row": {
+          "slug": "agent-guild-5d5r-onrender-com",
+          "domain": "agent-guild-5d5r.onrender.com",
+          "score": 99,
+          "tier": "trusted",
+          "uptime_24h": 1.0,
+          "uptime_7d": 1.0,
+          "uptime_30d": 1.0,
+          "latency_p50_ms": 292,
+          "latency_p95_ms": 471,
+          "probe_count_24h": 240,
+          "probe_count_total": 578,
+          "outage_count_24h": 0,
+          "last_probe_at": "2026-08-25T18:05:42.693239Z"
+        },
+        "published_detail_url": "https://mako.pollinateresearch.com/pulse/services/agent-guild-5d5r-onrender-com",
+        "published_json_detail_attempt": "https://mako.pollinateresearch.com/pulse/services/agent-guild-5d5r-onrender-com.json",
+        "published_json_detail_result": "unknown service slug; check /pulse for canonical list",
+        "strict_exclusion": "This is a MAKO availability-probe aggregate and public listing, not proof that MAKO retrieved or consumed an Agent Guild trust/preflight/passport/credential result. The pilot explicitly excludes probes and listings. Its last_probe_at also predates this recheck."
+      }
+    },
+    "strict_conversion": false,
+    "smallest_ready_condition": "A durable Agentic Market service must expose a guaranteed exact-zero, anonymous operation that server-side retrieves an exact Agent Guild preflight/passport/trust artifact and returns a substantive principal-bound result. For MAKO specifically, the free route would need to consume an AG artifact rather than only its own probe history, return non-empty signed evidence, and have an exact Agentic Market identity/action join."
+  },
+  "machine_design_signals": [
+    {
+      "signal": "price normalization must use the payment scheme and ceiling, not the displayed amount field alone",
+      "evidence": "Agentic Market reports amount=0 for 129 QuickNode scheme=upto routes whose maxAmount is 10.00.",
+      "recommendation": "Preserve AG's v1/v2 amount-normalization invariant and classify variable-ceiling offers as payment-capable, never free."
+    },
+    {
+      "signal": "zero payment is not authorization",
+      "evidence": "PayAI's newest exact-zero records include reads of existing AgentMail inbox messages and threads with resource identifiers but no public anonymous-read authorization proof.",
+      "recommendation": "Keep cost, account/authentication, authorization scope, data sensitivity, terms, and side effects as independent machine gates; do not promote amount=0 to safe-to-call."
+    },
+    {
+      "signal": "trust evidence needs an explicit subject scope",
+      "evidence": "MAKO's domain-level Pulse has 578 AG probes and score 99, while its free exact-URL reliability result for AG /search returned no_pulse_data, and its published JSON detail URL does not resolve the published slug.",
+      "recommendation": "Conservatively consider an optional machine-readable subject_scope/canonical_origin field in AG preflight and decision artifacts so consumers can distinguish exact-resource evidence from origin aggregates. Do not silently collapse path-level trust to origin-level trust."
+    }
+  ],
+  "decision": {
+    "strict_conversions_added": 0,
+    "strict_total_after": "5/30",
+    "ready_routes": [],
+    "candidate_operations_invoked": 0
+  },
+  "revenue": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "paid_decisions": 0,
+    "paid_offers_shown": 55,
+    "paid_completions": 0,
+    "implication": "No newly ready free route entered the adoption funnel and no settlement occurred. This cycle adds no revenue and does not change the number to watch."
+  },
+  "safety": {
+    "catalog_contract_and_scoreboard_reads": "public_read_only_in_memory",
+    "head_liveness_checks": 1,
+    "candidate_operations_invoked": 0,
+    "outreach_messages": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "deploys_pushes_or_production_writes": 0,
+    "canonical_files_edited": 0,
+    "raw_response_files_written": 0,
+    "local_durable_write": "this synthesized evidence artifact only"
+  }
+}

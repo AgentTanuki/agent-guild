@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_commercial_signal_delta_audit",
+  "artifact_status": "validated_read_only_no_material_delta",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T08:10:45Z",
+  "mode": "bounded_read_only_post_close_production_and_commercial_delta",
+  "baseline": {
+    "artifact": "evidence/fixed30-cycle-close-2026-08-26T0801Z.json",
+    "generated_at": "2026-08-26T08:01:18Z",
+    "production_observed_through": "2026-08-26T08:00:48.595283Z",
+    "snapshot_events": 10914,
+    "strict_conversions": 5,
+    "denominator": 30,
+    "pulse_conservative_preflight_floor": 193
+  },
+  "sources": {
+    "commercial": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_external_only": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "recent_all_attributions": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500",
+    "journey_funnel": "https://agent-guild-5d5r.onrender.com/funnel",
+    "passport_funnel": "https://agent-guild-5d5r.onrender.com/funnel/passports",
+    "response_handling": "in_memory_only_no_production_response_files"
+  },
+  "production": {
+    "observed_through": "2026-08-26T08:07:16.230848+00:00",
+    "commercial": {
+      "snapshot_events": 10925,
+      "snapshot_event_delta": 11,
+      "external_settled_revenue_usd": 0.0,
+      "external_settled_revenue_delta_usd": 0.0,
+      "distinct_external_payers": 0,
+      "distinct_external_payer_delta": 0,
+      "repeat_paid_callers": 0,
+      "repeat_paid_caller_delta": 0,
+      "paid_decisions": 0,
+      "paid_decision_delta": 0,
+      "settled_but_not_attributable_external": 2,
+      "settled_but_not_attributable_external_delta": 0,
+      "qualified_actors": 10,
+      "qualified_actor_delta": 0,
+      "qualified_events": 103,
+      "qualified_event_delta": 0,
+      "paid_offers_shown": 61,
+      "paid_offer_delta": 0,
+      "unattributed_paid_offers_shown": 0,
+      "paid_completions": 0,
+      "paid_completion_delta": 0
+    },
+    "recent_window_after_stored_cutoff": {
+      "cutoff": "2026-08-26T08:00:48.595283Z",
+      "events": 38,
+      "oldest": "2026-08-26T08:01:00.367731+00:00",
+      "newest": "2026-08-26T08:07:16.230848+00:00",
+      "by_type": {
+        "discovery_resource_fetched": 4,
+        "offer_served": 9,
+        "paid_offer_served": 16,
+        "paid_offer_shown": 7,
+        "preflight_run": 2
+      },
+      "commercial_coverage_events": {
+        "count": 9,
+        "by_type": {
+          "paid_offer_shown": 7,
+          "preflight_run": 2
+        }
+      },
+      "by_attribution": {
+        "registry_crawler": 2,
+        "unrecognised_external": 36
+      },
+      "genuine_external_events": 0,
+      "first_party_events": 0,
+      "paid_true": 0,
+      "followed_true": 0,
+      "non_null_asks": 0,
+      "non_null_capabilities": 0,
+      "candidate_useful_events": 0,
+      "by_machine_label": {
+        "carbonmonitor": 4,
+        "k2so": 2,
+        "pulse": 2,
+        "itinai_wordpress": 10,
+        "forum_labs_trust_prober": 2,
+        "mako_pulse_prober": 2,
+        "node": 14,
+        "x402_observer": 2
+      },
+      "interpretation": "Every event is liveness, discovery, offer presentation or x402 challenge-boundary activity. The machine labels are user-agent claims, not durable fixed-community identity bindings."
+    },
+    "snapshot_alignment_note": "The baseline commercial snapshot and baseline recent-feed cutoff were separate non-atomic reads. Two commercial-coverage events at 08:00:44.959002Z and 08:00:48.595283Z were visible at or before the stored recent cutoff but can still fall after the earlier commercial snapshot. Therefore the commercial snapshot delta of 11 is authoritative as a counter delta, while the 9 commercial-coverage events strictly after the stored recent cutoff are the authoritative classified post-cutoff subset; neither contains a useful or paid completion."
+  },
+  "identity_and_action_gates": {
+    "journey_external_registered": 0,
+    "journey_external_identity_proved": 0,
+    "journey_external_paid_decision": 0,
+    "journey_external_delegation": 0,
+    "journey_external_outcome": 0,
+    "journey_external_mainnet_settlement": 0,
+    "passport_qualified_distinct_actors": 3,
+    "passport_registered_qualified_actors": 0,
+    "passport_control_proved_qualified_actors": 0,
+    "passport_own_claimed_qualified_actors": 0,
+    "passport_evidence_attached_qualified_actors": 0,
+    "passport_returned_qualified_actors": 0,
+    "third_party_passport_fetch": 0,
+    "third_party_passport_verification": 0,
+    "new_durable_identity_action_joins": 0
+  },
+  "marker_adjudication": {
+    "reply_events": 0,
+    "observable_campaign_source_or_nonce_matches": 0,
+    "asked_or_capability_markers": 0,
+    "limitation": "The public recent feed intentionally omits source, nonce, preflight target, returned result and receipt fields. Zero observable matches is not proof that an omitted private marker never existed; it means no public event can be joined to a fixed-community identity/action/result tuple from this window."
+  },
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "new_useful_operation": false,
+    "new_paid_completion": false,
+    "new_settlement": false,
+    "new_durable_identity_action_join": false,
+    "new_reply_source_or_nonce_join": false,
+    "decision": "NO_NEW_IDENTITY_BOUND_INDEPENDENTLY_USEFUL_COMPLETED_AG_ACTION"
+  },
+  "machine_design_signal": {
+    "material_new_signal": false,
+    "classification": "repeat_liveness_discovery_and_offer_boundary_behavior",
+    "pulse_conservative_preflight_floor_after": 195,
+    "product_implication": "No new product change is justified. Preserve the existing requirement for durable identity binding plus a returned useful-result receipt; do not optimize price or offer placement from repeated probes that stop at the challenge boundary."
+  },
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "outreach_or_replies": 0,
+    "useful_or_paid_invocations_by_auditor": 0,
+    "accounts_identities_keys_or_wallets_created": 0,
+    "credentials_accessed_used_or_refreshed": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "deployments": 0,
+    "pushes": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0,
+    "local_evidence_files_written": 1,
+    "canonical_files_edited": 0
+  }
+}

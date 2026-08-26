@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "canonical_cycle_close",
+  "campaign": "community_pilot_2026_08_25",
+  "mode": "strict_fixed_denominator_full_unconverted_transition_audit",
+  "generated_at": "2026-08-26T08:01:18Z",
+  "baseline": "evidence/fixed30-cycle-close-2026-08-26T0740Z.json",
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_IDENTITY_BOUND_USEFUL_AG_ACTION"
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500",
+    "response_handling": "in_memory_only",
+    "observed_through": "2026-08-26T08:00:48.595283Z",
+    "snapshot_events": 10914,
+    "snapshot_event_delta": 59,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 103,
+    "paid_offers_shown": 61,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "new_identity_action_joins": 0,
+    "evidence": "evidence/fixed30-passive-monitor-2026-08-26T0750Z.json"
+  },
+  "passive_monitor": {
+    "agentmail_contacted_threads": 6,
+    "new_machine_replies": 0,
+    "new_campaign_nonce_or_source_matches": 0,
+    "public_pending_surface_replies": 0,
+    "repeat_outreach": 0,
+    "public_surface_state": "unchanged",
+    "pulse_exact_preflights_since_baseline": 12,
+    "pulse_latest_preflight_at": "2026-08-26T07:55:58.475869Z",
+    "pulse_conservative_preflight_floor": 193,
+    "probe_offer_or_discovery_activity_qualified": false
+  },
+  "route_transition_audit": {
+    "communities_rechecked": 25,
+    "fixed_unconverted_communities_covered": 25,
+    "fixed_unconverted_coverage_complete": true,
+    "fully_qualified_candidates": 0,
+    "framework_scope": [
+      "nanda",
+      "agntcy",
+      "anp",
+      "openclaw",
+      "elizaos",
+      "crewai"
+    ],
+    "market_and_social_scope": [
+      "the_colony",
+      "4claw",
+      "moltx",
+      "virtuals_acp",
+      "payai",
+      "agentchan",
+      "moltpress"
+    ],
+    "remaining_scope": [
+      "agent_commune",
+      "olas",
+      "fetch_agentverse",
+      "nevermined",
+      "openserv",
+      "naptha",
+      "ag2",
+      "langchain",
+      "claws_network",
+      "agentic_market",
+      "reddit_ai_agents",
+      "reddit_agents_of_ai"
+    ],
+    "observed_through": "2026-08-26T07:57:41Z",
+    "evidence": [
+      "evidence/fixed30-six-target-transition-audit-2026-08-26T0757Z.json",
+      "evidence/fixed30-seven-target-transition-audit-2026-08-26T0755Z.json",
+      "evidence/fixed30-remaining-twelve-transition-delta-audit-2026-08-26T0755Z.json"
+    ]
+  },
+  "machine_derived_product_adaptation": {
+    "current_decision": "implemented_local_hostile_reviewed_not_deployed",
+    "branch": "codex/capability-readiness",
+    "commit": "8fe5f3a15faaa99be8d2903f5696f54f12893579",
+    "review_verdict": "SHIP",
+    "deployment_status": "not_deployed",
+    "new_product_change_this_cycle": false,
+    "strict_conversion_effect": 0,
+    "commercial_effect_usd": 0.0,
+    "evidence": "evidence/fixed30-machine-adaptation-capability-readiness-2026-08-26T0739Z.json"
+  },
+  "product_consequences": [
+    "No additional product change is justified by the new evidence: every fresh event remained liveness, discovery, inventory, offer or challenge activity without a durable same-identity useful result.",
+    "The capability-readiness adaptation remains the current machine-derived change and remains local, reviewed and undeployed.",
+    "No route is promoted on a self-claimed user agent, caller-supplied source tag, generic acknowledgement, offer, challenge or nominal zero price."
+  ],
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "new_communities_contacted": 0,
+    "repeat_outreach": 0,
+    "external_operations_invoked": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "credentials_used_or_refreshed": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "deployments": 0,
+    "pushes": 0,
+    "production_response_body_files": 0,
+    "remote_instructions_executed": 0
+  }
+}

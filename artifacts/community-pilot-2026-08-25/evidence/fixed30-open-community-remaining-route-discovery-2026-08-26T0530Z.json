@@ -1,0 +1,261 @@
+{
+  "schema_version": "community-pilot-evidence-v1",
+  "artifact_status": "validated",
+  "artifact_kind": "fixed30_open_community_remaining_route_discovery",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at_utc": "2026-08-26T05:30:34Z",
+  "mode": "public_read_only_in_memory_no_operations",
+  "scope": [
+    "elizaos",
+    "ag2",
+    "langchain",
+    "fetch_agentverse",
+    "naptha",
+    "agent_commune"
+  ],
+  "qualification_rule": "A qualifying route requires a durable pre-existing autonomous machine identity in the named fixed community, an already-hosted free anonymous bounded one-shot operation or public machine-owned inbound route, server-side consumption of an exact Agent Guild artifact, and a durable result that binds the identity, exact input, completion and substantive AG-derived output. Framework code, listings, health, fixed selftests, status probes, authenticated sender lifecycles and local installation do not qualify.",
+  "canonical_inputs": [
+    "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "artifacts/community-pilot-2026-08-25/targets.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-open-community-fresh-route-readonly-audit-2026-08-26T0520Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-nevermined-langchain-machine-first-audit-2026-08-26T0022Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-moltx-agentcommune-transition-recheck-2026-08-26T0442Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-anp-fetch-naptha-openclaw-retry-gate-audit-2026-08-26T0025Z.json"
+  ],
+  "community_guard": {
+    "required_first": true,
+    "canonical_script": "artifacts/community-pilot-2026-08-25/scripts/check_outreach_eligibility.mjs",
+    "canonical_script_attempt": {
+      "attempted_before_network_reads": true,
+      "result": "runtime_unavailable",
+      "exit_code": 127,
+      "error": "node: command not found"
+    },
+    "fallback": "Applied the script's exact fixed-community lookup, closed-community predicate and converted_strict predicate directly with jq against the same outreach-ledger.json and targets.json before any public network read.",
+    "results": [
+      {"community": "elizaos", "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community": "ag2", "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community": "langchain", "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community": "fetch_agentverse", "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community": "naptha", "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community": "agent_commune", "decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"}
+    ],
+    "send_authority_inferred": false,
+    "messages_or_outreach_attempted": 0
+  },
+  "same_window_coverage_not_repeated": {
+    "source": "artifacts/community-pilot-2026-08-25/evidence/fixed30-open-community-fresh-route-readonly-audit-2026-08-26T0520Z.json",
+    "reason": "A jq-valid same-window artifact already performed current public reads for the three highest-ranked routes. This companion audit did not duplicate their network reads or create a second artifact claiming freshness.",
+    "covered_candidates": [
+      {
+        "community": "ag2",
+        "identity": "Official AG2 Playground Ask the Web",
+        "gate": "The last exact action failed its Tavily dependency; model health does not attest fetch readiness."
+      },
+      {
+        "community": "elizaos",
+        "identity": "Eliza Cloud",
+        "gate": "The keyless WEB_FETCH package capability is not wired to a public no-auth agent skill or durable result rail."
+      },
+      {
+        "community": "fetch_agentverse",
+        "identity": "Website Scraper Agent agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "gate": "The exact machine remains unresponsive with zero verified successes, requires a signed sender lifecycle and exposes no public result receipt."
+      }
+    ]
+  },
+  "candidate_identities": [
+    {
+      "rank": 1,
+      "community": "langchain",
+      "identity": "Chat LangChain",
+      "identity_join": {
+        "official_repository": "https://github.com/langchain-ai/chat-langchain",
+        "hosted_runtime": "https://chat.langchain.com/",
+        "framework": "Managed Deep Agents plus LangChain Agents",
+        "classification": "first-party hosted LangChain documentation agent"
+      },
+      "current_public_reads": [
+        {
+          "url": "https://chat.langchain.com/",
+          "http_status": 200,
+          "content_type": "text/html; charset=utf-8"
+        },
+        {
+          "url": "https://chat.langchain.com/.well-known/agent-card.json",
+          "http_status": 404
+        },
+        {
+          "url": "https://chat.langchain.com/openapi.json",
+          "http_status": 404
+        },
+        {
+          "url": "https://chat.langchain.com/api/auth/guest",
+          "method": "GET",
+          "http_status": 405
+        }
+      ],
+      "closest_operation": {
+        "name": "check_links",
+        "input": "urls:list[string], timeout:float",
+        "server_behavior": "HEAD for non-LangChain domains with GET fallback only on 405",
+        "output": "availability, status, error and redirect final_url",
+        "admission": "validated Supabase or 24-hour Managed Deep Agents guest token",
+        "strict_limit": "The operation does not read, parse, hash, verify or use the AG response body; it is an availability probe and guest issuance creates authenticated actor/thread state."
+      },
+      "hosted": true,
+      "free_anonymous": false,
+      "exact_ag_consumption": false,
+      "durable_identity_bound_result": false,
+      "operation_invoked": false,
+      "decision": "NOT_READY_AUTH_AND_PROBE_ONLY",
+      "exact_ready_gate": "Expose a stateless public no-token one-shot SSRF-safe GET/parse operation returning AG observation or verification fields, final URL, body SHA-256, completed_at and a stable publicly readable result id."
+    },
+    {
+      "rank": 2,
+      "community": "langchain",
+      "identity": "Authenticated MCP Agent",
+      "identity_join": {
+        "runtime": "https://authenticated-mcp-traced-agent.getvda.ai",
+        "card": "https://authenticated-mcp-traced-agent.getvda.ai/.well-known/agent.json",
+        "version": "0.1.1",
+        "framework_proof": "Live health and signed card declare langchain-core in the running package/capability set.",
+        "signature": "JsonWebSignature2020 EdDSA with public JWKS"
+      },
+      "current_public_reads": [
+        {
+          "url": "https://authenticated-mcp-traced-agent.getvda.ai/health",
+          "http_status": 200,
+          "status": "ok",
+          "version": "0.1.1",
+          "packages": ["bcrypt", "cryptography", "langchain-core", "mcp", "opentelemetry-sdk", "python-jose"]
+        },
+        {
+          "url": "https://authenticated-mcp-traced-agent.getvda.ai/.well-known/agent.json",
+          "http_status": 200,
+          "free_skill": "selftest",
+          "free_skill_input": "fixed canned input"
+        },
+        {
+          "url": "https://authenticated-mcp-traced-agent.getvda.ai/llms.txt",
+          "http_status": 200,
+          "declared_rule": "Discovery is free; execution is metered via Nevermined x402. Tools: invoke,selftest; free tool: selftest."
+        }
+      ],
+      "closest_operation": {
+        "name": "selftest",
+        "free": true,
+        "anonymous": true,
+        "result": "Ed25519-signed VDA Witness record",
+        "strict_limit": "The subject is fixed canned input. No caller-controlled URL or AG artifact is accepted; input-bearing invoke is paid."
+      },
+      "hosted": true,
+      "free_anonymous": true,
+      "exact_ag_consumption": false,
+      "durable_identity_bound_result": true,
+      "operation_invoked": false,
+      "decision": "NOT_READY_FIXED_INPUT_ONLY",
+      "exact_ready_gate": "Offer one free anonymous caller-controlled HTTPS URL or AG credential input and bind the server-fetched result, source digest and signed witness to that exact input."
+    },
+    {
+      "rank": 3,
+      "community": "agent_commune",
+      "identity": "EloPhanto",
+      "identity_join": {
+        "official_repository": "https://github.com/elophanto/EloPhanto",
+        "repository_created_at": "2026-02-18T18:55:00Z",
+        "repository_updated_at": "2026-08-25T08:22:27Z",
+        "repository_pushed_at": "2026-08-16T12:44:26Z",
+        "homepage": "https://elophanto.com",
+        "community_membership": "The project changelog records a 2026-03-02 Agent Commune presence and authenticated Commune-tool integration, with later synchronization against the official skill contract.",
+        "autonomy_claim": "Source-available autonomous AI agent that drives a browser, writes tools and operates companies."
+      },
+      "current_public_reads": [
+        {
+          "url": "https://agentcommune.com/",
+          "http_status": 503,
+          "routing": "suspend-by-user"
+        },
+        {
+          "url": "https://agentcommune.com/skill.md",
+          "http_status": 503,
+          "routing": "suspend-by-user"
+        },
+        {
+          "url": "https://elophanto.com/.well-known/agent-card.json",
+          "http_status": 404
+        },
+        {
+          "url": "https://elophanto.com/.well-known/agent.json",
+          "http_status": 404
+        },
+        {
+          "url": "https://elophanto.com/mcp",
+          "http_status": 404
+        }
+      ],
+      "closest_capability": {
+        "semantics": "The source project declares outbound browser automation and more than 200 local tools.",
+        "strict_limit": "The reference runtime is local/self-hosted and requires installation and model/account configuration; the member publishes no hosted A2A, MCP or anonymous HTTP operation."
+      },
+      "hosted": false,
+      "free_anonymous": false,
+      "exact_ag_consumption": false,
+      "durable_identity_bound_result": false,
+      "operation_invoked": false,
+      "decision": "NOT_READY_PLATFORM_SUSPENDED_NO_PUBLIC_RUNTIME",
+      "exact_ready_gate": "Agent Commune resumes or EloPhanto publishes a hosted card and anonymous one-shot browser operation that fetches an AG artifact and returns an EloPhanto-bound public result id and digest."
+    }
+  ],
+  "naptha_no_identity_route": {
+    "decision": "NO_PREEXISTING_HOSTED_AUTONOMOUS_MACHINE_ROUTE",
+    "current_runtime_reads": [
+      {"url": "https://node.naptha.ai/health", "result": "timeout_after_12_seconds_zero_bytes"},
+      {"url": "https://node2.naptha.ai/health", "http_status": 521},
+      {"url": "https://hub.naptha.ai/health", "result": "timeout_after_12_seconds_zero_bytes"},
+      {"url": "https://labs-api.naptha.ai/.well-known/agent-card.json", "result": "connection_timeout_after_12_seconds"},
+      {"url": "https://auto-mcp.com/", "result": "dns_resolution_failure"}
+    ],
+    "first_party_source_checks": [
+      {
+        "repository": "https://github.com/NapthaAI/autoa2a",
+        "created_at": "2025-05-07T09:40:41Z",
+        "pushed_at": "2025-05-13T11:26:18Z",
+        "finding": "CLI scaffold requiring Python, clone/install, agent code changes and a separately launched server; no hosted member identity."
+      },
+      {
+        "repository": "https://github.com/NapthaAI/automcp",
+        "created_at": "2025-03-28T08:31:13Z",
+        "pushed_at": "2025-04-18T03:12:04Z",
+        "finding": "CLI scaffold requiring installation, environment configuration and separately hosted MCP server; the advertised hosted domain does not resolve."
+      }
+    ],
+    "exact_ready_gate": "A public Naptha card/runtime must return 200, bind a durable pre-existing agent or module identity, and expose a free anonymous one-shot AG URL/passport operation with a public identity-bound receipt."
+  },
+  "strict_adjudication": {
+    "qualified_routes_found": 0,
+    "candidate_identities_reported": 3,
+    "candidate_operations_invoked": 0,
+    "strict_before": "5/30",
+    "strict_delta": 0,
+    "strict_after": "5/30",
+    "reason": "Every candidate fails before execution at authentication, fixed-input semantics, public-runtime reachability, or durable result-readback."
+  },
+  "machine_design_signal": {
+    "new_attributable_machine_feedback": false,
+    "reinforced_contract_boundary": "Signed identity and signed fixed selftest evidence can coexist with no externally useful input path. AG should preserve subject provenance categories—fixed_canned, caller_supplied and server_fetched—and never promote fixed-input liveness into proof of a caller-requested trust action."
+  },
+  "safety": {
+    "external_messages_replies_or_posts": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_auth_tokens_wallets_or_terms": 0,
+    "payments_or_spend": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "network_bodies": "processed in memory only",
+    "response_body_files": 0,
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

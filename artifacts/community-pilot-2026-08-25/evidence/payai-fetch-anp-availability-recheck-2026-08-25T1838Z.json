@@ -1,0 +1,180 @@
+{
+  "schema_version": "community-pilot-availability.v1",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T18:37:41Z/2026-08-25T18:37:58Z",
+  "mode": "fixed-30 bounded availability and actionability recheck",
+  "constraints": {
+    "public_primary_machine_surfaces_only": true,
+    "response_bodies_kept_in_memory": true,
+    "agent_actions": 0,
+    "messages_or_contacts": 0,
+    "accounts_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "targets_json_edited": false
+  },
+  "strict_result": {
+    "decision": "NO_GO_ALL_THREE",
+    "qualified_now_live_anonymous_free_agents": 0,
+    "strict_conversion_delta": 0,
+    "reason": "No pre-existing community identity simultaneously exposed a currently reachable, anonymous, zero-price declared operation capable of consuming an exact Agent Guild preflight or passport URL. The one-action allowance was therefore not used."
+  },
+  "targets": [
+    {
+      "target_id": "payai",
+      "decision": "NO_GO",
+      "current_state_changed": false,
+      "catalog": {
+        "url": "https://facilitator.payai.network/discovery/resources",
+        "observed_at": "2026-08-25T18:37:41.584707+00:00",
+        "declared_total": 26649,
+        "records_read": 26649,
+        "zero_price_records": 87,
+        "zero_price_unique_hosts": 18,
+        "ag_relevant_zero_price_records": 15
+      },
+      "candidate": {
+        "seller": "Aster Vale Audit402",
+        "durable_preexisting_payai_identity": true,
+        "identity_join": {
+          "host": "aster-vale-audit402.shares.zrok.io",
+          "pay_to": "0x5D8b58bAdE65318bC95e2EAd24e6F0E2b042Aa78",
+          "catalog_last_updated": "2026-08-14T11:17:03.245Z",
+          "basis": "PayAI's current public catalog still binds the named seller origin and payTo address to two exact zero-price resources."
+        },
+        "declared_routes": [
+          {
+            "resource": "https://aster-vale-audit402.shares.zrok.io/mcp",
+            "tool": "sample_website_audit",
+            "transport": "streamable-http",
+            "input": "url: public HTTP or HTTPS URI, maxLength 500",
+            "amount_atomic": "0",
+            "network": "eip155:8453"
+          },
+          {
+            "resource": "https://aster-vale-audit402.shares.zrok.io/website-audit-sample",
+            "method": "GET",
+            "input": "query parameter url",
+            "amount_atomic": "0",
+            "network": "eip155:8453"
+          }
+        ],
+        "plausible_ag_action": "Fetch one exact nonce-bearing Agent Guild preflight or passport URL and return target reachability plus five sample website/security findings.",
+        "current_liveness": {
+          "probe": "GET https://aster-vale-audit402.shares.zrok.io/website-audit-sample with no target parameter",
+          "response_date": "Tue, 25 Aug 2026 18:37:58 GMT",
+          "http_status": 404,
+          "content_type": "text/html; charset=utf-8",
+          "body_identity": "zrok UI: share aster-vale-audit402.shares.zrok.io not found",
+          "interpretation": "The public share is absent; this is not an application-level missing-input response."
+        }
+      },
+      "gate": "The exact compatible zero-price contract remains cataloged but unreachable. No fallback fan-out or AG target request was made because the stable share conclusively remains absent."
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "decision": "NO_GO",
+      "current_state_changed": false,
+      "candidates": [
+        {
+          "name": "Website Scraper Agent",
+          "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+          "identity": {
+            "search": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+            "almanac": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+            "status": "active",
+            "almanac_expiry": "2026-09-19T09:36:26.157873Z",
+            "protocol": "website-scraping-protocol 0.1.0",
+            "protocol_digest": "a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+            "declared_request": "WebsiteScraperRequest { url: string }",
+            "declared_response": "WebsiteScraperResponse { text: string } or ErrorMessage { error: string }"
+          },
+          "current_telemetry": {
+            "last_updated": "2026-08-25T18:32:51Z",
+            "unresponsive": true,
+            "recent_success_rate": 0.0,
+            "recent_verified_interactions": 1,
+            "recent_success_verified_interactions": 0,
+            "recent_interactions": 7565,
+            "total_interactions": 40976
+          },
+          "gate": "The exact arbitrary-URL contract remains present, but Agentverse still classifies this individual machine as unresponsive and reports no recent verified success. Counter growth was not treated as successful execution evidence."
+        },
+        {
+          "name": "Auditor Web v3",
+          "address": "agent1qtf5gqenmqddls0ll0qk7sz7uytp4vtlxldwr3d20cjqgkm6zhzgywnzj67",
+          "identity": {
+            "search": "https://agentverse.ai/v1/search/agents/agent1qtf5gqenmqddls0ll0qk7sz7uytp4vtlxldwr3d20cjqgkm6zhzgywnzj67",
+            "almanac": "https://agentverse.ai/v1/almanac/agents/agent1qtf5gqenmqddls0ll0qk7sz7uytp4vtlxldwr3d20cjqgkm6zhzgywnzj67",
+            "status": "active",
+            "almanac_expiry": "2026-09-24T09:23:10.282000Z",
+            "protocol": "AgentChatProtocol 0.3.0",
+            "protocol_digest": "30a801ed3a83f9a0ff0a9f1e6fe958cb91da1fc2218b153df7b6cbf87bd33d62"
+          },
+          "current_telemetry": {
+            "last_updated": "2026-08-22T07:57:08Z",
+            "unresponsive": false,
+            "recent_success_rate": 0.3122316381863853,
+            "recent_verified_interactions": 42,
+            "recent_success_verified_interactions": 19,
+            "recent_interactions": 161,
+            "total_interactions": 161
+          },
+          "gate": "This machine remains responsive, but it advertises conversational website auditing rather than an exact AG preflight/passport operation. Its signed mailbox/chat invocation also requires a sender key and Agentverse/ASI:One or running uAgent setup, so it is not an anonymous no-account route."
+        }
+      ],
+      "action": {
+        "invoked": false,
+        "reason": "The compatible scraper failed the live-machine gate; the responsive auditor failed both exact-operation and anonymous-access gates."
+      }
+    },
+    {
+      "target_id": "anp",
+      "decision": "NO_GO",
+      "current_state_changed": false,
+      "candidate": {
+        "name": "Official ANP Network Explorer",
+        "declared_operation": "POST https://service.agent-network-protocol.com/anp-demo/api/get-document with a public URL",
+        "plausible_ag_action": "Return the parsed document for an exact Agent Guild discovery, preflight, or passport URL."
+      },
+      "identity_surfaces": {
+        "https://agent-network-protocol.com/.well-known/agent-descriptions": {
+          "http_status": 200,
+          "content_type": "text/html",
+          "finding": "Homepage HTML, not an ANP JSON-LD agent description."
+        },
+        "https://agent-network-protocol.com/.well-known/did.json": {
+          "http_status": 200,
+          "content_type": "text/html",
+          "finding": "Homepage HTML, not a DID document."
+        }
+      },
+      "hosted_runtime": {
+        "https://service.agent-network-protocol.com/anp-demo/api/health": {
+          "http_status": 0,
+          "curl_error": 60,
+          "ssl_verify_result": 1,
+          "finding": "No alternative certificate subject name matches service.agent-network-protocol.com."
+        },
+        "https://service.agent-network-protocol.com/anp-demo/openapi.json": {
+          "http_status": 0,
+          "curl_error": 60,
+          "ssl_verify_result": 1,
+          "finding": "No alternative certificate subject name matches service.agent-network-protocol.com."
+        }
+      },
+      "gate": "The hosted explorer still fails authenticated TLS and still publishes neither its own ANP agent description nor a DID. No insecure-TLS bypass and no POST were attempted."
+    }
+  ],
+  "stale_evidence_policy": "Catalog listings, source-only contracts, active shared transports, lifetime counters, and increased interaction totals were not treated as current successful action evidence without a reachable individual machine and a qualifying anonymous free operation.",
+  "action": {
+    "invoked": false,
+    "reason": "Every candidate failed at least one precondition before action: Aster Vale was unreachable, Website Scraper was unresponsive, Auditor Web lacked an anonymous exact AG operation, and ANP failed TLS plus identity binding."
+  },
+  "next_recheck": {
+    "payai": "Aster Vale's exact catalog-bound stable host returns an application response rather than the zrok share-not-found page.",
+    "fetch_agentverse": "Website Scraper changes to unresponsive=false and records at least one fresh verified success, or another pre-existing agent exposes an anonymous URL/passport protocol.",
+    "anp": "Valid hostname TLS, JSON health/OpenAPI, and an explorer-owned ANP agent description or DID."
+  }
+}

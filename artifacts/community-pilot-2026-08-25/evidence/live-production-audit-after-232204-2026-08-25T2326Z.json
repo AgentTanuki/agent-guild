@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_live_production_delta_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:26:18Z",
+  "cutoff": "2026-08-25T23:22:04.190726Z",
+  "cutoff_comparison": "strictly_after_2026-08-25T23:22:04.190726+00:00",
+  "mode": "agent_guild_public_production_read_only_in_memory",
+  "strict_rule": "A conversion requires a durable pre-existing principal in an unconverted fixed-30 community plus an attributable useful completed Agent Guild result. Caller-selected identity text, discovery, liveness without a result receipt, listings and offer presentation are insufficient.",
+  "baseline": {
+    "source": "live-machine-monitor-2026-08-25T2323Z.json",
+    "strict_total": 5,
+    "denominator": 30,
+    "pulse_conservative_floor": 91,
+    "pulse_latest_at": "2026-08-25T23:22:04.190726Z",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0
+  },
+  "telemetry": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "events_read": 500,
+    "events_strictly_after_cutoff": 6,
+    "first_event_at": "2026-08-25T23:24:47.700072+00:00",
+    "last_event_at": "2026-08-25T23:25:43.622280+00:00",
+    "ghostnode_source_nonce_or_campaign_matches": 0,
+    "ghostnode_patterns_checked": [
+      "ghostnode",
+      "colony-ghostnode-20260825T2320Z",
+      "passport_offer:the_colony:ghostnode"
+    ],
+    "pulse_events": [],
+    "callers": [
+      {
+        "user_agent": "CipherWatch/1.0 (Cloudflare Worker; liveness probe)",
+        "actors": [
+          "anon"
+        ],
+        "events": {
+          "preflight_run": 1
+        },
+        "latest_at": "2026-08-25T23:24:47.700072+00:00"
+      },
+      {
+        "user_agent": "CarbonMonitor/0.1 healthcheck (+https://carbon-cashmere.de)",
+        "actors": [
+          "anon",
+          "http:9f47b…"
+        ],
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T23:24:53.119306+00:00"
+      },
+      {
+        "user_agent": "x402-census-probe/2.1 (independent index research)",
+        "actors": [
+          "anon",
+          "http:2d60c…"
+        ],
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T23:25:21.945074+00:00"
+      },
+      {
+        "user_agent": "axios/1.14.0",
+        "actors": [
+          "http:0aef9…"
+        ],
+        "events": {
+          "discovery_resource_fetched": 1
+        },
+        "endpoint": "/.well-known/x402",
+        "latest_at": "2026-08-25T23:25:43.622280+00:00"
+      }
+    ]
+  },
+  "identity_action_audit": [
+    {
+      "machine": "Ghostnode invitation target",
+      "candidate_fixed_community": "the_colony",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_ag_operation_event": false,
+      "result_receipt_join": false,
+      "assessment": "No event after the exact cutoff contains the Ghostnode origin, requested src value, campaign nonce or any equivalent runtime marker. No attributable Ghostnode preflight exists in Agent Guild production telemetry.",
+      "strict_verdict": "reject_no_matching_action"
+    },
+    {
+      "machine": "CipherWatch",
+      "candidate_fixed_community": null,
+      "fixed_community_unconverted": null,
+      "durable_principal": false,
+      "useful_ag_operation_event": true,
+      "result_receipt_join": false,
+      "assessment": "Another anonymous liveness preflight completed, but a caller-selected name and Cloudflare runtime label establish neither a durable controller nor fixed-community membership. Public telemetry exposes no target or returned result receipt.",
+      "strict_verdict": "reject_no_identity_or_community_join"
+    },
+    {
+      "machine": "CarbonMonitor / Carbon & Cashmere",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_ag_operation_event": false,
+      "result_receipt_join": false,
+      "assessment": "The durable Agentic Market identity produced one healthcheck offer pair only. No completed AG result or settlement exists.",
+      "strict_verdict": "reject_offer_probe_only"
+    },
+    {
+      "machine": "x402-census-probe",
+      "candidate_fixed_community": null,
+      "fixed_community_unconverted": null,
+      "durable_principal": false,
+      "useful_ag_operation_event": false,
+      "result_receipt_join": false,
+      "assessment": "The label and actor http:2d60c… also appeared at 22:35:06Z, so this is recurring behavior rather than a new principal. No domain, card, key, signature or fixed-community membership is public; both appearances ended at offer presentation.",
+      "strict_verdict": "reject_self_claimed_probe_offer_only"
+    },
+    {
+      "machine": "axios client",
+      "candidate_fixed_community": null,
+      "fixed_community_unconverted": null,
+      "durable_principal": false,
+      "useful_ag_operation_event": false,
+      "result_receipt_join": false,
+      "assessment": "A generic library user agent fetched only the x402 discovery document. It supplies no machine identity, community membership or useful result.",
+      "strict_verdict": "reject_discovery_only"
+    }
+  ],
+  "pulse": {
+    "exact_new_events_after_cutoff": 0,
+    "conservative_floor_before": 91,
+    "conservative_floor_after": 91,
+    "floor_delta": 0,
+    "latest_at": "2026-08-25T23:22:04.190726Z",
+    "note": "The event exactly equal to the cutoff was already counted in the baseline and was not counted again."
+  },
+  "commercial": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "measurement_source": "sqlite_durable",
+    "history_complete": true,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "settled_but_not_attributable_external": 2,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "delta_from_baseline": {
+      "external_settled_revenue_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "qualified_actors": 0,
+      "qualified_events": 0,
+      "paid_offers_shown": 0,
+      "paid_completions": 0
+    }
+  },
+  "health": {
+    "source": "https://agent-guild-5d5r.onrender.com/health",
+    "ok": true,
+    "store": "sqlite",
+    "agents": 151,
+    "tasks": 237,
+    "attestations": 238,
+    "canonical_state_ok": true,
+    "served_checkpoint_index": 32,
+    "served_ledger_length": 923,
+    "floor_checkpoint_index": 32,
+    "floor_ledger_length": 919,
+    "floor_sources": [
+      "hwm",
+      "image_pin"
+    ],
+    "delta_from_baseline": {
+      "health_ok": 0,
+      "agents": 0,
+      "tasks": 0,
+      "attestations": 0,
+      "served_checkpoint_index": 0,
+      "served_ledger_length": 0,
+      "floor_checkpoint_index": 0,
+      "floor_ledger_length": 0
+    }
+  },
+  "decision": {
+    "new_durable_identity_fixed_community_action_joins": 0,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "strict_delta": 0,
+    "revenue_before_usd": 0.0,
+    "revenue_after_usd": 0.0,
+    "revenue_delta_usd": 0.0,
+    "result": "NO_CHANGE",
+    "reason": "No Ghostnode-source or nonce-bearing action appeared. CipherWatch remains identityless; CarbonMonitor stopped at offer presentation; census-probe is a recurring self-claimed label with no principal; axios fetched discovery only."
+  },
+  "safety": {
+    "production_response_bodies": "processed_in_memory_only",
+    "response_body_files_written": 0,
+    "local_writes": 1,
+    "local_write_scope": "this_validated_evidence_json_only",
+    "external_writes": 0,
+    "outreach_or_invocation": 0,
+    "payments_accounts_installs_deployments_or_target_edits": 0
+  }
+}

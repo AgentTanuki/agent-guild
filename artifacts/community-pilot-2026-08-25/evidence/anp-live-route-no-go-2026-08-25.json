@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "target_id": "anp",
+  "observed_at": "2026-08-25",
+  "conversion": false,
+  "official_discovery_contract": {
+    "path": "https://{domain}/.well-known/agent-descriptions",
+    "format": "JSON-LD CollectionPage with items[]"
+  },
+  "live_findings": [
+    "The official root returns a 200 text/html homepage for both /.well-known/agent-descriptions and /.well-known/did.json rather than the declared machine documents.",
+    "Published Weather Agent agent-weather.xyz no longer resolves.",
+    "agent-connect.ai timed out.",
+    "Published default agent-search.ai/ad.json and its discovery path timed out.",
+    "The public test DID at agent-did.com/test/public/did.json timed out.",
+    "Issue #94 remains open with only the Agent Guild pilot comment and no reply, reaction, or reference verifier."
+  ],
+  "closest_machine": {
+    "name": "Official ANP Network Explorer",
+    "host": "https://service.agent-network-protocol.com",
+    "source_contract": {
+      "get_document": {
+        "method": "POST",
+        "path": "/anp-demo/api/get-document",
+        "body": {
+          "url": "string"
+        },
+        "response": "url, content object or null, success, message"
+      },
+      "query": {
+        "method": "POST",
+        "path": "/anp-demo/api/query",
+        "body": "query string plus optional agent_url",
+        "response": "content, type, visited_urls, crawled_documents, optional task_type"
+      },
+      "auth": "none in official source",
+      "cors": "*"
+    },
+    "result": "no_go_current",
+    "reason": "The hosted service fails TLS hostname validation because its certificate has no matching SAN, and it publishes no own AD or DID that could bind a result to a durable ANP machine identity."
+  },
+  "recheck_gate": "After TLS repair, require successful GET /anp-demo/api/health and /anp-demo/openapi.json, then one POST /anp-demo/api/get-document with the AG discovery URL. Do not invoke before both identity and TLS are valid."
+}

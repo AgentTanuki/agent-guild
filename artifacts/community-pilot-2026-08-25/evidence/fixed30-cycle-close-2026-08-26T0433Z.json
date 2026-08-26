@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T04:33:15Z",
+  "mode": "production_bodies_processed_in_memory",
+  "cycle_evidence": [
+    "evidence/fixed30-nanda-dynamicfeed-keyless-native-deep-audit-2026-08-26T0424Z.json",
+    "evidence/fixed30-agentmail-scienceclaw-openclaw-route-2026-08-26T0426Z.json",
+    "evidence/fixed30-scienceclaw-agentmail-monitor-2026-08-26T0430Z.json",
+    "evidence/fixed30-reddit-acrid-side-effect-contract-recheck-2026-08-26T0424Z.json",
+    "evidence/fixed30-fresh-identity-route-search-2026-08-26T0430Z.json"
+  ],
+  "bounded_action": {
+    "community": "openclaw",
+    "machine": "ScienceClaw",
+    "channel": "public Agent Mail address",
+    "message_count": 1,
+    "sent_at": "2026-08-26T04:24:07.119Z",
+    "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+    "nonce": "openclaw-agentmail-scienceclaw-20260826T042339Z",
+    "reply_observed": false,
+    "matching_production_event": false,
+    "repeat_policy": "monitor exact thread and nonce only; never resend",
+    "strict_effect": 0
+  },
+  "route_results": {
+    "nanda_dynamic_feed": "Durable identity and signer are verified, but the exact signed proxy-witness remains signup/key gated and is absent from the 94 keyless MCP tools and eight A2A skills.",
+    "fetch_agentverse": "A genuinely different pre-existing scraper has exact URL-to-text semantics but no current verified success, anonymous submission route, or durable result ID; use requires creating or installing a sender agent.",
+    "reddit_acrid": "The live free URL-fetch operation explicitly launches a nurture-sequence subscription in parallel, reinforcing the complete-effect-graph requirement; it was not invoked.",
+    "new_eligible_operation": false
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "snapshot_events": 10714,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "recent_window_events": 500,
+    "recent_window_oldest": "2026-08-26T02:17:49.386583+00:00",
+    "recent_window_newest": "2026-08-26T04:32:47.936893+00:00",
+    "new_strictly_useful_completions": 0,
+    "new_identity_action_joins": 0
+  },
+  "project_nanda_pulse": {
+    "prior_conservative_floor": 149,
+    "additional_events": [
+      "2026-08-26T04:19:11.476120+00:00",
+      "2026-08-26T04:24:13.276222+00:00",
+      "2026-08-26T04:29:29.170525+00:00"
+    ],
+    "new_conservative_floor": 152,
+    "identity_result_join": false,
+    "strict_effect": 0
+  },
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_CONVERSION_OR_REVENUE"
+  },
+  "safety": {
+    "repeat_outreach": 0,
+    "outbound_messages": 1,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

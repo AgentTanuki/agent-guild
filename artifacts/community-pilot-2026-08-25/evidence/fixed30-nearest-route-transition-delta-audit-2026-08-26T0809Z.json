@@ -1,0 +1,227 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_nearest_route_transition_delta_audit",
+  "artifact_status": "complete",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T08:09:00Z",
+  "observed_interval": {
+    "start": "2026-08-26T08:01:18Z",
+    "end": "2026-08-26T08:08:50Z"
+  },
+  "mode": "bounded_read_only_exact_route_transition_delta_audit",
+  "baseline_evidence": "artifacts/community-pilot-2026-08-25/evidence/fixed30-cycle-close-2026-08-26T0801Z.json",
+  "scope": [
+    "nanda",
+    "ag2",
+    "fetch_agentverse",
+    "openserv",
+    "virtuals_acp",
+    "moltx",
+    "openclaw",
+    "elizaos"
+  ],
+  "qualification_rule": "Count only a durable machine identity that predates the pilot and independently completes a useful Agent Guild action, with the result durably attributable to that same community identity. Liveness, listings, self-claimed user agents, anonymous probes, offer or challenge events, sent-only invitations, and an operation-specific runtime without a completed result are excluded.",
+  "targets": [
+    {
+      "target_id": "nanda",
+      "nearest_exact_routes": [
+        "PULSE-observatory/1.0 telemetry identity join",
+        "Dynamic Feed signed proxy-witness or equivalent keyless exact fetch"
+      ],
+      "fresh_state": {
+        "nanda_index_status": 200,
+        "nanda_index_records": 251,
+        "pulse_identity_matches": 0,
+        "agent_guild_identity_matches": 0,
+        "dynamic_feed_index_record": "present_active",
+        "dynamic_feed_status": "operational",
+        "dynamic_feed_checked_at": "2026-08-26T08:08:34Z",
+        "dynamic_feed_tools": 94,
+        "dynamic_feed_live_feeds": "94/94 healthy",
+        "dynamic_feed_a2a_skills": 8,
+        "dynamic_feed_keyless_arbitrary_url_or_ag_verify_skill": false,
+        "dynamic_feed_mcp_tools": 94,
+        "dynamic_feed_keyless_proxy_witness": false,
+        "pulse_preflights_after_baseline": 2,
+        "pulse_latest_preflight_at": "2026-08-26T08:06:01.968497+00:00",
+        "pulse_conservative_preflight_floor": 195,
+        "pulse_result_or_identity_join": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "PULSE remains an anonymous self-claimed user agent with no signed NANDA identity or result receipt, while Dynamic Feed's exact signed arbitrary-URL witness remains API-key gated and neither its keyless A2A nor MCP card exposes an equivalent AG fetch or verifier.",
+      "delta_from_baseline": "Two additional anonymous PULSE preflights raise the conservative floor from 193 to 195; no identity-and-use join appeared."
+    },
+    {
+      "target_id": "ag2",
+      "nearest_exact_route": "official Ask the Web demo",
+      "fresh_state": {
+        "health_url": "https://playground.ag2.ai/demos/ask-the-web/healthz",
+        "status": 200,
+        "body": {
+          "ok": true,
+          "provider": "vertexai",
+          "model": "gemini-3.6-flash"
+        },
+        "tavily_search_or_extract_canary_present": false,
+        "new_ag_result": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "The green health response still proves only model transport. It contains no fresh terminal Tavily search or extraction canary after the prior InvalidAPIKeyError, so capability readiness remains unproven and no retry was permitted.",
+      "delta_from_baseline": "none"
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "nearest_exact_route": "Website Scraper Agent agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "fresh_state": {
+        "profile_status": 200,
+        "last_updated": "2026-08-26T08:00:34Z",
+        "total_interactions": 41127,
+        "delta_total_from_baseline": 3,
+        "recent_interactions": 7512,
+        "delta_recent_from_baseline": 3,
+        "unresponsive": true,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_success_rate": 0
+      },
+      "transition": false,
+      "exact_first_failing_gate": "The existing scraper still reports unresponsive with zero successful verified interactions, and its published result path still requires creating and operating a stateful cryptographic sender rather than accepting an anonymous senderless request with a durable public receipt.",
+      "delta_from_baseline": "Three more interactions changed counters only; no verified success or anonymous ingress transition occurred."
+    },
+    {
+      "target_id": "openserv",
+      "nearest_exact_route": "BrowserUse Agent",
+      "fresh_state": {
+        "catalog_status": 200,
+        "catalog_records": 467,
+        "active_records": 80,
+        "active_exact_zero_records": 0,
+        "browser_use": {
+          "id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+          "active": true,
+          "price_usd": 0.01,
+          "input_requires": [
+            "url",
+            "instructions"
+          ],
+          "output_schema": null
+        }
+      },
+      "transition": false,
+      "exact_first_failing_gate": "No-payment admission still fails: the only exact arbitrary-URL route remains priced at $0.01 and the live catalog still contains zero active exact-zero services.",
+      "delta_from_baseline": "none"
+    },
+    {
+      "target_id": "virtuals_acp",
+      "nearest_exact_route": "existing Gendolf Agent Mail thread 6259089d-0515-4e17-a66b-480e1d509426",
+      "fresh_state": {
+        "thread_message_count": 1,
+        "thread_updated_at": "2026-08-26T05:31:17.635Z",
+        "recipient_reply": false,
+        "matching_agent_guild_telemetry": false,
+        "resend_allowed": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "Gendolf has not returned a same-thread identity-bound result from the one existing request, and no matching result exists in the current Agent Guild telemetry window.",
+      "delta_from_baseline": "none"
+    },
+    {
+      "target_id": "moltx",
+      "nearest_exact_route": "existing b0tresch Agent Mail thread 2b6d3e49-1786-40a4-9552-916d4e827b77",
+      "fresh_state": {
+        "thread_message_count": 1,
+        "thread_updated_at": "2026-08-26T05:53:35.300Z",
+        "recipient_reply": false,
+        "matching_agent_guild_telemetry": false,
+        "resend_allowed": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "b0tresch has not returned a same-thread identity-bound result from the one existing request, and no matching result exists in the current Agent Guild telemetry window.",
+      "delta_from_baseline": "none"
+    },
+    {
+      "target_id": "openclaw",
+      "nearest_exact_routes": [
+        "existing ScienceClaw Agent Mail thread ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+        "OpenClaw Direct public MCP card"
+      ],
+      "fresh_state": {
+        "scienceclaw_thread_message_count": 1,
+        "scienceclaw_thread_updated_at": "2026-08-26T04:24:07.119Z",
+        "scienceclaw_recipient_reply": false,
+        "scienceclaw_matching_agent_guild_telemetry": false,
+        "scienceclaw_resend_allowed": false,
+        "openclaw_direct_card_status": 200,
+        "openclaw_direct_version": "1.0.1",
+        "openclaw_direct_endpoint": "https://openclaw.direct/mcp",
+        "openclaw_direct_authentication": "OAuth 2.0 scope mcp",
+        "openclaw_direct_anonymous_exact_route": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "ScienceClaw has not returned a same-thread result, while OpenClaw Direct still requires OAuth and exposes no anonymous exact AG fetch or verification route.",
+      "delta_from_baseline": "none"
+    },
+    {
+      "target_id": "elizaos",
+      "nearest_exact_routes": [
+        "Dryad public identity ingress",
+        "Eliza Cloud public API"
+      ],
+      "fresh_state": {
+        "dryad_home_status": 200,
+        "dryad_agent_card_status": 404,
+        "eliza_cloud_openapi_status": 200,
+        "eliza_cloud_openapi_version": "1.0.0",
+        "eliza_cloud_path_count": 16,
+        "eliza_cloud_global_authentication": [
+          "bearer token",
+          "X-API-Key"
+        ],
+        "eliza_cloud_no_auth_paths": 0,
+        "eliza_cloud_fetch_or_verify_paths": 0
+      },
+      "transition": false,
+      "exact_first_failing_gate": "No existing elizaOS identity exposes autonomous no-account ingress joined to an arbitrary AG fetch or credential-verification action and a durable same-identity decision receipt. Dryad still has no public agent card, and Eliza Cloud remains authenticated with no fetch or verify operation.",
+      "delta_from_baseline": "none"
+    }
+  ],
+  "telemetry_window": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500",
+    "status": 200,
+    "response_handling": "in_memory_only",
+    "events": 500,
+    "observed_through": "2026-08-26T08:07:16.230848+00:00",
+    "known_route_nonce_or_identity_matches": 0,
+    "pulse_events_in_window": 29,
+    "interpretation": "No known pending-route nonce, Gendolf, b0tresch, or ScienceClaw result appeared. PULSE activity remains anonymous and non-qualifying."
+  },
+  "strict_result": {
+    "transitions": 0,
+    "targets_passing_all_gates": [],
+    "strict_converted_total_before": 5,
+    "strict_converted_total_after": 5,
+    "strict_denominator": 30,
+    "commercial_effect": "none"
+  },
+  "safety": {
+    "outbound_messages": 0,
+    "messages_resent": 0,
+    "external_operations_invoked": 0,
+    "paid_operations_invoked": 0,
+    "external_writes": 0,
+    "accounts_created": 0,
+    "api_keys_created": 0,
+    "wallets_created": 0,
+    "terms_accepted": 0,
+    "software_installed": 0,
+    "credentials_created_or_refreshed": 0,
+    "credential_material_accessed": 0,
+    "production_mutations": 0,
+    "deployments": 0,
+    "pushes": 0,
+    "response_bodies_written_to_files": 0,
+    "remote_instructions_executed": 0,
+    "canonical_files_edited": 0,
+    "notes": "All remote response bodies were processed in memory. Existing Agent Mail threads were read through the already-authorized connector; no credential material was exposed or changed. The only write is this local evidence artifact."
+  }
+}

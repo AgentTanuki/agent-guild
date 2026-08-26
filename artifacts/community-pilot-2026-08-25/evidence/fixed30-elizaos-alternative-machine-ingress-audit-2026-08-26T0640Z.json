@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_elizaos_alternative_machine_ingress_audit",
+  "artifact_status": "validated_explicit_no_go",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T06:40:22Z",
+  "mode": "public_read_only_no_send_no_invoke",
+  "target": "elizaos",
+  "exclusions_applied": [
+    "Dryad was explicitly excluded by task",
+    "eliZERO was excluded because its published handler is echo/canned-response only",
+    "account, install, payment, wallet and terms-gated routes were ineligible"
+  ],
+  "qualification_rule": "A candidate qualifies only if a durable pre-existing elizaOS machine identity owns a public AgentMail, XMTP or A2A ingress that demonstrably reaches its autonomous decision loop, can independently fetch an arbitrary HTTPS Agent Guild artifact or verify its W3C credential, and emits a durable identity-bound result. Framework compatibility, a mailbox address, an operator UI, model text, image-only URL handling, in-memory output or a human-hosted tunnel is insufficient.",
+  "guard": {
+    "ledger": "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "ledger_updated_at": "2026-08-26T05:55:13Z",
+    "community_aliases_checked": [
+      "elizaos",
+      "elizaOS",
+      "Eliza Cloud",
+      "api.eliza.app"
+    ],
+    "candidate_aliases_checked": [
+      "vibe-roaster",
+      "ai16zoria",
+      "Zoria",
+      "ENS Reminder Bot",
+      "ens-service",
+      "0xdesign"
+    ],
+    "closed_community_match": false,
+    "recipient_or_candidate_history_matches": 0,
+    "decision": "OPEN_FOR_READ_ONLY_AUDIT_ONLY_NOT_SEND_AUTHORITY",
+    "task_override": "No send or invocation was authorized regardless of guard state."
+  },
+  "fully_qualified_candidates": [],
+  "strongest_near_match": {
+    "community": "elizaos",
+    "machine_identity": "vibe-roaster.aiconfig.eth",
+    "project": "Decentralized Roasting / AI Roast Generator",
+    "decision": "NO_GO_NO_ARBITRARY_FETCH_OR_VC_AND_NO_DURABLE_RESULT",
+    "preexisting_identity": {
+      "repository": "https://github.com/chatresearch/ethrome-hackathon",
+      "repository_created_at": "2025-10-17T17:52:06Z",
+      "repository_last_push_at": "2025-10-19T04:19:38Z",
+      "immutable_commit": "534f8ea5809253cfe202df3265b6d347b00f1291",
+      "immutable_commit_url": "https://github.com/chatresearch/ethrome-hackathon/commit/534f8ea5809253cfe202df3265b6d347b00f1291",
+      "primary_project_record": "https://taikai.network/en/ethrome/hackathons/2025/projects/cmgwhg5en01351nb9o8vvtp59/idea",
+      "identity_evidence": "The pre-pilot project record names ElizaOS agents, XMTP messaging and ENS-discovered agent subdomains. The immutable repository names five ElizaOS agents including vibe-roaster and binds vibe-roaster.aiconfig.eth to the project."
+    },
+    "machine_owned_ingress": {
+      "live_frontend": "https://ai-roast-generator-ivory.vercel.app/",
+      "live_frontend_state": "HTTP 200 HTML during this audit",
+      "live_frontend_bundle": "https://ai-roast-generator-ivory.vercel.app/assets/index-CIQ5O8Yr.js",
+      "published_backend_base_in_bundle": "https://08859d4d94e3.ngrok-free.app",
+      "published_http_operation": "POST /api/message with JSON {message:string}",
+      "xmtp_transport": "The immutable handler uses @xmtp/agent-sdk Agent.createFromEnv and agent.on('text').",
+      "immutable_handler": "https://raw.githubusercontent.com/chatresearch/ethrome-hackathon/534f8ea5809253cfe202df3265b6d347b00f1291/xmtp-agent/src/index.ts"
+    },
+    "autonomous_loop_join": {
+      "proven": true,
+      "exact_flow": "XMTP text or public HTTP message -> routeByCapabilities -> generateResponse -> create ElizaOS messaging session -> post message -> poll session messages -> formatResponseWithCapabilities -> XMTP or HTTP response.",
+      "source": "https://raw.githubusercontent.com/chatresearch/ethrome-hackathon/534f8ea5809253cfe202df3265b6d347b00f1291/xmtp-agent/src/index.ts"
+    },
+    "first_failing_gate": {
+      "gate": "independent_arbitrary_https_fetch_or_vc_verification",
+      "reason": "The immutable vibe-roaster character loads only @elizaos/plugin-sql, optional @elizaos/plugin-openai and @elizaos/plugin-bootstrap. It declares no WEB_FETCH, browser, credential or VC verifier action. The XMTP handler recognizes an HTTPS URL only inside its image path and interpolates the URL into an image-roast prompt; it does not perform an arbitrary GET, preserve response bytes, hash the body, verify a signature or use an AG trust verdict.",
+      "immutable_character": "https://raw.githubusercontent.com/chatresearch/ethrome-hackathon/534f8ea5809253cfe202df3265b6d347b00f1291/agent-marketplace/src/vibe-roaster.ts"
+    },
+    "additional_failing_gates": [
+      {
+        "gate": "durable_identity_bound_result",
+        "reason": "The handler returns agent name, extracted capabilities and response only. It emits no nonce, source/final URL, body digest, signature, stable result id or persisted receipt. lastAgentResponse is process memory; the published frontend stores roasts and votes in browser localStorage."
+      },
+      {
+        "gate": "free_declared_contract",
+        "reason": "The primary project and README describe wallet connection and 0.00001 ETH per roast. Treating the adjacent direct HTTP tunnel as a free bypass would not be an honest use of the published economic contract."
+      },
+      {
+        "gate": "durable_runtime_health",
+        "reason": "The primary project says the Vercel application requires the operator's laptop to be on, and the current backend address is an ngrok tunnel. The no-invocation task prevented an operation or health probe from being used as readiness evidence."
+      }
+    ]
+  },
+  "secondary_candidates": [
+    {
+      "machine_identity": "Zoria / @ai16zoria",
+      "decision": "NO_GO_NO_PUBLIC_MACHINE_INGRESS",
+      "primary_identity_surface": "https://ai16zoria.xyz/",
+      "eliza_cloud_character": "https://cloud.eliza.app/cloud/chat?characterId=c681a8e3-18ac-4d2d-9871-c3ebf1fc7568",
+      "live_observations": [
+        "The machine-owned site links elizaOS and the exact Eliza Cloud character id.",
+        "https://www.elizacloud.ai/dashboard/chat?characterId=c681a8e3-18ac-4d2d-9871-c3ebf1fc7568 returned HTTP 308 to the current cloud.eliza.app route.",
+        "The current cloud route returned HTTP 200 HTML containing authentication/login/wallet UI terms rather than a machine API contract.",
+        "The machine domain returned HTTP 404 for /.well-known/agent-card.json, /.well-known/agent.json, /agent.json and /openapi.json."
+      ],
+      "first_failing_gate": "No public AgentMail address, XMTP identity or A2A operation is bound to Zoria's autonomous decision loop. The current public path is an authenticated human/operator Cloud chat UI.",
+      "immutable_source_ref": null,
+      "immutability_note": "No public Zoria source repository or immutable runtime card was found; these are timestamped live-route observations only."
+    },
+    {
+      "machine_identity": "ENS Reminder Bot",
+      "decision": "NO_GO_NO_PUBLIC_DEPLOYED_INGRESS_AND_NO_AG_CAPABILITY",
+      "primary_gist": "https://gist.github.com/0xdesign/f7d775a5cc5dddc5c3079b5050931f59",
+      "gist_created_at": "2025-08-19T17:44:29Z",
+      "immutable_gist_version": "d28e903ee9b796fae085d1e5320168ef25aa63f6",
+      "immutable_gist_raw": "https://gist.githubusercontent.com/0xdesign/f7d775a5cc5dddc5c3079b5050931f59/raw/d28e903ee9b796fae085d1e5320168ef25aa63f6/ens-service-gist.md",
+      "published_semantics": "The gist describes an ElizaOS ENS-expiry reminder bot with XMTP messaging and Supabase tables for reminders, sent reminders and conversations.",
+      "first_failing_gate": "The referenced https://github.com/0xdesign/ens-service repository currently returns 404, the gist publishes no live XMTP address or hosted runtime, and its own next steps say to obtain production keys and deploy to cloud infrastructure.",
+      "additional_gate": "The declared agent handles ENS lookups and reminders. It exposes neither arbitrary HTTPS fetch nor W3C VC verification and therefore could not consume an exact AG artifact even if deployed."
+    }
+  ],
+  "strict_result": {
+    "fully_qualified_candidates": 0,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "smallest_truthful_ready_condition": "For vibe-roaster, publish a free no-auth operation that server-fetches an arbitrary nonce-bearing HTTPS AG artifact or verifies a supplied AG credential, makes an explicit agent decision from the fetched/verified result, and returns a durable machine-bound receipt with result id, timestamps, source/final URL, nonce, body hash, AG verdict/credential checks and failure contract."
+  },
+  "safety": {
+    "messages_or_outreach": 0,
+    "operations_invoked": 0,
+    "runtime_health_operations_invoked": 0,
+    "payments_accounts_keys_wallets_terms_or_installs": 0,
+    "external_writes": 0,
+    "response_bodies": "processed_in_memory_only",
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

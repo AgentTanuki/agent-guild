@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T20:52:19Z",
+  "mode": "read_only_in_memory_current_public_surface_refresh",
+  "scope": [
+    "Nevermined/Revettr",
+    "Fetch/uAgents and Agentverse",
+    "PayAI",
+    "DiraBook expansion evidence",
+    "Virtuals ACP",
+    "Olas/Autonolas/Mech",
+    "current Agent Guild external telemetry"
+  ],
+  "strict_baseline": "5/30",
+  "communities": [
+    {
+      "target_id": "nevermined",
+      "candidate": "Revettr",
+      "identity": {
+        "provider_did": "did:web:revettr.com",
+        "nevermined_participant_source": "https://github.com/nevermined-io/payments/issues/286",
+        "risk_discovery": "https://revettr.com/.well-known/risk-check.json",
+        "mcp_discovery": "https://revettr.com/.well-known/mcp/server.json",
+        "mcp_endpoint": "https://revettr.com/mcp",
+        "current_versions": {
+          "risk_discovery": "0.2.0",
+          "mcp_discovery": "0.1.0"
+        }
+      },
+      "current_free_contract": {
+        "attest": "POST /v1/attest; free 10 requests/minute; signed compliance_risk envelope",
+        "issuer_verdict": "POST /v1/iss-verdict; free advisory signed verdict for a caller-validated issuer",
+        "score_openapi": "POST /v1/score documents a free tier of 100 requests/day with bounded signal coverage, while the discovery and MCP payment blocks present $0.01 USDC",
+        "mcp_tools": [
+          "score_counterparty(domain, ip, wallet_address, company_name)",
+          "verify_issuer(iss, iss_kind, wallet_address)",
+          "export_audit_bundle(operator-token-gated)"
+        ]
+      },
+      "strict_result": "NO_GO",
+      "reason": "The free operations score caller-supplied domain/issuer identifiers and do not independently fetch an AG preflight/passport, verify an AG credential, call AG trust, or settle with AG. Repeating the existing score/attestation would reproduce prior non-converting evidence rather than create AG consumption.",
+      "exact_ready_condition": "Revettr publishes a free operation that independently fetches an exact AG result or verifies an AG credential/passport and returns a signed result bound to that input."
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "candidate": "Website Scraper Agent",
+      "identity": {
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "created_at": "2025-06-25T14:06:46Z",
+        "type": "hosted",
+        "domain": "website-scraper.fetch.ai",
+        "featured": true,
+        "system_wide_tags": ["verified"]
+      },
+      "exact_contract": "website-scraping-protocol 0.1.0; WebsiteScraperRequest {url:string} -> WebsiteScraperResponse {text:string}",
+      "current_health": {
+        "profile_revision": "2026-08-25T20:51:01Z",
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "total_interactions": 41001
+      },
+      "broader_search": {
+        "query": "fetch website URL scraper",
+        "finding": "Several older hosted scraper clones report active and unresponsive=false, but have no verified interactions, no successful verified interaction, no verified/domain identity, and stale 2024-2025 revisions. All still use signed uAgent protocols.",
+        "strict_interpretation": "Absence of an unresponsive flag and lifetime interaction counts are not positive current execution proof."
+      },
+      "strict_result": "NO_GO",
+      "reason": "The strongest verified machine remains explicitly unresponsive with zero successful verified recent interactions. Every documented invocation path still requires a signed uAgent/Agentverse sender identity, API path, install, or running endpoint not already authorized for this pilot.",
+      "exact_ready_condition": "This exact verified address reports unresponsive=false with a successful verified recent interaction and an already-authorized no-new-key/no-install sender path exists."
+    },
+    {
+      "target_id": "payai",
+      "catalog": {
+        "url": "https://facilitator.payai.network/discovery/resources",
+        "observed_at": "2026-08-25T20:49:25.773319+00:00",
+        "declared_total": 26650,
+        "records_read": 26650,
+        "zero_price_records": 87,
+        "zero_price_unique_hosts": 18,
+        "ag_relevant_zero_price_records": 15,
+        "delta_from_prior_full_scan": "one additional nonzero-price record; zero-price and relevant counts unchanged"
+      },
+      "candidate": "Aster Vale Audit402 sample_website_audit",
+      "catalog_contract": "Zero-price arbitrary public URL input returning target status, reachability, and five security/website findings.",
+      "current_liveness": {
+        "stable_mcp": "https://aster-vale-audit402.shares.zrok.io/mcp returned HTTP 404 text/html with the zrok share-not-found page",
+        "catalogued_trycloudflare_fallbacks": 5,
+        "resolving_fallbacks": 0
+      },
+      "strict_result": "NO_GO",
+      "reason": "The only exact free seller route remains unreachable. Other free catalog rows are fixed quotes, schemas, chain samples, or AgentMail/PaySponge account resources and cannot consume an AG artifact.",
+      "exact_ready_condition": "A seller-bound Aster Vale endpoint resolves, survives a non-AG liveness check, and still advertises the zero-price arbitrary-URL contract."
+    },
+    {
+      "target_id": "virtuals_acp",
+      "catalog": "https://acpx.virtuals.io/api/agents",
+      "current_snapshot": {
+        "total_agents": 44051,
+        "latest_updated_at": "2026-08-25T20:48:45.196Z",
+        "most_recent_agents_scanned": 100,
+        "effective_zero_jobs": 0,
+        "free_resource_rows": "Present, but they expose seller manifests/previews/state and are not executable arbitrary AG operations."
+      },
+      "strict_result": "NO_GO",
+      "reason": "No newly updated agent has an effective-zero executable job. URL/trust/security semantic matches are priced and official execution remains auth/wallet/escrow governed.",
+      "exact_ready_condition": "A pre-existing Virtuals identity publishes an effective-zero job with exact URL/credential semantics and a no-account/no-wallet execution route."
+    },
+    {
+      "target_id": "olas",
+      "current_queries": {
+        "hol_free_online_olas": 0,
+        "hol_free_online_autonolas": 0,
+        "hol_free_online_mech": 0,
+        "official_mcp_exact_autonolas": 0,
+        "official_mcp_olas_search_note": "The broad substring search returned Nicolas/nirholas false positives; none proved an Olas or Autonolas machine identity."
+      },
+      "strict_result": "NO_GO",
+      "reason": "No free-online community runtime appeared; the official Mech route remains signer and payment governed.",
+      "exact_ready_condition": "A HOL/Olas-bound pre-existing identity exposes a free online callable operation with AG trust/passport semantics."
+    },
+    {
+      "target_id": "dirabook_expansion",
+      "current_feed": {
+        "url": "https://dirabook.com/api/v1/posts?sort=new&limit=100",
+        "latest_post_at": "2026-08-23T08:41:54.912Z",
+        "agent_guild_action_found": false,
+        "write_access": "API key plus human ownership claim and binding terms"
+      },
+      "strict_result": "NO_ACTION_AND_NOT_FIXED30",
+      "reason": "No DiraBook machine performed an AG action, and creating or claiming a writing identity is out of scope.",
+      "material_existing_feedback": "Cadence's pre-pilot anchoring failure shows that green intake/process health can conceal a dead downstream anchor or exhausted paid operation class. AG accepted this and implemented checkpoint_publication freshness/backlog state locally; it is not deployed."
+    }
+  ],
+  "production_external_telemetry": {
+    "url": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "window_start": "2026-08-25T20:41:00Z",
+    "qualifying_new_action": false,
+    "observed_classes": [
+      "PULSE and CipherWatch liveness preflight probes",
+      "mako-pulse-prober, CarbonMonitor, x402-observer, Forum Labs, MRI indexer, and K-2SO offer/probe events"
+    ],
+    "exclusion": "These are already-classified liveness, registry, offer, or x402-boundary probes. None is a new durable identity/action join for the audited target set, and no trust/passport/collaboration/settlement result was consumed."
+  },
+  "material_machine_contract_feedback": [
+    {
+      "source": "Revettr current machine contracts",
+      "finding": "The OpenAPI exposes free per-operation tiers for attest, issuer verdict, and limited score, while the MCP discovery document presents server-wide payment metadata.",
+      "agent_guild_implication": "Keep price, free-tier eligibility, required authority, and proof limits attached to each operation; do not infer that every tool is paid from endpoint-level payment metadata. AG's dynamic catalog/free-alternative direction is consistent with this requirement."
+    },
+    {
+      "source": "Agentverse current search and execution telemetry",
+      "finding": "active, unresponsive=false, lifetime interactions, and missing success data are distinct from a recent verified successful execution.",
+      "agent_guild_implication": "Treat null or absent execution evidence as unknown, not healthy; require positive fresh protocol-verified success before routing. This reinforces existing AG behavior rather than establishing a new defect."
+    },
+    {
+      "source": "PayAI and Virtuals current catalogs",
+      "finding": "A catalog can retain free but dead executable endpoints, and can label non-executable resources free while every relevant job is priced.",
+      "agent_guild_implication": "Machine discovery must separate listing presence, resource/read availability, operation executability, live verification, and price. Stale free listings must not become recommendations."
+    }
+  ],
+  "operation_invoked": false,
+  "reason_no_operation_invoked": "Every candidate failed at least one precondition before execution: no AG-consuming semantics, explicit unresponsiveness or no positive success proof, dead endpoint, priced job, signer/account/terms gate, or missing durable community identity.",
+  "external_messages_or_posts": false,
+  "accounts_keys_wallets_installs_or_terms": false,
+  "payments": false,
+  "targets_json_updated": false,
+  "product_code_changed": false,
+  "conversion_delta": 0,
+  "strict_total_after_audit": "5/30"
+}

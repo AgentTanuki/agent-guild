@@ -1,0 +1,277 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_six_target_transition_audit",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval_utc": {
+    "start": "2026-08-26T07:48:19Z",
+    "end": "2026-08-26T07:57:41Z"
+  },
+  "mode": "bounded_read_only_public_source_runtime_transition_audit",
+  "scope": [
+    "nanda",
+    "agntcy",
+    "anp",
+    "openclaw",
+    "elizaos",
+    "crewai"
+  ],
+  "strict_transition_predicate": "A route counts only when a durable machine identity that predates the pilot has a public no-account, no-payment autonomous ingress, can independently fetch or verify an exact nonce-bearing Agent Guild artifact, makes its own machine decision from that artifact, and returns a durable result bound to the same identity without a new account, key, wallet, terms acceptance, install, or persistent sender lifecycle.",
+  "baseline_refs": [
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-cycle-close-2026-08-26T0740Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-passive-monitor-2026-08-26T0750Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-elizaos-dryad-agentmail-source-audit-2026-08-26T0634Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-elizaos-alternative-machine-ingress-audit-2026-08-26T0640Z.json"
+  ],
+  "targets": [
+    {
+      "id": "nanda",
+      "transition": false,
+      "durable_pre_pilot_machine_identity": {
+        "name": "Dynamic Feed",
+        "nanda_index_record": "present_active_verified",
+        "created_at": "2026-07-04T17:56:44.098032Z",
+        "live_signer": "df-ed25519-6ca0de29113b"
+      },
+      "fresh_public_state": {
+        "nanda_index_url": "https://api.nandaindex.org/api/v1/index",
+        "records": 251,
+        "agent_guild_or_pulse_identity_join": false,
+        "dynamic_feed_status_url": "https://dynamicfeed.ai/status.json",
+        "dynamic_feed_checked_at": "2026-08-26T07:49:02Z",
+        "live_feeds": 94,
+        "healthy_feeds": 94,
+        "a2a_card_url": "https://dynamicfeed.ai/.well-known/agent-card.json",
+        "a2a_skills": 8,
+        "mcp_card_url": "https://dynamicfeed.ai/.well-known/mcp/server-card.json",
+        "mcp_authentication_required": false,
+        "mcp_tool_count": 94,
+        "keyless_arbitrary_url_fetch_or_vc_verify_operation": false,
+        "openapi_url": "https://dynamicfeed.ai/openapi.json",
+        "openapi_version": "1.0.0",
+        "openapi_path_count": 148,
+        "exact_server_fetch_operation": "POST /v1/proxy-witness",
+        "exact_operation_auth": "X-API-Key; free key obtained by POST /signup"
+      },
+      "exact_first_failing_gate": "The exact server-side fetch-and-signed-receipt route requires creation of a new API key through /signup. The keyless MCP and A2A surfaces expose only fixed-domain feed skills and no arbitrary HTTPS fetch or AG credential verifier. PULSE activity still has no official NANDA identity-and-result join.",
+      "smallest_ready_change": "Expose proxy-witness as a no-auth read-only MCP/A2A operation for allowlisted public HTTPS URLs, preserving nonce, final URL, body hash, fetched_at, signer and signed receipt, or publish a signed NANDA identity binding PULSE to its completed AG result receipts.",
+      "delta_from_baseline": "none"
+    },
+    {
+      "id": "agntcy",
+      "transition": false,
+      "fresh_public_state": {
+        "directory_url": "https://api.agntcy.org/v1/records",
+        "pages_scanned_in_memory": 162,
+        "records_scanned": 3228,
+        "declared_total": 3228,
+        "retries": 0,
+        "identity_matches_for_todd_for_you_fetchgate_or_agent_guild": 0,
+        "a2a_candidates": [
+          {
+            "name": "Hello World Agent",
+            "updated_at": "2026-03-17T03:12:19Z",
+            "endpoint": "localhost"
+          },
+          {
+            "name": "a2a-helloworld",
+            "updated_at": "2026-03-17T03:12:19Z",
+            "endpoint": "localhost"
+          }
+        ],
+        "newest_directory_update": "2026-08-25T03:58:31Z",
+        "federation_discussion": "https://github.com/agntcy/dir/discussions/455",
+        "latest_relevant_discussion_activity": "2026-07-24T00:00:00Z",
+        "for_you_federated_node_complete": false
+      },
+      "exact_first_failing_gate": "The already completed For You/Todd machine action is not attributable to an AGNTCY machine identity: neither operator nor runtime appears as a signed or imported AGNTCY directory record, and the public federation discussion still describes the node as ready to stand up rather than live.",
+      "smallest_ready_change": "Publish the pre-existing For You runtime as a signed/imported AGNTCY directory record with its durable ingress and result signer; then a future exact nonce-bearing AG result can be joined to that same identity without repeating the prior action.",
+      "delta_from_baseline": "none"
+    },
+    {
+      "id": "anp",
+      "transition": false,
+      "fresh_public_state": {
+        "explorer_health_url": "https://service.agent-network-protocol.com/anp-demo/api/health",
+        "health_transport_result": "TLS hostname mismatch; curl error 60; HTTP status unavailable",
+        "explorer_openapi_url": "https://service.agent-network-protocol.com/anp-demo/openapi.json",
+        "openapi_transport_result": "TLS hostname mismatch; curl error 60; HTTP status unavailable",
+        "official_well_known_agent_descriptions": {
+          "url": "https://agent-network-protocol.com/.well-known/agent-descriptions",
+          "status": 200,
+          "content_type": "text/html",
+          "etag": "\"6a697c21-db53\"",
+          "last_modified": "2026-07-29T00:00:00Z",
+          "machine_json": false
+        },
+        "official_well_known_did": {
+          "url": "https://agent-network-protocol.com/.well-known/did.json",
+          "status": 200,
+          "content_type": "text/html",
+          "machine_json": false
+        },
+        "github_issue_94": {
+          "url": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+          "state": "open",
+          "comments": 1,
+          "reactions": 0,
+          "updated_at": "2026-08-25T11:31:31Z"
+        },
+        "official_examples_head": "ef0ef669499acb7caf02d8d0970efc64e8cdc7cb"
+      },
+      "exact_first_failing_gate": "The official Explorer cannot currently be reached through hostname-valid TLS, while the official well-known AD and DID routes return documentation HTML rather than endpoint-bound machine identity JSON. No authenticated durable result signer is available.",
+      "smallest_ready_change": "Serve the Explorer on hostname-valid TLS and publish JSON AD/DID that bind a stable ANP machine identity to the crawl endpoint and a durable signed result receipt containing nonce, source/final URL, body hash and decision.",
+      "delta_from_baseline": "none"
+    },
+    {
+      "id": "openclaw",
+      "transition": false,
+      "strongest_pre_pilot_machine": "ScienceClaw",
+      "fresh_public_state": {
+        "scienceclaw_website": "https://scienceclaw.ai/",
+        "scienceclaw_status": 200,
+        "public_claim": "OpenClaw-powered 24/7 market-research pipeline without manual intervention",
+        "existing_agentmail_thread": {
+          "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+          "nonce": "openclaw-agentmail-scienceclaw-20260826T042339Z",
+          "message_count": 1,
+          "updated_at": "2026-08-26T04:24:07.119Z",
+          "recipient_reply": false,
+          "resend_allowed": false
+        },
+        "a2a_registry": {
+          "url": "https://a2aregistry.org/api/agents?search=openclaw",
+          "response_sha256": "5886d73d82b5e4d86a080769e1f5f099dde9c71b075eab385f2b594123763a63",
+          "records": 2,
+          "live_conformant_no_auth_exact_route": false,
+          "dokki_endpoint": "https://dokki.one/a2a",
+          "dokki_uptime_percent": 0.0,
+          "dokki_ingress": "redirects to login"
+        },
+        "mcp_registry": {
+          "url": "https://registry.modelcontextprotocol.io/v0.1/servers?search=openclaw&version=latest&limit=100",
+          "response_sha256": "6414c50a02cd79a7ae894ce7d7beadab752e9a009b3e123fe7c069e669f7ed26",
+          "records": 17,
+          "remote_records": 6,
+          "newly_inspected_record": "direct.openclaw/mcp"
+        },
+        "openclaw_direct": {
+          "server_card": "https://openclaw.direct/.well-known/mcp/server-card.json",
+          "status": 200,
+          "response_sha256": "c54ae368a6996b1373eb9e5535614ee87ba4a3ae24e44cbe86c3e63ad0a1c36e",
+          "mcp_endpoint": "https://openclaw.direct/mcp",
+          "authentication": "OAuth 2.0 scope mcp",
+          "anonymous_get_status": 405,
+          "public_openapi": false
+        }
+      },
+      "exact_first_failing_gate": "ScienceClaw has not returned a same-thread identity-bound result for the one already sent exact nonce request. The newly listed openclaw.direct MCP endpoint requires OAuth and exposes no anonymous schema proving an exact AG fetch-or-verify operation; other registry candidates remain login-, key-, payment-, domain- or liveness-gated.",
+      "smallest_ready_change": "ScienceClaw returns the fetched AG result in the existing thread with the exact nonce and a durable OpenClaw runtime/trace identity, or an existing OpenClaw machine publishes a no-auth read-only fetch/verify skill and durable same-identity receipt. Never resend the pending request.",
+      "delta_from_baseline": "new public MCP registry record inspected; it fails at OAuth and creates no transition"
+    },
+    {
+      "id": "elizaos",
+      "transition": false,
+      "fresh_public_state": {
+        "dryad": {
+          "repository": "https://github.com/vivicool12334/dryad",
+          "immutable_head": "4bf5b00b2c042afcfdfbb76617bb9f33812ed0f9",
+          "head_committer_date": "2026-05-20T18:41:59Z",
+          "website": "https://www.dryad.land/",
+          "website_status": 200,
+          "agent_card_url": "https://www.dryad.land/.well-known/agent-card.json",
+          "agent_card_status": 404,
+          "autonomous_mailbox_to_model_loop": false,
+          "generic_https_fetch_or_ag_vc_verify": false
+        },
+        "vibe_roaster": {
+          "repository": "https://github.com/chatresearch/ethrome-hackathon",
+          "immutable_head": "534f8ea5809253cfe202df3265b6d347b00f1291",
+          "head_committer_date": "2025-10-19T04:19:35Z",
+          "identity": "vibe-roaster.aiconfig.eth",
+          "generic_https_fetch_or_ag_vc_verify": false
+        },
+        "eliza_cloud": {
+          "openapi": "https://cloud.eliza.app/api/openapi.json",
+          "status": 200,
+          "response_sha256": "ea7bdeccf16431083f4b6f420d6da73d211d845d5310312e5214f2ed3cca6399",
+          "version": "1.0.0",
+          "paths": 16,
+          "authentication": "bearer token or API key",
+          "no_auth_exact_fetch_or_verify_route": false
+        },
+        "elizero": {
+          "published_handler": "fixed-regex canned response or echo",
+          "arbitrary_url_fetch": false,
+          "credential_verification": false,
+          "durable_decision_receipt": false
+        }
+      },
+      "exact_first_failing_gate": "No existing elizaOS identity joins autonomous public ingress to an arbitrary AG fetch/credential-verification action. Dryad mail receipt is a separately selected action and does not enter its model or scheduled decision loop; vibe-roaster only treats HTTPS URLs as image-roast inputs; eliZERO echoes/classifies text; Eliza Cloud requires credentials.",
+      "smallest_ready_change": "For Dryad, add mailbox polling to its existing scheduled loop and an allowlisted HTTPS fetch or AG credential verifier whose decision replies in-thread with a durable Dryad-bound result. Alternatively publish that same no-auth fetch/verify-and-receipt contract on an already durable elizaOS identity.",
+      "delta_from_baseline": "none; immutable source heads and public gates unchanged"
+    },
+    {
+      "id": "crewai",
+      "transition": false,
+      "fresh_public_state": {
+        "operator_join_issue": {
+          "url": "https://github.com/crewAIInc/crewAI/issues/4789",
+          "state": "closed",
+          "comments": 31,
+          "reactions": 0,
+          "updated_at": "2026-07-05T20:11:39Z",
+          "closed_at": "2026-05-04T07:03:24Z",
+          "response_sha256": "71782906963e572895e9b65011f5c1cf9761fb19fbbf6802099fec5bbf653da3"
+        },
+        "agentfolio_profile": {
+          "url": "https://agentfolio.bot/api/profile/agent_p1reg_35028542",
+          "status": 200,
+          "response_sha256": "eec9992091a7142cc34d6f2704dc0a3ff799e26cdeaf5a0a3f6426f7f4502bc3",
+          "id": "agent_p1reg_35028542",
+          "framework": "",
+          "last_active_at": null,
+          "runtime_endpoints": null,
+          "durable_crewai_runtime_join": false
+        },
+        "existing_agentmail_thread": {
+          "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+          "recipient": "brainkid@agentmail.to",
+          "nonce": "crewai-agentmail-brainai-20260825T1928Z",
+          "message_count": 1,
+          "updated_at": "2026-08-25T19:27:16.921Z",
+          "recipient_reply": false,
+          "resend_allowed": false
+        },
+        "known_crewai_agentverse_profiles": "inactive or unresponsive and operation-specific; no honest AG trust operation",
+        "official_mcp_registry_crewai_records": 0
+      },
+      "exact_first_failing_gate": "The public evidence reaches an operator and test AgentFolio profile but not a durable CrewAI runtime principal. The pending mailbox thread has no reply and no independently verifiable CrewAI execution trace, so any response would still be brainAI/operator attribution rather than same-identity CrewAI attribution.",
+      "smallest_ready_change": "The existing thread receives the exact AG result plus a durable public CrewAI runtime trace that binds mailbox control, nonce, fetched artifact, decision and result identity. Never resend the pending request.",
+      "delta_from_baseline": "none"
+    }
+  ],
+  "strict_result": {
+    "transitions": 0,
+    "targets_passing_all_gates": [],
+    "strict_converted_total_before": 5,
+    "strict_converted_total_after": 5,
+    "strict_denominator": 30,
+    "commercial_effect": "none"
+  },
+  "safety": {
+    "messages_sent": 0,
+    "messages_resent": 0,
+    "useful_operations_invoked": 0,
+    "paid_operations_invoked": 0,
+    "external_writes": 0,
+    "accounts_created": 0,
+    "api_keys_created": 0,
+    "wallets_created": 0,
+    "terms_accepted": 0,
+    "software_installed": 0,
+    "persistent_sender_lifecycles_created": 0,
+    "response_bodies_written_to_files": 0,
+    "canonical_targets_edited": 0,
+    "canonical_readme_edited": 0
+  }
+}

@@ -1,0 +1,298 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_retry_gated_machine_readiness_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:41:30Z",
+  "mode": "first_party_and_live_contract_read_only_in_memory",
+  "scope": [
+    "fetch_agentverse_scraper",
+    "anp_explorer",
+    "openclaw_dokki",
+    "openclaw_fleethelp",
+    "naptha_public_node",
+    "crewai_agentmail_reply_and_runtime_provenance"
+  ],
+  "qualification_rule": "A ready route needs a durable pre-existing identity in the named fixed community, a healthy hosted operation that is free, bounded and server-side, no account/key/payment/install/terms gate, exact AG URL or credential semantics, and an independently readable identity-bound result. Discovery health, caller-supplied validation, direct-only responses without durable evidence, listings and human/operator identity are insufficient.",
+  "summary": {
+    "decision": "NO_READY_ROUTE",
+    "safe_invocation_candidates": [],
+    "strict_conversions_added": 0,
+    "closest_candidate": "OpenClaw Dokki",
+    "closest_candidate_reason": "Dokki has the strongest pre-existing framework identity and declares no-auth Research with web search, but its advertised A2A route still redirects to an account login and therefore cannot execute or expose a durable result anonymously.",
+    "next_candidate_if_transport_recovers": "Fetch Agentverse Website Scraper",
+    "reason": "It has the exact server-side arbitrary-URL contract and strongest platform identity, but current first-party execution telemetry still marks it unresponsive and the transport requires a signed uAgent sender."
+  },
+  "targets": [
+    {
+      "target_id": "fetch_agentverse",
+      "candidate": "Website Scraper Agent",
+      "durable_identity": {
+        "name": "Website Scraper Agent",
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "created_at": "2025-06-25T14:06:46Z",
+        "type": "hosted",
+        "featured": true,
+        "verified": true,
+        "category": "fetch-ai",
+        "domain": "website-scraper.fetch.ai",
+        "identity_source": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs"
+      },
+      "current_execution_telemetry": {
+        "last_updated": "2026-08-25T23:33:32Z",
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_interactions": 7621,
+        "total_interactions": 41032
+      },
+      "contract": {
+        "almanac": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "almanac_status": "active",
+        "almanac_expiry": "2026-09-19T09:36:26.157873Z",
+        "transport": "https://agentverse.ai/v1/hosting/submit",
+        "transport_requirement": "signed uAgent envelope from a sender identity",
+        "protocol": "website-scraping-protocol/0.1.0",
+        "manifest": "https://agentverse.ai/v1/almanac/manifests/protocols/a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+        "input": "WebsiteScraperRequest {url:string}",
+        "output": "WebsiteScraperResponse {text:string} or ErrorMessage {error:string}",
+        "server_side_arbitrary_https_fetch": true,
+        "public_result_readback_or_signed_receipt": false
+      },
+      "decision": "NOT_READY_NOT_INVOKED",
+      "failed_gates": [
+        "First-party telemetry explicitly reports unresponsive=true.",
+        "Recent success rate is zero and the only verified recent interaction was not successful.",
+        "Every documented invocation path requires a signed uAgent sender, which would require a credential or installation not already authorized.",
+        "The response is delivered to the protocol sender; no independent public result or receipt contract is published."
+      ],
+      "exact_ready_condition": "The exact verified address reports unresponsive=false with at least one fresh verified successful interaction; an already-authorized no-new-key sender path exists; and the action emits a signed or publicly readable result receipt binding the requested nonce-bearing AG URL to returned text."
+    },
+    {
+      "target_id": "anp",
+      "candidate": "Official ANP Network Explorer",
+      "durable_identity": {
+        "community": "Agent Network Protocol",
+        "official_site": "https://agent-network-protocol.com/",
+        "runtime": "https://service.agent-network-protocol.com/anp-demo/api/get-document",
+        "runtime_identity_bound": false
+      },
+      "current_contract_and_health": {
+        "health": "https://service.agent-network-protocol.com/anp-demo/api/health",
+        "openapi": "https://service.agent-network-protocol.com/anp-demo/openapi.json",
+        "proposed_operation": "POST /anp-demo/api/get-document with a public URL",
+        "verified_tls_health_status": 0,
+        "verified_tls_openapi_status": 0,
+        "tls_error": "SSL certificate has no alternative subject name matching service.agent-network-protocol.com",
+        "official_agent_description": {
+          "url": "https://agent-network-protocol.com/.well-known/agent-descriptions",
+          "status": 200,
+          "content_type": "text/html",
+          "result": "documentation homepage, not an ANP JSON-LD agent description"
+        },
+        "official_did": {
+          "url": "https://agent-network-protocol.com/.well-known/did.json",
+          "status": 200,
+          "content_type": "text/html",
+          "result": "documentation homepage, not a DID document"
+        }
+      },
+      "decision": "NOT_READY_NOT_INVOKED",
+      "failed_gates": [
+        "Normal hostname-verified TLS fails before health or OpenAPI can be read.",
+        "No public ANP AD or DID binds the explorer runtime to a durable machine principal.",
+        "No independently readable result/receipt contract is currently available."
+      ],
+      "exact_ready_condition": "The official explorer serves valid hostname TLS, JSON health and OpenAPI; an official ANP AD/DID binds that endpoint and its result signer; and get-document returns a signed or public receipt for one nonce-bearing AG URL."
+    },
+    {
+      "target_id": "openclaw",
+      "candidate": "Dokki",
+      "durable_identity": {
+        "a2a_registry_id": "58d7daa3-379c-4c3d-a334-b50b1752813e",
+        "registry_created_at": "2026-06-17T09:13:51.294103Z",
+        "registry_updated_at": "2026-08-10T23:57:07.897775Z",
+        "card": "https://openagora.cc/agents/a9e94bd1-8cc1-41b0-8083-ecb0b938f2b0/agent-card.json",
+        "card_status": 200,
+        "community_claim": "Built with OpenClaw",
+        "declared_skill": "Research — Web search and information synthesis",
+        "declared_authentication": "none"
+      },
+      "current_runtime": {
+        "advertised_url": "https://dokki.one/a2a",
+        "redirect_count": 1,
+        "final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+        "final_status": 200,
+        "final_content_type": "text/html; charset=utf-8",
+        "result": "account login page"
+      },
+      "decision": "CLOSEST_BUT_NOT_READY_NOT_INVOKED",
+      "failed_gates": [
+        "The live transport contradicts the card's authentication=none claim by redirecting to login.",
+        "No anonymous A2A message/send conformance is currently proven.",
+        "No signed or public task-result readback is available."
+      ],
+      "exact_ready_condition": "The same advertised endpoint returns an A2A JSON-RPC transport without redirect, accepts current message/send anonymously, executes one bounded Research fetch of a nonce-bearing AG preflight, and exposes a signed or independently readable task result bound to Dokki's durable card."
+    },
+    {
+      "target_id": "openclaw",
+      "candidate": "FleetHelp Support Agent",
+      "durable_identity": {
+        "a2a_registry_id": "130dd175-0724-41a3-a1f9-a4b80129c558",
+        "registry_created_at": "2026-03-25T19:57:51.648647Z",
+        "provider": "Kaxo Technologies",
+        "card": "https://fleethelp.ai/.well-known/agent.json",
+        "card_status": 200
+      },
+      "current_contract": {
+        "protocol_version": "0.3.0",
+        "authentication_claim": "none",
+        "access_note": "Subscribe at https://fleethelp.ai for access",
+        "pricing": "$99 USD/month per organization; 100 messages included",
+        "delivery": "Telegram",
+        "openclaw_relationship": "support expertise and multi-framework coverage, not a claim that the service itself runs on OpenClaw",
+        "exact_ag_fetch_or_verify_skill": false,
+        "public_result_readback": false
+      },
+      "decision": "NOT_A_VALID_OPENCLAW_ROUTE_NOT_INVOKED",
+      "failed_gates": [
+        "Subscription and payment are required despite the card's no-auth field.",
+        "The identity is only OpenClaw-adjacent by support coverage, not a durable OpenClaw runtime principal.",
+        "No exact arbitrary-URL AG fetch/verify skill or public result contract is published."
+      ],
+      "exact_ready_condition": "FleetHelp must first prove actual OpenClaw runtime identity, publish a free no-subscription bounded AG URL/passport operation, and expose an identity-bound public result. Otherwise it cannot qualify for the OpenClaw target."
+    },
+    {
+      "target_id": "naptha",
+      "candidate": "Naptha public node and labs runtime",
+      "durable_identity": {
+        "community": "Naptha",
+        "public_module_identity": null,
+        "runtime_principal_bound": false
+      },
+      "current_live_surfaces": [
+        {
+          "url": "https://node.naptha.ai/health",
+          "result": "timeout after 15 seconds with zero bytes"
+        },
+        {
+          "url": "https://node.naptha.ai/openapi.json",
+          "result": "timeout after 15 seconds with zero bytes"
+        },
+        {
+          "url": "https://node1.naptha.ai/health",
+          "result": "timeout after 15 seconds with zero bytes"
+        },
+        {
+          "url": "https://node1.naptha.ai/openapi.json",
+          "result": "timeout after 15 seconds with zero bytes"
+        },
+        {
+          "url": "https://node2.naptha.ai/health",
+          "status": 521,
+          "result": "origin unavailable"
+        },
+        {
+          "url": "https://node2.naptha.ai/openapi.json",
+          "status": 521,
+          "result": "origin unavailable"
+        },
+        {
+          "url": "https://hub.naptha.ai/health",
+          "result": "timeout after 15 seconds with zero bytes"
+        },
+        {
+          "url": "https://routing.naptha.ai/health",
+          "result": "DNS resolution failure"
+        },
+        {
+          "url": "https://labs-api.naptha.ai/.well-known/agent.json",
+          "result": "connection timeout after 15 seconds"
+        },
+        {
+          "url": "https://labs-api.naptha.ai/openapi.json",
+          "result": "connection timeout after 15 seconds"
+        }
+      ],
+      "documented_gate": "Naptha hosted workflows require a private key and hub username/password or authenticated session.",
+      "decision": "NOT_READY_NOT_INVOKED",
+      "failed_gates": [
+        "No reviewed node, hub, router, labs card or OpenAPI surface returned a usable current contract.",
+        "No durable pre-existing Naptha module identity with exact AG semantics is public.",
+        "The documented workflow requires credentials and installation."
+      ],
+      "exact_ready_condition": "A public endpoint returns 200 health and OpenAPI, binds a pre-existing Naptha module identity, declares a free no-auth bounded AG URL/passport operation, and publishes an identity-bound result receipt."
+    },
+    {
+      "target_id": "crewai",
+      "candidate": "brainAI AgentMail thread and requested CrewAI runtime",
+      "durable_identity": {
+        "operator_level_join": "CrewAI issue #4789 author 0xbrainkid links the brainAI CrewAI-AgentFolio integration and public brainkid@agentmail.to mailbox.",
+        "autonomous_mailbox_control": false,
+        "crewai_runtime_principal": false,
+        "public_runtime_trace": null
+      },
+      "existing_thread": {
+        "inbox_id": "agentguild1@agentmail.to",
+        "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+        "message_count": 1,
+        "updated_at": "2026-08-25T19:27:16.921Z",
+        "senders": [
+          "Agent Guild <agentguild1@agentmail.to>"
+        ],
+        "new_reply": false,
+        "repeat_policy": "do_not_repeat"
+      },
+      "requested_nonce": "crewai-agentmail-brainai-20260825T1928Z",
+      "agent_guild_public_telemetry_nonce_or_source_matches": 0,
+      "decision": "PENDING_NOT_READY_NO_REPEAT",
+      "failed_gates": [
+        "No reply or returned AG result exists.",
+        "No current CrewAI runtime or trace independently binds the mailbox to execution.",
+        "Public AG telemetry has no visible exact nonce/source match.",
+        "The existing outbound request must not be repeated."
+      ],
+      "exact_ready_condition": "The existing thread receives one reply carrying the exact nonce, complete returned AG result and a durable independently readable CrewAI runtime/trace binding. A reply without runtime provenance is product feedback, not a CrewAI conversion."
+    }
+  ],
+  "ranked_ready_conditions": [
+    {
+      "rank": 1,
+      "target": "openclaw_dokki",
+      "condition": "No-login current A2A message/send plus signed or public result readback."
+    },
+    {
+      "rank": 2,
+      "target": "fetch_agentverse_scraper",
+      "condition": "unresponsive=false, fresh verified success, already-authorized sender, and durable result receipt."
+    },
+    {
+      "rank": 3,
+      "target": "anp_explorer",
+      "condition": "valid TLS, official AD/DID runtime binding, healthy JSON contract and signed/public result."
+    },
+    {
+      "rank": 4,
+      "target": "crewai_agentmail",
+      "condition": "existing-thread reply with exact result and independently readable CrewAI runtime provenance."
+    },
+    {
+      "rank": 5,
+      "target": "naptha",
+      "condition": "healthy public no-auth module contract plus durable identity and public result."
+    }
+  ],
+  "safety": {
+    "candidate_operations_invoked": 0,
+    "outreach_or_messages_sent": 0,
+    "accounts_signups_or_credentials_created": 0,
+    "payments_wallet_or_terms_actions": 0,
+    "installs_deployments_pushes_or_persistent_config": 0,
+    "canonical_targets_edited": false,
+    "production_response_bodies": "processed_in_memory_only",
+    "local_writes": 1,
+    "local_write_scope": "this_validated_evidence_json_only"
+  }
+}

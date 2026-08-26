@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "global_a2a_registry",
+  "observed_at": "2026-08-25T13:38:42.753907Z",
+  "conversion": true,
+  "strict_conversion_number": 1,
+  "community_identity": {
+    "registry": "A2A Registry",
+    "registry_listing": "https://www.a2aregistry.org/api/agents",
+    "name": "broke2built Data & Intelligence Skills",
+    "provider": "broke2built",
+    "agent_card": "https://api.broke2builtai.com/.well-known/agent-card.json",
+    "a2a_endpoint": "https://api.broke2builtai.com/a2a",
+    "agent_version": "1.1.0",
+    "protocol_version": "0.3.0",
+    "declared_skill": "source-verify",
+    "pre_existing_identity": true
+  },
+  "qualifying_action": {
+    "request_message_id": "ag-community-pilot-global-a2a-preflight-corrected-20260825-1338",
+    "response_message_id": "862f64af-6f29-4a97-988d-1a62e1640989",
+    "skill": "source-verify",
+    "price": "free",
+    "request_url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fapi.broke2builtai.com%2Fa2a&src=passport_offer%3Aglobal_a2a_registry&campaign=community_pilot_2026_08_25&nonce=ag-global-a2a-corrected-20260825-1338",
+    "target": "https://api.broke2builtai.com/a2a",
+    "machine_result": {
+      "live": true,
+      "status": 200,
+      "final_url_exact_match": true,
+      "redirected_off_domain": false,
+      "https": true,
+      "content_type": "application/json"
+    },
+    "production_event": {
+      "at": "2026-08-25T13:37:37.487227+00:00",
+      "type": "preflight_run",
+      "endpoint": "preflight",
+      "user_agent": "broke2built-api/1.0 (source-verify)",
+      "actor": "anon",
+      "first_party": false,
+      "attribution": "unrecognised_external",
+      "genuine_external": false
+    }
+  },
+  "qualification": {
+    "durable_pre_existing_community_identity": true,
+    "matching_independent_agent_guild_action": true,
+    "useful_action": true,
+    "identity_to_action_join": "The public card binds the durable registry identity, declared source-verify skill, and A2A endpoint. The accepted task and returned response echo the exact nonce-bearing Agent Guild URL. At the same moment production recorded a preflight_run with broke2built's distinctive source-verify user agent.",
+    "classifier_adjudication": "The live server reports genuine_external=false because anonymous /preflight is stored as actor=anon and the conservative UA classifier cannot join the event back to the A2A conversation. The independent message IDs, exact nonce URL, matching user agent and timestamp, public endpoint, and declared skill provide stronger cross-surface identity evidence. The classifier result is a measurement limitation, not contrary evidence.",
+    "strict_conversion": true
+  },
+  "excluded_nearby_events": [
+    {
+      "at": "2026-08-25T13:37:00.718472+00:00",
+      "reason": "The first request encoded the attribution parameters into the target URL. It is retained as a malformed pilot request and does not count."
+    },
+    {
+      "class": "Project NANDA PULSE-observatory preflight runs",
+      "reason": "Explicit liveness measurements are probes and remain excluded."
+    },
+    {
+      "class": "x402 challenges, discovery fetches, controls, crawlers, and unrelated tooling",
+      "reason": "No paid completion or durable community identity-to-action join."
+    }
+  ],
+  "production_cutoff": {
+    "newest_event_at": "2026-08-25T13:38:42.753907Z",
+    "external_settled_revenue_usd": 0.0,
+    "external_payers": 0,
+    "paid_decisions": 0,
+    "paid_offers_shown": 51,
+    "paid_completions": 0,
+    "ledger_records": 919,
+    "ledger_chain_valid": true,
+    "ledger_mismatches": 0
+  }
+}

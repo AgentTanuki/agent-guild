@@ -1,0 +1,272 @@
+{
+  "schema_version": "community-pilot-hosted-route-audit.v1",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at_utc": "2026-08-25T18:05:27Z",
+  "scope": [
+    "AG2",
+    "LangChain",
+    "CrewAI",
+    "Fetch Agentverse",
+    "Naptha"
+  ],
+  "qualification_rule": "A qualifying route must join a durable pre-existing community machine identity to a current public hosted operation that anonymously and without payment fetches Agent Guild preflight/check/passport or verifies an Agent Guild credential and returns a substantive result. Registry listings, schemas, fixed self-tests, discovery probes, inactive runtimes, and caller-supplied artifact validation do not qualify.",
+  "constraints": {
+    "response_bodies_kept_in_memory": true,
+    "public_read_requests_only": true,
+    "idempotent_target_actions_allowed": 1,
+    "idempotent_target_actions_used": 0,
+    "messages_or_contacts": 0,
+    "accounts_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs": 0,
+    "persistent_configuration_changes": 0,
+    "canonical_target_files_edited": false
+  },
+  "strict_result": {
+    "decision": "NO_GO",
+    "qualifying_current_routes": 0,
+    "action_executed": false,
+    "reason": "No candidate simultaneously satisfied durable fixed-target identity, current live execution, an exact useful Agent Guild operation, and anonymous no-payment/no-terms/no-install access. The one-call allowance was deliberately left unused because no published contract cleared every precondition."
+  },
+  "targets": [
+    {
+      "target_id": "ag2",
+      "decision": "NO_GO",
+      "official_registry_evidence": [
+        {
+          "query": "ag2",
+          "url": "https://registry.modelcontextprotocol.io/v0.1/servers?search=ag2&version=latest&limit=100",
+          "latest_records": 0,
+          "response_sha256": "bd77acb780201187e66256677f13e4145d6839a056c477181355b19589b40f23"
+        },
+        {
+          "query": "autogen",
+          "url": "https://registry.modelcontextprotocol.io/v0.1/servers?search=autogen&version=latest&limit=100",
+          "latest_records": 1,
+          "response_sha256": "e9becbb34995a6a96155e66b5255b8fdd62116ecad67aa78c42895f783757da9",
+          "record": {
+            "name": "ai.smithery/DynamicEndpoints-autogen_mcp",
+            "version": "0.3.0",
+            "repository": "https://github.com/DynamicEndpoints/Autogen_MCP",
+            "remote": "https://server.smithery.ai/@DynamicEndpoints/autogen_mcp/mcp",
+            "access": "Required secret Authorization: Bearer {smithery_api_key}"
+          }
+        }
+      ],
+      "identity_join": "The sole current registry hit is labelled AutoGen, not current AG2, and its public record does not prove that the hosted runtime uses AG2.",
+      "exact_ag_operation": null,
+      "gate": "Required Smithery credential plus unresolved AutoGen-to-current-AG2 runtime provenance. No anonymous public operation was available."
+    },
+    {
+      "target_id": "langchain",
+      "decision": "NO_GO",
+      "official_registry_evidence": [
+        {
+          "query": "langchain",
+          "url": "https://registry.modelcontextprotocol.io/v0.1/servers?search=langchain&version=latest&limit=100",
+          "latest_records": 2,
+          "response_sha256": "c0f83dc7681ff5377714bf9129bbcd334295aa89346b73bd6f4f1afd92b0bfa0",
+          "records": [
+            {
+              "name": "io.github.baixianger/langchain-mcp",
+              "version": "2.0.0",
+              "repository": "https://github.com/baixianger/langchain-MCP",
+              "access": "npm stdio package only; no hosted remote"
+            },
+            {
+              "name": "io.github.doc2mcp/langchain",
+              "version": "1.0.1781396655",
+              "repository": "https://github.com/doc2mcp/doc2mcp",
+              "remote": "https://doc2mcp.site/api/mcp/0cd2635e-0cd5-4712-b33c-13b10c547e42/mcp",
+              "access": "Required secret project Bearer token"
+            }
+          ]
+        },
+        {
+          "query": "langgraph",
+          "url": "https://registry.modelcontextprotocol.io/v0.1/servers?search=langgraph&version=latest&limit=100",
+          "latest_records": 0,
+          "response_sha256": "bd77acb780201187e66256677f13e4145d6839a056c477181355b19589b40f23"
+        }
+      ],
+      "agentverse_candidates": [
+        {
+          "name": "web-scraping-agent",
+          "address": "agent1qf79msxf9622nl789wd0axlvuwq88wen7ta2kh3kr5jfyustwmj2g67ytgs",
+          "url": "https://agentverse.ai/v1/search/agents/agent1qf79msxf9622nl789wd0axlvuwq88wen7ta2kh3kr5jfyustwmj2g67ytgs",
+          "response_sha256": "3dffb06b4e5befb456d8b63789ee47b763f62283dbd524b216883b7479ba017c",
+          "framework_evidence": "Its durable public README calls it a LangGraph-powered uAgent that accepts a URL and extraction query and scrapes any public website.",
+          "declared_protocols": [
+            "AgentChatProtocol 0.3.0",
+            "Default 0.1.0"
+          ],
+          "last_updated": "2025-11-18T09:02:12Z",
+          "status": "inactive",
+          "recent_interactions": 0,
+          "recent_verified_interactions": 0,
+          "recent_success_verified_interactions": 0,
+          "total_interactions": 24,
+          "finding": "This was the strongest exact-capability framework candidate, but an inactive machine is not a current hosted route."
+        },
+        {
+          "name": "VISOR",
+          "address": "agent1qfpexrtav93jhunjcpxhs24nccrm24n048gt5hzjtv0rcpxprsv67rtfgn9",
+          "url": "https://agentverse.ai/v1/search/agents/agent1qfpexrtav93jhunjcpxhs24nccrm24n048gt5hzjtv0rcpxprsv67rtfgn9",
+          "response_sha256": "cfd6437f6053fad1202b9ef06b22b176b6382db1941606624f76413e60d562bb",
+          "framework_evidence": "The durable profile says it is a LangChain-based multimodal RAG agent hosted on Fetch Agentverse.",
+          "declared_protocols": [
+            "chat-v1 1.0",
+            "Default 0.1.0"
+          ],
+          "last_updated": "2025-10-19T20:03:25Z",
+          "status": "inactive",
+          "recent_interactions": 2,
+          "recent_verified_interactions": 0,
+          "recent_success_verified_interactions": 0,
+          "total_interactions": 3,
+          "finding": "Inactive and restricted to an engineering/physics RAG purpose; no exact AG operation is declared."
+        },
+        {
+          "name": "agent_orchestrator",
+          "address": "agent1q0spc3dgnaz20zu7ewmp4fvrptf24nke79pl74kz9tm7dq80dd8ey9ugg2v",
+          "url": "https://agentverse.ai/v1/search/agents/agent1q0spc3dgnaz20zu7ewmp4fvrptf24nke79pl74kz9tm7dq80dd8ey9ugg2v",
+          "response_sha256": "ad4565544329634e23fa77fb4c2603455fa6862897b273f11a9b6a55aa82837f",
+          "framework_evidence": "Its durable profile describes a LangGraph product-URL extraction and e-commerce intelligence workflow.",
+          "declared_protocols": [
+            "AgentChatProtocol 0.3.0",
+            "EcommerceIntel 0.1.0",
+            "Default 0.1.0"
+          ],
+          "last_updated": "2026-03-02T20:34:49Z",
+          "status": "inactive",
+          "recent_interactions": 0,
+          "recent_verified_interactions": 0,
+          "recent_success_verified_interactions": 0,
+          "total_interactions": 14810,
+          "finding": "Inactive; its product intelligence contract is not an AG preflight, check, passport, or credential verification operation."
+        }
+      ],
+      "previous_live_machine_evidence": {
+        "record": "io.github.mikerawsonnz/llm-observability-orchestration",
+        "remote": "https://langchain-core-langsmith-openai-8c02f9.getvda.ai/mcp",
+        "free_operation": "Fixed canned selftest only",
+        "substantive_operation": "invoke",
+        "access_result": "HTTP 402 Payment Required: Missing x402 payment token",
+        "source_evidence": "langchain-registry-machine-selftest-2026-08-25.json",
+        "finding": "The fixed selftest cannot fetch or verify an AG artifact; substantive execution is payment-gated."
+      },
+      "gate": "The exact LangGraph scraper identity is inactive. Other current records are local-only, credential-gated, purpose-limited, or payment-gated."
+    },
+    {
+      "target_id": "crewai",
+      "decision": "NO_GO",
+      "official_registry_evidence": {
+        "query": "crewai",
+        "url": "https://registry.modelcontextprotocol.io/v0.1/servers?search=crewai&version=latest&limit=100",
+        "latest_records": 0,
+        "response_sha256": "bd77acb780201187e66256677f13e4145d6839a056c477181355b19589b40f23"
+      },
+      "agentverse_candidates": [
+        {
+          "name": "Job Search Agent",
+          "address": "agent1qfwawxsxm2yuyy7gcagyc5a2p72gj47zam2x8hnecmsa5qxuwn7zup8xysa",
+          "url": "https://agentverse.ai/v1/search/agents/agent1qfwawxsxm2yuyy7gcagyc5a2p72gj47zam2x8hnecmsa5qxuwn7zup8xysa",
+          "response_sha256": "2973c64e6a5409c8654e3fdcafb6c82a9ffb558ed57e56fd8f7781e096fcfaf9",
+          "framework_evidence": "The durable profile declares a CrewAI job-search agent with a bounded ParameterMessage and ResponseMessage contract.",
+          "last_updated": "2025-12-02T21:03:08Z",
+          "status": "inactive",
+          "recent_interactions": 0,
+          "recent_verified_interactions": 0,
+          "recent_success_verified_interactions": 0,
+          "total_interactions": 268,
+          "finding": "Inactive, and its declared schema is limited to job matching rather than an AG operation."
+        },
+        {
+          "name": "Blood Report Analysis Agent",
+          "address": "agent1q2hgjvgsc0sf4fqldkru3rdxrhl4uhjzkszq5g0j9z752up2whn4ulrljql",
+          "url": "https://agentverse.ai/v1/search/agents/agent1q2hgjvgsc0sf4fqldkru3rdxrhl4uhjzkszq5g0j9z752up2whn4ulrljql",
+          "response_sha256": "23abdb58f0522cc27d72cb14b3a6d05747f4e36e2306d309bb6b4c889fc2189a",
+          "framework_evidence": "The durable profile declares CrewAI plus the uAgents Adapter and accepts Google Drive blood-report PDF links.",
+          "last_updated": "2025-10-30T12:57:10Z",
+          "status": "inactive",
+          "unresponsive": true,
+          "recent_interactions": 2,
+          "recent_verified_interactions": 0,
+          "recent_success_verified_interactions": 0,
+          "total_interactions": 9643,
+          "finding": "Inactive and unresponsive; a medical-PDF workflow is not an honest AG trust action."
+        }
+      ],
+      "agentfolio_join": {
+        "source_evidence": "crewai-agentfolio-agentmail-no-go-2026-08-25.json",
+        "operator_level_join": true,
+        "autonomous_runtime_join": false,
+        "exact_ag_operation": false,
+        "finding": "CrewAI issue 4789 joins an operator and integration repository to an AgentFolio test identity, but the profile has loopback endpoints, no framework field, no last activity, and no proven machine-controlled mailbox."
+      },
+      "gate": "No current hosted CrewAI runtime with a live AG-relevant contract was found. Operator or test-profile provenance cannot substitute for runtime attribution."
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "decision": "NO_GO",
+      "strongest_candidate": {
+        "name": "Website Scraper Agent",
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "durability": "Fetch-hosted, featured, system-verified, created 2025-06-25T14:06:46Z",
+        "declared_operation": "website-scraping-protocol 0.1.0; WebsiteScraperRequest {url:string} -> WebsiteScraperResponse {text:string} or ErrorMessage {error:string}",
+        "plausible_exact_action": "Fetch an exact nonce-bearing AG preflight or passport URL and return its text.",
+        "search_url": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "observed_at": "2026-08-25T17:50:46Z",
+        "last_updated": "2026-08-25T17:43:57Z",
+        "response_sha256": "8759f94e0df8af98b51a6e3d7e5d5a503fe6b4a38829015a8430e4f6530780a6",
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "total_interactions": 40967,
+        "recent_interactions": 7556,
+        "source_evidence": "fixed-target-availability-sweep-2026-08-25T1751Z.json"
+      },
+      "responsive_non_candidate": {
+        "name": "Auditor Web v3",
+        "address": "agent1qtf5gqenmqddls0ll0qk7sz7uytp4vtlxldwr3d20cjqgkm6zhzgywnzj67",
+        "finding": "Currently responsive but declares a website security audit through AgentChatProtocol, not an AG preflight/passport/credential operation. The route requires signed mailbox/chat traffic through account/API-key or running-client setup, and additional findings are paid."
+      },
+      "gate": "The only exact compatible contract is currently unresponsive with zero verified recent successes; invoking it would be a blind failed-message attempt, not a clearly allowed useful action."
+    },
+    {
+      "target_id": "naptha",
+      "decision": "NO_GO",
+      "observed_at": "2026-08-25T17:50:14Z/2026-08-25T17:51:27Z",
+      "source_evidence": "fixed-target-availability-sweep-2026-08-25T1751Z.json",
+      "current_public_surface_results": {
+        "https://node.naptha.ai/health": "Read timeout after 12 seconds",
+        "https://node.naptha.ai/openapi.json": "Read timeout after 12 seconds",
+        "https://node1.naptha.ai/health": "Read timeout after 12 seconds",
+        "https://node1.naptha.ai/openapi.json": "Read timeout after 12 seconds",
+        "https://node2.naptha.ai/health": "HTTP 521; Cloudflare could not connect to origin",
+        "https://node2.naptha.ai/openapi.json": "HTTP 521; Cloudflare could not connect to origin",
+        "https://hub.naptha.ai/health": "Read timeout after 12 seconds",
+        "https://routing.naptha.ai/health": "DNS resolution failed",
+        "https://labs-api.naptha.ai/.well-known/agent.json": "Connection timed out",
+        "https://labs-api.naptha.ai/.well-known/agent-card.json": "Connection timed out",
+        "https://labs-api.naptha.ai/openapi.json": "Connection timed out"
+      },
+      "documented_access": "Current examples require HUB_USERNAME, HUB_PASSWORD, and PRIVATE_KEY or an authenticated hub session for wss://hub.naptha.ai/rpc.",
+      "exact_ag_operation": null,
+      "gate": "No reviewed public machine surface returned a live contract, and the documented hosted workflow remains credential-gated."
+    }
+  ],
+  "strongest_route_if_retried_later": {
+    "community": "Fetch Agentverse",
+    "machine": "Website Scraper Agent",
+    "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+    "retry_condition": "Require unresponsive=false plus at least one recent verified successful interaction before sending one signed request containing an exact nonce-bearing Agent Guild URL. Reconfirm that the invocation path itself does not require an account, API key, terms acceptance, wallet, payment, installation, persistent seed/configuration, CAPTCHA, or human action.",
+    "why_not_now": "Current telemetry proves the shared transport is registered, not that this machine executes; its current verified-success count is zero."
+  },
+  "files_changed": [
+    "artifacts/community-pilot-2026-08-25/evidence/fixed-framework-hosted-ag-action-search-2026-08-25T1805Z.json"
+  ]
+}

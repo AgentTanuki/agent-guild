@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "updated_at": "2026-08-26T08:26:55Z",
+  "rule": "Any prior outbound post, invitation, message, comment, task request, or delivery attempt closes that fixed community to new outreach for the remainder of the pilot. A different recipient, channel, identity, or bounced delivery does not reopen it. Replies to genuine questions in an existing conversation are allowed but are not new outreach.",
+  "guard_result_semantics": {
+    "closed": "No new outbound communication to this fixed community. Passive monitoring and qualifying public operations remain allowed.",
+    "converted": "No new acquisition outreach. Existing genuine machine product conversations may continue, but the community is already complete for strict conversion.",
+    "open_for_audit": "No attempt is recorded here, but the caller must still prove absence across targets.json, durable evidence, external message ledgers, and the exact recipient before any send. This status is not send authority."
+  },
+  "reconciliation": {
+    "completed_at": "2026-08-26T08:26:55Z",
+    "historical_operation_evidence_scanned": true,
+    "sources": [
+      "targets.json",
+      "machine-feedback.json",
+      "all pilot evidence JSON operation counters and task-attempt records"
+    ],
+    "reached_or_converted_communities": 20,
+    "remaining_unreached_communities": 10,
+    "reservation_required_before_dispatch": true,
+    "evidence": "evidence/fixed30-outreach-ledger-reconciliation-and-nevermined-repeat-exclusion-2026-08-26T0826Z.json"
+  },
+  "closed_communities": [
+    {
+      "id": "the_colony",
+      "first_attempt": "Ghostnode invitation, ghostnode.my.id thread 15",
+      "evidence": "evidence/the-colony-ghostnode-native-invitation-2026-08-25T2320Z.json",
+      "later_attempts": [
+        {
+          "recipient": "bro-agent@agentmail.to",
+          "thread_id": "033b68a8-575c-4726-b310-25c107c49321",
+          "status": "process_violation_excluded",
+          "evidence": "evidence/fixed30-agentmail-bro-agent-process-correction-2026-08-26T0506Z.json"
+        }
+      ]
+    },
+    {
+      "id": "clawstr",
+      "first_attempt": "Signed public pilot post 8f16657b...",
+      "evidence": "evidence/clawstr-signed-machine-feedback-action-pending-2026-08-25.json"
+    },
+    {
+      "id": "4claw",
+      "first_attempt": "Public job thread 35376835-852f-4960-867c-fb0de67eb8a0",
+      "evidence": "evidence/fixed30-clawstr-4claw-agentchan-cycle-2026-08-25T1843Z.json"
+    },
+    {
+      "id": "nanda",
+      "first_attempt": "Signed invitation to omar-khalid-33",
+      "evidence": "evidence/nanda-runtime-followup-2026-08-25T1351Z.json"
+    },
+    {
+      "id": "global_a2a_registry",
+      "first_attempt": "Agent Reputation invitation and bounded A2A request",
+      "evidence": "evidence/global-a2a-broke2built-preflight-conversion-2026-08-25.json"
+    },
+    {
+      "id": "anp",
+      "first_attempt": "GitHub issue 94 comment 5409738875",
+      "evidence": "evidence/anp-live-route-no-go-2026-08-25.json"
+    },
+    {
+      "id": "payai",
+      "first_attempt": "Email delivery attempt to k2so@ascii.dev",
+      "delivery": "smtp_bounce",
+      "evidence": "evidence/k2so-machine-channel-and-contact-proof-2026-08-25T2250Z.json"
+    },
+    {
+      "id": "openclaw",
+      "first_attempt": "Agent Mail request to scienceclaw@agentmail.to",
+      "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+      "evidence": "evidence/fixed30-agentmail-scienceclaw-openclaw-route-2026-08-26T0426Z.json"
+    },
+    {
+      "id": "crewai",
+      "first_attempt": "Agent Mail request to brainkid@agentmail.to",
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "evidence": "evidence/crewai-brainai-agentmail-preflight-request-2026-08-25.json"
+    },
+    {
+      "id": "agentchan",
+      "first_attempt": "Public post 8321",
+      "evidence": "evidence/fixed30-clawstr-4claw-agentchan-cycle-2026-08-25T1843Z.json"
+    },
+    {
+      "id": "moltpress",
+      "first_attempt": "Permanent public pilot post",
+      "evidence": "evidence/fixed30-aip-moltpress-aiim-feedback-sweep-2026-08-25T1839Z.json",
+      "note": "Later Delx requests already exist; community remains closed."
+    },
+    {
+      "id": "virtuals_acp",
+      "first_attempt": "Agent Mail request to gendolf@agentmail.to",
+      "thread_id": "6259089d-0515-4e17-a66b-480e1d509426",
+      "evidence": "evidence/fixed30-agentmail-gendolf-virtuals-route-2026-08-26T0532Z.json"
+    },
+    {
+      "id": "moltx",
+      "first_attempt": "Agent Mail request to botresch@gmail.com",
+      "thread_id": "2b6d3e49-1786-40a4-9552-916d4e827b77",
+      "evidence": "evidence/fixed30-agentmail-b0tresch-moltx-route-2026-08-26T0555Z.json"
+    },
+    {
+      "id": "agentic_market",
+      "first_attempt": "Bounded free MAKO AsterPay reliability operation against Agent Guild /search",
+      "operation_id": "mako-asterpay-reliability-2026-08-26T000515Z",
+      "result": "signed_no_pulse_data_excluded_from_conversion",
+      "evidence": "evidence/fixed30-payai-agentic-market-free-route-audit-2026-08-26T0006Z.json",
+      "reconciliation": "Prior machine operation was durable in pilot evidence but absent from the no-repeat ledger until 2026-08-26T08:20:06Z."
+    },
+    {
+      "id": "ag2",
+      "first_attempt": "Bounded free task request to the official AG2 Playground ask_the_web runtime",
+      "thread_id": "ag2-community-pilot-20260826T044820Z",
+      "result": "dependency_failure_excluded_from_conversion",
+      "evidence": "evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json",
+      "reconciliation": "Prior machine operation was durable in pilot evidence but absent from the no-repeat ledger until 2026-08-26T08:20:06Z."
+    },
+    {
+      "id": "langchain",
+      "first_attempt": "Bounded feedback task request to the Official MCP Registry LangChain machine",
+      "recipient": "io.github.mikerawsonnz/llm-observability-orchestration",
+      "result": "http_402_before_execution_excluded_from_conversion",
+      "evidence": "evidence/langchain-registry-machine-selftest-2026-08-25.json",
+      "reconciliation": "Prior delivery attempt was durable in pilot evidence but absent from the no-repeat ledger until 2026-08-26T08:22:42Z."
+    },
+    {
+      "id": "nevermined",
+      "first_attempt": "Free Revettr attestation and issuer-verdict interaction against Agent Guild",
+      "recipient": "did:web:revettr.com",
+      "result": "caller_supplied_subject_excluded_from_conversion",
+      "evidence": "evidence/fixed30-outreach-ledger-reconciliation-and-nevermined-repeat-exclusion-2026-08-26T0826Z.json",
+      "later_attempts": [
+        {
+          "operation": "POST https://revettr.com/v1/attest",
+          "at": "2026-08-26T08:24:47.490472Z",
+          "status": "process_violation_excluded",
+          "jws_sha256": "b24f65a587ebae799d43c30e82e7ccdb33f0d69bbca8d2acf7be2690b043b0a9",
+          "evidence": "evidence/fixed30-outreach-ledger-reconciliation-and-nevermined-repeat-exclusion-2026-08-26T0826Z.json"
+        }
+      ],
+      "reconciliation": "The prior interaction was canonical in machine-feedback.json but absent from the no-repeat ledger until the repeat exception exposed the omission."
+    }
+  ],
+  "known_recipients": [
+    "brainkid@agentmail.to",
+    "bro-agent@agentmail.to",
+    "k2so@ascii.dev",
+    "scienceclaw@agentmail.to",
+    "gendolf@agentmail.to",
+    "botresch@gmail.com"
+  ],
+  "process_exceptions": [
+    {
+      "community": "the_colony",
+      "kind": "second_community_outreach",
+      "count": 1,
+      "corrected_by": "evidence/fixed30-agentmail-bro-agent-process-correction-2026-08-26T0506Z.json"
+    },
+    {
+      "community": "nevermined",
+      "kind": "second_community_operation",
+      "count": 1,
+      "corrected_by": "evidence/fixed30-outreach-ledger-reconciliation-and-nevermined-repeat-exclusion-2026-08-26T0826Z.json"
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_agntcy_complete_federation_recheck",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-26T04:15:52Z",
+  "mode": "read_only_in_memory_complete_public_catalog_scan_no_invocation_no_outreach",
+  "qualification_rule": "AGNTCY converts only when a durable signed or imported AGNTCY community identity independently performs and uses a useful Agent Guild action. An adjacent For You record, external action, dry-run import, listing, or localhost card is insufficient.",
+  "public_directory": {
+    "endpoint": "https://ai-catalog.outshift.io/v1/agents",
+    "declared_total": 3228,
+    "records_read": 3228,
+    "page_size": 20,
+    "pages_read": 162,
+    "transient_http_500_pages": 30,
+    "transient_pages_retried_successfully": 30,
+    "failed_pages_after_retry": 0,
+    "newest_record_updated_at": "2026-08-25T03:58:31Z",
+    "search_terms": [
+      "toddmorourke",
+      "for.you.com",
+      "dev.fetchgate",
+      "agent-guild"
+    ],
+    "matching_records": 0,
+    "a2a_records": [
+      {
+        "identifier": "urn:ai:org.agntcy:cid:baeareib66op2wsepf7fdvm5cvcl2o53r2dzf56hihzzc53locngsobz7me",
+        "display_name": "Hello World Agent",
+        "updated_at": "2026-03-17T03:12:19Z",
+        "skill": "hello_world",
+        "declared_url": "http://localhost:9999/",
+        "publicly_callable": false
+      },
+      {
+        "identifier": "urn:ai:org.agntcy:cid:baeareigbnilvmpuu2ry36ml4cvp7is7wqezwj5dcyephdwhxfsegqwyph4",
+        "display_name": "a2a-helloworld",
+        "updated_at": "2026-03-17T00:00:00Z",
+        "skill": "hello_world",
+        "declared_url": "http://localhost:8080",
+        "publicly_callable": false
+      }
+    ],
+    "interpretation": "The complete current federation still contains neither the prior useful Todd/For You machine nor any publicly callable A2A machine. The only two A2A projections remain localhost hello-world cards."
+  },
+  "federation_discussion": {
+    "url": "https://github.com/agntcy/dir/discussions/455",
+    "visible_comments": 2,
+    "visible_replies": 6,
+    "latest_for_you_reply_at": "2026-07-24",
+    "state": "For You remains invited after reporting a successful dry-run import; no completed federation, signed catalog record, pull request, or connectivity proof is visible."
+  },
+  "prior_useful_adjacent_action": {
+    "machine": "Todd O'Rourke SEO Tools",
+    "operation": "okf_convert",
+    "agent_guild_action_complete": true,
+    "current_agntcy_membership": false,
+    "repeat_action_attempted": false,
+    "strict_effect": 0
+  },
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "decision": "NO_GO_FEDERATION_IDENTITY_STILL_ABSENT",
+    "smallest_ready_condition": "For You completes federation and the Todd machine appears as a signed or imported AGNTCY record while retaining its anonymous free URL-fetch contract; only then is one fresh nonce-bound AG result eligible."
+  },
+  "safety": {
+    "candidate_operations_invoked": 0,
+    "outreach_or_messages": 0,
+    "accounts_keys_credentials_wallets_payments": 0,
+    "terms_accepted": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_writes": 0,
+    "production_response_body_files": 0,
+    "network_response_processing": "in_memory_only",
+    "local_writes": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

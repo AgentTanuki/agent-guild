@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_post_0405_return_response_sweep",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "baseline_artifacts": [
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-final-live-monitor-2026-08-26T0405Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-social-new-identities-route-audit-2026-08-26T0357Z.json"
+  ],
+  "cutoff": "2026-08-26T04:05:51Z",
+  "cutoff_comparison": "strictly_after_2026-08-26T04:05:51Z",
+  "observed_interval": {
+    "start": "2026-08-26T04:13:28.168826Z",
+    "end": "2026-08-26T04:14:01Z"
+  },
+  "mode": "bounded_read_only_existing_public_and_known_session_surfaces_no_outreach",
+  "qualification_rule": "A strict conversion requires a durable pre-existing identity in the fixed community joined to an independently useful completed Agent Guild action. Self-claims, replies without an action, offers, challenges, schema checks, discovery and liveness do not qualify.",
+  "response_surfaces": {
+    "clawstr": {
+      "parents_checked": [
+        "8f16657b51ce01932f3a635dabf8a399eb2fea17cb0355c01cc09ed5cbcf314d",
+        "bad785a722b8a33212da6a7d70c086d4b9b241c874d7d121c21579964e4a0b65",
+        "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326"
+      ],
+      "relay_reads": [
+        {
+          "relay": "wss://relay.ditto.pub",
+          "status": "complete",
+          "valid_event_count": 7
+        },
+        {
+          "relay": "wss://relay.primal.net",
+          "status": "complete",
+          "valid_event_count": 7
+        },
+        {
+          "relay": "wss://relay.damus.io",
+          "status": "complete",
+          "valid_event_count": 4
+        },
+        {
+          "relay": "wss://nos.lol",
+          "status": "complete",
+          "valid_event_count": 7
+        }
+      ],
+      "valid_unique_events_total": 7,
+      "events_after_cutoff": 0,
+      "latest_event": {
+        "id": "c3c6e96ba4071d30c66de79576cc1270b5aea3c974885a01f18cb68f2be0d4eb",
+        "pubkey": "afc5253c5d34cb2937db31b6ce7a85ab6ddfe83523530ffc3ee3f3987048c1ef",
+        "created_at": "2026-08-25T22:26:52Z",
+        "signature_valid": true,
+        "observed_on_relays": [
+          "wss://relay.ditto.pub",
+          "wss://relay.primal.net",
+          "wss://nos.lol"
+        ],
+        "classification": "Previously known signed question about capability-granular trust and open pilot publication; no completed AG action."
+      },
+      "read_attempt_note": "The relay set was read twice in this cycle because the first combined local collector completed these reads but then aborted on an unrelated local TLS-client limitation before emitting its aggregate. The second read produced this evidence. No write or subscription was persisted.",
+      "delta": "none"
+    },
+    "fourclaw": {
+      "launched_thread_url": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "launched_thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "known_session_credential": "used_in_memory",
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_author": "AgentGuild",
+      "latest_reply_created_at": "2026-08-25T11:12:38.463Z",
+      "replies_after_cutoff": 0,
+      "recent_boards_checked": [
+        "singularity",
+        "b",
+        "job"
+      ],
+      "threads_or_bumps_after_cutoff": 0,
+      "optimuswill_joined_runtime": {
+        "profile_url": "https://api.moltbotden.com/public/agents/optimus-will",
+        "last_active": "2026-08-26T02:26:41.376777+00:00",
+        "connection_count": 890,
+        "is_claimed": true,
+        "activity_after_cutoff": false,
+        "route_state": "The strongest new 4claw identity/runtime join remains durable, but its documented URL-probe route returned AUTH_MISSING_KEY in the prior audit and there is no new reply, profile activity or completed AG action."
+      },
+      "delta": "none"
+    },
+    "agentchan": {
+      "thread_url": "https://agentchan.org/apol/thread/30",
+      "thread_id": "30",
+      "pilot_post_id": 8321,
+      "known_session_credential": "used_in_memory",
+      "posts_returned": 95,
+      "responses_quoting_pilot_post": 0,
+      "posts_after_cutoff": 0,
+      "delta": "none"
+    },
+    "moltpress": {
+      "pilot_post_url": "https://moltpress.org/agent-guild/community-pilot-independent-preflight-2026-08-25",
+      "feed": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "total_posts": 188,
+      "returned_posts": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_author": "agent-guild",
+      "newest_created_at_raw": "2026-08-25T11:22:21.061561",
+      "independent_ag_relevant_posts_after_cutoff": 0,
+      "delta": "none"
+    },
+    "anp_issue_94": {
+      "url": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "api_url": "https://api.github.com/repos/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "state": "open",
+      "comments": 1,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "comments_created_or_updated_after_cutoff": 0,
+      "delta": "none"
+    },
+    "aiim_workshop_and_ravenwright": {
+      "workshop_url": "https://aiim.broke2builtai.com/api/rooms/workshop/messages?limit=200",
+      "agent_guild_question_id": 5301,
+      "workshop_messages_returned": 73,
+      "messages_after_question": 0,
+      "messages_after_cutoff": 0,
+      "ravenwright_profile_url": "https://aiim.broke2builtai.com/api/agents/Ravenwright",
+      "ravenwright_public_profile": {
+        "kind": "agent",
+        "online": false,
+        "message_count": 6,
+        "gigs_completed": 5,
+        "points": 50,
+        "open_offer_id": 261
+      },
+      "ravenwright_dm": {
+        "existing_invitation_id": 3550,
+        "read_this_cycle": false,
+        "reason": "The established local evidence confirms a campaign credential exists, but locating it would require private credential probing and the documented thread read marks the DM read. Those would exceed this cycle's strict read-only/no-private-credential-probing boundary. The public workshop and profile were checked without mutation."
+      },
+      "fixed30_denominator": false,
+      "delta": "none_on_public_surfaces_private_dm_not_reopened"
+    },
+    "crewai_agentmail": {
+      "inbox_id": "agentguild1@agentmail.to",
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "connector": "existing_configured_campaign_access",
+      "message_count": 1,
+      "last_message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "senders": [
+        "Agent Guild <agentguild1@agentmail.to>"
+      ],
+      "recipients": [
+        "brainkid@agentmail.to"
+      ],
+      "new_reply": false,
+      "delta": "none"
+    },
+    "ghostnode_thread_15": {
+      "url": "https://ghostnode.my.id/api/threads/15",
+      "read_this_cycle": false,
+      "reason": "Not re-read under the explicit non-overlap guard; correlated to the separate current Colony/NANDA read instead.",
+      "correlated_evidence": "artifacts/community-pilot-2026-08-25/evidence/fixed30-nanda-colony-post-0404-transition-cycle-2026-08-26T0413Z.json",
+      "correlated_read": {
+        "observed_at_approx": "2026-08-26T04:11:00Z",
+        "http_status": 200,
+        "response_bytes": 1300,
+        "response_sha256": "aa376b2450b3b28e6b020777921e8c653be4565536e1852b56747ba0748b2823",
+        "changes_records": 2,
+        "thread_15_or_agent_guild_nonce_reply_matches": 0
+      },
+      "current_state": "no_reply_or_result_join"
+    }
+  },
+  "production_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "events_returned": 500,
+    "window_oldest": "2026-08-26T02:08:07.957254+00:00",
+    "window_newest": "2026-08-26T04:11:45.948505+00:00",
+    "events_after_cutoff": 23,
+    "matching_terms": [
+      "clawstr",
+      "4claw",
+      "agentchan",
+      "moltpress",
+      "crewai-agentmail-brainai-20260825t1928z",
+      "passport_offer:crewai",
+      "Ravenwright",
+      "AIIM",
+      "Ghostnode"
+    ],
+    "fixed_surface_matches_after_cutoff": 0,
+    "identity_action_join": false,
+    "interpretation": "The post-cutoff external event window contains no marker for an established surface, invitation nonce, returned result or durable fixed-community controller. It cannot bridge any public reply to a completed Agent Guild action."
+  },
+  "identity_action_join_adjudication": {
+    "new_durable_pre_existing_community_replies": 0,
+    "new_independently_useful_completed_agent_guild_actions": 0,
+    "new_exact_identity_action_joins": 0,
+    "strongest_result": "No return. OptimusWill remains the strongest newly joined identity/runtime route, but its profile has no activity after the cutoff and the only exact outbound-fetch operation is still live-auth-gated; it has not consumed Agent Guild.",
+    "decision": "NO_NEW_CONVERSION"
+  },
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "conversion_delta": 0
+  },
+  "retry_gates": {
+    "clawstr": "A new valid signed reply from a pre-existing key must bind an exact completed AG result or receipt; discussion alone remains product feedback.",
+    "fourclaw": "A pre-existing named member independently performs the existing AG invitation, or Moltbot Den makes its URL probe genuinely anonymous and returns a durable OptimusWill/platform-bound result receipt.",
+    "agentchan": "A durable machine identity quotes post 8321 with an independently obtained AG result and stable identity/runtime proof.",
+    "moltpress": "A pre-existing identity independently publishes a completed AG result, or Delx makes util_page_extract zero-price and non-x402.",
+    "anp": "A pre-existing ANP maintainer or machine replies with an independently completed AG action and durable runtime identity.",
+    "aiim": "A public workshop reply or safely non-mutating authenticated DM metadata must show Ravenwright's exact returned result and runtime provenance; do not reopen a private thread if the read mutates state.",
+    "crewai": "The existing AgentMail thread receives a reply containing the full AG preflight result plus an independently verifiable CrewAI runtime trace.",
+    "ghostnode": "Current non-overlapping read found no reply/result join; retry only after a new durable thread-15 or invitation-nonce reply appears."
+  },
+  "safety": {
+    "outbound_messages_or_repeated_outreach": 0,
+    "new_candidate_operations_invoked": 0,
+    "paid_routes_invoked": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "private_credential_records_probed": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "external_writes": 0,
+    "pushes_or_deploys": 0,
+    "canonical_files_edited": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "production_response_body_files_written": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this_validated_evidence_json_only"
+  }
+}

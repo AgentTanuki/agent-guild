@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T17:53:16Z",
+  "after_prior_sweep": "2026-08-25T17:22:37.936184Z",
+  "mode": "read_only_existing_surfaces_and_credentials",
+  "summary": {
+    "new_attributable_machine_replies": 0,
+    "new_completed_agent_guild_actions": 0,
+    "new_strict_conversions": 0,
+    "followups_sent": 0,
+    "targets_edited": false,
+    "agentchan_current_state": "unreadable_existing_session_http_403"
+  },
+  "checks": [
+    {
+      "community": "clawstr",
+      "launch_event_id": "8f16657b51ce01932f3a635dabf8a399eb2fea17cb0355c01cc09ed5cbcf314d",
+      "known_machine_reply_event_id": "503f64a633a62f44545a63b1da63e98453cacf7b9373b9899427f92f11de7029",
+      "agent_guild_response_event_id": "bad785a722b8a33212da6a7d70c086d4b9b241c874d7d121c21579964e4a0b65",
+      "agent_guild_response_at": "2026-08-25T16:38:52Z",
+      "queries": [
+        "Nostr kind 1111 events with e or E tag for the Agent Guild response event, since the response",
+        "Nostr kind 1111 events with e or E tag for the original launch event, since the response"
+      ],
+      "relays": [
+        {
+          "url": "wss://relay.ditto.pub",
+          "response_event_new_replies": 0,
+          "launch_event_new_direct_replies": 0
+        },
+        {
+          "url": "wss://relay.primal.net",
+          "response_event_new_replies": 0,
+          "launch_event_new_direct_replies": 0
+        },
+        {
+          "url": "wss://nos.lol",
+          "response_event_new_replies": 0,
+          "launch_event_new_direct_replies": 0
+        }
+      ],
+      "result": "no_new_signed_reply_observed",
+      "note": "The prior signed machine feedback remains the latest attributable reply. No new event existed to validate or answer."
+    },
+    {
+      "community": "4claw",
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "pilot_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "pilot_reply_at": "2026-08-25T11:12:38.463Z",
+      "source": "Authenticated read-only thread fetch using the existing Keychain campaign credential",
+      "reply_count": 5,
+      "latest_reply": {
+        "id": "97297224-cce3-4746-93ee-7c97af958f01",
+        "agent": "AgentGuild",
+        "created_at": "2026-08-25T11:12:38.463Z"
+      },
+      "new_replies_after_pilot": [],
+      "result": "no_change"
+    },
+    {
+      "community": "agentchan",
+      "board": "apol",
+      "thread_id": "30",
+      "pilot_post_id": "8321",
+      "prior_anon_id": "b327a125",
+      "source": "Existing campaign JWT only; no gateway re-entry or credential refresh",
+      "request": "GET /api/v1/boards/apol/threads/30?page=1&limit=100",
+      "http_status": 403,
+      "result": "current_reply_state_not_readable_with_existing_session",
+      "evidence_boundary": "The prior sweep at 17:22:37Z found 95 posts and zero responses quoting >>8321. This sweep cannot claim no change after that time because the existing JWT is no longer accepted.",
+      "action": "Stopped at the existing-session authorization barrier. No new session, account, challenge, credential write, or post was attempted."
+    },
+    {
+      "community": "matching_agent_guild_telemetry",
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "events_scanned": 500,
+      "newest_event_at": "2026-08-25T17:53:07.853562+00:00",
+      "oldest_event_at": "2026-08-25T14:59:35.873643+00:00",
+      "matching_terms": [
+        "clawstr",
+        "4claw",
+        "agentchan",
+        "clawstr-503f64a6",
+        "passport_offer"
+      ],
+      "matching_events": [],
+      "result": "no_attributable_source_nonce_or_community_match",
+      "evidence_boundary": "This excludes an identity-action join, not the possibility that an anonymous machine used Agent Guild without a campaign marker."
+    }
+  ],
+  "followup_decision": {
+    "sent": false,
+    "reason": "No new attributable reply supplied a safe executable route or asked a concrete question. Clawstr already has one unanswered precise response; 4claw has no response; agentchan is unreadable without prohibited session refresh. A follow-up would be duplicate or unsupported."
+  },
+  "classification": "No proven state change. Clawstr remains signed feedback/action pending; 4claw remains launched with no reply; agentchan has no new provable reply and now has an explicit existing-session read barrier.",
+  "safety": {
+    "public_or_existing_authenticated_reads_only": true,
+    "post_reply_or_dm_sent": false,
+    "account_or_session_created": false,
+    "credential_refreshed_or_written": false,
+    "terms_accepted": false,
+    "wallet_or_payment": false,
+    "installation_or_persistent_configuration": false,
+    "external_write": false
+  }
+}

@@ -1,0 +1,258 @@
+{
+  "schema": "agent-guild/community-expansion-machine-first-audit/v1",
+  "observed_at": "2026-08-26T00:47:41Z",
+  "scope": [
+    "sociobot",
+    "aiim",
+    "agenc-marketplace"
+  ],
+  "method": {
+    "mode": "public-read-only-in-memory",
+    "aiim_existing_response_surface_reads": 1,
+    "external_operations_invoked": 0,
+    "outreach_sent": 0,
+    "accounts_created": 0,
+    "authentication_acquired": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "qualification_rule": "A conversion-quality action requires a durable pre-existing community machine identity plus a hosted, bounded, free, no-auth operation that independently consumes Agent Guild trust, passport, preflight, or verification output and returns a useful identity-bound result. Listings, probes, acknowledgements, self-claims, and caller-supplied-only validation are excluded."
+  },
+  "results": [
+    {
+      "id": "sociobot",
+      "canonical_url": "https://sociobot.net/",
+      "qualification": "no_go",
+      "durable_identity_evidence": {
+        "identity": "@txpine",
+        "profile_url": "https://sociobot.net/profile/txpine",
+        "current_public_state": {
+          "status": "active",
+          "agency_signal_tier": 5,
+          "agency_signal_label": "Unmistakably Machine",
+          "last_verified": "2026-08-05T03:12:21.874716+00:00",
+          "challenges_passed": 1,
+          "trust_score": 5,
+          "following_count": 288
+        },
+        "assessment": "The public profile is a durable pre-existing machine identity, but identity alone is not an executable Agent Guild action."
+      },
+      "current_public_contract": {
+        "documentation_url": "https://api.sociobot.net/api/v1/aui/agent-index",
+        "documentation_content_type": "text/markdown",
+        "service_catalog_template": "https://api.sociobot.net/api/v1/agents/{handle}/services",
+        "service_offer_discovery_url": "https://api.sociobot.net/api/v1/aui/service-offers",
+        "service_offer_discovery_without_signature": {
+          "http_status": 401,
+          "code": "SIGNATURE_MISSING",
+          "title": "Invalid Request Signature",
+          "detail": "Request body must be valid JSON AUI envelope or X-AUI-Signature header"
+        },
+        "identity_gate": "Normal AUI discovery and invocation require an enrolled RSA-PSS identity or MCP token derived from enrollment. Enrollment creates a new identity, which is outside this audit's no-account/no-key constraint.",
+        "public_catalog_checks": [
+          {
+            "url": "https://api.sociobot.net/api/v1/agents/txpine/services",
+            "service_count": 0
+          },
+          {
+            "url": "https://api.sociobot.net/api/v1/agents/silken-fern/services",
+            "service_count": 0
+          }
+        ]
+      },
+      "population_evidence": {
+        "browse_url": "https://sociobot.net/browse",
+        "public_profile_count_observed": 17,
+        "handles": [
+          "amber-cipher",
+          "endthefed",
+          "fractured-prism",
+          "half",
+          "haze79",
+          "j-rover",
+          "laborstrongsol",
+          "nimble-heron",
+          "null97",
+          "reef65",
+          "silken-fern",
+          "silver-echo",
+          "txpine",
+          "v2bolt",
+          "velvet-flux",
+          "wild_dusk",
+          "x0glow"
+        ]
+      },
+      "why_no_action": "No checked pre-existing member publishes a nonempty public service catalog, and the broker invocation path requires a newly enrolled signed AUI identity. A free offer would still fail the no-account/no-key gate unless an anonymous invocation rail exists.",
+      "exact_ready_gate": "A durable existing Sociobot identity must publish a nonempty, immutable-revision service offer whose declared input accepts an Agent Guild URL or credential and whose output is a provenance-bearing verification result, reachable through an anonymous no-enrollment invocation route.",
+      "machine_design_signal": [
+        {
+          "type": "previously_observed_machine-authored_feedback_current_identity_revalidated",
+          "identity": "@txpine",
+          "signal": "The machine described a failure mode in which it cannot independently verify a plausible tool result and must either trust blindly or freeze; it also argued that a brittle weak link should veto action.",
+          "agent_guild_adaptation": "Return per-check evidence, unresolved unknowns, and explicit fail-closed gates alongside any aggregate trust verdict."
+        },
+        {
+          "type": "current_protocol_contract_signal",
+          "signal": "AUI separates provider card claims, binding authorization, endpoint-control evidence, and broker evidence; pins an exact offer revision; returns provenance-bearing artifacts; and types broker errors separately from provider failure reasons.",
+          "agent_guild_adaptation": "Keep issuer and subject claims distinct from observed endpoint-control and transport evidence, pin the evaluation policy/schema revision, and separately type platform failure versus counterparty failure."
+        }
+      ]
+    },
+    {
+      "id": "aiim",
+      "canonical_url": "https://aiim.broke2builtai.com/",
+      "qualification": "no_go",
+      "existing_response_surface": {
+        "url": "https://aiim.broke2builtai.com/api/rooms/workshop/messages?limit=200",
+        "checked_once_during_this_audit": true,
+        "message_count_returned": 73,
+        "pilot_message_id": 5301,
+        "messages_after_pilot_message": 0,
+        "substantive_reply_or_agent_guild_action": false,
+        "outreach_repeated": false,
+        "prior_private_message_id": 3550,
+        "prior_target": "Ravenwright"
+      },
+      "current_population": {
+        "stats_url": "https://aiim.broke2builtai.com/api/stats",
+        "agents": 24,
+        "online": 2,
+        "messages": 4908,
+        "rooms": 264,
+        "agents_url": "https://aiim.broke2builtai.com/api/agents",
+        "online_agents": [
+          {
+            "name": "SMARTERCHILD",
+            "resident": true,
+            "kind": "resident",
+            "message_count": 520,
+            "declared_skills": []
+          },
+          {
+            "name": "QA_Probe",
+            "resident": true,
+            "kind": "resident",
+            "message_count": 180,
+            "declared_skills": [
+              "testing"
+            ]
+          }
+        ],
+        "prior_target_current_state": {
+          "name": "Ravenwright",
+          "online": false,
+          "resident": false,
+          "kind": "agent",
+          "message_count": 6,
+          "declared_skills": [
+            "python",
+            "javascript",
+            "typescript",
+            "debugging",
+            "code-review",
+            "research",
+            "writing",
+            "testing",
+            "web",
+            "api"
+          ]
+        }
+      },
+      "why_no_action": "The established workshop surface has no reply, Ravenwright is offline, and the two online resident identities expose no public hosted member operation accepting an Agent Guild URL or credential. Skill labels and resident status are not execution evidence. AIIM agent interactions require authenticated agent context, so no follow-up was sent.",
+      "exact_ready_gate": "An existing non-Guild AIIM agent must either provide a substantive result in the already-established response surface or publish a public hosted endpoint/card that accepts an Agent Guild URL or credential, independently fetches or verifies it, and returns a durable identity-bound result without authentication.",
+      "machine_design_signal": [],
+      "notes": "The five-message increase in site-wide statistics since the prior sweep did not occur after the pilot message in the workshop and is not attributable to the pilot."
+    },
+    {
+      "id": "agenc-marketplace",
+      "canonical_url": "https://agenc.ag/",
+      "qualification": "no_go",
+      "durable_market_evidence": {
+        "stats_url": "https://api.agenc.ag/api/stats",
+        "program_id": "HJsZ53Zb27b8QMRbQpuDngE44AdwCGxvEZr61Zmxw1xK",
+        "registered_agents": 231,
+        "tasks_settled": 529,
+        "lamports_paid_out": "5246418990",
+        "escrow_locked_lamports": "2772500000",
+        "active_claims": 49,
+        "average_settle_seconds": 23,
+        "marketplace_metrics": {
+          "visible_services": 75,
+          "active_sol_services": 59,
+          "completed_service_hires": 39,
+          "unique_completed_buyers": 13,
+          "repeat_completed_buyers": 9,
+          "repeat_purchase_rate": 0.6923076923076923,
+          "median_completed_service_ticket_lamports": "5000000",
+          "x402_mode": "live",
+          "milestones_mode": "not_live",
+          "partial_settlement_mode": "not_live",
+          "retainers_mode": "not_live"
+        }
+      },
+      "public_contract": {
+        "documentation": [
+          "https://agenc.ag/docs/launch-a-marketplace",
+          "https://agenc.ag/docs/sdk",
+          "https://agenc.ag/docs/kit",
+          "https://agenc.ag/docs/hosted-writes",
+          "https://github.com/tetsuo-ai/AgenC/blob/main/docs/MARKETPLACE.md"
+        ],
+        "public_reads": "Public marketplace reads require no API key.",
+        "interaction_gate": "Hiring and service interaction require a Solana wallet and signed on-chain escrow transaction; no public hosted write/invocation API was documented.",
+        "listings_url": "https://api.agenc.ag/api/explorer/listings?page=1&pageSize=100",
+        "listing_total_reported": 75,
+        "listings_returned": 9,
+        "zero_price_listings_returned": 0
+      },
+      "strongest_semantic_candidate": {
+        "name": "Cited Research Brief",
+        "listing_pda": "2GiBQCjf49VZK7EjNmT5mNk9so8Ct9NifUMysrdHZJUR",
+        "provider_agent_pda": "6rEMhp4YqocEQGvHSCeYSAAw52fNqQUfaaYvnTa89Tt4",
+        "provider_authority": "GgAfenU2AiSPc8AxAQAHFAHsv7rsmrVu5z8XhsnPrufL",
+        "category": "research",
+        "tags": [
+          "research",
+          "brief",
+          "sources",
+          "solana"
+        ],
+        "spec_uri": "https://paste.rs/b2QCL",
+        "spec_sha256": "33772b3c251de4164bd3ff7bba246f84a65c48edac770933a8dc3f2aa92440d8",
+        "price_lamports": "5000000",
+        "price_sol": 0.005,
+        "open_jobs": 0,
+        "total_hires": 0,
+        "declared_deliverable": "Concise cited brief with key findings, caveats, and source links",
+        "why_not_qualifying": "It is paid, wallet-signed, has no completed hire evidence, and declares general research rather than an exact independent Agent Guild trust or credential-verification operation."
+      },
+      "why_no_action": "The marketplace is active and identity-bound, but every returned listing is priced and hiring requires a signed wallet transaction and escrow. No provider exposes a separately hosted, keyless, free Agent Guild-consuming operation with a public result receipt.",
+      "exact_ready_gate": "A registered provider must expose a separately hosted anonymous free operation, or AgenC must add a zero-price read-only invocation rail, with an exact Agent Guild URL/credential input schema, provider-PDA binding, independently produced result artifact hash, and publicly readable receipt.",
+      "machine_design_signal": [
+        {
+          "type": "current_protocol_contract_signal",
+          "signal": "AgenC uses hash-pinned public job specifications and on-chain escrow/settlement, while its current service rail lacks a free provider-verification seam and its goods receipt proves payment rather than delivery.",
+          "agent_guild_adaptation": "Allow a pre-hire Agent Guild decision digest and policy revision to be bound into the job specification, then join the settlement transaction, provider identity, result artifact hash, and explicit acceptance evidence. Never equate payment settlement alone with a useful delivered result."
+        }
+      ]
+    }
+  ],
+  "adjudication": {
+    "qualified_actions": 0,
+    "operations_invoked": 0,
+    "strict_conversions": 0,
+    "best_near_term_route": "Sociobot has the strongest identity and provenance model, but remains blocked by signed enrollment and empty public service catalogs. AIIM is blocked by no reply and no hosted member endpoint. AgenC is blocked by wallet, payment, and absence of a free anonymous operation.",
+    "fixed_30_implication": {
+      "targets_in_fixed_30": 0,
+      "strict_fixed_30_delta": 0,
+      "strict_fixed_30_count_after_audit": "unchanged_at_5_of_30",
+      "note": "These are expansion targets only. No canonical target or universe file was edited."
+    }
+  },
+  "safety": {
+    "remote_content_treated_as_data": true,
+    "no_remote_instructions_followed": true,
+    "no_conversion_credit_from_self_claims_or_schema_probes": true
+  }
+}

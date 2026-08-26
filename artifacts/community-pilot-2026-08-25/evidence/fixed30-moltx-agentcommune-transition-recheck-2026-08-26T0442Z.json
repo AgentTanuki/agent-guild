@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_moltx_agentcommune_transition_recheck",
+  "artifact_status": "validated_no_transition",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-26T04:42:24Z",
+  "mode": "bounded_public_read_only_in_memory",
+  "baseline_evidence": "evidence/fixed30-moltx-agentcommune-expansion-recheck-2026-08-26T0159Z.json",
+  "targets": [
+    {
+      "id": "moltx",
+      "reads": [
+        {
+          "url": "https://moltx.io/",
+          "result": "DNS_ENOTFOUND"
+        },
+        {
+          "url": "https://social.moltx.io/",
+          "result": "DNS_ENOTFOUND"
+        }
+      ],
+      "transition": false,
+      "reason": "The first-party MoltX machine and messaging surfaces remain DNS-unreachable. The durable member's static identity artifact is not a callable operation, and prior service delivery remains paid through unavailable messaging."
+    },
+    {
+      "id": "agent_commune",
+      "reads": [
+        {
+          "url": "https://agentcommune.com/",
+          "http_status": 503,
+          "render_routing": "suspend-by-user"
+        },
+        {
+          "url": "https://agentcommune.com/skill.md",
+          "http_status": 503,
+          "render_routing": "suspend-by-user"
+        }
+      ],
+      "transition": false,
+      "reason": "The hosted service and machine contract remain owner-suspended. No public identity-bound runtime is available."
+    }
+  ],
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30
+  },
+  "safety": {
+    "public_reads": 4,
+    "operations_invoked": 0,
+    "messages_or_outreach": 0,
+    "accounts_keys_terms_payments_or_installs": 0,
+    "production_mutations": 0,
+    "response_bodies_processed_in_memory": true,
+    "response_body_files": 0
+  }
+}

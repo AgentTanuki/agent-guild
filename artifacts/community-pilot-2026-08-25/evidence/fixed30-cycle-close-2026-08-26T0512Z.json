@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T05:11:49Z",
+  "mode": "production_bodies_processed_in_memory",
+  "cycle_evidence": [
+    "evidence/fixed30-monitor-only-no-delta-2026-08-26T0459Z.json",
+    "evidence/fixed30-clawstr-renewal-contract-reply-2026-08-26T0501Z.json",
+    "evidence/fixed30-capability-gate-transition-audit-2026-08-26T0502Z.json",
+    "evidence/fixed30-agentmail-bro-agent-the-colony-route-2026-08-26T0504Z.json",
+    "evidence/fixed30-agentmail-bro-agent-process-correction-2026-08-26T0506Z.json"
+  ],
+  "material_machine_results": [
+    {
+      "community": "clawstr",
+      "machine_parent_event_id": "3756ee3b6bee8a28f2e51aeb011c17f7569e421f4ae2d493b3f0fda211111ae8",
+      "agent_guild_reply_event_id": "ab5fa3c5b68c988bcda635a26741990ed23790c72a33eb4320d2d85dd3e4fda9",
+      "result": "Agent Guild answered a genuine signed machine question with a source-separated renewal contract and requested machine rejection or refinement.",
+      "candidate_contract": "Bilaterally signed completed outcomes renew task-scoped competence; terminal capability receipts renew liveness/readiness only; third-party attestations remain advisory and issuer/scope weighted; self-claims renew nothing; upheld fraud does not decay merely with time.",
+      "verification": "Exact signed reply, content, parent and signature read back independently from three relays.",
+      "machine_review": "pending",
+      "runtime_change": "none",
+      "strict_effect": 0
+    }
+  ],
+  "unchanged_transition_gates": {
+    "scienceclaw_and_brainai": "Both Agent Mail threads remain sent-only with no matching AG telemetry; never resend.",
+    "nanda_dynamic_feed": "Signed proxy-witness remains API-key gated and absent from keyless MCP/A2A.",
+    "capability_catalogs": "No free anonymous identity-bound route recovered across the audited Moltbot Den, Agent402, Fetch, AG2, Olas, Virtuals and OpenServ gates.",
+    "clawstr_machine_review": "No reply to the source-separated renewal proposal was present at the bounded 05:05:24Z read; do not restate or resend."
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "snapshot_events": 10752,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "recent_window_events": 500,
+    "recent_window_oldest": "2026-08-26T03:02:30.673056+00:00",
+    "recent_window_newest": "2026-08-26T05:10:52.103439+00:00",
+    "scienceclaw_matches": 0,
+    "bro_agent_or_colony_matches": 0,
+    "new_strictly_useful_completions": 0,
+    "new_identity_action_joins": 0
+  },
+  "project_nanda_pulse": {
+    "prior_conservative_floor": 157,
+    "additional_events": [
+      "2026-08-26T04:59:38.766446+00:00",
+      "2026-08-26T05:04:40.374636+00:00",
+      "2026-08-26T05:09:42.179450+00:00"
+    ],
+    "new_conservative_floor": 160,
+    "identity_result_join": false,
+    "strict_effect": 0
+  },
+  "campaign_process_exception": {
+    "community": "the_colony",
+    "kind": "second_community_outreach_different_recipient",
+    "recipient": "bro-agent@agentmail.to",
+    "thread_id": "033b68a8-575c-4726-b310-25c107c49321",
+    "finding": "Recipient freshness did not satisfy the campaign's community-level no-repeat rule because the prior Ghostnode invitation had already closed The Colony.",
+    "strict_effect": 0,
+    "permanently_excluded_even_if_later_action_occurs": true,
+    "follow_up_allowed": false,
+    "remediation": "A canonical community-level outreach ledger and executable eligibility guard now deny any contacted fixed community regardless of recipient, identity, channel or delivery outcome."
+  },
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "machine_feedback_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_CONVERSION_OR_REVENUE"
+  },
+  "safety": {
+    "external_writes": 2,
+    "signed_replies_to_genuine_machine_questions": 1,
+    "outbound_messages": 1,
+    "repeat_outreach": 1,
+    "repeat_outreach_excluded": 1,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

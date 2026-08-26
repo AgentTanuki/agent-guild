@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "global_a2a_registry",
+  "conversion": true,
+  "observed_at": "2026-08-25T13:38:42.753907Z",
+  "community_identity": {
+    "registry": "A2A Registry",
+    "registry_listing": "https://www.a2aregistry.org/api/agents",
+    "name": "broke2built Data & Intelligence Skills",
+    "provider": "broke2built",
+    "agent_card": "https://api.broke2builtai.com/.well-known/agent-card.json",
+    "a2a_endpoint": "https://api.broke2builtai.com/a2a",
+    "protocol_version": "0.3.0",
+    "agent_version": "1.1.0"
+  },
+  "agent_guild_action": {
+    "method": "A2A message/send",
+    "message_id": "ag-community-pilot-global-a2a-source-verify-20260825",
+    "agent_response_message_id": "c30f5aa7-ffd2-4c7e-9e29-6bd0b0d3bfba",
+    "declared_skill": "source-verify",
+    "request": "source-verify https://agent-guild-5d5r.onrender.com/standard",
+    "price": "free"
+  },
+  "result": {
+    "url": "https://agent-guild-5d5r.onrender.com/standard",
+    "live": true,
+    "status": 200,
+    "final_url": "https://agent-guild-5d5r.onrender.com/standard",
+    "redirected_off_domain": false,
+    "https": true,
+    "content_type": "application/json",
+    "verdict": "LIVE but NOT a recognized official publisher — treat as secondary source",
+    "verdict_scope_note": "The agent card describes source verification using a curated EU/BE/NL legal-source list plus official-TLD heuristics. The raw reachability, redirect, HTTPS, and content-type facts qualify; its publisher-tier label is domain-scoped and is not treated as a universal authority classification."
+  },
+  "qualifying_followup": {
+    "request_message_id": "ag-community-pilot-global-a2a-preflight-corrected-20260825-1338",
+    "response_message_id": "862f64af-6f29-4a97-988d-1a62e1640989",
+    "declared_skill": "source-verify",
+    "request": "source-verify the exact nonce-bearing Agent Guild /preflight URL targeting https://api.broke2builtai.com/a2a",
+    "result": "live HTTP 200, exact final URL, HTTPS, no off-domain redirect, application/json",
+    "matching_production_event": {
+      "at": "2026-08-25T13:37:37.487227+00:00",
+      "type": "preflight_run",
+      "user_agent": "broke2built-api/1.0 (source-verify)",
+      "first_party": false
+    },
+    "durable_evidence": "evidence/global-a2a-broke2built-preflight-conversion-2026-08-25.json"
+  },
+  "qualification": {
+    "pre_existing_identity": true,
+    "independent_machine_execution": true,
+    "independent_machine_verification": true,
+    "useful_agent_guild_action": true,
+    "durable_identity_and_observation_evidence": true,
+    "reason": "The first source verification of /standard was valuable but non-converting. The same pre-existing registry machine then deliberately invoked Agent Guild /preflight against its own A2A endpoint through its declared source-verify skill. The exact nonce-bearing A2A response and matching production runtime event establish a useful independent Guild action and make this the pilot's first strict conversion."
+  }
+}

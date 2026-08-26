@@ -1,0 +1,23 @@
+{
+  "schema": "agent-guild.community-pilot.live-machine-monitor.v1",
+  "observed_at": "2026-08-25T18:31:25Z",
+  "mode": "read_only_in_memory",
+  "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+  "target": "Project NANDA",
+  "machine_user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+  "previous_conservative_floor": 29,
+  "previous_latest_event_at": "2026-08-25T18:04:49.378082+00:00",
+  "new_exact_preflight_events": [
+    "2026-08-25T18:09:50.769858+00:00",
+    "2026-08-25T18:14:52.516098+00:00",
+    "2026-08-25T18:19:54.277433+00:00",
+    "2026-08-25T18:25:01.697488+00:00",
+    "2026-08-25T18:30:03.388021+00:00"
+  ],
+  "new_event_count": 5,
+  "updated_conservative_floor": 34,
+  "action": "preflight_run",
+  "strict_identity_join": false,
+  "conversion": false,
+  "reason": "The machine's public user agent links Project NANDA's nandatown repository and the behavior is sustained and operation-specific, but the public feed still truncates identity and withholds target/result. No exact NEST identity, signed controller receipt, observation_id, public runtime record, or source-to-result join is available. Preserve the machine signal without promoting its self-claim into strict community attribution."
+}

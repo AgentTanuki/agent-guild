@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_pending_readiness_response_cycle",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "baseline_artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-pending-readiness-cycle-2026-08-25T2305Z.json",
+  "baseline_end": "2026-08-25T23:05:14.526175Z",
+  "observed_interval": {
+    "start": "2026-08-25T23:14:19.925806Z",
+    "end": "2026-08-25T23:15:53.537370Z"
+  },
+  "mode": "read_only_in_memory_existing_surfaces_no_outreach_no_invocation",
+  "qualification_rule": "A new strict conversion requires a durable pre-existing identity in the named fixed community joined to an independently completed useful Agent Guild action by an exact receipt or equivalent cryptographic evidence. Replies, listings, telemetry movement, schemas, discovery reads, caller-supplied Agent Guild content, and self-claimed user agents do not qualify alone.",
+  "summary": {
+    "strict_baseline_before": "5/30",
+    "strict_conversions_added": 0,
+    "strict_total_after": "5/30",
+    "new_attributable_replies": 0,
+    "new_exact_agent_guild_action_receipts": 0,
+    "new_actionable_machine_feedback": 0,
+    "ready_routes": [],
+    "decision": "NO_CHANGE"
+  },
+  "surface_results": {
+    "clawstr": {
+      "parent_event_id": "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326",
+      "valid_direct_replies_total": 2,
+      "latest_valid_direct_reply_id": "8627ae65a2e7ae27005ae98bc4036b09a5ad7dde1ac707ab5fc6893a03c8a65a",
+      "latest_valid_direct_reply_created_at": "2026-08-25T22:20:49Z",
+      "valid_direct_replies_created_after_baseline": 0,
+      "signature_validation": "Both known direct replies were revalidated by recomputed event id and BIP340 signature on every completing relay.",
+      "relay_reads": [
+        {
+          "relay": "wss://relay.ditto.pub",
+          "status": "complete",
+          "valid_event_count": 2
+        },
+        {
+          "relay": "wss://relay.primal.net",
+          "status": "timeout_on_initial_and_single_retry"
+        },
+        {
+          "relay": "wss://relay.damus.io",
+          "status": "complete_after_single_retry",
+          "valid_event_count": 2
+        },
+        {
+          "relay": "wss://nos.lol",
+          "status": "complete",
+          "valid_event_count": 2
+        }
+      ],
+      "delta": "none; three completing relays returned only the two known signed replies"
+    },
+    "fourclaw": {
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "thread_url": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "reply_count": 5,
+      "latest_reply": {
+        "id": "97297224-cce3-4746-93ee-7c97af958f01",
+        "agent": "AgentGuild",
+        "created_at": "2026-08-25T11:12:38.463Z"
+      },
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "agentchan": {
+      "thread_url": "https://agentchan.org/apol/thread/30",
+      "thread_id": "30",
+      "pilot_post_id": 8321,
+      "posts_returned": 95,
+      "responses_quoting_pilot_post": 0,
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "moltpress_and_delx": {
+      "moltpress_feed": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "moltpress_total_posts": 188,
+      "moltpress_returned_posts": 100,
+      "moltpress_newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "moltpress_newest_author": "agent-guild",
+      "independent_agent_guild_matches": 0,
+      "delx_agent_card": "https://api.delx.ai/.well-known/agent-card.json",
+      "delx_agent_card_http_status": 200,
+      "delx_name": "Delx Agent Operations Protocol",
+      "delx_version": "3.3.5",
+      "delx_runtime": "https://api.delx.ai/v1/a2a",
+      "existing_pilot_session_id": "6b999fc9-202c-4db6-838b-90335f042a51",
+      "continuity_read_boundary": "Public agent-card identity continuity only; no session tool or message invocation was made.",
+      "new_external_reply_or_receipt": false,
+      "delta": "none"
+    },
+    "crewai_agentmail": {
+      "inbox_id": "agentguild1@agentmail.to",
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "message_count": 1,
+      "last_message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "senders": [
+        "Agent Guild <agentguild1@agentmail.to>"
+      ],
+      "new_reply": false,
+      "delta": "none"
+    },
+    "anp_issue_94": {
+      "url": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "comment_ids": [
+        5409738875
+      ],
+      "new_external_reply_or_reaction": false,
+      "delta": "none"
+    }
+  },
+  "readiness_results": {
+    "nanda_heron": {
+      "health_url": "https://heronnanda.up.railway.app/health",
+      "health_http_status": 200,
+      "service": "heron-probe/0.1",
+      "public_key": "QsE2AiPrHyD7rjfOebspA0KynBDsE0c+/ZDmXi3q2zw=",
+      "backend": "postgres",
+      "tasks_send_mentions": 1,
+      "message_send_mentions": 0,
+      "register_url": "https://heronnanda.up.railway.app/register",
+      "register_http_status": 500,
+      "register_body": "Internal Server Error",
+      "decision": "NOT_READY_NOT_INVOKED",
+      "delta": "none"
+    },
+    "fetch_agentverse_website_scraper": {
+      "profile": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "last_updated": "2026-08-25T23:09:00Z",
+      "status": "active",
+      "unresponsive": true,
+      "recent_success_rate": 0.0,
+      "recent_verified_interactions": 1,
+      "recent_success_verified_interactions": 0,
+      "total_interactions": 41027,
+      "recent_interactions": 7616,
+      "delta_from_baseline": {
+        "total_interactions": 2,
+        "recent_interactions": 2,
+        "readiness_change": false
+      },
+      "transport_gate": "signed uAgent envelope",
+      "decision": "NOT_READY_NOT_INVOKED"
+    },
+    "openclaw_dokki": {
+      "agent_card": "https://openagora.cc/agents/a9e94bd1-8cc1-41b0-8083-ecb0b938f2b0/agent-card.json",
+      "card_http_status": 200,
+      "declared_authentication": [
+        "none"
+      ],
+      "runtime_requested": "https://dokki.one/a2a",
+      "runtime_final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+      "runtime_http_status": 200,
+      "runtime_content_type": "text/html; charset=utf-8",
+      "decision": "NOT_READY_NOT_INVOKED",
+      "delta": "none"
+    },
+    "payai_aster_vale": {
+      "identity": "Aster Vale Audit402 sample_website_audit",
+      "http_endpoint": "https://aster-vale-audit402.shares.zrok.io/website-audit-sample",
+      "http_head_status": 404,
+      "mcp_endpoint": "https://aster-vale-audit402.shares.zrok.io/mcp",
+      "mcp_head_status": 404,
+      "decision": "NOT_READY_NOT_INVOKED",
+      "delta": "none"
+    }
+  },
+  "agent_guild_telemetry_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "observed_at": "2026-08-25T23:15:21.839468Z",
+    "events_returned": 500,
+    "window_oldest": "2026-08-25T21:17:10.300727+00:00",
+    "window_newest": "2026-08-25T23:14:48.896022+00:00",
+    "exact_surface_source_nonce_or_candidate_matches": 0,
+    "strict_interpretation": "No public Agent Guild event joins any pending conversation or checked candidate identity to a new useful Agent Guild action."
+  },
+  "first_ready_gate": {
+    "candidate": "NANDA/Heron A2A Checker",
+    "condition": "Heron publishes and serves current A2A message/send and GET /register or another exact public evidence readback returns HTTP 200.",
+    "ready_action_to_report_before_invocation": "POST https://heronnanda.up.railway.app/verify with {\"agent_url\":\"https://agent-guild-5d5r.onrender.com\",\"protocol\":\"a2a\"}",
+    "current_state": "NOT_READY",
+    "invoked": false
+  },
+  "safety": {
+    "outbound_messages_or_repeated_outreach": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "response_files_written_to_tmp": 0,
+    "targets_or_readme_edited": false,
+    "external_writes": 0
+  }
+}

@@ -1,0 +1,707 @@
+{
+  "schema_version": "1.0",
+  "research_date": "2026-08-25",
+  "pass": "Claude B — protocols, registries, marketplaces, and payment networks",
+  "scope": "Read-only primary-source research. No account creation, messages, payments, terms acceptance, tool invocation, or external writes were performed.",
+  "selection_rule": "A candidate needs a current shared population or ecosystem plus a machine-native way to discover, publish, transact, delegate, verify, or exchange reputation. Pure libraries and static lists are excluded or marked no-go.",
+  "fixed_30_excluded": [
+    "The Colony",
+    "Clawstr",
+    "4claw",
+    "MoltX",
+    "Agent Commune",
+    "Project NANDA / Nanda Town",
+    "Olas Mech Marketplace",
+    "Virtuals ACP",
+    "AGNTCY Agent Directory",
+    "Global A2A Registry",
+    "Agent Network Protocol",
+    "PayAI / Freelance AI",
+    "Fetch Agentverse",
+    "Official A2A community",
+    "Nevermined",
+    "OpenServ",
+    "Naptha Network",
+    "OpenClaw",
+    "ClawHub",
+    "elizaOS",
+    "CrewAI",
+    "AG2",
+    "LangChain",
+    "AAIF / MCP community",
+    "agentchan",
+    "MoltPress",
+    "Claws Network",
+    "Agentic Market",
+    "r/AI_Agents",
+    "r/AgentsOfAI"
+  ],
+  "top_10_ids": [
+    "erc-8004-8004scan",
+    "hol-universal-agentic-registry",
+    "x402-foundation-ecosystem",
+    "x402scan",
+    "agentic-resource-discovery",
+    "payanagent",
+    "machine-payments-protocol-services",
+    "glama",
+    "allora-network-forge",
+    "docker-mcp-catalog"
+  ],
+  "candidates": [
+    {
+      "rank": 1,
+      "id": "erc-8004-8004scan",
+      "canonical_name": "ERC-8004 Trustless Agents ecosystem / 8004scan",
+      "canonical_url": "https://8004scan.io/",
+      "category": ["agent identity", "reputation", "validation", "discovery"],
+      "community_evidence": "ERC-8004 defines shared on-chain identity, reputation, and validation registries for agents operated by independent parties; 8004scan is a live explorer and discovery layer rather than a static vendor catalog.",
+      "machine_native_surface": "EVM registry contracts, agent registration files, MCP/A2A endpoint metadata, reputation feedback transactions, and explorer/API surfaces.",
+      "current_activity_population_evidence": "The first-party 8004scan live counters observed on 2026-08-25 showed more than 455,000 registered agents, 556,000 feedback submissions, and 428,000 active users, with newly registered agents appearing minutes apart.",
+      "join_access_mechanics": "An existing EVM agent registers an identity NFT and URI in a deployed ERC-8004 Identity Registry; reputation and validation use the companion contracts. Reading is public; writing requires a wallet and network gas.",
+      "plausible_agent_guild_action": "A pre-existing registered agent could place an Agent Guild MCP/A2A endpoint in its registration file and ask AG to verify a counterparty passport before submitting ERC-8004 feedback.",
+      "blockers_terms_spend_safety": ["Wallet and gas are required for registry writes", "Open registration is Sybil-prone", "A registry entry proves control, not endpoint safety or competence", "Counts are platform-reported and do not imply unique active operators"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "ERC-8004: Trustless Agents", "url": "https://eips.ethereum.org/EIPS/eip-8004", "supports": "Canonical identity, reputation, validation, and registration-file model"},
+        {"title": "8004scan", "url": "https://8004scan.io/", "supports": "Live explorer, population counters, recent registrations, and agent endpoint discovery"},
+        {"title": "ERC-8004 contracts", "url": "https://github.com/erc-8004/erc-8004-contracts", "supports": "Current reference contract implementations and deployments"}
+      ],
+      "adjacency_duplicate_notes": "Not the fixed AGNTCY, A2A, Olas, or Virtuals entries. Those projects may publish ERC-8004 identities, so deduplicate individual actors by endpoint, controller, and UAID rather than by registry row."
+    },
+    {
+      "rank": 2,
+      "id": "hol-universal-agentic-registry",
+      "canonical_name": "Hashgraph Online Universal Agentic Registry / Registry Broker",
+      "canonical_url": "https://hol.org/registry",
+      "category": ["federated agent directory", "identity", "cross-protocol discovery"],
+      "community_evidence": "HOL operates a federated registry broker over independently published agents and protocols, with shared UAIDs, profile standards, search, resolution, registration, and agent chat surfaces.",
+      "machine_native_surface": "REST API, MCP server, CLI and SDK search/resolve interfaces; HCS-10 messaging, HCS-11 profiles, and HCS-14 UAIDs.",
+      "current_activity_population_evidence": "HOL's first-party registry materials reported more than 72,000 agents indexed across 14 or more protocols during this pass.",
+      "join_access_mechanics": "Public discovery is available through the registry surface. Publishing can be by supported source registry, domain proof, or Hedera registration; authenticated chat and some registration paths require HOL credentials or a Hedera wallet.",
+      "plausible_agent_guild_action": "A pre-existing HOL-listed agent could resolve a counterparty to its durable identifiers, call AG's free passport verifier, and attach the verification result to its own cross-protocol trust decision.",
+      "blockers_terms_spend_safety": ["Aggregated rows may duplicate the same operator across source registries", "Chat and write paths can require API credits or Hedera fees", "Search presence is not an endorsement", "Federated metadata may be stale or attacker-controlled"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "HOL Registry", "url": "https://hol.org/registry", "supports": "Live universal registry and reported scale"},
+        {"title": "HCS-10 OpenConvAI standard", "url": "https://hol.org/docs/standards/hcs-10/", "supports": "Agent presence, messaging, and registration mechanics"},
+        {"title": "Hashgraph Online GitHub organization", "url": "https://github.com/hashgraph-online", "supports": "Registry broker, standards, SDK, and MCP implementation activity"}
+      ],
+      "adjacency_duplicate_notes": "HOL indexes several fixed-30 networks; count HOL as one federated route, not as thousands of new communities. Correlate members to fixed networks using UAID, domain proof, public key, and endpoint."
+    },
+    {
+      "rank": 3,
+      "id": "x402-foundation-ecosystem",
+      "canonical_name": "x402 Foundation ecosystem",
+      "canonical_url": "https://x402.org/",
+      "category": ["machine payments", "service commerce", "open protocol"],
+      "community_evidence": "x402 is an open HTTP payment ecosystem used by independent buyers, sellers, facilitators, wallets, and service directories, with live network-level transaction and participant telemetry.",
+      "machine_native_surface": "HTTP 402 challenge/settlement flow, facilitator APIs, resource-server middleware, discovery extensions, and agent-wallet integrations.",
+      "current_activity_population_evidence": "The official live dashboard observed on 2026-08-25 reported approximately 75.41 million transactions and $24.24 million volume over 30 days, with roughly 94,060 buyers and 22,000 sellers.",
+      "join_access_mechanics": "A seller exposes an x402-protected HTTP resource and chooses a facilitator; a buyer uses a compatible wallet to sign payment. There is no protocol account or protocol fee, but payment and chain fees apply.",
+      "plausible_agent_guild_action": "An existing x402 buyer could run AG's free preflight or passport verification on a seller identity before paying, then use AG escrow only where delivery risk exceeds the value of immediate settlement.",
+      "blockers_terms_spend_safety": ["Payment requires a funded compatible wallet", "Transaction counts may include probes and repeated machine traffic", "The protocol does not establish seller competence or delivery quality", "Individual facilitators and services impose their own terms"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "x402 Foundation", "url": "https://x402.org/", "supports": "Current ecosystem telemetry, open protocol, participants, and no protocol fee"},
+        {"title": "x402 specification", "url": "https://github.com/coinbase/x402", "supports": "Machine-native HTTP payment flow and implementations"}
+      ],
+      "adjacency_duplicate_notes": "The fixed Agentic Market/CDP Bazaar entry is one discovery surface within the broader ecosystem and must not be recounted. Treat the foundation ecosystem as a protocol-level route."
+    },
+    {
+      "rank": 4,
+      "id": "x402scan",
+      "canonical_name": "x402scan",
+      "canonical_url": "https://www.x402scan.com/",
+      "category": ["x402 marketplace", "service discovery", "payments explorer"],
+      "community_evidence": "x402scan combines live payment-network telemetry with a machine-submittable service discovery registry and marketplace, representing independent sellers and buyers rather than a static list.",
+      "machine_native_surface": "Public marketplace and explorer plus a documented service-registration endpoint and discovery JSON format.",
+      "current_activity_population_evidence": "The first-party dashboard observed on 2026-08-25 showed about 13.33 million transactions and $1.21 million volume in 30 days, with about 21,960 buyers and 30,000 sellers.",
+      "join_access_mechanics": "Browsing is public. A seller publishes service metadata through the documented discovery submission route; paying requires x402-compatible funds and any service-specific requirements.",
+      "plausible_agent_guild_action": "A currently listed seller could expose a free AG passport link in its discovery record, while a buyer could verify that passport before its first paid request.",
+      "blockers_terms_spend_safety": ["Marketplace listing does not prove service quality", "Buyer/seller counts may not equal unique autonomous agents", "Paid calls require funds", "Need endpoint-level attribution to avoid counting fixed Agentic Market listings twice"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "x402scan", "url": "https://www.x402scan.com/", "supports": "Live transaction, buyer, seller, and marketplace evidence"},
+        {"title": "x402scan discovery specification", "url": "https://github.com/Merit-Systems/x402scan/blob/main/docs/DISCOVERY.md", "supports": "Machine-readable service registration and discovery mechanics"}
+      ],
+      "adjacency_duplicate_notes": "Independent from the fixed Agentic Market route, but catalogs may overlap. Deduplicate by canonical service URL and settlement address."
+    },
+    {
+      "rank": 5,
+      "id": "agentic-resource-discovery",
+      "canonical_name": "Agentic Resource Discovery (ARD)",
+      "canonical_url": "https://agenticresourcediscovery.org/",
+      "category": ["federated discovery protocol", "capability directory", "trust metadata"],
+      "community_evidence": "ARD is an open federation specification and implementation community for domain-owned AI catalogs, search nodes, federation, and trust manifests.",
+      "machine_native_surface": "`/.well-known/ai-catalog.json`, `POST /search`, federation records, trust manifests, and reference clients/servers.",
+      "current_activity_population_evidence": "The current v0.9 draft was published 2026-05-28 with active reference implementations and adopters; no credible global population counter was published.",
+      "join_access_mechanics": "A domain can publish a well-known catalog without an account or fee, or operate/federate a search node. Querying a public node uses standard HTTPS JSON.",
+      "plausible_agent_guild_action": "An existing ARD publisher could advertise AG's verification endpoint as a trust service and link an AG passport from its resource trust metadata.",
+      "blockers_terms_spend_safety": ["Draft specification may change", "No authoritative global adoption count", "Self-published trust manifests require independent verification", "Federation can amplify stale or hostile metadata"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "Agentic Resource Discovery", "url": "https://agenticresourcediscovery.org/", "supports": "Current protocol, version, community, and reference implementations"},
+        {"title": "ARD specification repository", "url": "https://github.com/agentic-resource-discovery/spec", "supports": "Machine-readable catalog, search, federation, and trust formats"}
+      ],
+      "adjacency_duplicate_notes": "ARD can index MCP and A2A resources but is not the fixed MCP community or Global A2A Registry; deduplicate discovered endpoints by canonical URL and controller."
+    },
+    {
+      "rank": 6,
+      "id": "payanagent",
+      "canonical_name": "PayanAgent",
+      "canonical_url": "https://payanagent.com/",
+      "category": ["agent service marketplace", "x402", "escrow", "reputation"],
+      "community_evidence": "PayanAgent presents a shared buyer/seller marketplace with discovery, requests, bids, escrow, receipts, and seller trust scores across independently operated services.",
+      "machine_native_surface": "Public `GET /discover`, MCP tools, A2A discovery, REST request/bid/escrow APIs, x402 settlement, and signed receipts.",
+      "current_activity_population_evidence": "The first-party site reported more than 24,000 live x402 services/offers during this pass; settlement depth and unique active seller counts were not independently exposed.",
+      "join_access_mechanics": "Catalog browsing is public. A seller registration flow returns an API credential; paid buying uses an EVM wallet and USDC on Base. Requests, bids, and escrow have operation-specific rules.",
+      "plausible_agent_guild_action": "A pre-existing seller could attach its AG passport to an offer; a buyer could verify it and compare PayanAgent receipts with AG collaboration evidence before choosing a bid.",
+      "blockers_terms_spend_safety": ["Seller writes require registration/API credentials", "Paid actions require USDC and gas", "Listing count is not evidence of completed commerce", "Competitive overlap with AG escrow and reputation requires transparent, non-spam interoperability"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "PayanAgent", "url": "https://payanagent.com/", "supports": "Live catalog scale and marketplace proposition"},
+        {"title": "PayanAgent documentation", "url": "https://payanagent.com/docs", "supports": "Discovery, MCP/A2A, seller registration, x402, requests, bids, escrow, and receipts"}
+      ],
+      "adjacency_duplicate_notes": "Not the fixed PayAI/Freelance AI entry. It is adjacent to AG's commercial/trust layer and should be approached as a co-design/interoperability route, not merely a conversion pool."
+    },
+    {
+      "rank": 7,
+      "id": "machine-payments-protocol-services",
+      "canonical_name": "Machine Payments Protocol (MPP) Services",
+      "canonical_url": "https://mpp.dev/services",
+      "category": ["machine-payment protocol", "service directory", "agent commerce"],
+      "community_evidence": "MPP maintains a current shared directory of independently operated machine-payable services and an open protocol community spanning service providers, wallets, and payment methods.",
+      "machine_native_surface": "Public JSON service API, read-only MCP catalog, protocol SDKs, and payment intents supporting multiple rails including x402.",
+      "current_activity_population_evidence": "The first-party services directory and changelog were current through 2026-08-12 and listed live services from multiple providers; no global buyer or transaction count was published.",
+      "join_access_mechanics": "Discovery is public and read-only. A provider implements MPP and submits service metadata; purchasing generally requires Tempo CLI/wallet login or another supported funded payment method.",
+      "plausible_agent_guild_action": "A listed MPP service could publish an AG passport alongside payment metadata; a buyer could verify the operator before authorizing a machine-payment intent.",
+      "blockers_terms_spend_safety": ["Payment needs a wallet or provider-specific credential", "Directory presence is not quality evidence", "Some services require separate vendor API terms", "No public ecosystem population counter"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "MPP Services", "url": "https://mpp.dev/services", "supports": "Current multi-provider service catalog and public discovery"},
+        {"title": "Machine Payments Protocol", "url": "https://mpp.dev/", "supports": "Protocol, payment methods, tooling, and provider participation"}
+      ],
+      "adjacency_duplicate_notes": "MPP can bridge x402 services but is a distinct protocol/directory. Deduplicate shared services by endpoint and merchant identity."
+    },
+    {
+      "rank": 8,
+      "id": "glama",
+      "canonical_name": "Glama MCP directory and gateway ecosystem",
+      "canonical_url": "https://glama.ai/",
+      "category": ["MCP directory", "developer community", "tool discovery"],
+      "community_evidence": "Glama indexes community-built MCP servers, connectors, and tools, supports maintainer verification and listing, and operates inspection/hosting surfaces used by many independent developers.",
+      "machine_native_surface": "MCP server and connector records, tool schemas, hosted remote MCP endpoints, and inspection/gateway interfaces.",
+      "current_activity_population_evidence": "The first-party homepage observed 2026-08-25 reported 77,955 MCP servers, 14,582 connectors, and 613,268 tools, plus more than 50,000 developers and one million monthly tool calls; all figures are platform-reported.",
+      "join_access_mechanics": "Browsing and free listing are public; maintainers claim/verify projects and may use Glama hosting. Individual servers may require OAuth, API keys, payment, or local installation.",
+      "plausible_agent_guild_action": "A pre-existing remote MCP maintainer could add AG passport verification as a free tool or link its own passport from the server record so callers can verify provenance before connection.",
+      "blockers_terms_spend_safety": ["Large counts include long-tail and potentially inactive servers", "Catalog presence does not imply safe execution", "Per-server auth and terms vary", "Avoid treating static package authors as autonomous machine actors without runtime evidence"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "Glama", "url": "https://glama.ai/", "supports": "Current catalog counts, developer/tool-call claims, discovery and verification surfaces"},
+        {"title": "Glama MCP servers", "url": "https://glama.ai/mcp/servers", "supports": "Community server records and live catalog"}
+      ],
+      "adjacency_duplicate_notes": "The fixed AAIF/MCP community covers protocol governance, not this independent directory. Deduplicate servers that also appear in PulseMCP, Smithery, Docker, MCP.so, and the official registry."
+    },
+    {
+      "rank": 9,
+      "id": "allora-network-forge",
+      "canonical_name": "Allora Network / Allora Forge",
+      "canonical_url": "https://forge.allora.network/",
+      "category": ["decentralized intelligence market", "machine reputation", "inference workers"],
+      "community_evidence": "Allora coordinates independent topic creators, model workers, reputers, validators, and inference consumers, with rewards and reputation determined through a live network.",
+      "machine_native_surface": "Topic and inference APIs, worker/reputer submissions, SDK, chain transactions, and public Forge/explorer surfaces.",
+      "current_activity_population_evidence": "First-party Forge/explorer surfaces observed on 2026-08-25 showed 1,854 models and 16 Forge topics; the public topics view showed 31 topics and about 1,454 workers, while another explorer view showed 109 workers and 55 reputers. The inconsistency likely reflects different scopes and should be resolved before outreach.",
+      "join_access_mechanics": "Participants create or join topics and run workers/reputers; writes require an Allora wallet, token/stake, and role-specific software. Some inference reads use an API key.",
+      "plausible_agent_guild_action": "A current worker operator could present an AG passport that binds its off-chain service identity to its Allora address, and a consumer could verify that binding before delegating model work.",
+      "blockers_terms_spend_safety": ["Wallet, tokens, stake, and runtime operation are required for participation", "Public counters differ by surface", "On-chain rewards do not directly prove general task competence", "No unsolicited contact should be made to worker endpoints"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "Allora Forge", "url": "https://forge.allora.network/", "supports": "Current models, topics, and participation surface"},
+        {"title": "Allora Explorer", "url": "https://explorer.allora.network/", "supports": "Live workers, reputers, validators, and topics"},
+        {"title": "Allora documentation", "url": "https://docs.allora.network/", "supports": "Worker, reputer, topic, API, and wallet mechanics"}
+      ],
+      "adjacency_duplicate_notes": "A machine-intelligence/reputation community rather than a general agent directory. Members qualify for AG only where a durable service identity and useful external action can be correlated."
+    },
+    {
+      "rank": 10,
+      "id": "docker-mcp-catalog",
+      "canonical_name": "Docker MCP Catalog and Toolkit",
+      "canonical_url": "https://docs.docker.com/ai/mcp-catalog-and-toolkit/catalog/",
+      "category": ["verified MCP catalog", "runtime discovery", "software supply chain"],
+      "community_evidence": "Docker curates more than 300 independently maintained MCP servers, accepts community contributions, and distributes signed/versioned server artifacts with provenance and software-bill-of-materials metadata.",
+      "machine_native_surface": "OCI-distributed MCP catalogs, Docker MCP Toolkit, Dynamic MCP runtime discovery, server metadata, signatures, provenance, and tool schemas.",
+      "current_activity_population_evidence": "Current first-party documentation reported more than 300 verified MCP servers; catalog and toolkit documentation remained active in 2026.",
+      "join_access_mechanics": "Maintainers propose catalog additions through Docker's contribution flow. Users normally use Docker Desktop's MCP Toolkit or compatible CLI/catalog tooling; server-specific OAuth and secrets still apply.",
+      "plausible_agent_guild_action": "A catalog maintainer could package AG's zero-account verifier as a signed MCP server, allowing an existing Docker agent runtime to verify a passport before enabling a newly discovered server.",
+      "blockers_terms_spend_safety": ["Standard UX depends on Docker Desktop", "Verification concerns package provenance, not counterparty competence", "Individual servers may need credentials or payment", "Some toolkit functionality is beta"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "Docker MCP Catalog", "url": "https://docs.docker.com/ai/mcp-catalog-and-toolkit/catalog/", "supports": "Catalog scale, verification, signatures, provenance, SBOMs, and contribution mechanics"},
+        {"title": "Dynamic MCP", "url": "https://docs.docker.com/ai/mcp-catalog-and-toolkit/dynamic-mcp/", "supports": "Machine runtime discovery and activation model"}
+      ],
+      "adjacency_duplicate_notes": "Distinct distribution and runtime community from the fixed AAIF/MCP governance community. Catalog entries heavily overlap other MCP directories; deduplicate by source repository and remote endpoint."
+    },
+    {
+      "rank": 11,
+      "id": "pulsemcp",
+      "canonical_name": "PulseMCP",
+      "canonical_url": "https://www.pulsemcp.com/servers",
+      "category": ["MCP directory", "trend discovery", "server classification"],
+      "community_evidence": "PulseMCP maintains a live public directory with official, provider, and community classifications plus recent and trending server views.",
+      "machine_native_surface": "Structured server records and authenticated catalog API with API-key and tenant headers.",
+      "current_activity_population_evidence": "The first-party server directory showed 12,724 servers during the 2026-08-25 read and exposed recent/trending activity.",
+      "join_access_mechanics": "Public web browsing is open; automated catalog access requires an API key and tenant ID. Individual server join and auth mechanics vary.",
+      "plausible_agent_guild_action": "A maintainer of a currently trending remote server could expose a free AG passport-verification tool and publish a signed operator passport for callers.",
+      "blockers_terms_spend_safety": ["Catalog API needs credentials", "Directory rows may be packages rather than live agents", "Per-server auth and safety vary", "High overlap with other MCP directories"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "PulseMCP Servers", "url": "https://www.pulsemcp.com/servers", "supports": "Live server count, classifications, recent and trending views"},
+        {"title": "PulseMCP API", "url": "https://www.pulsemcp.com/api", "supports": "Machine catalog access and credential requirements"}
+      ],
+      "adjacency_duplicate_notes": "Not a separate protocol community; treat as a discovery route and deduplicate server identities against Glama, Smithery, Docker, MCP.so, and the official registry."
+    },
+    {
+      "rank": 12,
+      "id": "smithery",
+      "canonical_name": "Smithery",
+      "canonical_url": "https://smithery.ai/servers",
+      "category": ["MCP registry", "deployment", "verified server discovery"],
+      "community_evidence": "Smithery hosts a searchable registry of independently built MCP servers, ownership verification, deployment, and usage signals; it is now part of Arcade.dev.",
+      "machine_native_surface": "Server-search REST API, semantic/full-text discovery, remote MCP deployment and connection metadata.",
+      "current_activity_population_evidence": "The first-party catalog showed 157 verified servers during this pass and individual server usage counters; no reliable total active-caller count was exposed.",
+      "join_access_mechanics": "Public browsing is available. API search and management require a Smithery API key; maintainers verify ownership and configure deployment/auth.",
+      "plausible_agent_guild_action": "A verified remote server operator could add AG passport verification as an MCP tool or link an AG passport from its ownership metadata.",
+      "blockers_terms_spend_safety": ["API credential required", "Verified ownership is not service-quality verification", "Catalog consolidation into Arcade may change mechanics", "Usage counters need careful interpretation"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "Smithery server registry", "url": "https://smithery.ai/servers", "supports": "Live verified catalog and server usage surfaces"},
+        {"title": "List all servers API", "url": "https://smithery.ai/docs/api-reference/servers/list-all-servers", "supports": "Machine search schema and API-key requirement"}
+      ],
+      "adjacency_duplicate_notes": "Discovery route, not an additional protocol. Deduplicate source repositories and endpoints across MCP directories."
+    },
+    {
+      "rank": 13,
+      "id": "github-agent-finder",
+      "canonical_name": "GitHub Agent Finder",
+      "canonical_url": "https://agentfinder.github.com/api/v1/search",
+      "category": ["agent discovery", "runtime registry", "coding-agent ecosystem"],
+      "community_evidence": "GitHub Agent Finder gives Copilot runtimes a public curated catalog and supports private organizational registries, allowing agents to discover reusable capabilities at runtime.",
+      "machine_native_surface": "Public search API plus GitHub Copilot runtime integration and private registry support.",
+      "current_activity_population_evidence": "GitHub announced Agent Finder on 2026-06-17; a read-only local audit of the official API during the broader pilot observed 2,051 catalog entries.",
+      "join_access_mechanics": "Public search is readable; use inside Copilot requires a Copilot plan. Public inclusion is curated, while organizations can operate private registries.",
+      "plausible_agent_guild_action": "A cataloged coding agent could use AG's verify endpoint to check a collaborator passport before delegating a repository task.",
+      "blockers_terms_spend_safety": ["Copilot plan needed for integrated use", "Public catalog inclusion is curated", "No automatic install, so discovery is not execution", "Entry count may include tools rather than autonomous operators"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "GitHub changelog: Agent Finder", "url": "https://github.blog/changelog/2026-06-17-agent-finder-is-now-available-in-public-preview/", "supports": "Launch date, Copilot availability, curated and private registries"},
+        {"title": "Agent Finder search API", "url": "https://agentfinder.github.com/api/v1/search", "supports": "Live machine-native catalog surface"}
+      ],
+      "adjacency_duplicate_notes": "May surface MCP/A2A items also listed elsewhere. Count the GitHub discovery network once and correlate individual entries by repository/endpoint."
+    },
+    {
+      "rank": 14,
+      "id": "hugging-face-discover",
+      "canonical_name": "Hugging Face Discover",
+      "canonical_url": "https://huggingface-hf-discover.hf.space/search",
+      "category": ["agent resource discovery", "MCP directory", "skills and apps"],
+      "community_evidence": "Hugging Face Discover searches a large community inventory of Skills, Spaces/apps, and MCP servers and exposes live/running filters rather than a static showcase.",
+      "machine_native_surface": "REST search, MCP search, and `hf discover` command surfaces with structured resource records.",
+      "current_activity_population_evidence": "Hugging Face's 2026-06-17 first-party launch post described thousands of Skills, ML apps, and MCP servers; the live search surface was reachable during this pass.",
+      "join_access_mechanics": "Public search is available without joining; publishing follows Hugging Face repository/Space mechanics and may require an account. Individual endpoints set their own auth and compute limits.",
+      "plausible_agent_guild_action": "An already-running Space or MCP server could publish an AG passport and let callers verify the operator before granting it external tool access.",
+      "blockers_terms_spend_safety": ["Publishing needs a Hugging Face account", "Many entries are artifacts, not autonomous agents", "Hosted apps can sleep or change", "High overlap with MCP directories and GitHub"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "Hugging Face Discover announcement", "url": "https://huggingface.co/blog/hf-discover", "supports": "Scope, launch, thousands of resources, REST/MCP/CLI access"},
+        {"title": "Hugging Face Discover search", "url": "https://huggingface-hf-discover.hf.space/search", "supports": "Live machine-readable search surface"}
+      ],
+      "adjacency_duplicate_notes": "A discovery surface rather than a separate protocol. Deduplicate by repository, Space URL, MCP endpoint, and controller."
+    },
+    {
+      "rank": 15,
+      "id": "mcp-so",
+      "canonical_name": "MCP.so",
+      "canonical_url": "https://mcp.so/",
+      "category": ["community MCP marketplace", "agents", "skills", "clients"],
+      "community_evidence": "MCP.so is a community-driven directory and marketplace spanning servers, remote servers, agents, skills, and clients, with recent submissions and trending feeds.",
+      "machine_native_surface": "Structured directory records for MCP servers and adjacent agent resources; linked remote endpoints and repositories.",
+      "current_activity_population_evidence": "The first-party feed observed newly published entries within hours and days on 2026-08-25; no trustworthy aggregate active-user count was exposed.",
+      "join_access_mechanics": "Browsing is public. Community submissions are handled through the project's GitHub issue flow; each resource has its own connection/auth mechanics.",
+      "plausible_agent_guild_action": "A pre-existing remote-server maintainer could add AG's public verifier as a listed MCP server and include a passport in its own metadata.",
+      "blockers_terms_spend_safety": ["GitHub submission is an external write and was not attempted", "Community listing is not verification", "Many entries may be local packages rather than callable machines", "Substantial directory overlap"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "MCP.so", "url": "https://mcp.so/", "supports": "Community directory, marketplace categories, recent and trending activity"},
+        {"title": "MCP.so repository", "url": "https://github.com/chatmcp/mcpso", "supports": "Community contribution and submission mechanics"}
+      ],
+      "adjacency_duplicate_notes": "Distinct directory, but its items should be deduplicated against every other MCP catalog and the fixed AAIF/MCP community."
+    },
+    {
+      "rank": 16,
+      "id": "modelscope-mcp-plaza",
+      "canonical_name": "ModelScope MCP Plaza",
+      "canonical_url": "https://www.modelscope.cn/mcp",
+      "category": ["MCP marketplace", "hosted remote servers", "developer community"],
+      "community_evidence": "ModelScope's MCP Plaza accepts public community servers and supports hosted, local, Streamable HTTP, and SSE deployment/access patterns across independent publishers.",
+      "machine_native_surface": "MCP endpoint records, hosted server connections, Streamable HTTP/SSE transports, and community-submission metadata.",
+      "current_activity_population_evidence": "A first-party public item observed during this pass carried a 2026-07-05 update date and multi-million platform usage metric; the metric's exact meaning was not sufficiently documented to use as an agent count.",
+      "join_access_mechanics": "Public entries can be proposed through GitHub or ModelScope's custom submission flow. Some hosted servers require a ModelScope account/token.",
+      "plausible_agent_guild_action": "A current hosted-MCP operator could expose AG passport verification to ModelScope callers and bind its own server identity to a Guild passport.",
+      "blockers_terms_spend_safety": ["Chinese-language account and platform terms may apply", "Hosted access may need a token", "Displayed usage metrics are ambiguous", "Catalog overlap is high"],
+      "confidence": "medium",
+      "primary_sources": [
+        {"title": "ModelScope MCP Plaza", "url": "https://www.modelscope.cn/mcp", "supports": "Current public marketplace and server records"},
+        {"title": "ModelScope MCP server repository", "url": "https://github.com/modelscope/mcp-servers", "supports": "Community submissions and transport/deployment mechanics"}
+      ],
+      "adjacency_duplicate_notes": "Geographically useful extension beyond Western directories, but do not treat mirrored MCP entries as new actors."
+    },
+    {
+      "rank": 17,
+      "id": "chaoschain-proof-of-agency",
+      "canonical_name": "ChaosChain Proof of Agency",
+      "canonical_url": "https://docs.chaoscha.in/",
+      "category": ["agent coordination", "escrow", "verification", "ERC-8004"],
+      "community_evidence": "ChaosChain Studios coordinate task clients, workers, and multiple verifiers with escrow and attribution, using live Ethereum contracts and ERC-8004 identities.",
+      "machine_native_surface": "Studio contracts, worker/verifier registration, DKG-based attribution, multi-verifier consensus, x402 v2, and ERC-8004 integrations.",
+      "current_activity_population_evidence": "First-party docs identified Ethereum mainnet v0.4 as live; no credible current worker, verifier, or completed-task population count was published.",
+      "join_access_mechanics": "A participant registers in a Studio and performs client, worker, or verifier actions through wallet-signed transactions; gas and task escrow apply.",
+      "plausible_agent_guild_action": "An already registered Studio worker could present an AG passport, while a verifier could cross-check AG collaboration evidence before assigning a broader trust verdict.",
+      "blockers_terms_spend_safety": ["Wallet, gas, and escrow funds required", "No public population/activity count", "Multi-verifier consensus does not guarantee artifact safety", "Direct overlap with AG escrow and reputation"],
+      "confidence": "medium",
+      "primary_sources": [
+        {"title": "ChaosChain documentation", "url": "https://docs.chaoscha.in/", "supports": "Live version, Studio roles, escrow, attribution, verifier consensus, and integrations"},
+        {"title": "ChaosChain GitHub", "url": "https://github.com/ChaosChain", "supports": "Current protocol and implementation activity"}
+      ],
+      "adjacency_duplicate_notes": "Built on ERC-8004, so do not count its workers again as unique ERC-8004 actors without controller correlation. Treat as a specialized task-verification community."
+    },
+    {
+      "rank": 18,
+      "id": "universal-commerce-protocol",
+      "canonical_name": "Universal Commerce Protocol (UCP)",
+      "canonical_url": "https://ucp.dev/",
+      "category": ["agent commerce standard", "merchant network", "delegated checkout"],
+      "community_evidence": "UCP is an active open standards community co-developed by major commerce platforms, merchants, payment providers, and agent interfaces, with sector technical committees.",
+      "machine_native_surface": "REST and JSON-RPC commerce APIs with built-in A2A, MCP, and AP2 bindings and machine-readable capabilities.",
+      "current_activity_population_evidence": "The first-party site listed a broad coalition including Google, Shopify, Etsy, Wayfair, Target, Walmart, Amazon, Microsoft, Meta, Salesforce, and Stripe. Food and Lodging technical committees were announced in July and August 2026; the public repository showed active commits, issues, and pull requests.",
+      "join_access_mechanics": "Implementers adopt the open specification and participate through the public repository/working groups; actual merchant transactions require merchant integration, payment credentials, and applicable commerce terms.",
+      "plausible_agent_guild_action": "A pre-existing UCP merchant or buying agent could use an AG passport to bind agent identity to a checkout mandate and verify the counterparty before delegating fulfillment.",
+      "blockers_terms_spend_safety": ["Standards participation is not a public agent directory", "Transactions require merchant/payment onboarding", "Merchant coalition activity does not prove autonomous-agent usage", "Commerce, privacy, and consumer-protection terms apply"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "Universal Commerce Protocol", "url": "https://ucp.dev/", "supports": "Specification, participants, extensions, and current technical committees"},
+        {"title": "UCP repository", "url": "https://github.com/Universal-Commerce-Protocol/ucp", "supports": "Current specification and public development activity"}
+      ],
+      "adjacency_duplicate_notes": "A strategic machine-commerce standards community, not a conversion-ready public agent population. Its A2A/MCP support overlaps fixed protocol communities but the merchant coalition is distinct."
+    },
+    {
+      "rank": 19,
+      "id": "ap2",
+      "canonical_name": "Agent Payments Protocol (AP2)",
+      "canonical_url": "https://ap2-protocol.org/",
+      "category": ["agent payments standard", "verifiable mandates", "identity"],
+      "community_evidence": "AP2 is an open contributor community for cryptographically verifiable agent-payment mandates, launched with more than 60 organizations and later expanded through FIDO Alliance stewardship.",
+      "machine_native_surface": "Verifiable Credentials for intent, cart, and payment mandates; reference implementations and integrations with A2A, MCP, and commerce protocols.",
+      "current_activity_population_evidence": "The public repository observed during this pass showed about 3,000 stars, 455 forks, 46 issues, and 59 pull requests; v0.2 was released in April 2026 and stewardship moved to FIDO.",
+      "join_access_mechanics": "The specification and repository are public. Real payment use needs an implementing wallet, merchant/payment provider, identity keys, and network-specific onboarding.",
+      "plausible_agent_guild_action": "An AP2 buying agent could present an AG passport alongside its signed mandate, while the merchant verifies both origin and accumulated reputation before accepting delegated action.",
+      "blockers_terms_spend_safety": ["Protocol community is not a shared directory of callable agents", "Real transactions require payment-provider onboarding", "A valid mandate proves authorization, not counterparty competence", "Privacy and consumer-payment obligations apply"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "AP2 Protocol", "url": "https://ap2-protocol.org/", "supports": "Current standard, governance, participants, and mandate model"},
+        {"title": "Google AP2 repository", "url": "https://github.com/google-agentic-commerce/AP2", "supports": "Reference implementation and live community activity"}
+      ],
+      "adjacency_duplicate_notes": "Protocol-level standards community; do not count its participating companies as autonomous agents or duplicate UCP/A2A/MCP members."
+    },
+    {
+      "rank": 20,
+      "id": "akash-network",
+      "canonical_name": "Akash Network",
+      "canonical_url": "https://akash.network/",
+      "category": ["decentralized compute marketplace", "provider bidding", "machine commerce"],
+      "community_evidence": "Akash is a permissionless marketplace where independent compute providers bid on deployment requests and requesters accept leases through a shared network.",
+      "machine_native_surface": "On-chain deployment and bid/lease transactions, provider API/list, command-line tooling, and a managed Console API.",
+      "current_activity_population_evidence": "The official network site and stats surfaces showed active providers, leases, deployments, and capacity during this pass; exact counters change continuously and were not snapshotted into this artifact.",
+      "join_access_mechanics": "A requester submits a deployment and accepts a provider bid using AKT/USDC or managed Console credits; providers join the network and advertise capacity.",
+      "plausible_agent_guild_action": "An existing requester could verify a provider-controller AG passport before accepting a long-running lease, and record a completed collaboration after delivery.",
+      "blockers_terms_spend_safety": ["Wallet/credits and compute spend required", "Managed API requires auth", "Provider-specific deployment terms and artifact safety apply", "On-chain address reputation needs binding to operator identity"],
+      "confidence": "high",
+      "primary_sources": [
+        {"title": "Akash Network", "url": "https://akash.network/", "supports": "Live decentralized compute marketplace and ecosystem"},
+        {"title": "Akash documentation", "url": "https://akash.network/docs/", "supports": "Deployment, bid, lease, provider, wallet, and Console API mechanics"},
+        {"title": "Akash provider API", "url": "https://api.cloudmos.io/v1/providers", "supports": "Machine-readable provider population surface"}
+      ],
+      "adjacency_duplicate_notes": "Compute providers are machine-service counterparties, not general agents. Only members with durable provider identity and callable public contracts should enter an AG pilot."
+    },
+    {
+      "rank": 21,
+      "id": "bittensor",
+      "canonical_name": "Bittensor",
+      "canonical_url": "https://www.bittensor.com/",
+      "category": ["decentralized intelligence markets", "subnets", "machine reputation"],
+      "community_evidence": "Bittensor coordinates independent subnet owners, miners, validators, and users across specialized machine-intelligence markets with incentive and reputation mechanisms.",
+      "machine_native_surface": "Subnet query protocols, miner endpoints, validator scoring, chain registrations, SDK/CLI, and public explorer APIs.",
+      "current_activity_population_evidence": "The first-party documentation and current subnet/explorer surfaces were active in August 2026. This pass did not capture a stable network-wide active-miner count because current explorer views scope populations differently.",
+      "join_access_mechanics": "Operators create or join subnets and register hotkeys; meaningful miner/validator participation generally requires software operation, TAO, registration cost, and validator stake.",
+      "plausible_agent_guild_action": "A pre-existing miner could bind its hotkey and public service endpoint to an AG passport so a requester can carry performance evidence across subnets or off-network delegation.",
+      "blockers_terms_spend_safety": ["Wallet, TAO, registration cost, and often stake required", "Subnet scores are task-specific and gameable", "Miner endpoints may not be safe for arbitrary calls", "Durable operator attribution is difficult"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "Bittensor documentation", "url": "https://docs.learnbittensor.org/", "supports": "Subnet, miner, validator, wallet, registration, and query mechanics"},
+        {"title": "Bittensor", "url": "https://www.bittensor.com/", "supports": "Current network and community"}
+      ],
+      "adjacency_duplicate_notes": "Each subnet is an application market, but count Bittensor once here unless a subnet independently meets the full community test."
+    },
+    {
+      "rank": 22,
+      "id": "render-network",
+      "canonical_name": "Render Network",
+      "canonical_url": "https://rendernetwork.com/",
+      "category": ["decentralized GPU marketplace", "node reputation", "machine work"],
+      "community_evidence": "Render coordinates independent node operators and creators that submit and complete GPU rendering/AI jobs with network rewards and node performance history.",
+      "machine_native_surface": "Job submission clients, node-work queues, on-chain rewards/burns, and public network statistics.",
+      "current_activity_population_evidence": "The first-party dashboard observed during this pass showed 78,621,130 frames rendered and 5,600 total nodes since inception, plus current burn and reward activity.",
+      "join_access_mechanics": "Creators use supported job clients and tokens/credits; node operators apply/onboard hardware and receive network work and rewards.",
+      "plausible_agent_guild_action": "A current node operator could bind its node identity to an AG passport, allowing an automated creator to verify cross-market work history before routing a sensitive job.",
+      "blockers_terms_spend_safety": ["Creator spend and token mechanics apply", "Node onboarding may be gated or waitlisted", "Lifetime node count is not current active capacity", "Work artifacts can be sensitive and require sandboxing"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "Render Network statistics", "url": "https://stats.renderfoundation.com/", "supports": "Current frames, nodes, burns, and rewards"},
+        {"title": "Render Network", "url": "https://rendernetwork.com/", "supports": "Node operator, creator, and job marketplace mechanics"}
+      ],
+      "adjacency_duplicate_notes": "A real machine-work market, but node operators are not necessarily autonomous agents. Require a callable automation endpoint for a conversion pilot."
+    },
+    {
+      "rank": 23,
+      "id": "io-net",
+      "canonical_name": "io.net",
+      "canonical_url": "https://io.net/",
+      "category": ["distributed GPU market", "compute clusters", "provider network"],
+      "community_evidence": "io.net connects independent GPU suppliers and compute buyers through a shared cluster marketplace and public worker explorer.",
+      "machine_native_surface": "Cluster deployment APIs, worker/network explorer, provider software, and payment/reward system.",
+      "current_activity_population_evidence": "The official public explorer showed real-time worker geography and capacity. An April 2026 first-party release claimed more than 200,000 GPUs across 130-plus countries; treat this as platform-reported supply, not verified simultaneous availability.",
+      "join_access_mechanics": "Buyers create an account and fund/deploy clusters; suppliers install worker software and meet staking/KYC or tier requirements.",
+      "plausible_agent_guild_action": "An existing automated compute buyer could verify a provider/operator passport before placing a long-lived cluster workload and record delivery outcome afterward.",
+      "blockers_terms_spend_safety": ["Account and payment required for deployment", "Provider staking/KYC may apply", "Headline GPU count is platform-reported", "Cluster workloads and credentials require strong sandboxing"],
+      "confidence": "medium",
+      "primary_sources": [
+        {"title": "io.net Explorer", "url": "https://explorer.io.net/explorer/home", "supports": "Live public worker and capacity surface"},
+        {"title": "io.net documentation", "url": "https://docs.io.net/", "supports": "Cluster, worker, payment, and provider mechanics"},
+        {"title": "io.net network update", "url": "https://io.net/blog/", "supports": "First-party 2026 network scale claims"}
+      ],
+      "adjacency_duplicate_notes": "Compute-market route; do not infer that every worker is an autonomous agent or unique operator."
+    },
+    {
+      "rank": 24,
+      "id": "fluence-gpu-marketplace",
+      "canonical_name": "Fluence GPU Marketplace",
+      "canonical_url": "https://auctions.fluence.network/",
+      "category": ["GPU marketplace", "compute auctions", "machine commerce"],
+      "community_evidence": "Fluence operates forward and reverse GPU-capacity auctions connecting independent buyers and providers, with active capacity listings and deal workflows.",
+      "machine_native_surface": "Auction marketplace, capacity offers, deal matching, provider resources, and network APIs/contracts.",
+      "current_activity_population_evidence": "The first-party marketplace observed during this pass showed 6,468 GPUs available across four countries. A March 2026 first-party update reported more than 1,400 GPUs across 32 regions and 71 data centers for the then-current network scope.",
+      "join_access_mechanics": "Buyers and providers create organizations, complete review/onboarding, and participate in forward or reverse auctions; identities are masked until a deal.",
+      "plausible_agent_guild_action": "An already approved organization could exchange and verify AG passports at deal reveal, creating portable evidence across future capacity auctions.",
+      "blockers_terms_spend_safety": ["Account, organization review, contracting, and payment required", "Masked pre-deal identity limits preflight verification", "Displayed capacity scope has changed across versions", "Not an immediate no-account action"],
+      "confidence": "medium",
+      "primary_sources": [
+        {"title": "Fluence GPU Auctions", "url": "https://auctions.fluence.network/", "supports": "Current auction and capacity surface"},
+        {"title": "Fluence blog", "url": "https://www.fluence.network/blog", "supports": "2026 network transition, regions, data centers, and GPU supply claims"}
+      ],
+      "adjacency_duplicate_notes": "A partner/onboarding route rather than a public-agent conversion pool."
+    },
+    {
+      "rank": 25,
+      "id": "skyfire-service-directory",
+      "canonical_name": "Skyfire Service Directory and Agent Payments",
+      "canonical_url": "https://docs.skyfire.xyz/docs/service-discovery",
+      "category": ["verified service directory", "agent payments", "KYA"],
+      "community_evidence": "Skyfire connects buyer agents and verified service sellers through a shared directory, service identities, know-your-agent controls, and payment tokens.",
+      "machine_native_surface": "Service-discovery APIs/dashboard, KYA and payment tokens, MCP/web/API service records, and buyer/seller agent accounts.",
+      "current_activity_population_evidence": "Current first-party documentation described a searchable registry of verified services and live buyer/seller flows; no public population or transaction counter was exposed.",
+      "join_access_mechanics": "Sellers register service identities and buyers create/fund agent accounts; discovery is primarily through the authenticated dashboard/API and transaction flows.",
+      "plausible_agent_guild_action": "An existing Skyfire buyer could verify a seller's AG passport alongside KYA before issuing a payment token, adding competence evidence to identity/payment authorization.",
+      "blockers_terms_spend_safety": ["Signup, KYA and funding required", "Directory is not fully public", "No public activity population", "Regulated payment and service terms apply"],
+      "confidence": "medium",
+      "primary_sources": [
+        {"title": "Skyfire service discovery", "url": "https://docs.skyfire.xyz/docs/service-discovery", "supports": "Verified service directory and discovery mechanics"},
+        {"title": "Skyfire documentation", "url": "https://docs.skyfire.xyz/", "supports": "Buyer/seller agents, service identity, KYA, payment, and account requirements"}
+      ],
+      "adjacency_duplicate_notes": "Independent from fixed PayAI and Nevermined, but some sellers may use x402 or appear in other payment catalogs."
+    },
+    {
+      "rank": 26,
+      "id": "ampersend-marketplace",
+      "canonical_name": "Ampersend Marketplace",
+      "canonical_url": "https://app.ampersend.ai/discover",
+      "category": ["agent service marketplace", "payments", "spend controls"],
+      "community_evidence": "Ampersend operates a multi-provider service marketplace for agent use, with discovery through its app and agent skill plus payment controls.",
+      "machine_native_surface": "Agent skill, A2A/MCP/HTTP/x402 service access, marketplace metadata, wallet and spend-limit controls.",
+      "current_activity_population_evidence": "The first-party launch materials dated 2026-05-14 described an initial marketplace of more than 12 APIs; the public discover page remained live but no buyer/call count was exposed.",
+      "join_access_mechanics": "Browsing is available without login. Buying needs an account, wallet/funding and approval limits; providers apply to list a service.",
+      "plausible_agent_guild_action": "A listed provider could attach an AG passport, and a buyer agent could verify it before approving a new service within its spend policy.",
+      "blockers_terms_spend_safety": ["Small initial catalog", "Account and funds required to transact", "Provider listing is reviewed", "No public evidence of transaction volume"],
+      "confidence": "medium",
+      "primary_sources": [
+        {"title": "Ampersend Discover", "url": "https://app.ampersend.ai/discover", "supports": "Public marketplace browsing and current service listings"},
+        {"title": "Ampersend blog", "url": "https://www.ampersend.ai/blog", "supports": "Marketplace launch, service count, agent skill, protocols, and spend controls"}
+      ],
+      "adjacency_duplicate_notes": "Potentially overlaps x402 catalogs and fixed Agentic Market. Deduplicate services by endpoint/provider."
+    },
+    {
+      "rank": 27,
+      "id": "the402",
+      "canonical_name": "the402",
+      "canonical_url": "https://the402.ai/",
+      "category": ["agent service marketplace", "x402", "escrow", "trust"],
+      "community_evidence": "the402 is an open service/request/bid marketplace with x402 purchases, escrow, reputation, disputes, and catalog aggregation across independently operated sellers.",
+      "machine_native_surface": "MCP, REST, x402, catalog/request/bid/escrow/reputation tools and service APIs.",
+      "current_activity_population_evidence": "The first-party API page reported 7,085 data APIs and more than 21,000 ERC-8004 agents and showed live request examples; those are catalog claims, not verified active transactors.",
+      "join_access_mechanics": "Direct x402 purchases can be made without a conventional account/API key; listing, bids, escrow and reputation use the platform's machine APIs and wallet/payment flows.",
+      "plausible_agent_guild_action": "A pre-existing seller could expose its AG passport, while a buyer could compare the402 reputation and receipts with an AG passport before settlement.",
+      "blockers_terms_spend_safety": ["Direct strategic overlap with AG trust, escrow, and reputation", "Payment requires a funded wallet", "Catalog counts may aggregate inactive or duplicated entries", "Do not market into it deceptively; test only transparent interoperability if authorized"],
+      "confidence": "medium-high",
+      "primary_sources": [
+        {"title": "the402", "url": "https://the402.ai/", "supports": "Marketplace, trust, escrow, reputation, disputes, and no-account x402 proposition"},
+        {"title": "the402 API", "url": "https://the402.ai/api", "supports": "MCP/REST tools, catalog claims, and live request surface"}
+      ],
+      "adjacency_duplicate_notes": "A competitor/adjacent trust marketplace, not a straightforward conversion target. Its ERC-8004 rows and x402 services must be deduplicated against 8004scan and x402scan."
+    },
+    {
+      "rank": 28,
+      "id": "stripe-agentic-commerce-protocol",
+      "canonical_name": "Stripe/OpenAI Agentic Commerce Protocol (ACP)",
+      "canonical_url": "https://docs.stripe.com/agentic-commerce/protocol",
+      "category": ["agent commerce protocol", "merchant checkout", "MCP"],
+      "community_evidence": "ACP is an open-source merchant/agent checkout protocol used in production commerce experiences and implemented by multiple merchant platforms, though Stripe enablement remains gated.",
+      "machine_native_surface": "REST and MCP commerce interfaces for product, checkout, order, and delegated payment flows.",
+      "current_activity_population_evidence": "Stripe's first-party docs describe live Instant Checkout use and merchant participation including Etsy, with Shopify expansion described for a large merchant base; no autonomous-agent population counter is public.",
+      "join_access_mechanics": "The specification is public. Merchants currently request/receive Stripe enablement and integrate checkout endpoints; buyers use a compatible agent commerce surface.",
+      "plausible_agent_guild_action": "An enabled merchant's support or fulfillment agent could present an AG passport, allowing a buying agent to verify operator reputation before delegating a high-value order workflow.",
+      "blockers_terms_spend_safety": ["Stripe enablement/private preview", "Merchant account and payment obligations", "Merchant counts are not agent counts", "Consumer commerce and privacy terms apply"],
+      "confidence": "medium",
+      "primary_sources": [
+        {"title": "Stripe Agentic Commerce Protocol", "url": "https://docs.stripe.com/agentic-commerce/protocol", "supports": "Open protocol, REST/MCP mechanics, merchant enablement, and production integrations"},
+        {"title": "Agentic Commerce Protocol repository", "url": "https://github.com/agentic-commerce-protocol/agentic-commerce-protocol", "supports": "Open-source specification and implementation community"}
+      ],
+      "adjacency_duplicate_notes": "Protocol/merchant coalition, not a public callable-agent directory. It overlaps AP2/UCP at the standards layer."
+    },
+    {
+      "rank": 29,
+      "id": "mastercard-agent-pay-for-machines",
+      "canonical_name": "Mastercard Agent Pay for Machines",
+      "canonical_url": "https://www.mastercard.com/us/en/news-and-trends/press/2026/june/mastercard-launches-agent-pay-for-machines.html",
+      "category": ["machine payment network", "agent credentials", "multi-rail settlement"],
+      "community_evidence": "Mastercard announced a partner network for machine-to-machine commerce spanning payment processors, wallets, infrastructure, and agent-payment firms, with credentialing and permissioning standards.",
+      "machine_native_surface": "Agent credentials, permissioning, transaction APIs, and multi-rail settlement integrations delivered through participating partners.",
+      "current_activity_population_evidence": "The 2026-06-10 first-party launch named more than 30 initial partners, including Adyen, Ant International, Coinbase, Stripe, Tempo, Skyfire, and Nevermined; public transaction/population telemetry was not provided.",
+      "join_access_mechanics": "Current access is through approved Mastercard and partner pilots/onboarding, with regulated identity, merchant, wallet, and payment requirements.",
+      "plausible_agent_guild_action": "An already onboarded machine-payments participant could use an AG passport as a portable competence/reputation layer alongside Mastercard's payment credential and permissions.",
+      "blockers_terms_spend_safety": ["Closed/partner-led onboarding", "Regulated financial terms and identity checks", "No public participant directory or free action", "Partner count does not prove deployed machine activity"],
+      "confidence": "medium",
+      "primary_sources": [
+        {"title": "Mastercard launches Agent Pay for Machines", "url": "https://www.mastercard.com/us/en/news-and-trends/press/2026/june/mastercard-launches-agent-pay-for-machines.html", "supports": "Launch, partner set, credentialing, permissioning, and settlement model"}
+      ],
+      "adjacency_duplicate_notes": "Strategic partner network, not a permissionless community. Fixed Nevermined appears as one partner and must not be counted again."
+    },
+    {
+      "rank": 30,
+      "id": "livepeer-ai-network",
+      "canonical_name": "Livepeer AI Network",
+      "canonical_url": "https://docs.livepeer.org/v2",
+      "category": ["decentralized AI compute", "gateway-orchestrator market", "machine payments"],
+      "community_evidence": "Livepeer connects independent gateways that discover/buy work from orchestrators that execute AI/video jobs, using price, capability, and availability selection with network payments.",
+      "machine_native_surface": "Gateway and orchestrator APIs, service discovery, job execution endpoints, on-chain tickets/payments, and node software.",
+      "current_activity_population_evidence": "The current v2 first-party documentation was updated in March 2026 and describes active AI gateway/orchestrator operation; this pass did not capture a reliable live node/job count.",
+      "join_access_mechanics": "Gateways and orchestrators run node software and configure wallets/stake/payment; application callers connect to a gateway API and pay for work.",
+      "plausible_agent_guild_action": "A gateway could verify an orchestrator's AG passport before routing a sensitive model job and record outcome evidence portable beyond Livepeer's own selection scores.",
+      "blockers_terms_spend_safety": ["Node operation, wallet and payment required", "No current population count captured", "Video/model inputs can be sensitive", "Protocol reputation is workload-specific"],
+      "confidence": "medium",
+      "primary_sources": [
+        {"title": "Livepeer v2 documentation", "url": "https://docs.livepeer.org/v2", "supports": "Current gateway, orchestrator, AI service discovery, and payment mechanics"},
+        {"title": "Livepeer network", "url": "https://livepeer.org/", "supports": "Current decentralized video/AI network community"}
+      ],
+      "adjacency_duplicate_notes": "Compute market, not a general agent directory. Members need a durable operator identity or public automation endpoint for AG qualification."
+    }
+  ],
+  "no_gos": [
+    {
+      "canonical_name": "Agent0",
+      "url": "https://agent0.ai/",
+      "reason": "Closed beta/waitlist; no public shared agent population or immediately callable member surface.",
+      "revisit_trigger": "Public registry and non-gated machine API launch."
+    },
+    {
+      "canonical_name": "Agent402 Marketplace",
+      "url": "https://marketplace.agent402.app/marketplace",
+      "reason": "The first-party surface showed roughly 77,300 discoverable services but only 18 verified sellers and zero calls in the preceding 24 hours; catalog size did not translate into current activity.",
+      "revisit_trigger": "Sustained non-zero calls and a materially larger verified seller set."
+    },
+    {
+      "canonical_name": "Golem Network",
+      "url": "https://stats.golem.network/",
+      "reason": "The first-party current stats surface showed zero providers and a zero seven-day provider peak during this pass, failing the current-community test.",
+      "revisit_trigger": "Observable active providers and completed jobs return."
+    },
+    {
+      "canonical_name": "iExec marketplace",
+      "url": "https://explorer.iex.ec/",
+      "reason": "The official explorer returned errors for latest deals, tasks, datasets, and workerpools, so current reachability/activity could not be established without account use or transactions.",
+      "revisit_trigger": "Healthy public explorer with current completed deals and callable worker pools."
+    },
+    {
+      "canonical_name": "Catena Agent Commerce Kit / ACK Lab",
+      "url": "https://agentcommercekit.com/",
+      "reason": "Useful open identity/payment protocol work, but the shared lab/member surface remained preview/closed and no current public agent population was visible.",
+      "revisit_trigger": "Open lab or public directory of deployed interoperable agents."
+    },
+    {
+      "canonical_name": "Crossmint Agent Platform",
+      "url": "https://docs.crossmint.com/agents/overview",
+      "reason": "Broad wallet/plugin vendor platform but no public member-to-member discovery or reputation community; core use requires vendor account/API credentials.",
+      "revisit_trigger": "Public agent/service directory with independent operators and activity evidence."
+    },
+    {
+      "canonical_name": "Aethir",
+      "url": "https://docs.aethir.com/",
+      "reason": "Large tokenized node infrastructure, but useful participation is gated by node licenses/tokens, provider onboarding, and often KYC; no free public machine action suitable for the AG pilot was established.",
+      "revisit_trigger": "Public provider API plus an account-free verification or preflight route."
+    },
+    {
+      "canonical_name": "Bacalhau public network",
+      "url": "https://bacalhau.org/docs/",
+      "reason": "Strong distributed-compute orchestration, but current material emphasized private/enterprise networks and no live public member population or shared marketplace activity was verified.",
+      "revisit_trigger": "Current public network explorer with independent nodes and jobs."
+    },
+    {
+      "canonical_name": "Continue Hub",
+      "url": "https://www.continue.dev/hub",
+      "reason": "Useful models/rules/MCP resource hub, but evidence supported a configuration/artifact catalog rather than a community of autonomous machines transacting or delegating with durable identities.",
+      "revisit_trigger": "Public runtime-agent identities, interaction evidence, and callable capability contracts."
+    },
+    {
+      "canonical_name": "Visa Trusted Agent Protocol",
+      "url": "https://developer.visa.com/capabilities/trusted-agent-protocol/overview",
+      "reason": "Technically relevant signed-agent protocol, but current access is permissioned to approved Visa agents, deployment remains qualified by market, and accessing materials invokes product terms; not a transparent no-account community route.",
+      "revisit_trigger": "Open registry/API with public participating-agent activity."
+    },
+    {
+      "canonical_name": "Cloudflare Web Bot Auth verified bots",
+      "url": "https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/",
+      "reason": "Useful HTTP-signature identity control but primarily a vendor verification program, not a capability/delegation/commerce community; publisher and bot onboarding require Cloudflare control/review.",
+      "revisit_trigger": "Public interoperable bot directory with callable capabilities or reputation exchange."
+    },
+    {
+      "canonical_name": "Ritual Infernet",
+      "url": "https://docs.ritual.net/",
+      "reason": "No current authoritative public population/activity surface could be verified in the timeboxed pass.",
+      "revisit_trigger": "Reachable current docs plus a live node/job explorer."
+    }
+  ],
+  "research_caveats": [
+    "Counts are snapshots of first-party surfaces on 2026-08-25 and often platform-reported; they are not independently audited unique-agent counts.",
+    "A catalog entry, chain identity, wallet, worker, server package, or company partner is not automatically an autonomous agent. Pilot qualification requires a durable identity, current reachability, a public machine contract, and one useful non-probe action.",
+    "Cross-registry duplication is severe. Correlate canonical endpoint, source repository, controller key/address, domain proof, UAID/DID, and operator before counting a new actor.",
+    "No listed endpoint was invoked for a commercial or state-changing action in this pass."
+  ]
+}

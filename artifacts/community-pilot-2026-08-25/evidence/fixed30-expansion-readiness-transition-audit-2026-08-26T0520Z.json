@@ -1,0 +1,286 @@
+{
+  "schema_version": "community-pilot-evidence-v1",
+  "artifact_status": "validated",
+  "artifact_kind": "fixed30_and_expansion_readiness_transition_audit",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at_utc": "2026-08-26T05:20:00Z",
+  "mode": "public_read_only_in_memory_no_operations",
+  "strict_rule": "A strict fixed-community conversion requires a pre-existing durable community machine identity plus a completed, independently useful Agent Guild action and a durable identity/result join. Expansion readiness additionally requires a current free anonymous operation whose own server consumes an exact AG artifact and exposes identity-bound result evidence. Listings, schemas, health, zero price alone, authentication refusals and caller-side validation do not qualify.",
+  "canonical_inputs": [
+    "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "artifacts/community-pilot-2026-08-25/targets.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-cycle-close-2026-08-26T0512Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-capability-gate-transition-audit-2026-08-26T0502Z.json",
+    "artifacts/community-expansion-2026-08-25/lead-independent-audit.json",
+    "artifacts/community-expansion-2026-08-25/evidence/expansion-machine-first-sociobot-aiim-agenc-2026-08-26T0047Z.json",
+    "artifacts/community-expansion-2026-08-25/evidence/expansion-sweep-a-payanagent-agent-exchange-x402-2026-08-25.json"
+  ],
+  "outreach_ledger_enforcement": {
+    "source": "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "updated_at": "2026-08-26T05:06:26Z",
+    "closed_community_count": 11,
+    "rule_applied": "Every closed community is a hard deny for new outbound communication. OPEN_FOR_AUDIT was not interpreted as send authority.",
+    "outbound_communications_attempted": 0,
+    "outreach_eligibility_inferred_from_open_state": false
+  },
+  "fixed30_transition_checks": [
+    {
+      "target": "4claw via Moltbot Den",
+      "closed_by_outreach_ledger": true,
+      "public_read": "https://api.moltbotden.com/openapi.json",
+      "current_state": {
+        "api_version": "1.0.0",
+        "health_check_operation_present": true,
+        "x_api_key_header_required": false,
+        "global_security": null,
+        "response_200_schema": {},
+        "prior_observed_admission": "401 AUTH_MISSING_KEY"
+      },
+      "transition": false,
+      "reason": "No contract/version change or capability-level canary proves that the prior missing-key admission blocker recovered, and no durable result schema is published.",
+      "operation_invoked": false,
+      "exact_ready_gate": "Independent public proof of anonymous admission plus a platform- or OptimusWill-bound receipt containing requested URL, final URL, status, content digest, semantic result and request id."
+    },
+    {
+      "target": "PayAI",
+      "closed_by_outreach_ledger": true,
+      "machine": "Agent402",
+      "public_reads": [
+        "https://agent402.tools/api/pow",
+        "https://agent402.tools/openapi.json"
+      ],
+      "current_state": {
+        "pow_eligible_tools": 153,
+        "extract_pow_eligible": false,
+        "extract_price_usd": 0.01,
+        "extract_amount_atomic_usdc": "10000",
+        "api_version": "2.1.0"
+      },
+      "transition": false,
+      "reason": "The exact outbound fetch remains paid and excluded from the free proof-of-work rail.",
+      "operation_invoked": false,
+      "exact_ready_gate": "Extract becomes exact-zero or appears in the free eligibleTools list, with separately authorized terms and an Agent402-bound result containing the exact AG source and returned result."
+    },
+    {
+      "target": "Fetch Agentverse",
+      "machine": "Website Scraper Agent",
+      "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "public_read": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "current_state": {
+        "last_updated": "2026-08-26T05:16:55Z",
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_interactions": 7480,
+        "total_interactions": 41095,
+        "delta_since_05_00_21Z": 3
+      },
+      "transition": false,
+      "reason": "Three more interactions did not create a verified success or responsive state, and no anonymous sender/result rail appeared.",
+      "operation_invoked": false,
+      "exact_ready_gate": "A fresh verified success, unresponsive=false, and an already-keyless submission plus signed or public result receipt binding the exact AG URL and machine address."
+    },
+    {
+      "target": "AG2",
+      "machine": "Official AG2 Playground Ask the Web",
+      "public_read": "https://playground.ag2.ai/demos/ask-the-web/healthz",
+      "current_state": {
+        "http_status": 200,
+        "ok": true,
+        "provider": "vertexai",
+        "model": "gemini-3.6-flash",
+        "tavily_dependency_readiness_published": false
+      },
+      "transition": false,
+      "reason": "The exact Tavily dependency that previously rejected both search and fetch remains outside the health contract; model health is not proof of fetch readiness.",
+      "operation_invoked": false,
+      "exact_ready_gate": "A public capability canary proves Tavily extraction success before any corrected AG fetch retry."
+    }
+  ],
+  "expansion_transition_checks": [
+    {
+      "rank": 1,
+      "community": "the402",
+      "candidate": "Full Chair Studio — Free Website Context Preview API",
+      "decision": "STRONGEST_NEWLY_EVIDENCED_ROUTE_NOT_READY",
+      "temporal_note": "This is a newly established audit finding, not a newly deployed service: the provider registered and first service listed on 2026-07-17.",
+      "durable_identity": {
+        "participant_id": "p_a5c85883ec7b456c",
+        "name": "Full Chair Studio",
+        "registered_at": "2026-07-17T01:38:35.901Z",
+        "status": "active",
+        "verification_tier": "email_verified",
+        "identity_assurance": "basic",
+        "identity_url": "https://api.the402.ai/v1/participants/p_a5c85883ec7b456c/identity.json",
+        "profile_url": "https://api.the402.ai/v1/participants/p_a5c85883ec7b456c/profile",
+        "onchain_claimed": false
+      },
+      "service_contract": {
+        "service_id": "svc_a4a17afd48de43c2",
+        "detail_url": "https://api.the402.ai/v1/services/svc_a4a17afd48de43c2",
+        "name": "Free Website Context Preview API",
+        "listed_at": "2026-07-17T02:11:13.037Z",
+        "updated_at": "2026-08-02T13:07:41.720Z",
+        "webhook_healthy": true,
+        "service_type": "data_api",
+        "fulfillment_type": "instant",
+        "estimated_delivery": "15s",
+        "price": "$0",
+        "agent_price": "$0",
+        "provider_net_price": "$0",
+        "input": {
+          "required": ["url"],
+          "url_format": "uri",
+          "semantics": "Public HTTP(S) URL to inspect"
+        },
+        "deliverable": ["dossier", "agent_context_markdown"],
+        "purchase_endpoint": "POST /v1/services/svc_a4a17afd48de43c2/purchase",
+        "service_jobs": 0,
+        "service_successful_jobs": 0
+      },
+      "catalog_confirmation": {
+        "query": "GET https://api.the402.ai/v1/services/catalog?q=url&limit=200",
+        "url_semantic_services_reported": 106,
+        "records_returned": 100,
+        "exact_zero_url_services_returned": 2,
+        "second_zero_service_id": "svc_49fb2b4a14d042d5"
+      },
+      "remaining_gates": [
+        "The service description and catalog say no payment is required, but the authoritative purchase operation still declares x402Payment security and a variable-price payment contract. Anonymous zero-price admission is therefore not proven without invocation.",
+        "The purchase route is documented as creating an async job and its 200 response schema is an unconstrained object.",
+        "GET /v1/jobs/{id} costs $0.001 through x402, so the published durable result-readback rail is not free.",
+        "The service itself reports zero successful jobs. The catalog reports provider_completed_jobs=12 while the public provider/service reputation projection reports total_jobs=0; those scopes conflict and do not prove this operation has completed."
+      ],
+      "identity_bound": true,
+      "exact_ag_semantics_possible": true,
+      "exact_zero_catalog_price": true,
+      "anonymous_admission_proven": false,
+      "free_durable_result_readback_proven": false,
+      "operation_invoked": false,
+      "exact_ready_gate": "Publish an operation-specific purchase contract stating that this service accepts an unauthenticated zero-price call without a payment credential, plus a same-response result or free public job receipt containing service id, provider id, exact source URL, final URL, fetched_at and content/result digest.",
+      "strict_adjudication": "NO_ACTION_AND_NO_CONVERSION"
+    },
+    {
+      "rank": 2,
+      "community": "Sociobot",
+      "candidate": "txpine",
+      "public_reads": [
+        "https://api.sociobot.net/api/v1/agents/txpine/services",
+        "https://api.sociobot.net/api/v1/aui/service-offers"
+      ],
+      "current_state": {
+        "public_services": 0,
+        "anonymous_offer_discovery_http_status": 401,
+        "anonymous_offer_discovery_code": "SIGNATURE_MISSING"
+      },
+      "transition": false,
+      "operation_invoked": false,
+      "exact_ready_gate": "txpine or another durable member publishes a nonempty versioned AG URL/credential service reachable anonymously with a provenance-bearing result."
+    },
+    {
+      "rank": 3,
+      "community": "Agent Exchange",
+      "candidate": "operator-zero-trust",
+      "public_reads": [
+        "https://clawexchange.org/api/v1/registry/agents.json?per_page=100",
+        "https://agent-endpoint-trust-scanner.cbgregory.chatgpt.site/api/manifest"
+      ],
+      "current_state": {
+        "registry_total": 56,
+        "identity": "ax:operator-zero-trust",
+        "manifest_version": "1.1.0",
+        "manifest_status": "ready_for_deployment",
+        "scan_endpoint_price": "$0.03",
+        "read_page_price": "$0.003",
+        "message_requires_authenticated_sender": true
+      },
+      "transition": false,
+      "operation_invoked": false,
+      "exact_ready_gate": "A declared zero-price anonymous scan_endpoint or another pre-existing member with free server-side AG retrieval and an identity-bound receipt."
+    },
+    {
+      "rank": 4,
+      "community": "Agent Community and DMV",
+      "public_read": "https://agentcommunity.org/openapi.json",
+      "current_state": {
+        "http_status": 200,
+        "api_version": "1.4.0",
+        "anonymous_operations": 17,
+        "anonymous_external_url_fetch_operations": 0,
+        "anonymous_ag_or_w3c_credential_verify_operations": 0,
+        "anonymous_operation_classes": [
+          "authorization discovery",
+          "member globe and site-content reads",
+          "bounded batch of those public reads",
+          "fixed protocol simulation",
+          "published-documentation answers",
+          "MCP transport and tool discovery"
+        ]
+      },
+      "transition": false,
+      "operation_invoked": false,
+      "exact_ready_gate": "A public member-bound tool independently retrieves or verifies an exact AG passport/result and returns a durable DMV/member-identity-bound receipt."
+    },
+    {
+      "rank": 5,
+      "community": "The Agent Registry",
+      "public_reads": [
+        "https://api.theagentregistry.org/api/v1/stats",
+        "https://api.theagentregistry.org/openapi.json"
+      ],
+      "current_state": {
+        "stats_http_status": 530,
+        "openapi_http_status": 530,
+        "error_code": 1033
+      },
+      "transition": false,
+      "operation_invoked": false,
+      "exact_ready_gate": "Restore the public API and expose a pre-existing registered agent with a free anonymous AG artifact operation and identity-bound result evidence."
+    }
+  ],
+  "commercial_snapshot": {
+    "observed_at_utc": "2026-08-26T05:20:00Z",
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "paid_decisions": 0,
+    "repeat_paid_callers": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "snapshot_events": 10760
+  },
+  "adjudication": {
+    "fixed30_before": "5/30",
+    "fixed30_conversion_delta": 0,
+    "fixed30_after": "5/30",
+    "expansion_operations_invoked": 0,
+    "expansion_qualified_actions": 0,
+    "strongest_readiness_change": "The402 now has the strongest evidenced expansion contract: a pre-existing email-verified provider, two catalogued exact-zero arbitrary-URL services and a healthy webhook. This is new audit evidence rather than a temporal deployment change and still fails anonymous-admission and free-result-readback gates.",
+    "revenue_delta": 0.0
+  },
+  "product_signal": {
+    "new_machine_originated_feedback": false,
+    "platform_contract_signal": "A marketplace can advertise a zero-price operation while its authoritative invocation still requires a payment security scheme and its only durable result-readback route is paid. Zero catalog price is not equivalent to free usable evidence.",
+    "conservative_recommendation": "Represent invocation price, admission credential, result delivery and durable receipt retrieval as four independent machine-readable gates. Do not mark an operation free-and-runnable unless all required evidence paths are also free and anonymous."
+  },
+  "safety": {
+    "external_operations_invoked": 0,
+    "external_writes": 0,
+    "messages_or_outreach": 0,
+    "accounts_or_keys_created": 0,
+    "terms_accepted": 0,
+    "wallets_or_payments": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_files": 0,
+    "network_bodies": "processed in memory only",
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence artifact only"
+  }
+}

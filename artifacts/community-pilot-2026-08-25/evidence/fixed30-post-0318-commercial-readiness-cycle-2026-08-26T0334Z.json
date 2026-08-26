@@ -1,0 +1,391 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_post_0318_commercial_readiness_cycle",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T03:34:21Z",
+  "mode": "bounded_public_read_only_in_memory_no_repeated_outreach",
+  "baseline": {
+    "artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-post-0159-commercial-expansion-cycle-2026-08-26T0318Z.json",
+    "cutoff": "2026-08-26T03:18:38Z",
+    "strict_conversions": 5,
+    "denominator": 30,
+    "external_settled_revenue_usd": 0.0,
+    "qualified_actors": 10,
+    "qualified_events": 98,
+    "paid_offers_shown": 57,
+    "paid_completions": 0,
+    "paid_funnel_raw_impressions": 50687,
+    "genuine_external_events": 413
+  },
+  "canonical_evidence_consulted": [
+    "artifacts/community-pilot-2026-08-25/targets.json",
+    "artifacts/community-pilot-2026-08-25/README.md",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-post-0159-commercial-expansion-cycle-2026-08-26T0318Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-post-0159-readiness-reply-cycle-2026-08-26T0311Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/remaining-25-ranked-safe-route-audit-2026-08-25T2041Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-anp-fetch-openclaw-readiness-recheck-2026-08-26T0158Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/underexplored-fixed-community-runtime-route-audit-2026-08-25T2254Z.json"
+  ],
+  "qualification_rule": "A strict conversion requires a durable pre-existing identity in the fixed community joined to an independently useful completed Agent Guild action through a nonce, signed result, public receipt or equivalent exact evidence. Discovery, challenges, offers, probes, listings, schemas, caller-supplied-only validation, acknowledgements and self-claims do not qualify.",
+  "production_final_read": {
+    "observed_through": "2026-08-26T03:33:55.904866+00:00",
+    "commercial": {
+      "source": "https://agent-guild-5d5r.onrender.com/commercial",
+      "measurement_source": "sqlite_durable",
+      "history_complete": true,
+      "snapshot_events": 10648,
+      "external_settled_revenue_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "settled_but_not_attributable_external": 2,
+      "qualified_actors": 10,
+      "qualified_events": 99,
+      "paid_offers_shown": 58,
+      "unattributed_paid_offers_shown": 0,
+      "paid_completions": 0,
+      "delta_from_0318z": {
+        "external_settled_revenue_usd": 0.0,
+        "distinct_external_payers": 0,
+        "qualified_actors": 0,
+        "qualified_events": 1,
+        "paid_offers_shown": 1,
+        "paid_completions": 0
+      },
+      "interpretation": "One additional qualified event and one additional paid offer were observed, but there was no new qualified actor, payer, paid decision, completion, attributable settlement or revenue."
+    },
+    "paid_funnel": {
+      "source": "https://agent-guild-5d5r.onrender.com/funnel/paid",
+      "qualified_distinct_actors": 20,
+      "raw_impressions": 50695,
+      "anonymous_unlinkable_impressions": 0,
+      "delta_raw_impressions_from_0318z": 8,
+      "measurement_source": "sqlite_durable",
+      "history_complete": true,
+      "interpretation": "Reach increased, but offer presentation is not purchase or useful completion evidence."
+    },
+    "passport_funnel": {
+      "source": "https://agent-guild-5d5r.onrender.com/funnel/passports",
+      "qualified_distinct_actors": 3,
+      "qualified_deduplicated_exposures": 21,
+      "raw_qualified_serves": 50,
+      "anonymous_unlinkable_serves": 27,
+      "registered": 0,
+      "control_proved": 0,
+      "own_passport_claimed": 0,
+      "evidence_attached": 0,
+      "returned": 0,
+      "third_party_passport_fetch": 0,
+      "third_party_verification": 0,
+      "next_boundary": "qualified_exposure -> registered",
+      "next_boundary_rate": 0.0,
+      "sample_adequacy": "ANECDOTE"
+    },
+    "evaluation": {
+      "source": "https://agent-guild-5d5r.onrender.com/evaluation",
+      "dataset": "mixed",
+      "mixed_lift": 0.4638888888888889,
+      "bootstrap_lift": 0.49127906976744184,
+      "production_lift": null,
+      "production_n_recommended": 0,
+      "production_baseline_success_rate": 1.0,
+      "production_n_baseline": 4,
+      "interpretation": "Production still has no recommended outcomes; the displayed lift includes demonstration data."
+    },
+    "instrumentation": {
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation",
+      "total_events": 26841,
+      "genuine_external_events": 416,
+      "genuine_external_unique_agents": 1,
+      "genuine_external_paid_queries": 0,
+      "genuine_external_passports_issued": 0,
+      "genuine_external_passports_verified": 0
+    },
+    "recent_after_cutoff": {
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "events": 55,
+      "oldest": "2026-08-26T03:18:45.284025+00:00",
+      "newest": "2026-08-26T03:33:55.904866+00:00",
+      "classifier_genuine_external_events": 3,
+      "classifier_genuine_external_evidence": [
+        {
+          "at": "2026-08-26T03:31:38.935189+00:00",
+          "type": "discovery_resource_fetched",
+          "endpoint": "/.well-known/x402",
+          "user_agent": "axios/1.14.0",
+          "actor": "http:0aef9..."
+        },
+        {
+          "at": "2026-08-26T03:29:04.589626+00:00",
+          "type": "paid_offer_shown",
+          "endpoint": "x402_challenge",
+          "user_agent": "python-httpx/0.28.1",
+          "actor": "http:f7a11..."
+        },
+        {
+          "at": "2026-08-26T03:29:04.589420+00:00",
+          "type": "offer_served",
+          "endpoint": "x402_challenge",
+          "user_agent": "python-httpx/0.28.1",
+          "actor": "anon"
+        }
+      ],
+      "strictly_useful_completion_events": [],
+      "interpretation": "The classifier-confirmed subset is one discovery fetch plus one offer/challenge pair. None completed an independently useful Guild operation or supplied a fixed-community identity/result join."
+    },
+    "project_nanda_pulse": {
+      "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+      "events_after_0318_cutoff": 4,
+      "times_after_0318_cutoff": [
+        "2026-08-26T03:18:45.284025+00:00",
+        "2026-08-26T03:23:46.677271+00:00",
+        "2026-08-26T03:28:54.371237+00:00",
+        "2026-08-26T03:33:55.904866+00:00"
+      ],
+      "events_after_prior_136_floor": 5,
+      "additional_pre_cutoff_event": "2026-08-26T03:13:43.674439+00:00",
+      "new_conservative_observation_floor": 141,
+      "public_join_fields": {
+        "actor": "anon",
+        "attribution": "unrecognised_external",
+        "source": null,
+        "nonce": null,
+        "observation_id": null,
+        "result": null
+      },
+      "strict_effect": 0,
+      "interpretation": "The calls are useful machine preflight behavior and advance only the conservative observation floor. The live surface still exposes no target, returned verdict, nonce, receipt, official PULSE identity or controller join."
+    }
+  },
+  "route_audits": [
+    {
+      "community": "PayAI",
+      "candidate": "Agent402",
+      "observed_at": "2026-08-26T03:31:49.231869Z",
+      "material_change": "Agent402 OpenAPI recovered from HTTP 502 at the 03:18Z baseline to HTTP 200.",
+      "durable_identity_join": {
+        "catalog": "https://facilitator.payai.network/discovery/resources",
+        "declared_total_records": 26665,
+        "records_read": 26665,
+        "agent402_records": 1241,
+        "exact_route_catalogued": "https://agent402.tools/api/extract",
+        "catalogued_since": "2026-07-01T05:25:50.011Z",
+        "pay_to": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0"
+      },
+      "qualifying_semantic_route": {
+        "method": "POST",
+        "url": "https://agent402.tools/api/extract",
+        "input": {
+          "url": "public http(s) URL"
+        },
+        "output": "title, byline, excerpt, word count and markdown from server-side retrieval",
+        "catalog_amount_atomic_usdc": "10000",
+        "declared_price": "$0.010",
+        "free_proof_of_work_eligible": false
+      },
+      "free_route_boundary": {
+        "source": "https://agent402.tools/api/pow",
+        "a2a_card_validate_eligible": true,
+        "a2a_card_validate_limit": "Validates caller-supplied card JSON; it does not retrieve or consume the exact AG artifact itself.",
+        "network_tools_rule": "Network/browser/storage tools remain wallet-only via x402."
+      },
+      "aster_vale_sample_status": 404,
+      "operation_invoked": false,
+      "decision": "NOT_READY_PAID_EXACT_ROUTE_FREE_ROUTE_CALLER_SUPPLIED_ONLY",
+      "strict_conversion_delta": 0,
+      "exact_ready_gate": "Make the catalog-bound /api/extract operation eligible for the existing free proof-of-work rail, or publish an equivalent exact-zero anonymous server-side fetch. Its response must bind the exact nonce-bearing AG source URL, final URL, status or body digest, parsed AG verdict/result and Agent402 identity."
+    },
+    {
+      "community": "Agentic Market / MAKO",
+      "catalog": {
+        "source": "https://api.agentic.market/v1/services",
+        "declared_total_services": 2374,
+        "services_returned": 50,
+        "endpoints_returned_in_final_bounded_read": 1372,
+        "exact_zero_routes": 1,
+        "only_exact_zero_resource": "https://api.messari.io/metrics/v2/networks/",
+        "only_exact_zero_semantics": "list networks; no Agent Guild semantics",
+        "upto_zero_routes": 129,
+        "upto_zero_classification": "variable ceiling, not guaranteed free",
+        "empty_amount_routes": 144,
+        "empty_amount_classification": "unknown, not free"
+      },
+      "mako": {
+        "identity": "https://api.agentic.market/v1/services/mako-pollinateresearch-com",
+        "agent_commerce_verify_price_usdc": "0.25",
+        "weekly_brief_price_usdc": "1",
+        "pulse_score_price_usdc": "0.02",
+        "agent_guild_probe_score": 99,
+        "agent_guild_probe_count_total": 624,
+        "agent_guild_last_probe_at": "2026-08-25T22:21:52.594330Z",
+        "post_cutoff_telemetry": "offer and challenge presentation only"
+      },
+      "operation_invoked": false,
+      "decision": "NOT_READY_NO_FREE_AG_SEMANTIC_ROUTE",
+      "strict_conversion_delta": 0,
+      "exact_ready_gate": "A durable Agentic Market service exposes a guaranteed exact-zero anonymous operation that independently retrieves an exact AG artifact and returns a substantive principal-bound result."
+    },
+    {
+      "community": "MoltX",
+      "source": "https://moltx.io/",
+      "current_state": "DNS_RESOLUTION_FAILURE",
+      "operation_invoked": false,
+      "decision": "NO_GO_UNCHANGED",
+      "strict_conversion_delta": 0
+    },
+    {
+      "community": "Agent Commune",
+      "source": "https://agentcommune.com/skill.md",
+      "current_http_status": 503,
+      "hosting_state": "owner_suspended",
+      "operation_invoked": false,
+      "decision": "NO_GO_UNCHANGED",
+      "strict_conversion_delta": 0
+    },
+    {
+      "community": "Agent Exchange",
+      "source": "https://clawexchange.org/api/v1/registry/agents.json?per_page=100",
+      "registry_total": 56,
+      "registry_returned": 56,
+      "registry_updated_at": "2026-08-26T03:30:14.262987+00:00",
+      "members_created_after_cutoff": 0,
+      "strongest_existing_route": "ax:operator-zero-trust POST /api/scan",
+      "strongest_existing_route_price": "$0.03 on eip155:8453",
+      "operation_invoked": false,
+      "decision": "NOT_READY_PAID_UNCHANGED",
+      "strict_conversion_delta": 0
+    },
+    {
+      "community": "Fetch Agentverse",
+      "candidate": "Website Scraper Agent",
+      "identity": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "source": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "last_updated": "2026-08-26T03:30:05Z",
+      "status": "active",
+      "unresponsive": true,
+      "recent_success_rate": 0.0,
+      "recent_verified_interactions": 1,
+      "recent_success_verified_interactions": 0,
+      "recent_interactions": 7460,
+      "total_interactions": 41075,
+      "declared_protocol": "website-scraping-protocol/0.1.0",
+      "operation_invoked": false,
+      "decision": "NOT_READY_UNRESPONSIVE_NO_KEYLESS_SENDER_OR_PUBLIC_RESULT",
+      "strict_conversion_delta": 0,
+      "exact_ready_gate": "The durable scraper becomes responsive with a fresh verified success, and an already-keyless sender/result rail returns a public or signed result binding the exact AG URL to returned text."
+    },
+    {
+      "community": "OpenClaw",
+      "candidate": "Dokki",
+      "requested_runtime": "https://dokki.one/a2a",
+      "final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+      "final_http_status": 200,
+      "final_content_type": "text/html; charset=utf-8",
+      "operation_invoked": false,
+      "decision": "NOT_READY_AUTH_REDIRECT_UNCHANGED",
+      "strict_conversion_delta": 0,
+      "exact_ready_gate": "Serve current A2A message/send anonymously and expose signed or publicly readable identity-bound result evidence."
+    },
+    {
+      "community": "Agent Network Protocol",
+      "candidate": "Official ANP Network Explorer",
+      "health": "https://service.agent-network-protocol.com/anp-demo/api/health",
+      "http_status": 0,
+      "tls_result": "SSL hostname mismatch; normal certificate verification fails",
+      "operation_invoked": false,
+      "decision": "NOT_READY_TLS_IDENTITY_GATE_UNCHANGED",
+      "strict_conversion_delta": 0,
+      "exact_ready_gate": "Repair hostname-valid TLS and publish machine-readable official AD/DID plus signed or public result evidence."
+    },
+    {
+      "community": "Project NANDA",
+      "candidate": "Heron",
+      "health_status": 200,
+      "service": "heron-probe/0.1",
+      "register_status": 500,
+      "contract_documents_tasks_send": true,
+      "contract_documents_message_send": false,
+      "operation_invoked": false,
+      "decision": "NOT_READY_PROTOCOL_AND_RESULT_READBACK_GATE_UNCHANGED",
+      "strict_conversion_delta": 0,
+      "exact_ready_gate": "Serve current A2A message/send and restore public HTTP 200 signed evidence readback before one anonymous verify action."
+    },
+    {
+      "community": "MoltPress",
+      "candidate": "Delx util_page_extract",
+      "source": "https://api.delx.ai/api/v1/tools",
+      "server_version": "3.3.5",
+      "tool_count": 1076,
+      "input_schema": {
+        "url": "required HTTP or HTTPS URL",
+        "timeout": "integer 1-15, default 8"
+      },
+      "price_cents": 1,
+      "price_usdc": "0.01",
+      "x402_required": true,
+      "campaign_free": false,
+      "operation_invoked": false,
+      "decision": "NOT_READY_PAID_UNCHANGED",
+      "strict_conversion_delta": 0,
+      "exact_ready_gate": "Advertise and serve util_page_extract at zero price with x402_required=false and campaign_free=true, preserving final URL, status, content digest, parsed AG result and a Delx-bound result ID."
+    }
+  ],
+  "next_actual_conversion_opportunity": {
+    "rank": 1,
+    "community": "PayAI",
+    "machine": "Agent402",
+    "why_closest": "The machine is pre-existing and strongly joined to 1,241 current PayAI catalog records; its recovered live OpenAPI already declares the exact server-side arbitrary-URL fetch and its service already operates a public keyless proof-of-work free rail. The sole remaining objective blocker is that network fetch is excluded from that free rail.",
+    "required_change_before_any_invocation": "Add extract to the proof-of-work eligible tool set, or publish an equivalent exact-zero anonymous URL-fetch route, without weakening SSRF handling or provenance.",
+    "bounded_payload_when_ready": {
+      "method": "POST",
+      "url": "https://agent402.tools/api/extract",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Pow-Solution": "<fresh declared challenge solution>",
+        "Idempotency-Key": "ag-community-pilot-payai-agent402-<unique>"
+      },
+      "body": {
+        "url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fagent402.tools&nonce=payai-agent402-<unique>"
+      }
+    },
+    "independent_verification_required": [
+      "The PayAI catalog still binds the exact Agent402 origin or route to the pre-existing seller.",
+      "The free proof-of-work contract explicitly lists extract at call time.",
+      "The response contains the exact nonce-bearing AG source URL or a binding digest, final URL, HTTP status and parsed AG verdict/result.",
+      "AG production telemetry independently records the matching preflight, with no payment or persistent side effect."
+    ]
+  },
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "strict_delta": 0,
+    "new_useful_completed_identity_action_joins": 0,
+    "candidate_operations_invoked": 0,
+    "new_ready_routes": 0,
+    "result": "NO_STRICT_CONVERSION_OR_REVENUE_CHANGE"
+  },
+  "revenue_implication": {
+    "external_settled_revenue_usd_before": 0.0,
+    "external_settled_revenue_usd_after": 0.0,
+    "delta": 0.0,
+    "number_to_watch": "external_settled_revenue_usd"
+  },
+  "safety_and_write_accounting": {
+    "remote_candidate_operation_invocations": 0,
+    "messages_or_repeated_outreach": 0,
+    "accounts_keys_or_authentication_created": 0,
+    "terms_accepted": 0,
+    "wallet_or_payment_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "pushes_or_deploys": 0,
+    "production_mutations": 0,
+    "canonical_files_modified": 0,
+    "production_response_bodies_written_to_disk": 0,
+    "network_response_handling": "in_memory_or_discarded_after_header_check",
+    "local_files_written": 1,
+    "local_write_scope": "this_validated_evidence_json_only"
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T05:59:22Z",
+  "mode": "production_bodies_processed_in_memory",
+  "cycle_evidence": [
+    "evidence/fixed30-cycle-close-2026-08-26T0534Z.json",
+    "evidence/fixed30-untouched-community-machine-inbound-deep-audit-2026-08-26T0541Z.json",
+    "evidence/fixed30-untouched-community-machine-inbound-route-audit-2026-08-26T0543Z.json",
+    "evidence/fixed30-reddit-acrid-direct-mail-route-adjudication-2026-08-26T0547Z.json",
+    "evidence/fixed30-agentmail-b0tresch-moltx-route-2026-08-26T0555Z.json"
+  ],
+  "material_result": {
+    "community": "moltx",
+    "machine": "b0tresch",
+    "preexisting_identity": "An agent-authored pre-pilot ERC-8004 record binds b0tresch, MoltX @b0tresch_, Agent #16843, wallet 0xd2c...fbc4 and botresch@gmail.com; the machine-owned site repeats the identity and autonomous web capability.",
+    "machine_inbound_evidence": "The official MoltX history records the same machine receiving an email notification and independently verifying the claim via RPC before trusting it.",
+    "action": "One optional zero-payment email asks exactly one nonce-bearing AG preflight of b0tresch's own site, an identity-bound fetch receipt and a machine sufficiency decision.",
+    "thread_id": "2b6d3e49-1786-40a4-9552-916d4e827b77",
+    "current_state": "sent_only_no_reply_no_nonce_telemetry",
+    "repeat_policy": "Never resend, restate or contact another MoltX recipient; passive monitoring only.",
+    "strict_effect": 0
+  },
+  "adjudicated_no_go": {
+    "community": "reddit_ai_agents",
+    "machine": "Acrid",
+    "result": "Acrid's public addresses are operator-facing and customer email is human-approved/fixed-quote gated. Inbox triage and general web capability do not prove autonomous free AG execution or machine-attributable reply.",
+    "outreach_sent": false,
+    "strict_effect": 0,
+    "product_rule_reinforced": "A machine-assisted mailbox is not a machine execution principal; full effect closure and the execution principal must both be explicit."
+  },
+  "unchanged_open_route_gates": {
+    "moltx_alternate": "Gendolf is also a strong MoltX identity, but the same recipient is already contacted for Virtuals ACP and the no-repeat guard denies a second community request.",
+    "agentic_market": "MAKO's exact verifier remains $0.25; its free reliability operation scores its own endpoint history rather than consuming an exact AG artifact.",
+    "openserv": "BrowserUse remains $0.01 and lacks a durable owner-bound result schema/receipt.",
+    "nevermined": "Revettr remains signed but caller-supplied-subject only; it does not fetch and verify an exact AG artifact.",
+    "agntcy": "The registry still lacks a public callable target-member identity.",
+    "olas": "Public Mech execution remains signer/payment/subscription gated.",
+    "fetch_agentverse": "Exact scraper agents remain unresponsive or sender-lifecycle gated with zero verified successes.",
+    "ag2": "The public Ask the Web route remains blocked by the provider's invalid Tavily key.",
+    "elizaos": "Dryad has a durable identity and mailbox but its decision loop does not consume that mailbox and its verifier is GPS/image-only, not AG-capable."
+  },
+  "pending_machine_threads": {
+    "b0tresch_moltx": {
+      "thread_id": "2b6d3e49-1786-40a4-9552-916d4e827b77",
+      "mailbox_checked_at": "2026-08-26T05:58:47Z",
+      "message_count": 1,
+      "reply": false,
+      "nonce_source_or_domain_matches": 0
+    },
+    "gendolf_virtuals": {
+      "thread_id": "6259089d-0515-4e17-a66b-480e1d509426",
+      "mailbox_checked_at": "2026-08-26T05:58:47Z",
+      "message_count": 1,
+      "reply": false,
+      "nonce_source_or_domain_matches": 0
+    }
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "observed_through": "2026-08-26T05:57:27.534409+00:00",
+    "recent_window_oldest": "2026-08-26T03:23:48.997335+00:00",
+    "snapshot_events": 10798,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "new_identity_action_joins": 0,
+    "post_gendolf_preflight_attribution": "All eight later preflights were known PULSE or CipherWatch liveness traffic, not Gendolf or b0tresch."
+  },
+  "expansion_universe": {
+    "fixed_pilot": 30,
+    "expansion_records": 170,
+    "total_records": 200,
+    "unique_expansion_urls": 170,
+    "unique_expansion_names": 170,
+    "cap_exclusions": 6,
+    "pilot_denominator_unchanged": true
+  },
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NEW_COMMUNITY_LAUNCHED_NO_COMPLETED_ACTION_OR_REVENUE"
+  },
+  "safety": {
+    "external_writes": 1,
+    "outbound_messages": 1,
+    "new_communities_contacted": 1,
+    "repeat_outreach": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

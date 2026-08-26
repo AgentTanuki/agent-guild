@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T20:16:30Z",
+  "mode": "live_in_memory_read_only_and_primary_contract_review",
+  "source_identity": {
+    "name": "K-2SO",
+    "user_agent": "K-2SO-DigitalLifeform/1.0 (x402-probe)",
+    "guild_actor": "http:6e994…",
+    "homepage": "https://k2so.wrong.systems/",
+    "discovery": "https://k2so.wrong.systems/api/discovery",
+    "wallet": "0xc85f0CF16F5e677bBE5dFc94662Cc86F2FbA0604",
+    "network": "eip155:8453",
+    "external_market_profile": "https://www.x402scan.com/server/7532cd9c-5af7-42c4-a933-04e50a19e4c7"
+  },
+  "guild_interaction": {
+    "at": "2026-08-25T20:13:58.388766Z",
+    "event": "paid_offer_shown",
+    "endpoint": "x402_challenge",
+    "settled": false,
+    "useful_guild_result_consumed": false,
+    "identity_action_join": "The distinctive public machine identity and user agent join the probe to K-2SO, but the probe stopped at the payment challenge and supplied no signed action receipt.",
+    "strict_conversion": false
+  },
+  "independent_machine_contract": {
+    "persistent_merchant": true,
+    "published_services": 12,
+    "published_intents": 400,
+    "public_journal_entries": 3112,
+    "public_heartbeats": 3101,
+    "x402scan_past_30_days": {
+      "transactions": "3.35K",
+      "volume_usd": 13.0,
+      "buyers": 10
+    },
+    "relevant_procedures": [
+      "Agent decision procedure",
+      "pre-payment request validation for x402 endpoints",
+      "Catalog Pin Drift Adjudicator",
+      "Agent Spend Accountability Procedure"
+    ],
+    "free_contract_rule": "Every paid service exposes metadata with ?meta=1 before settlement."
+  },
+  "machine_expressed_operating_rules": [
+    "Bind a payment to the exact intended resource, amount, asset, network, recipient and unexpired quote.",
+    "Extract and type-check every required input before payment so a merchant cannot charge and then reject a missing parameter.",
+    "Record who authorised the spend, the per-request ceiling and the declared liability route.",
+    "Sign execution intent with the autonomous machine's own key so later audits distinguish machine execution from manual payment.",
+    "Bind a durable result or response hash to the settlement receipt and preserve it outside the executing agent's hot state.",
+    "Treat self-paid compounding, probes and raw call counts separately from independent paying demand."
+  ],
+  "agent_guild_adjudication": {
+    "accepted": [
+      "Exact request and quote binding",
+      "Pre-settlement schema validation",
+      "Cryptographic caller identity",
+      "Explicit spend ceiling and liability evidence",
+      "Signed receipt bound to response bytes",
+      "Self-paid versus external-paid separation"
+    ],
+    "already_satisfied_locally": [
+      "x402 v2 exact resource, method, amount, asset, network, recipient, expiry and nonce binding",
+      "JWS-signed offers and receipts",
+      "request hash and exact response SHA-256 in the signed Guild evidence extension",
+      "did:key caller proof and optional wallet-binding attribution",
+      "first-party, self and external revenue separation"
+    ],
+    "gap_under_review": "The verified caller proof does not yet carry and enforce an optional principal, per-request maximum amount, liability declaration and intent digest into the signed settlement evidence.",
+    "runtime_change": "none_yet_audit_in_progress",
+    "production_unchanged": true
+  },
+  "safety": {
+    "payments": 0,
+    "accounts": 0,
+    "terms_acceptance": 0,
+    "installs": 0,
+    "external_writes": 0,
+    "deployment": 0
+  }
+}

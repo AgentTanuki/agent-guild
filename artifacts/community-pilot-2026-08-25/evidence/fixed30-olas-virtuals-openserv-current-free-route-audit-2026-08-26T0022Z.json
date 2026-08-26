@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_olas_virtuals_openserv_current_free_route_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T00:17:01.613659Z",
+    "end": "2026-08-26T00:21:39.767609Z"
+  },
+  "mode": "read_only_network_bodies_in_memory",
+  "scope": [
+    "Olas/Autonolas/Mech",
+    "Virtuals ACP",
+    "OpenServ"
+  ],
+  "strict_baseline_before": "5/30",
+  "strict_conversions_added": 0,
+  "strict_total_after": "5/30",
+  "external_writes": 0,
+  "accounts_wallets_keys_terms_payments_installs_messages_deploys": 0,
+  "candidate_operations_invoked": 0,
+  "strict_success_rule": "A conversion requires a durable pre-existing identity in the named community plus a currently reachable anonymous free operation that independently consumes an exact Agent Guild trust, passport, preflight, credential or result and returns attributable substantive evidence. Listings, probes, offers, schema checks, acknowledgements, caller-supplied-only validation and self-claimed identity do not qualify.",
+  "targets": [
+    {
+      "target_id": "olas",
+      "community_identity_state": "Pre-existing Olas Mech identities are durable marketplace/on-chain identities, but no qualifying free anonymous execution authority was found in the current official client contract.",
+      "primary_sources": [
+        {
+          "url": "https://raw.githubusercontent.com/valory-xyz/mech-client/main/README.md",
+          "http_status": 200,
+          "sha256": "3a59ddf2c0ebe4c867079d42ae48f527cf7f99acc83381319d8b3ff14e45201a",
+          "contract_evidence": [
+            "README lines 175-196 declare five payment types and state that the client detects the Mech smart contract payment type and handles payment or validates a subscription NFT.",
+            "README lines 221-251 describe prepaid deposits and paid Nevermined subscription purchase as the alternatives to per-request payment."
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/valory-xyz/mech-client/main/docs/ARCHITECTURE.md",
+          "http_status": 200,
+          "sha256": "171f7a8a7e31f3531bdcec7de66aedc9bbb361d78a8ac44440e51530ec4ab747",
+          "contract_evidence": [
+            "Architecture lines 134-155 classify request as a wallet command and require agent mode or client mode, with client mode requiring a private key.",
+            "Architecture lines 327-347 state that on-chain transactions and off-chain request signatures route through a Signer; an external signer avoids raw-key custody but does not remove signer authority."
+          ]
+        }
+      ],
+      "supporting_registry_checks": [
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Olas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "http_status": 200,
+          "sha256": "c7d89360462adc4c77a8f4c619c499838cac49879c6af8b33ac72229d2ddfc44",
+          "total": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Autonolas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "http_status": 200,
+          "sha256": "c7d89360462adc4c77a8f4c619c499838cac49879c6af8b33ac72229d2ddfc44",
+          "total": 0
+        },
+        {
+          "url": "https://hol.org/registry/api/v1/search?q=Mech&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+          "http_status": 200,
+          "sha256": "c7d89360462adc4c77a8f4c619c499838cac49879c6af8b33ac72229d2ddfc44",
+          "total": 0
+        }
+      ],
+      "supporting_registry_authority_limit": "HOL is supporting discovery evidence, not the Olas execution authority; the official mech-client contract is decisive.",
+      "operation_invoked": false,
+      "decision": "NO_GO",
+      "reason": "Every official request path requires signer authority and a payment, prepaid balance or paid subscription. Off-chain delivery does not remove the signed-request gate, and no current exact free-online Olas/Autonolas/Mech registry result supplied a contrary operation.",
+      "first_ready_gate": "A pre-existing Olas Mech must publish a reachable exact operation that accepts an Agent Guild URL or signed credential, runs without a signer, deposit, subscription, token or account, and returns a result cryptographically attributable to that Mech identity."
+    },
+    {
+      "target_id": "virtuals_acp",
+      "catalog": {
+        "url": "https://acpx.virtuals.io/api/agents",
+        "observed_at": "2026-08-26T00:20:25.634748Z",
+        "http_status_all_pages": 200,
+        "pages": 441,
+        "page_size": 100,
+        "declared_total": 44051,
+        "records_scanned": 44051,
+        "page_manifest_sha256": "63c868208cc0a2f181462222ef0bce52a0614495633d4eb2fa22fa03f66ebd8d",
+        "jobs": 37661,
+        "resources": 1636,
+        "legacy_price_zero_jobs": 144,
+        "legacy_zero_jobs_with_positive_price_v2": 125,
+        "effective_zero_jobs": 19,
+        "effective_zero_resources": 0,
+        "effective_zero_ag_relevant_semantic_matches": 0,
+        "price_rule": "An explicit finite priceV2.value is authoritative when present; legacy price is used only when priceV2 is absent. Missing or malformed values are unknown, never zero."
+      },
+      "irrelevant_effective_zero_url_matches": [
+        {
+          "agent_document_id": "x7xsykywj792x4m0faneuvjj",
+          "agent_name": "tokenLaunchAgent",
+          "job": "launchTokens",
+          "reason_excluded": "imageUrl is token-launch input; the job does not consume or verify Agent Guild data."
+        },
+        {
+          "agent_document_id": "nz6i2qr5g90nlb2rqgraldvx",
+          "agent_name": "Token Launch Agent",
+          "job": "launchTokens",
+          "reason_excluded": "imageUrl is token-launch input; the job does not consume or verify Agent Guild data."
+        },
+        {
+          "agent_document_id": "lget7r9pkyk1w0oyh640jcoj",
+          "agent_name": "Arcads UGC Video Seller",
+          "job": "arcadsUgcVideo",
+          "reason_excluded": "reference-image URLs are media-generation inputs; the job does not consume or verify Agent Guild data."
+        }
+      ],
+      "closest_candidate": {
+        "detail_url": "https://acpx.virtuals.io/api/agents/q91f2hf7ppvjjwqe6wtk943v",
+        "observed_at": "2026-08-26T00:20:45.700068Z",
+        "http_status": 200,
+        "sha256": "b00acd85f8a9ab723a2dd5414d53d11ddce4554ae1fd7c25968c3ac268772c7f",
+        "document_id": "q91f2hf7ppvjjwqe6wtk943v",
+        "name": "x402guard",
+        "wallet_address": "0x9aC4C2F7B7c7b88007B1227050810B6E41820533",
+        "jobs": [
+          "quickScan",
+          "standardScan",
+          "deepScan",
+          "publisherCheck"
+        ],
+        "price_usd_each": 0.01,
+        "free_resource_limit": "threatIntelFeed accepts only a category and cannot fetch or verify an exact Agent Guild artifact.",
+        "contract_contradiction": "quickScan, standardScan and deepScan require skillUrl while declaring skillUrl type null even though its description says URL; skillContent being optional does not repair the required-field contradiction."
+      },
+      "operation_invoked": false,
+      "decision": "NO_GO",
+      "reason": "All 19 effective-zero jobs were inspected and none has Agent Guild-consuming semantics. The closest named verifier costs $0.01, has no qualifying free resource, and its published URL input schema is internally contradictory.",
+      "first_ready_gate": "A durable ACP identity must expose an effective-price-zero job with a schema-valid Agent Guild URL or credential input and an anonymous execution authority that returns a signed or otherwise identity-bound substantive result without ACP tokens, a wallet or escrow."
+    },
+    {
+      "target_id": "openserv",
+      "catalog": {
+        "url": "https://api.openserv.ai/x402-services",
+        "observed_at": "2026-08-26T00:21:39.767609Z",
+        "http_status": 200,
+        "sha256": "20ea7008d790085b92186ef5bb5fc28c7ae943f1efff2ea03119bf9c046d135e",
+        "records": 467,
+        "active_records": 88,
+        "active_exact_zero_price_records": 0,
+        "minimum_active_price_usd": 0.005
+      },
+      "closest_candidate": {
+        "id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+        "name": "BrowserUse Agent",
+        "owner_display_name": "openserv",
+        "active": true,
+        "input_schema": {
+          "required": [
+            "url",
+            "instructions"
+          ],
+          "properties": {
+            "url": "string",
+            "instructions": "string"
+          }
+        },
+        "price_usd": 0.01,
+        "paywall_url": "https://platform.openserv.ai/workspace/paywall/9399ad3092d94e8e9c36ee471b502bde",
+        "webhook_url": "https://api.openserv.ai/webhooks/x402/trigger/9399ad3092d94e8e9c36ee471b502bde"
+      },
+      "operation_invoked": false,
+      "decision": "NO_GO",
+      "reason": "The current public catalog contains no active exact-zero-price service. BrowserUse has the right arbitrary-URL shape but is explicitly a $0.01 x402 paywall/webhook operation; a catalog listing alone is excluded.",
+      "first_ready_gate": "An active pre-existing OpenServ machine must publish an exact-zero-price anonymous execution endpoint with an arbitrary HTTPS or credential-verification schema and return an owner-machine-bound substantive result."
+    }
+  ],
+  "machine_design_signals": [
+    {
+      "target": "Virtuals ACP",
+      "status": "current_contract_defect_reaffirmed",
+      "signal": "A required URL field typed null makes the advertised verifier impossible to call according to its own schema. Publish skillUrl as a URI string, or use a strict one-of contract for URL versus inline content."
+    },
+    {
+      "target": "cross_target_discovery",
+      "status": "reaffirmed",
+      "signal": "Catalogs need machine-readable, authoritative distinctions among listing, callable execution authority, authentication requirement, normalized effective price, and result identity/signature. Without these fields, machines must infer readiness from marketing text and risk treating discovery as execution."
+    }
+  ],
+  "strict_conclusion": "No target now exposes a qualifying pre-existing community machine joined to a safe anonymous free operation that independently consumes Agent Guild data and returns attributable evidence. No operation was invoked. Strict conversion delta is +0 and the fixed-30 total remains 5/30."
+}

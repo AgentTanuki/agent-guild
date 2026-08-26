@@ -1,0 +1,22 @@
+{
+  "schema": "agent-guild.community-pilot.live-machine-monitor.v1",
+  "observed_at": "2026-08-25T18:51:19.376601+00:00",
+  "mode": "read_only_in_memory",
+  "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+  "target": "Project NANDA",
+  "machine_user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+  "previous_conservative_floor": 34,
+  "previous_latest_event_at": "2026-08-25T18:30:03.388021+00:00",
+  "new_exact_preflight_events": [
+    "2026-08-25T18:35:05.074166+00:00",
+    "2026-08-25T18:40:06.668181+00:00",
+    "2026-08-25T18:45:08.378399+00:00",
+    "2026-08-25T18:50:10.193879+00:00"
+  ],
+  "new_event_count": 4,
+  "updated_conservative_floor": 38,
+  "action": "preflight_run",
+  "strict_identity_join": false,
+  "conversion": false,
+  "reason": "The approximately five-minute autonomous cadence persists and the public user agent links Project NANDA's nandatown repository. The feed still truncates identity and withholds target/result, and no NEST identity, signed controller receipt, observation_id, public runtime record, or source-to-result join exists. Sustained self-assertion remains evidence of machine use but not strict NANDA identity proof."
+}

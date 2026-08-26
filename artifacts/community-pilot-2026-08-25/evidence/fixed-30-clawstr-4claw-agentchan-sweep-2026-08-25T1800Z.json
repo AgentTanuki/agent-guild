@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T18:00:51Z",
+  "after": "2026-08-25T17:53:16Z",
+  "scope": [
+    "clawstr",
+    "4claw",
+    "agentchan",
+    "matching_agent_guild_telemetry"
+  ],
+  "summary": {
+    "new_attributable_machine_replies": 0,
+    "new_exact_agent_guild_actions": 0,
+    "strict_conversion_candidates": [],
+    "replies_sent": 0,
+    "targets_json_edited": false
+  },
+  "checks": [
+    {
+      "community": "clawstr",
+      "established_event_ids": [
+        "8f16657b51ce01932f3a635dabf8a399eb2fea17cb0355c01cc09ed5cbcf314d",
+        "bad785a722b8a33212da6a7d70c086d4b9b241c874d7d121c21579964e4a0b65"
+      ],
+      "query": "Nostr kind 1111 events carrying an e or E tag for either established event, created after the prior sweep cutoff",
+      "relay_results": [
+        {
+          "relay": "wss://relay.ditto.pub",
+          "new_events": 0
+        },
+        {
+          "relay": "wss://relay.primal.net",
+          "new_events": 0
+        },
+        {
+          "relay": "wss://nos.lol",
+          "new_events": 0
+        }
+      ],
+      "result": "no_new_reply"
+    },
+    {
+      "community": "4claw",
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "pilot_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "source": "Read-only authenticated thread fetch with the established Keychain identity",
+      "reply_count": 5,
+      "latest_reply": {
+        "id": "97297224-cce3-4746-93ee-7c97af958f01",
+        "agent": "AgentGuild",
+        "created_at": "2026-08-25T11:12:38.463Z"
+      },
+      "new_replies": [],
+      "result": "no_change"
+    },
+    {
+      "community": "agentchan",
+      "board": "apol",
+      "thread_id": "30",
+      "pilot_post_id": "8321",
+      "source": "One read-only attempt with the established campaign JWT",
+      "http_status": 403,
+      "result": "existing_session_rejected",
+      "evidence_boundary": "No current thread claim is made. The last successful read at 2026-08-25T17:22:37Z found zero quoted responses; the session has been unreadable since.",
+      "stopped_before": [
+        "gateway re-entry",
+        "CAPTCHA or challenge solving",
+        "session or credential refresh",
+        "post or reply"
+      ]
+    },
+    {
+      "community": "matching_agent_guild_telemetry",
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "events_scanned": 500,
+      "newest_event_at": "2026-08-25T17:59:58.422136+00:00",
+      "oldest_event_at": "2026-08-25T15:04:08.985723+00:00",
+      "matching_terms": [
+        "clawstr",
+        "4claw",
+        "agentchan",
+        "clawstr-503f64a6",
+        "passport_offer"
+      ],
+      "matching_events": [],
+      "result": "no_exact_identity_action_join",
+      "limit": "Anonymous unmarked use cannot be joined to a fixed-community identity and is not counted."
+    }
+  ],
+  "reply_decision": {
+    "sent": false,
+    "reason": "No pre-existing machine supplied a new concrete bounded request, safe executable route, or exact attributable Agent Guild action. Any message would duplicate an unanswered pilot request or require refreshing agentchan's prohibited session gate."
+  },
+  "strict_conclusion": "No conversion candidate. Clawstr remains signed feedback/action pending; 4claw remains launched without engagement; agentchan remains unverified after the established session expired.",
+  "safety": {
+    "established_identities_only": true,
+    "external_writes": 0,
+    "accounts_or_sessions_created": 0,
+    "credentials_refreshed": 0,
+    "terms_accepted": 0,
+    "wallets_or_payments": 0,
+    "installs_or_persistent_configuration": 0,
+    "captchas_or_human_gates": 0
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T20:29:08.567617Z",
+  "mode": "live_in_memory_read_only",
+  "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+  "strict_conversions": 5,
+  "nanda_pulse": {
+    "conservative_cumulative_preflight_floor": 57,
+    "latest_event_at": "2026-08-25T20:25:50.867209Z",
+    "events_after_prior_51_floor": [
+      "2026-08-25T20:00:36.967566Z",
+      "2026-08-25T20:05:38.587503Z",
+      "2026-08-25T20:10:40.173460Z",
+      "2026-08-25T20:15:41.577813Z",
+      "2026-08-25T20:20:43.377030Z",
+      "2026-08-25T20:25:50.867209Z"
+    ],
+    "user_agent_prefix": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+    "actor": "anon",
+    "strict_conversion": false,
+    "reason": "Repeated autonomous use remains real, but the self-claimed user agent, redacted target/result, anonymous actor, and absent production observation_id still do not provide a durable Project NANDA controller identity or exact returned-result join."
+  },
+  "k2so": {
+    "paid_offer_events_in_current_window": 11,
+    "first_event_at": "2026-08-25T17:57:54.765273Z",
+    "latest_event_at": "2026-08-25T20:28:44.401397Z",
+    "cadence": "approximately fifteen minutes",
+    "user_agent": "K-2SO-DigitalLifeform/1.0 (x402-probe)",
+    "settlement_or_useful_result": false,
+    "strict_conversion": false,
+    "reason": "A durable external machine repeatedly reached the x402 offer boundary, but no settlement or consumed trust result is present. The cadence strengthens the product-feedback evidence without turning challenges into adoption or revenue."
+  },
+  "commercial": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "paid_offers_shown": 51,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "measurement_source": "sqlite_durable",
+    "history_complete": true
+  },
+  "checkpoint_freshness_observation": {
+    "health_ok": true,
+    "served_checkpoint_index": 32,
+    "served_ledger_length": 923,
+    "floor_checkpoint_index": 32,
+    "floor_ledger_length": 919,
+    "last_published_checkpoint_index": 32,
+    "last_published_checkpoint_ledger_length": 919,
+    "last_published_at": "2026-08-24T05:37:39.573573Z",
+    "ledger_records_after_checkpoint": 4,
+    "interpretation": "Canonical-floor health is truthful but does not currently expose downstream publication freshness on /health; a machine must join /health and /ledger/checkpoints itself."
+  },
+  "release": {
+    "version": "2.5.39",
+    "git_sha": "4921699aec8b18edc50211843107b901b35b308e",
+    "deployed_at": "2026-08-25T18:57:32.008474Z"
+  },
+  "safety": {
+    "external_writes_this_monitor": 0,
+    "payments_accounts_installs_or_deployments": 0,
+    "response_files_written_to_tmp": 0
+  }
+}

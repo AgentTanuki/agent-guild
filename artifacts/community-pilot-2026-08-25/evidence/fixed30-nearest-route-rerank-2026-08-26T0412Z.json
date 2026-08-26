@@ -1,0 +1,363 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_nearest_route_rerank",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T04:12:33Z",
+  "mode": "current_public_read_only_in_memory_no_operation_invocation",
+  "baseline": {
+    "route_evidence_through": "2026-08-26T03:57:15Z",
+    "route_artifacts": [
+      "artifacts/community-pilot-2026-08-25/evidence/fixed30-payai-agent402-pow-contract-audit-2026-08-26T0346Z.json",
+      "artifacts/community-pilot-2026-08-25/evidence/fixed30-framework-route-transition-audit-2026-08-26T0347Z.json",
+      "artifacts/community-pilot-2026-08-25/evidence/fixed30-social-new-identities-route-audit-2026-08-26T0357Z.json"
+    ],
+    "latest_production_artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-final-live-monitor-2026-08-26T0405Z.json",
+    "strict_conversions": 5,
+    "denominator": 30,
+    "external_settled_revenue_usd": 0.0,
+    "qualified_actors": 10,
+    "qualified_events": 99,
+    "paid_offers_shown": 58,
+    "paid_completions": 0
+  },
+  "qualification_rule": "A strict conversion requires a durable pre-existing fixed-community machine identity plus an independently useful completed Agent Guild action. The route must be publicly documented as anonymous, exact-zero, side-effect-free, semantically able to fetch/use an exact AG artifact, and able to return a durable identity/result join before any operation is attempted.",
+  "production_current": {
+    "observed_through": "2026-08-26T04:11:07.102393+00:00",
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "snapshot_events": 10690,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "paid_completions": 0,
+    "delta_from_0405_monitor": {
+      "external_settled_revenue_usd": 0.0,
+      "qualified_actors": 0,
+      "qualified_events": 3,
+      "paid_offers_shown": 2,
+      "paid_completions": 0
+    },
+    "recent_after_0357": {
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "events": 88,
+      "oldest": "2026-08-26T03:57:24.400533+00:00",
+      "newest": "2026-08-26T04:11:07.102393+00:00",
+      "classifier_genuine_external_events": 13,
+      "event_types": {
+        "paid_offer_served": 49,
+        "offer_served": 13,
+        "discovery_resource_fetched": 10,
+        "paid_offer_shown": 10,
+        "preflight_run": 5,
+        "capability_demand": 1
+      },
+      "strictly_qualifying_useful_completions": 0,
+      "interpretation": "The post-baseline activity is discovery, offer presentation and anonymous preflight only; no event establishes a new durable fixed-community identity/result join."
+    }
+  },
+  "state_transition_summary": {
+    "material_execution_readiness_transitions": [],
+    "nonqualifying_changes": [
+      {
+        "target": "Fetch Agentverse",
+        "change": "Website Scraper recent and total interactions each increased by 8 since the 03:30 read.",
+        "why_not_ready": "It remains unresponsive with recent_success_rate 0 and zero verified successful interactions."
+      },
+      {
+        "target": "elizaOS",
+        "change": "The current first-party A2A card enumerates 21 platform skills rather than only the wallet-nonce discovery previously highlighted.",
+        "why_not_ready": "None is a public arbitrary-URL fetch or credential verifier; the added skills are account, wallet, billing, app, agent-chat or administrative operations."
+      },
+      {
+        "target": "production exposure",
+        "change": "Qualified events increased by 3 and paid offers by 2 since the 04:05 monitor.",
+        "why_not_ready": "No payer, completion, revenue or new identity/action join resulted."
+      }
+    ],
+    "operations_invoked_this_cycle": 0,
+    "reason_no_operation": "Every route fails at least one pre-execution gate. The already-attempted Moltbot Den health-check was not retried because observed 401 admission is authoritative until the service changes."
+  },
+  "ranked_routes": [
+    {
+      "rank": 1,
+      "target": "4claw",
+      "machine": "optimuswill -> Moltbot Den optimus-will",
+      "identity_strength": "Strong public pre-existing cross-surface join to the claimed founding orchestrator, joined 2026-01-31, currently claimed with 890 connections.",
+      "operation": "POST https://api.moltbotden.com/x402/health-check",
+      "ag_semantics": "Accepts a required arbitrary URL and probes it server-side for payment-protocol support.",
+      "declared_price": "No x402 listing or 402 response; apparent free health operation.",
+      "current_contract": {
+        "openapi_version": "1.0.0",
+        "x_api_key_required": false,
+        "security": null,
+        "response_200_schema": {},
+        "published_description": "Probe a URL to check if it supports x402/L402/MPP payments."
+      },
+      "observed_admission": {
+        "prior_attempt_at": "2026-08-26T03:56:50Z",
+        "http_status": 401,
+        "error_code": "AUTH_MISSING_KEY",
+        "request_id": "3682ad08-de46-431f-910a-4c45cd948df5",
+        "ag_fetch_occurred": false
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "Observed admission requires X-API-Key despite the optional-key contract, and the 200 response schema declares no immutable identity-bound result or receipt fields.",
+      "retry_predicate": "Retry once only after a live contract/version change explicitly makes this operation anonymous and publishes a receipt containing requested URL, final URL, status, digest, semantic result, request ID and platform or OptimusWill identity binding."
+    },
+    {
+      "rank": 2,
+      "target": "PayAI",
+      "machine": "Agent402",
+      "operation": "POST https://agent402.tools/api/extract",
+      "identity_strength": "1,241 current PayAI records bind the pre-existing Agent402 seller origin; the exact extract route is catalogued.",
+      "ag_semantics": "Exact server-side public URL fetch returning page content.",
+      "current_state": {
+        "price": "$0.010",
+        "pow_eligible_tools": 153,
+        "extract_pow_eligible": false,
+        "pow_note": "Network/browser/storage tools remain wallet-only via x402.",
+        "hosted_terms": "Programmatic use constitutes acceptance."
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "The exact fetch is paid and excluded from the free PoW rail; the current task also forbids accepting the hosted terms.",
+      "retry_predicate": "Extract becomes exact-zero or PoW eligible, separate authority exists for hosted terms, and the response plus AG telemetry can durably bind one nonce-bearing result to Agent402."
+    },
+    {
+      "rank": 3,
+      "target": "MoltPress",
+      "machine": "delx",
+      "operation": "util_page_extract",
+      "identity_strength": "Durable pre-existing MoltPress identity joined to Delx's live versioned Agent Card, MCP/A2A runtime and 1,076-tool catalog.",
+      "ag_semantics": "Required HTTP/HTTPS URL, server-side page metadata and readable-text extraction.",
+      "current_state": {
+        "server_version": "3.3.5",
+        "price_usdc": "0.01",
+        "price_microunits": 10000,
+        "x402_required": true,
+        "campaign_free": false
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "The exact fetch remains paid and x402-required; prior Delx outreach cannot be repeated.",
+      "retry_predicate": "The catalog itself reports price zero, x402_required=false and campaign_free=true and the operation returns a Delx-bound result ID plus source/final URL, status, digest and parsed AG result."
+    },
+    {
+      "rank": 4,
+      "target": "OpenServ",
+      "machine": "BrowserUse Agent",
+      "operation": "POST https://api.openserv.ai/webhooks/x402/trigger/9399ad3092d94e8e9c36ee471b502bde",
+      "identity_strength": "Active platform-owned pre-existing OpenServ service ID fea4d45e-eefb-4579-8516-38588f2cf4cf.",
+      "ag_semantics": "Requires url and instructions and can crawl an exact AG artifact.",
+      "current_state": {
+        "catalog_records": 467,
+        "active_records": 88,
+        "active_exact_zero": 0,
+        "minimum_active_price_usd": 0.005,
+        "browser_use_price_usd": "0.01",
+        "output_schema": null
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "No active OpenServ operation is free; BrowserUse remains behind a $0.01 paywall and publishes no output/result identifier schema.",
+      "retry_predicate": "BrowserUse becomes exact-zero with anonymous admission and publishes a durable owner-machine-bound result ID containing the exact source URL and consumed AG result."
+    },
+    {
+      "rank": 5,
+      "target": "Fetch Agentverse",
+      "machine": "Website Scraper Agent",
+      "operation": "website-scraping-protocol/0.1.0 WebsiteScraperRequest {url}",
+      "identity": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "current_state": {
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_interactions": 7468,
+        "total_interactions": 41083,
+        "last_updated": "2026-08-26T04:03:08Z"
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "The agent remains unresponsive with no verified successful interaction, and useful response retrieval requires a sender/mailbox lifecycle without a public durable result receipt.",
+      "retry_predicate": "unresponsive=false, a fresh verified success, and an already-keyless sender plus public or signed result rail."
+    },
+    {
+      "rank": 6,
+      "target": "Nevermined",
+      "machine": "Revettr",
+      "current_state": {
+        "health": "ok",
+        "version": "0.1.0",
+        "free_paths": [
+          "/v1/score",
+          "/v1/attest",
+          "/v1/iss-verdict",
+          "/v1/session/verify"
+        ],
+        "outbound_ag_fetch_or_w3c_verify_paths": 0
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "Free trust operations score caller-supplied identifiers or Revettr-native tokens; none independently fetches an AG artifact or verifies an AGI-1/W3C passport.",
+      "retry_predicate": "Publish anonymous free fetch_and_attest_credential({credential_url}) with independent issuer resolution and a Revettr-signed result envelope."
+    },
+    {
+      "rank": 7,
+      "target": "Agentic Market",
+      "machine": "MAKO",
+      "current_state": {
+        "agent_commerce_verify_price_usdc": "0.25",
+        "weekly_brief_price_usdc": "1",
+        "pulse_score_price_usdc": "0.02",
+        "all_schemes": "exact"
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "The exact AG-adjacent commerce verifier remains paid; free public behavior is probe history rather than exact AG artifact consumption.",
+      "retry_predicate": "A durable market route becomes exact-zero and returns a principal-bound consumed AG result rather than liveness/probe metadata."
+    },
+    {
+      "rank": 8,
+      "target": "Virtuals ACP",
+      "machine": "x402guard",
+      "current_state": {
+        "agent_id": 1587,
+        "updated_at": "2026-04-09T07:13:58.131Z",
+        "jobs": [
+          "quickScan 0.01",
+          "standardScan 0.01",
+          "deepScan 0.01",
+          "publisherCheck 0.01"
+        ]
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "All relevant jobs remain fixed-price $0.01 and official execution requires ACP authority/wallet lifecycle.",
+      "retry_predicate": "An effective-zero job exposes a schema-valid arbitrary AG URL or credential input and anonymous durable ACP result."
+    },
+    {
+      "rank": 9,
+      "target": "Olas",
+      "machine": "closest public HOL Olas/Autonolas/Mech records",
+      "current_state": {
+        "online_free_olas": 0,
+        "online_free_autonolas": 0,
+        "online_free_mech": 0
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "No online free matching machine exists; official Mech execution remains signer and payment gated.",
+      "retry_predicate": "A pre-existing Mech becomes online and free with no signer/payment and returns a cryptographically identity-bound AG result."
+    },
+    {
+      "rank": 10,
+      "target": "OpenClaw",
+      "machine": "Dokki",
+      "current_state": {
+        "requested": "https://dokki.one/a2a",
+        "final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+        "content_type": "text/html; charset=utf-8"
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "The advertised no-auth A2A runtime still redirects to login and exposes no durable task result.",
+      "retry_predicate": "Serve current message/send anonymously with signed or public result readback."
+    },
+    {
+      "rank": 11,
+      "target": "LangChain",
+      "machine": "Authenticated MCP Agent",
+      "current_state": {
+        "health": "ok",
+        "version": "0.1.1",
+        "langchain_component": "langchain-core",
+        "free_execution": "fixed canned selftest",
+        "external_input_execution": "Nevermined x402 metered"
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "The only free signed execution has fixed input; arbitrary external AG input is paid.",
+      "retry_predicate": "Expose one free arbitrary-URL call with a signed nonce-bound result."
+    },
+    {
+      "rank": 12,
+      "target": "elizaOS",
+      "machine": "Eliza Cloud",
+      "current_state": {
+        "public_card_skills": 21,
+        "public_url_fetch_or_credential_verify_skills": 0,
+        "execution_scope": "wallet login, accounts, credits, billing, apps, agent chat and administration"
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "No pre-existing public character exposes WEB_FETCH anonymously; the visible platform operations require account, wallet, credits or privileges.",
+      "retry_predicate": "A durable public Eliza character exposes free no-auth WEB_FETCH with result ID/hash and exact AG content."
+    },
+    {
+      "rank": 13,
+      "target": "AG2",
+      "current_state": {
+        "first_party_agent_card_status": 404,
+        "current_registry_query": "transient 503 during this read; prior current search returned zero records"
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "No first-party hosted machine card/runtime or durable AG2-labelled public operation exists.",
+      "retry_predicate": "A pre-existing AG2 identity publishes a healthy signed card and anonymous URL-consuming operation."
+    },
+    {
+      "rank": 14,
+      "target": "Naptha",
+      "current_state": {
+        "node_health": "timeout",
+        "node2_health_status": 521,
+        "labs_agent_card": "timeout"
+      },
+      "eligible_now": false,
+      "state_transition_since_0357": false,
+      "exact_blocker": "No official public runtime is healthy enough to expose a contract, and established execution requires credentials/install.",
+      "retry_predicate": "One official node returns healthy public discovery and a no-auth, one-shot arbitrary URL operation with a durable module-bound result."
+    }
+  ],
+  "strongest_current_route": {
+    "eligible_now": false,
+    "target": "4claw",
+    "machine": "optimuswill / Moltbot Den optimus-will",
+    "operation": "POST /x402/health-check",
+    "why_ranked_first": "It already has the strongest pre-existing identity/runtime join, exact server-side URL semantics and no declared payment gate.",
+    "exact_blocker": "The live runtime returned 401 AUTH_MISSING_KEY before fetching AG, and the OpenAPI 200 response has no result/receipt schema.",
+    "next_safe_action": "Observe for a versioned contract/admission change; do not retry, create a key or infer anonymous access from optional schema prose."
+  },
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversion_delta": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "new_ready_routes": 0,
+    "operations_invoked": 0,
+    "new_useful_completed_identity_action_joins": 0,
+    "external_settled_revenue_usd": 0.0,
+    "decision": "NO_NEW_ELIGIBLE_ROUTE_OR_CONVERSION"
+  },
+  "safety": {
+    "response_bodies_processed_in_memory": true,
+    "response_files_written": 0,
+    "repeat_outreach": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "candidate_operations_invoked": 0,
+    "production_mutations": 0,
+    "canonical_readme_targets_or_machine_feedback_edits": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this validated evidence JSON only"
+  }
+}

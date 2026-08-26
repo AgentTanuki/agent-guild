@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "live_machine_monitor",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:11:40Z",
+  "mode": "read_only_in_memory_public_production_surfaces",
+  "baseline": {
+    "newest_event_at": "2026-08-25T23:04:17.470119Z",
+    "pulse_conservative_floor": 88
+  },
+  "production_health": {
+    "http_status": 200,
+    "ok": true,
+    "store": "sqlite",
+    "agents": 151,
+    "tasks": 237,
+    "attestations": 238,
+    "served_checkpoint_index": 32,
+    "served_ledger_length": 923,
+    "floor_checkpoint_index": 32,
+    "floor_ledger_length": 919,
+    "floor_sources": [
+      "hwm",
+      "image_pin"
+    ]
+  },
+  "commercial": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "measurement_source": "sqlite_durable",
+    "history_complete": true
+  },
+  "event_delta": {
+    "events_after_baseline": 20,
+    "newest_event_at": "2026-08-25T23:11:37.217339Z",
+    "tooling_or_ours_events": 10,
+    "independent_events": 10,
+    "new_named_machine_identities": 0,
+    "new_exact_fixed_community_action_joins": 0,
+    "new_settlements": 0,
+    "pulse": {
+      "new_preflight_runs": 1,
+      "latest_at": "2026-08-25T23:06:59.674953Z",
+      "conservative_floor_before": 88,
+      "conservative_floor_after": 89,
+      "identity_result_join_established": false
+    },
+    "other_independent_activity": [
+      {
+        "machine": "CipherWatch/1.0",
+        "activity": "one liveness preflight",
+        "qualification": "self-claimed runtime only; no durable fixed-community identity/result join"
+      },
+      {
+        "machine": "x402-reliability-probe/1.0",
+        "activity": "one x402 offer pair",
+        "qualification": "offer boundary only; no result or settlement"
+      },
+      {
+        "machine": "mako-pulse-prober/0.1",
+        "activity": "one x402 offer pair",
+        "qualification": "durable Agentic Market identity half only; no result or settlement"
+      },
+      {
+        "machine": "CarbonMonitor/0.1",
+        "activity": "one x402 offer pair",
+        "qualification": "durable Agentic Market identity half only; no result or settlement"
+      },
+      {
+        "machine": "x402-observer/1.0",
+        "activity": "one registry-crawler offer pair",
+        "qualification": "crawler and offer boundary only; no result or settlement"
+      }
+    ]
+  },
+  "decision": {
+    "strict_conversion_delta": 0,
+    "strict_total_after": "5/30",
+    "reason": "The only completed-operation delta is a further PULSE preflight. Its caller-controlled truncated user agent still is not joined to a durable Project NANDA controller, target, returned result or server-issued observation receipt. All other independent activity stops at discovery, liveness or offer presentation."
+  },
+  "safety": {
+    "production_response_bodies": "processed_in_memory_only",
+    "response_files_written": 0,
+    "external_writes": 0,
+    "outreach_messages": 0,
+    "candidate_operations_invoked": 0,
+    "payments_or_wallet_actions": 0
+  }
+}
+

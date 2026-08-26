@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "machine-derived-trust-subject-scope-implementation-2026-08-26",
+  "recorded_at": "2026-08-26T03:05:36Z",
+  "source_feedback_record": "payai-agentic-market-price-authority-and-scope-separation-2026-08-26",
+  "machine_contract_evidence": [
+    "Agentic Market separated a zero current amount from a nonzero maximum liability.",
+    "PayAI exposed that free settlement and sensitive-data read authority are independent.",
+    "MAKO exposed that origin-level availability evidence must not become exact-resource trust."
+  ],
+  "decision": "implemented_after_adversarial_review",
+  "implementation": {
+    "base": "origin/main@4921699aec8b",
+    "worktree": "ag-trust-subject-scope",
+    "branch": "codex/trust-subject-scope",
+    "commit": "f314c2afd47c3ae5a2536f1592d73db785c7080f",
+    "changes": [
+      "AGSS-1 separates requested endpoint identity from observed resources.",
+      "Evidence bundle version 2 signs a coherent subject scope; version 1 remains valid but explicitly scope-unbound.",
+      "Only explicitly endpoint-v2 history can affect corroboration, drift, or policy.",
+      "Scheme-aware canonicalization preserves non-default ports and brackets IPv6.",
+      "Malformed paid targets are rejected before quote, authorization, billing, or A2A settlement.",
+      "Target queries are represented durably by normalized subject, query-presence bit, and exact SHA-256, not raw values.",
+      "Deep/evidence x402 resources, offers, receipts, payment recovery state, and generic paid events use the minimized binding while remaining exact through the digest.",
+      "Legacy or mismatched stored A2A quotes fail closed before settlement and require a fresh quote.",
+      "Temporary A2A task inputs are reaped at startup and by independent hourly maintenance after the configured retention window."
+    ]
+  },
+  "verification": {
+    "focused_contract_checks": "154 passed before the final maintenance and stale-quote regressions; all later affected checks passed",
+    "full_service_suite": {
+      "passed": 1833,
+      "skipped": 16,
+      "deselected": 1,
+      "deselected_reason": "local TLS socket test was run separately outside the sandbox"
+    },
+    "tls_and_official_x402_interop": {
+      "passed": 5
+    },
+    "hostile_review": "SHIP",
+    "git_diff_check": "clean",
+    "worktree": "clean"
+  },
+  "external_effects": {
+    "pushed": false,
+    "deployed": false,
+    "payment_made": false,
+    "external_configuration_changed": false
+  },
+  "pilot_outcome": {
+    "strict_fixed30_conversions": "5/30",
+    "external_settled_revenue_usd": 0.0,
+    "conversion": false
+  }
+}

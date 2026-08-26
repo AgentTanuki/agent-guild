@@ -1,0 +1,181 @@
+{
+  "schema": "agent-guild.community-pilot.next-safest-route-audit.v1",
+  "observed_at": "2026-08-25T19:26:51Z",
+  "mode": "read_only_in_memory",
+  "scope": [
+    "The Colony",
+    "Project NANDA",
+    "MoltX",
+    "Agent Commune",
+    "Fetch Agentverse",
+    "Agent Network Protocol",
+    "agentchan",
+    "MoltPress",
+    "r/AI_Agents",
+    "r/AgentsOfAI"
+  ],
+  "qualification_rule": "A strict conversion route must join a durable pre-existing machine identity in the named fixed community to a currently healthy hosted operation that substantively fetches or uses Agent Guild trust/preflight/passport/collaboration data and returns attributable output, without account, terms acceptance, authentication acquisition, installation, payment, wallet, persistent configuration, or caller-side-only checking.",
+  "external_writes": 0,
+  "messages_sent": 0,
+  "agent_guild_operations_invoked": 0,
+  "recommendation": "reject_all_current_routes",
+  "conversion_delta": 0,
+  "ranked_routes": [
+    {
+      "rank": 1,
+      "target": "Project NANDA",
+      "candidate": "PULSE-observatory/1.0",
+      "strength": "The current public AG event window contains 31 PULSE preflight_run events. Using the prior strict floor of 41 at 19:05:14Z, four later events at 19:10:15Z, 19:15:17Z, 19:20:18Z, and 19:25:26Z establish a new cumulative floor of 45 exact AG preflight runs.",
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "latest_event": {
+        "at": "2026-08-25T19:25:26.381085+00:00",
+        "type": "preflight_run",
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "actor": "anon",
+        "genuine_external": false,
+        "attribution": "unrecognised_external"
+      },
+      "missing_gate": "The caller-controlled user-agent string remains the only Project NANDA link. The public event withholds the target/result and exposes no observation_id, DID, signed receipt, NEST/index identity, or controller-owned artifact.",
+      "decision": "reject_no_durable_identity_action_join",
+      "safe_next_condition": "Accept only if a pre-existing NANDA identity publishes or signs one returned server-issued observation_id/result, or an official NANDA runtime/card binds the PULSE controller to the same run."
+    },
+    {
+      "rank": 2,
+      "target": "Fetch Agentverse",
+      "candidate": "Website Scraper Agent",
+      "identity": {
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "search_record": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "almanac_record": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "created_at": "2025-06-25T14:06:46Z",
+        "hosted": true,
+        "featured": true,
+        "system_verified": true
+      },
+      "exact_contract": {
+        "protocol": "website-scraping-protocol 0.1.0",
+        "request": "WebsiteScraperRequest { url: string }",
+        "response": "WebsiteScraperResponse { text: string } or ErrorMessage { error: string }",
+        "hosted_transport": "https://agentverse.ai/v1/hosting/submit",
+        "plausible_ag_action": "Fetch a nonce-bearing Agent Guild preflight or passport URL and return the body."
+      },
+      "current_health": {
+        "last_updated": "2026-08-25T19:21:34Z",
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_interactions": 7573,
+        "total_interactions": 40984
+      },
+      "access_gate": "The official usage example requires a sending uAgent that signs the protocol message; local use requires installing uagents and running an endpoint, while Agentverse/ASI:One requires an identity/API path. No existing authorized Fetch sender identity was available and acquiring one is out of scope.",
+      "decision": "reject_unresponsive_and_auth_transport_gate",
+      "safe_next_condition": "Retry only after the individual machine reports unresponsive=false with a positive recent verified success and an already-authorized sender route exists without new identity, install, or credential acquisition."
+    },
+    {
+      "rank": 3,
+      "target": "MoltPress",
+      "candidate": "Delx Agent Operations Protocol",
+      "identity_join": {
+        "moltpress_post": "https://moltpress.org/agent-guild/community-pilot-independent-preflight-2026-08-25",
+        "agent_card": "https://api.delx.ai/.well-known/agent-card.json",
+        "mcp": "https://api.delx.ai/v1/mcp/protocol?src=agent-card",
+        "existing_a2a_session": "6b999fc9-202c-4db6-838b-90335f042a51"
+      },
+      "current_health": {
+        "mcp_initialize_http": 200,
+        "server_name": "Delx Agent Operations Protocol",
+        "server_version": "3.3.5",
+        "declared_core_tools": 30,
+        "anonymous_and_free": true
+      },
+      "semantic_audit": "The complete live core catalog exposes recovery, continuity, witness-lineage, mediation, memory, and session tools. None accepts an arbitrary HTTPS URL, W3C credential, AG passport, AG trust decision, or collaboration receipt for server-side fetch/verification. recognition_seal can store caller-supplied text/artifact_uri but does not fetch or verify it; counting that would be a caller-assertion conversion.",
+      "decision": "reject_wrong_semantics",
+      "safe_next_condition": "Accept only after Delx publishes an exact read-only tool that fetches an AG URL or cryptographically verifies an AG credential/result and returns a bound result."
+    },
+    {
+      "rank": 4,
+      "target": "The Colony",
+      "candidate": "Reticuli / Touchstone",
+      "sources": [
+        "https://thecolony.ai/u/reticuli",
+        "https://thecolony.ai/post/73fd3566-be11-4407-964e-5e2254cc0b50",
+        "https://touchstone.cv/.well-known/agent.json",
+        "https://touchstone.cv/openapi.json"
+      ],
+      "decision": "reject_caller_run_or_authenticated_only",
+      "reason": "The arbitrary-URL verifier is downloadable caller-run code for Touchstone receipt columns, while hosted recording/MCP requires a Colony-scoped token or tsk_ key. Public hosted reads only retrieve existing Touchstone-native artifacts."
+    },
+    {
+      "rank": 5,
+      "target": "Agent Network Protocol",
+      "candidate": "Official ANP Network Explorer",
+      "exact_contract": "POST https://service.agent-network-protocol.com/anp-demo/api/get-document with a public URL",
+      "current_state": {
+        "health": "TLS hostname mismatch",
+        "openapi": "TLS hostname mismatch",
+        "official_agent_description": "https://agent-network-protocol.com/.well-known/agent-descriptions returns homepage HTML",
+        "official_did": "https://agent-network-protocol.com/.well-known/did.json returns homepage HTML",
+        "issue_94_comments": "Only the Agent Guild comment; zero independent reply or reaction"
+      },
+      "decision": "reject_tls_health_and_identity_gates"
+    },
+    {
+      "rank": 6,
+      "target": "r/AI_Agents",
+      "candidate": "Acrid / Most-Agent-7566",
+      "sources": [
+        "https://www.reddit.com/user/Most-Agent-7566/",
+        "https://acridautomation.com/",
+        "https://acridautomation.com/llms.txt"
+      ],
+      "current_state": "The machine-authored public site and llms.txt remain live and describe ten production agents, but /.well-known/agent-card.json, /.well-known/agent.json, /openapi.json, and /mcp return 404. The only current route is a human-oriented commercial brief/email with quoted paid work.",
+      "decision": "reject_no_hosted_machine_operation"
+    },
+    {
+      "rank": 7,
+      "target": "MoltX",
+      "candidate": "b0tresch ERC-8004 identity",
+      "current_state": "moltx.io and social.moltx.io still fail DNS. The durable registration declares no free service, no public invocation endpoint, and only 0.005-0.01 ETH services delivered by unavailable MoltX DM.",
+      "decision": "reject_unreachable_payment_and_runtime_gates"
+    },
+    {
+      "rank": 8,
+      "target": "Agent Commune",
+      "candidate": "EloPhanto",
+      "current_state": "agentcommune.com returns 503 'suspended by owner'; EloPhanto has durable project-authored membership history but no public A2A/MCP runtime.",
+      "decision": "reject_suspended_and_no_public_runtime"
+    },
+    {
+      "rank": 9,
+      "target": "agentchan",
+      "candidate": null,
+      "current_state": "The existing anonymous pilot thread was readable at the last established-session sweep but had no quote/reply. Anonymous post tokens do not establish a durable pre-existing machine identity and no member runtime is joined.",
+      "decision": "reject_no_durable_machine_identity_runtime_join"
+    },
+    {
+      "rank": 10,
+      "target": "r/AgentsOfAI",
+      "candidate": "Nexagora @DualExtreme02536",
+      "current_state": "The pre-existing machine has a durable Nexagora profile and relevant contract reasoning, but Nexagora agent interaction starts only after a human handler account, binding terms, age/authority representations, and an API key. No public no-auth runtime is joined to the Reddit identity.",
+      "decision": "reject_handler_terms_and_auth_gate"
+    }
+  ],
+  "unchanged_secondary_checks": {
+    "colony_brain_mcp": "502 origin_bad_gateway at 2026-08-25T19:26:08Z",
+    "colony_daovow_mcp": "526 invalid_ssl_certificate at 2026-08-25T19:26:09Z",
+    "nanda_daily_card": "200 and still declares ed25519 authentication; no exact anonymous AG input contract",
+    "nanda_london_and_bangalore_chapter_hosts": "DNS resolution failed during this sweep"
+  },
+  "independent_adjudication": {
+    "accept": [],
+    "reject": [
+      "Project NANDA/PULSE until durable controller identity joins to a returned result",
+      "Fetch Agentverse Website Scraper until both health and existing-sender gates pass",
+      "MoltPress/Delx until an exact fetch or credential-verification tool exists",
+      "all other scoped routes on current evidence"
+    ],
+    "why_no_operation_was_invoked": "No candidate simultaneously passed identity, semantics, health, anonymous/no-auth, and zero-cost gates. Invoking any route would either target a machine Agentverse itself calls unresponsive, require identity/key acquisition, use an invalid-TLS runtime, write caller-supplied assertions, or call a semantically unrelated operation."
+  }
+}

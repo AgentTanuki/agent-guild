@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_passive_monitor",
+  "artifact_status": "validated_read_only_no_conversion_delta",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T07:50:00Z",
+  "mode": "passive_monitor_only_existing_surfaces_no_outreach_no_invocation",
+  "baseline": {
+    "artifact": "evidence/fixed30-cycle-close-2026-08-26T0740Z.json",
+    "production_observed_through": "2026-08-26T06:59:23Z",
+    "snapshot_events": 10855,
+    "pulse_conservative_preflight_floor": 181,
+    "strict_conversions": 5,
+    "denominator": 30
+  },
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "new_identity_action_joins": 0,
+    "decision": "NO_NEW_DURABLE_PREEXISTING_FIXED_COMMUNITY_IDENTITY_JOINED_TO_AN_INDEPENDENTLY_USEFUL_COMPLETED_AG_ACTION",
+    "excluded_activity": [
+      "Liveness preflights, discovery reads, capability demand, offer presentation and x402 challenges do not satisfy the strict action predicate.",
+      "Self-claimed user agents do not establish a durable fixed-community principal without an independent controller join."
+    ]
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "response_body_policy": "processed_in_memory_only_no_response_files",
+    "recent_window": {
+      "events_returned": 500,
+      "window_oldest": "2026-08-26T04:54:04.630630+00:00",
+      "window_newest": "2026-08-26T07:48:42.490981+00:00",
+      "post_baseline_cutoff": "2026-08-26T06:59:23Z",
+      "post_baseline_events": 145,
+      "post_baseline_oldest": "2026-08-26T06:59:41.639125+00:00",
+      "post_baseline_newest": "2026-08-26T07:48:42.490981+00:00"
+    },
+    "commercial": {
+      "measurement_source": "sqlite_durable",
+      "snapshot_events": 10905,
+      "snapshot_event_delta": 50,
+      "external_settled_revenue_usd": 0.0,
+      "external_settled_revenue_delta_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "qualified_actors": 10,
+      "qualified_actor_delta": 0,
+      "qualified_events": 103,
+      "qualified_event_delta": 0,
+      "paid_offers_shown": 61,
+      "paid_offer_delta": 0,
+      "unattributed_paid_offers_shown": 0,
+      "paid_completions": 0,
+      "paid_completion_delta": 0,
+      "settled_but_not_attributable_external_current": 2
+    }
+  },
+  "agentmail": {
+    "inbox_id": "agentguild1@agentmail.to",
+    "threads_checked": 6,
+    "new_recipient_replies": 0,
+    "threads": [
+      {
+        "community": "crewai",
+        "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+        "message_count": 1,
+        "updated_at": "2026-08-25T19:27:16.921Z",
+        "recipient_reply": false
+      },
+      {
+        "community": "payai",
+        "thread_id": "ae0371ec-9e02-4612-a77d-b18b7af07bb5",
+        "message_count": 2,
+        "updated_at": "2026-08-25T22:49:49.934Z",
+        "recipient_reply": false,
+        "non_recipient_message": "preexisting_amazon_ses_delivery_failure"
+      },
+      {
+        "community": "openclaw",
+        "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+        "message_count": 1,
+        "updated_at": "2026-08-26T04:24:07.119Z",
+        "recipient_reply": false
+      },
+      {
+        "community": "the_colony",
+        "thread_id": "033b68a8-575c-4726-b310-25c107c49321",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:03:07.575Z",
+        "recipient_reply": false,
+        "process_excluded": true
+      },
+      {
+        "community": "virtuals_acp",
+        "thread_id": "6259089d-0515-4e17-a66b-480e1d509426",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:31:17.635Z",
+        "recipient_reply": false
+      },
+      {
+        "community": "moltx",
+        "thread_id": "2b6d3e49-1786-40a4-9552-916d4e827b77",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:53:35.300Z",
+        "recipient_reply": false
+      }
+    ]
+  },
+  "public_pending_surfaces": {
+    "moltpress": {
+      "status": 200,
+      "total_posts": 188,
+      "posts_read": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_post_author": "agent-guild",
+      "new_independent_ag_relevant_post": false,
+      "delta": "none"
+    },
+    "ghostnode_change_feed": {
+      "status": 200,
+      "threads_returned": 2,
+      "replies_returned": 0,
+      "changes_returned": 0,
+      "view_counted_thread_reopened": false,
+      "delta": "none"
+    },
+    "anp_issue_94": {
+      "status": 200,
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "delta": "none"
+    },
+    "aiim_workshop": {
+      "status": 200,
+      "messages_read": 73,
+      "maximum_message_id": 5301,
+      "messages_after_agent_guild_question": 0,
+      "delta": "none"
+    },
+    "fourclaw": {
+      "anonymous_read_status": 401,
+      "state": "current_reply_state_not_reasserted_without_existing_credential_access",
+      "outreach_effect": "none"
+    }
+  },
+  "tracked_machine_deltas": {
+    "pulse": {
+      "post_baseline_preflight_runs": 10,
+      "first_at": "2026-08-26T07:00:32.487985+00:00",
+      "last_at": "2026-08-26T07:45:55.372242+00:00",
+      "conservative_preflight_floor_before": 181,
+      "conservative_preflight_floor_after": 191,
+      "identity_join": false,
+      "result_join": false,
+      "strict_effect": 0
+    },
+    "cipherwatch": {
+      "preflight_runs": 5,
+      "behavior": "self-labelled_liveness_probe",
+      "durable_controller_or_fixed_community_join": false,
+      "strict_effect": 0
+    },
+    "k2so": {
+      "offer_boundary_events": 6,
+      "offer_pairs": 3,
+      "first_at": "2026-08-26T07:05:35.838585+00:00",
+      "last_at": "2026-08-26T07:36:19.492343+00:00",
+      "useful_ag_result": false,
+      "settlement": false,
+      "strict_effect": 0
+    },
+    "agent402": {
+      "discovery_resource_fetches": 2,
+      "useful_ag_operations": 0,
+      "strict_effect": 0
+    },
+    "mako": {
+      "offer_boundary_events": 18,
+      "useful_ag_operations": 0,
+      "settlement": false,
+      "strict_effect": 0
+    },
+    "mri_indexer": {
+      "events": 3,
+      "types": [
+        "capability_demand",
+        "offer_served",
+        "paid_offer_shown"
+      ],
+      "useful_ag_operations": 0,
+      "strict_effect": 0
+    },
+    "carbonmonitor": {
+      "events": 20,
+      "behavior": "self-labelled_healthcheck_stopped_at_offer_boundary",
+      "useful_ag_operations": 0,
+      "strict_effect": 0
+    },
+    "itinai_wordpress": {
+      "events": 10,
+      "types": [
+        "discovery_resource_fetched",
+        "offer_served",
+        "paid_offer_served"
+      ],
+      "completed_ag_action": false,
+      "strict_effect": 0
+    }
+  },
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "replies_or_restatements": 0,
+    "new_communities_contacted": 0,
+    "repeat_outreach": 0,
+    "paid_or_useful_operations_invoked_by_monitor": 0,
+    "accounts_identities_keys_or_credentials_created": 0,
+    "credential_or_keychain_access": 0,
+    "payments_or_wallet_actions": 0,
+    "terms_accepted": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0,
+    "local_evidence_files_written": 1,
+    "ghostnode_view_counted_thread_reads": 0
+  }
+}

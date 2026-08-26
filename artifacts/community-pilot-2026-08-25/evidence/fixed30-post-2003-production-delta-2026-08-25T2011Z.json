@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T20:11:28Z",
+  "interval_start": "2026-08-25T20:03:00Z",
+  "starting_strict_conversions": 5,
+  "strict_conversions_added": 0,
+  "ending_strict_conversions": 5,
+  "mode": "read_only_in_memory_no_candidate_invocation",
+  "production_local_separation": {
+    "production_release": "2.5.39",
+    "production_openapi": "https://agent-guild-5d5r.onrender.com/openapi.json",
+    "production_fixed_post_invoke_present": false,
+    "production_templated_post_invoke_present": true,
+    "production_templated_path": "/invoke/{capability_id}",
+    "local_fixed_post_invoke_present": true,
+    "local_source": "live/guild/app/swarm/router.py",
+    "local_route": "/invoke",
+    "local_deployment_status": "not_deployed",
+    "evidence_rule": "The local fixed route and recovery behavior are product work only. They are excluded from every live adoption and conversion conclusion in this file."
+  },
+  "agent402_recheck": {
+    "prior_sequences": [
+      "2026-08-25T19:44:47Z through 2026-08-25T19:44:48Z",
+      "2026-08-25T19:56:24Z"
+    ],
+    "prior_result": "Agent402 discovery was followed by a node user-agent fetching terms and sending the literal /invoke/{capability_id}, which production denied.",
+    "new_agent402_sequence_after_interval_start": false,
+    "new_node_discovery": {
+      "actor": "http:1f3c0…",
+      "user_agent": "node",
+      "events": [
+        {
+          "at": "2026-08-25T20:03:21.751086+00:00",
+          "type": "discovery_resource_fetched",
+          "endpoint": "/openapi.json"
+        },
+        {
+          "at": "2026-08-25T20:03:21.885149+00:00",
+          "type": "discovery_resource_fetched",
+          "endpoint": "/openapi.json"
+        },
+        {
+          "at": "2026-08-25T20:03:22.019741+00:00",
+          "type": "discovery_resource_fetched",
+          "endpoint": "/llms.txt"
+        }
+      ],
+      "subsequent_action_through_observed_at": null,
+      "identity_join": "unproven",
+      "strict_decision": "REJECT_DISCOVERY_ONLY"
+    },
+    "adjudication": "No post-20:03 machine used production Agent Guild beyond discovery. The fixed local selector could not have affected these calls because it is absent from live OpenAPI."
+  },
+  "other_new_production_activity": [
+    {
+      "at": "2026-08-25T20:10:01.968065+00:00",
+      "user_agent": "hultra-link/1.0 (+https://donnees.hultra.link/sondes.md)",
+      "actor": "http:71f61…",
+      "type": "discovery_resource_fetched",
+      "endpoint": "/.well-known/agent-guild.json",
+      "strict_decision": "REJECT_DISCOVERY_ONLY_AND_NOT_JOINED_TO_A_FIXED_TARGET"
+    },
+    {
+      "types": [
+        "preflight_run",
+        "paid_offer_shown"
+      ],
+      "callers": [
+        "PULSE-observatory/1.0",
+        "CipherWatch/1.0",
+        "mako-pulse-prober/0.1",
+        "CarbonMonitor/0.1"
+      ],
+      "strict_decision": "REJECT_EXISTING_MONITORS_OR_X402_CHALLENGES_WITHOUT_A_NEW_FIXED_COMMUNITY_IDENTITY_ACTION_JOIN"
+    }
+  ],
+  "marketplace_deltas": {
+    "payai": {
+      "observed_at": "2026-08-25T20:10:16.820279+00:00",
+      "catalog_total": 26650,
+      "zero_price_records": 87,
+      "zero_price_hosts": 18,
+      "relevant_zero_price_records": 15,
+      "change_from_2026_08_25T19_57_01Z": false,
+      "exact_route_result": "Aster Vale remains the only zero-price arbitrary-URL candidate and its published hosts remain unavailable."
+    },
+    "openserv": {
+      "catalog_total": 467,
+      "active_services": 88,
+      "active_zero_price_services": 0,
+      "newest_active_created_at": "2026-08-25T18:17:54.685Z",
+      "change_after_interval_start": false
+    },
+    "virtuals_acp": {
+      "updated_agents_after_interval_start": 1,
+      "updated_agent": {
+        "name": "Shumi",
+        "document_id": "hlngzmm50x2yrriroxsie1fi",
+        "updated_at": "2026-08-25T20:08:42.254Z",
+        "job_count": 1,
+        "job_price_usd": 0.5
+      },
+      "zero_price_jobs": 0
+    }
+  },
+  "framework_and_other_market_deltas": {
+    "official_mcp_registry_basis": "The complete named-target scan immediately before the interval found no qualifying hosted route; its newest relevant records predate this interval and no target catalog change was observed.",
+    "olas": "The immediately preceding HOL free+online query returned zero.",
+    "agntcy": "The current public signed catalog remains populated, but its importer and hosted records expose no anonymous free Agent Guild-consuming operation.",
+    "nevermined": "Revettr's useful exact endpoint action remains paid; free operations do not consume Agent Guild.",
+    "naptha": "No healthy anonymous hosted operation is available; documented routes remain credentialed or unavailable.",
+    "openclaw": "Hosted records remain fixed utilities, account/auth/API-key gated services, or paid governance.",
+    "elizaos_crewai_ag2_langchain": "No new anonymous attributable hosted URL-fetch, credential-verification, or Agent Guild trust operation appeared.",
+    "claws_network": "Wallet and persistent-configuration gates remain disqualifying.",
+    "agentic_market": "Exact useful trust and arbitrary-endpoint operations remain paid; free routes remain semantically insufficient."
+  },
+  "machine_design_feedback": {
+    "preserve": "Production behavior must remain the evidentiary baseline until the fixed route is deployed and independently used. The discovery-only node behavior is retained exactly rather than promoted to adoption.",
+    "current_product_hypothesis": "The fixed local POST /invoke selector directly addresses the observed class of machine that reads OpenAPI but does not substitute path parameters. Its value is not established until a production machine completes it and receives signed provenance.",
+    "revenue_hypothesis": "Only after a machine completes the free selector should the response present an exact current paid trust or deep-preflight next action; no revenue progression can be inferred from discovery-only or denied calls."
+  },
+  "adjudication": {
+    "strict_conversion": false,
+    "candidate_operation_invoked_by_auditor": false,
+    "external_writes_by_auditor": false,
+    "accounts_created": false,
+    "terms_accepted": false,
+    "wallets_or_spend": false,
+    "installs_or_config_writes": false,
+    "targets_json_updated": false
+  }
+}

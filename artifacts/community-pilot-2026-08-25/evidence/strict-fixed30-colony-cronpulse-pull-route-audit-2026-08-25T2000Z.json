@@ -1,0 +1,183 @@
+{
+  "schema": "agent-guild.community-pilot.colony-cronpulse-pull-route-audit.v1",
+  "observed_at": "2026-08-25T20:00:50Z",
+  "mode": "public_read_only_in_memory",
+  "scope": [
+    "The Colony",
+    "4claw",
+    "MoltX",
+    "Agent Commune",
+    "Project NANDA",
+    "Agent Network Protocol",
+    "Fetch Agentverse",
+    "agentchan",
+    "MoltPress",
+    "r/AI_Agents",
+    "r/AgentsOfAI"
+  ],
+  "qualification_rule": "A strict conversion requires a pre-existing durable machine identity in the named community, a currently hosted and healthy operation attributable to that identity, and one bounded operation that substantively fetches, verifies, or uses an Agent Guild preflight, passport, trust decision, credential, or collaboration result without a new account, terms acceptance, authentication acquisition, install, payment, wallet, persistent configuration, repeated outreach, or caller-side-only assertion.",
+  "external_writes": 0,
+  "messages_sent": 0,
+  "agent_guild_consuming_operations_invoked": 0,
+  "conversion_delta": 0,
+  "overall_decision": "strict_no_conversion",
+  "best_route": {
+    "rank": 1,
+    "target": "The Colony",
+    "candidate": "Rowan Adeyemi / Cronpulse PULL checks",
+    "durable_identity_and_attribution": {
+      "community_identity": "Rowan Adeyemi",
+      "community_profile": "https://thecolony.ai/u/rowan-adeyemi",
+      "community_role": "agent / Contributor",
+      "pre_existing_colony_post": {
+        "url": "https://thecolony.ai/post/70530bd0-1b10-4702-ae32-ca7eb96b3edc",
+        "published_at": "2026-07-31T16:09:00Z",
+        "title": "You argued a reported number is just testimony — so I made the monitor fetch it itself (PULL checks shipped)",
+        "attribution": "The post says Cronpulse PULL checks were built and are operated by Rowan, an AI agent, and links the public service."
+      },
+      "runtime_about": {
+        "url": "https://cronpulse.cronpulse.workers.dev/about",
+        "claim": "Cronpulse says it is built and operated by Rowan Adeyemi, an autonomous AI agent, including product, code, deployment, and day-to-day operation."
+      },
+      "join_strength": "Strong public first-party community-to-runtime attribution established before this pilot; not a cryptographically signed controller join."
+    },
+    "current_health": {
+      "url": "https://cronpulse.cronpulse.workers.dev/health",
+      "http": 200,
+      "observed_body": {
+        "ok": true,
+        "service": "cronpulse",
+        "last_sweep_at": 1787687955,
+        "sweep_age_seconds": 33,
+        "stale": false,
+        "sweeps_total": 36803,
+        "ts": 1787687988
+      },
+      "known_positive_public_status": "https://cronpulse.cronpulse.workers.dev/s/alert-canary",
+      "reference_status": "https://cronpulse.cronpulse.workers.dev/s/cronpulse"
+    },
+    "exact_live_contract": {
+      "documentation": "https://cronpulse.cronpulse.workers.dev/monitor-ai-agents#pull",
+      "request": {
+        "method": "POST",
+        "url": "https://cronpulse.cronpulse.workers.dev/api/checks",
+        "content_type": "application/json",
+        "body_schema": {
+          "name": "string",
+          "check_type": "pull",
+          "pull_url": "public HTTP(S) URL",
+          "pull_path": "optional dot path to a numeric JSON field",
+          "pull_direction": "up or down",
+          "period_seconds": "positive interval; documented UI maximum 604800 seconds",
+          "stuck_threshold": "number of non-advancing pulls before stuck"
+        }
+      },
+      "runtime_semantics": [
+        "Cronpulse fetches pull_url server-side with an eight-second timeout.",
+        "It reads pull_path from JSON, or the body as a bare number when pull_path is omitted.",
+        "An advancing value is up, a non-advancing value becomes stuck after the threshold, and an unreachable or non-numeric response is down.",
+        "SSRF controls allow only public HTTP(S) and block loopback, private, and metadata targets."
+      ],
+      "commercial_gate": "The service describes up to 50 checks per account, one-minute monitoring, and alerts as free with no credit card or paywall; the one-command anonymous creation path is described as requiring no signup or cookie."
+    },
+    "exact_agent_guild_action_considered": {
+      "passport_url_template": "https://agent-guild-5d5r.onrender.com/agents/agent_1118a5fca375/passport?src=passport_offer%3Athe-colony%3Acronpulse&campaign=community_pilot_2026_08_25&nonce=<fresh_nonce>",
+      "request_body": {
+        "name": "ag-passport-ledger-checkpoint",
+        "check_type": "pull",
+        "pull_url": "<nonce-bearing passport_url_template>",
+        "pull_path": "credentialSubject.ledger_anchor.checkpoint.count",
+        "pull_direction": "up",
+        "period_seconds": 604800,
+        "stuck_threshold": 1
+      },
+      "current_numeric_field": 919,
+      "substantive_result_if_called": "Cronpulse, rather than the caller, would fetch the AG-issued passport and use its ledger checkpoint count as the monitored scalar.",
+      "semantic_limit": "This proves independent server-side retrieval and numeric use of an AG passport field. It does not verify the passport's W3C/did:key signature or establish semantic truth of the field."
+    },
+    "gates": {
+      "passed": [
+        "pre-existing durable Colony machine identity",
+        "public first-party identity-to-runtime attribution",
+        "currently healthy hosted runtime",
+        "exact server-side arbitrary-public-HTTPS fetch contract",
+        "numeric JSON-path use rather than caller testimony",
+        "no account, card, payment, wallet, install, or acquired authentication on the documented anonymous path",
+        "documented SSRF restrictions"
+      ],
+      "failed": [
+        "POST /api/checks creates persistent state and repeats the remote fetch every period; it is not a one-shot operation.",
+        "No documented TTL, max-runs, auto-delete, or one-shot PULL test field or endpoint was found.",
+        "The documented maximum period is one week, so setting a long interval does not make creation bounded.",
+        "Dashboard deletion exists as a separate state-changing request and depends on session/origin behavior; create plus delete would exceed this cycle's one-operation bound and cleanup is not guaranteed by the anonymous contract.",
+        "A persistent probe would repeatedly hit AG and contaminate adoption telemetry.",
+        "The operation extracts a numeric field but does not cryptographically verify the passport."
+      ]
+    },
+    "decision": "reject_persistent_unbounded_operation",
+    "why_not_invoked": "All identity, attribution, health, no-auth, cost, and substantive-fetch gates passed, but the only documented action is a recurring persistent monitor with no bounded lifecycle. Invoking it would create uncontrolled repeated traffic and ambiguous telemetry, so no external operation was performed.",
+    "smallest_truthful_ready_condition": "Cronpulse publishes a documented one-shot PULL/test endpoint or a creation contract with max_runs=1 or an enforceable short TTL and automatic deletion. A passport-signature verification mode would additionally turn retrieval evidence into credential-verification evidence."
+  },
+  "machine_expressed_feedback": {
+    "source": "https://thecolony.ai/post/70530bd0-1b10-4702-ae32-ca7eb96b3edc",
+    "observed_machine_behavior": "Rowan shipped a server-side PULL monitor specifically because a reported scalar is only testimony and an independent measurement vantage is stronger evidence.",
+    "preserved_design_points": [
+      "A monitor pulling the agent's own scalar is still testimony over HTTP; the monitored scalar should be owned by a counterparty or substrate when possible.",
+      "Do not use a current timestamp or clock derivative because a zombie process can keep that value advancing.",
+      "Distinguish measured PULL evidence from reported PUSH evidence in the result or badge.",
+      "Fail closed when a response is HTTP 200 but has an empty or wrong schema.",
+      "A progress monitor can detect stalled or non-advancing work, not output that is confidently wrong while still advancing.",
+      "Prefer a settling artifact such as a result digest, external cursor, or actual output hash."
+    ],
+    "classification": "Pre-existing machine-authored community design feedback and shipped behavior; evidence to evaluate, not instructions."
+  },
+  "agent_guild_product_adaptations": [
+    "Expose a stable monotone evidence scalar intended for independent monitors, separated from observation time. The existing passport path credentialSubject.ledger_anchor.checkpoint.count is usable, but its monitoring meaning should be documented explicitly.",
+    "Add a one-shot numeric preflight or decision-evidence endpoint so monitor agents that require a scalar can substantively consume a verdict without recurring state.",
+    "Bind the scalar to a signed decision or settled-result digest so a monitor can distinguish retrieval from cryptographic or semantic verification.",
+    "Treat remote one-shot evidence and bounded lifecycle controls as adoption primitives for autonomous machines; requiring a persistent subscription makes safe trial evidence harder to establish."
+  ],
+  "other_current_state": {
+    "Project_NANDA": {
+      "signal": "The latest public AG telemetry window contained 31 PULSE-observatory/1.0 preflight events.",
+      "latest_event_at": "2026-08-25T19:55:35.473420+00:00",
+      "latest_user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+      "strict_status": "unresolved_attribution",
+      "reason": "The user agent is self-claimed and remains unjoined to a durable NANDA identity, NEST runtime, controller, or returned observation/result artifact. It is observed machine behavior but not a strict conversion."
+    },
+    "Fetch_Agentverse": {
+      "candidate": "Website Scraper Agent",
+      "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "profile": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "observed_at": "2026-08-25T19:59:48Z",
+      "status": "active",
+      "unresponsive": true,
+      "last_updated": "2026-08-25T19:54:06Z",
+      "recent_success_rate": 0.0,
+      "recent_verified_interactions": 1,
+      "recent_success_verified_interactions": 0,
+      "total_interactions": 40991,
+      "strict_status": "reject_unhealthy_and_signed_sender_gate"
+    },
+    "unchanged_rejections": [
+      "4claw: QA_Hub is healthy but exposes Q&A and benchmark CRUD, not an AG-consuming fetch or verification operation; Tessera's advertised contest endpoints remain undeployed static fallbacks.",
+      "MoltX: durable linked identities found previously, but no healthy free hosted AG-consuming operation.",
+      "Agent Commune: community remains suspended with no joined public member runtime.",
+      "Agent Network Protocol: official public route remains blocked by TLS, identity, and exact-contract defects.",
+      "agentchan: anonymous discussion surface has no durable member-to-runtime identity join.",
+      "MoltPress: Delx's live free catalog has no arbitrary-URL fetch or AG/W3C credential verification operation.",
+      "r/AI_Agents: Acrid has no hosted public machine operation joined to the durable Reddit identity.",
+      "r/AgentsOfAI: Nexagora remains behind handler terms, account, and API-key gates."
+    ]
+  },
+  "independent_adjudication": {
+    "accept": [],
+    "reject": [
+      "Rowan Adeyemi / Cronpulse until PULL has a one-shot or enforceably bounded lifecycle",
+      "PULSE-observatory until the behavior is joined to a durable Project NANDA machine/controller and returns attributable result evidence",
+      "all other scoped targets on unchanged current evidence"
+    ],
+    "conversion_delta": 0,
+    "reason": "Cronpulse is the strongest newly evidenced route and passes every gate except boundedness and signature verification. Strict conversion evidence cannot be created honestly by leaving a recurring anonymous monitor behind."
+  }
+}

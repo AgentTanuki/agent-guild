@@ -1,0 +1,302 @@
+{
+  "schema_version": "community-expansion-evidence.v1",
+  "observed_at": "2026-08-25T17:42:31Z",
+  "scope": "Expansion sweep C; outside the fixed-30 pilot denominator",
+  "constraints": {
+    "in_memory_reads_only": true,
+    "maximum_idempotent_machine_actions": 1,
+    "machine_actions_performed": 1,
+    "accounts_created": 0,
+    "messages_or_relay_events_published": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "terms_accepted": 0,
+    "fixed_pilot_targets_edited": false,
+    "conversion_claimed": false
+  },
+  "summary": {
+    "strict_requested_capability_result": "NO_PROVEN_EXACT_VERDICT_OR_CREDENTIAL_CONSUMER",
+    "adjacent_machine_actionability": "PROVEN_FOR_HOL_INDEXED_AGENTGRADE_ORIGIN_SCAN",
+    "reason": "AgentGrade accepted the exact nonce-tagged Agent Guild preflight URL and returned a substantive readiness scan, but its result identified and scanned the Agent Guild origin rather than returning the AG preflight JSON verdict. Agent Guild instrumentation showed AgentGrade discovery fetches but no preflight_run. NIP-90 had no live provider with an explicit free compatible contract, and The Agent Registry public API was unavailable and its data model does not declare callable agent endpoints."
+  },
+  "surfaces": [
+    {
+      "id": "nostr-nip90-dvms",
+      "canonical_urls": [
+        "https://github.com/nostr-protocol/nips/blob/master/90.md",
+        "https://github.com/nostr-protocol/data-vending-machines",
+        "https://github.com/nostr-protocol/nips/pull/1941",
+        "https://2020117.xyz/api/agents",
+        "https://2020117.xyz/api/dvm/market",
+        "https://2020117.xyz/api/stats"
+      ],
+      "community_identity_evidence": {
+        "qualification": "NIP-90 defines a relay-native marketplace in which signed Nostr customers publish jobs and service-provider npubs return results; kind 31990 announcements advertise supported job kinds.",
+        "current_standard_status": [
+          "draft",
+          "unrecommended",
+          "optional"
+        ],
+        "current_standard_warning": "This got totally out of control; prefer use-case-specific microstandards.",
+        "request_kinds": "5000-5999",
+        "result_kinds": "6000-6999",
+        "feedback_kind": 7000,
+        "provider_announcement_kind": 31990,
+        "generic_url_input_shape": [
+          "i",
+          "<data>",
+          "url"
+        ]
+      },
+      "current_primary_observations": {
+        "2020117_agents_meta": {
+          "current_page": 1,
+          "last_page": 195,
+          "per_page": 20,
+          "total": 3895
+        },
+        "first_page_diagnostics": {
+          "records": 20,
+          "live_true": 0,
+          "online_status": {
+            "offline": 3,
+            "unknown": 17
+          },
+          "direct_request_enabled": 12,
+          "pricing_null": 17,
+          "advertised_service_kinds": {
+            "5002": 1,
+            "5050": 4,
+            "5100": 5,
+            "5300": 10
+          },
+          "explicit_url_or_ag_credential_contracts_found": 0
+        },
+        "market": {
+          "jobs": 0,
+          "total": 0
+        },
+        "stats": {
+          "active_users_24h": 0,
+          "total_jobs_completed": 142,
+          "total_volume_sats": 551,
+          "total_zaps_sats": 477
+        },
+        "historical_primary_claim": "A 2020117 operator comment on official NIP pull request #1941 reported 243 indexed external DVMs and seven processed job kinds, but also said kind 31990 lacked standard input/output definitions and liveness. This is context, not a current callable-contract proof."
+      },
+      "capability_adjudication": {
+        "decision": "NO_GO",
+        "generic_url_tag_is_sufficient": false,
+        "explicit_free_provider_contract_found": false,
+        "blockers": [
+          "NIP-90 defines a market envelope, not a use-case schema for AG passport verification or exact AG preflight retrieval.",
+          "The bid tag is optional and payment timing is provider-specific; missing pricing is not an affirmative free-service declaration.",
+          "A request requires creating, signing, and publishing a Nostr event to relays, which is an external write.",
+          "The current first-page providers were all live=false, with offline or unknown status, and none declared the requested input/output contract."
+        ]
+      },
+      "action": {
+        "performed": false,
+        "reason": "No pre-existing provider explicitly declared the requested action as free and compatible; an unsolicited relay post was therefore prohibited."
+      }
+    },
+    {
+      "id": "hol-universal-agentic-registry",
+      "canonical_urls": [
+        "https://hol.org/registry/api/v1/openapi.json",
+        "https://hol.org/registry/api/v1/search/status",
+        "https://hol.org/registry/api/v1/stats",
+        "https://hol.org/registry/api/v1/agents/uaid:aid:9hE87pZSm9AMwWNSbsMxN4dqkpNSDBnoFFEdmxhZ6Qpyr5RPC5ibCBh4zVUBkopk9V",
+        "https://agentgrade.com/mcp"
+      ],
+      "registry_observations": {
+        "status": "operational",
+        "total_agents": 249174,
+        "last_update": "2026-08-25T17:41:12.848Z",
+        "pulsemcp_records": 24172,
+        "search_storage_mode": "hybrid",
+        "vector_enabled": true,
+        "vector_healthy": true,
+        "vector_last_updated": "2026-08-25T16:03:54.435Z",
+        "documented_vector_search_credits_used": 0
+      },
+      "candidate": {
+        "name": "AgentGrade",
+        "uaid": "uaid:aid:9hE87pZSm9AMwWNSbsMxN4dqkpNSDBnoFFEdmxhZ6Qpyr5RPC5ibCBh4zVUBkopk9V",
+        "uaid_full": "uaid:aid:9hE87pZSm9AMwWNSbsMxN4dqkpNSDBnoFFEdmxhZ6Qpyr5RPC5ibCBh4zVUBkopk9V;uid=mcp-pulsemcp-agentgrade;registry=pulsemcp;proto=mcp;nativeId=https://www.pulsemcp.com/servers/agentgrade",
+        "source_registry": "pulsemcp",
+        "source_record": "https://www.pulsemcp.com/servers/agentgrade",
+        "created_at": "2026-05-06T11:45:02.167Z",
+        "profile_updated_at": "2026-08-06T21:35:04.795Z",
+        "endpoint": "https://agentgrade.com/mcp",
+        "description": "Website scanner that evaluates any URL for AI agent readiness, payment protocol support, and MCP endpoint availability.",
+        "declared_remote": {
+          "transport": "streamable_http",
+          "authentication_method": "open",
+          "cost": "free"
+        },
+        "indexed_available": true,
+        "registry_verification": {
+          "verified": false,
+          "uaid_dns_verified": false
+        },
+        "durability_adjudication": "Pre-existing dated UAID, named registry record, and stable public machine endpoint are sufficient for expansion actionability research, but the registry does not establish endpoint ownership verification."
+      },
+      "live_contract": {
+        "initialize_http_status": 200,
+        "server_name": "agentgrade",
+        "server_version": "1.0.0",
+        "protocol_version": "2024-11-05",
+        "tools_list_http_status": 200,
+        "relevant_tool": {
+          "name": "scan_compact",
+          "description": "Compact scan returning only rails, capabilities, and a numeric score. Optimized for agent decision-making.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to scan"
+              }
+            },
+            "required": [
+              "url"
+            ]
+          }
+        }
+      },
+      "single_idempotent_action": {
+        "performed": true,
+        "request_id": "hol-agentgrade-ag-preflight-20260825-1612",
+        "tool": "scan_compact",
+        "exact_input_url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fagentgrade.com%2Fmcp&src=passport_offer%3Ahol_registry&campaign=community_expansion_2026_08_25&nonce=hol-agentgrade-preflight-20260825-1612",
+        "mcp_http_status": 200,
+        "result_summary": {
+          "reported_url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fagentgrade.com%2Fmcp&src=passport_offer%3Ahol_registry&campaign=community_expansion_2026_08_25&nonce=hol-agentgrade-preflight-20260825-1612",
+          "reported_origin": "https://agent-guild-5d5r.onrender.com",
+          "rails": [],
+          "capabilities": [
+            "robots.txt (agent-aware)",
+            "DID Document",
+            "A2A Agent Card",
+            "MCP",
+            "OpenAPI",
+            "llms.txt",
+            "Content Negotiation"
+          ],
+          "bazaar_services": 0,
+          "score": {
+            "passed_checks": 27,
+            "total_checks": 44,
+            "percentage": 61,
+            "grade": "C+"
+          },
+          "mcp_group": "6/6 required checks passed",
+          "openapi_group": "7/7 required checks passed",
+          "a2a_group": "2/2 optional checks passed"
+        },
+        "safety_basis": [
+          "HOL declared the endpoint open and free.",
+          "The live tool schema required only an HTTP(S) URL.",
+          "No account, API key, wallet, payment, installation, terms acceptance, or persistent configuration was requested.",
+          "The scanner operation was a read-only, repeatable assessment."
+        ]
+      },
+      "agent_guild_event_correlation": {
+        "window": "2026-08-25T17:38:35.116795Z to 2026-08-25T17:38:36.040984Z",
+        "user_agent": "agentgrade/0.2 (+https://agentgrade.com/kb/about-scanning)",
+        "a2a_user_agent": "a2a:agentgrade/0.2 (+https://agentgrade.com/kb/about-scanning)",
+        "actor": "http:68edf…",
+        "first_party": false,
+        "attribution": "unrecognised_external",
+        "genuine_external": false,
+        "observed_event_types": [
+          "discovery_resource_fetched",
+          "offer_served",
+          "paid_offer_served",
+          "paid_offer_shown"
+        ],
+        "observed_discovery_paths": [
+          "/robots.txt",
+          "/.well-known/agent.json",
+          "/.well-known/mcp.json",
+          "/llms.txt",
+          "/openapi.json",
+          "/.well-known/agent-card.json",
+          "/.well-known/mcp/server-card.json"
+        ],
+        "preflight_run_observed": false,
+        "interpretation": "The exact URL was accepted as input, and the machine produced a useful AG-origin readiness report. However, the absence of preflight_run and the result's explicit origin field show that the scanner normalized to the origin rather than demonstrating retrieval or parsing of the AG preflight verdict. The genuine_external=false classifier is consistent with scanner/probe traffic and is not being challenged or used as conversion evidence."
+      },
+      "capability_adjudication": {
+        "decision_for_useful_ag_readiness_action": "GO",
+        "decision_for_exact_ag_preflight_json_or_passport_verification": "NO_GO_ON_CURRENT_EVIDENCE",
+        "blockers": [
+          "The returned payload was AgentGrade's own site-readiness analysis, not Agent Guild's delegate/caution/avoid preflight JSON.",
+          "The current contract has no W3C credential or AG passport input.",
+          "The registry marks the record and UAID DNS ownership as unverified."
+        ]
+      },
+      "conversion_adjudication": "OUT_OF_SCOPE_AND_NOT_CLAIMED"
+    },
+    {
+      "id": "the-agent-registry",
+      "canonical_urls": [
+        "https://docs.theagentregistry.org/",
+        "https://docs.theagentregistry.org/agents/integration-guide/",
+        "https://docs.theagentregistry.org/dashboard/overview/",
+        "https://docs.theagentregistry.org/contracts/agentenregister/",
+        "https://api.theagentregistry.org/api/v1/stats"
+      ],
+      "community_identity_evidence": {
+        "documented_agents_registered": 148,
+        "chain": "Base Sepolia",
+        "agentenregister_contract": "0x2EFaB5B3BEf49E56a6Ce1dcB1A39EF63C312EA23",
+        "minimal_forwarder_contract": "0x70c2fdD0CDada6b43195981928D76f5D32AE29e5",
+        "public_identity_fields": [
+          "agentId",
+          "creator",
+          "haftungsperson",
+          "agentWallet",
+          "operationalScope",
+          "constitutionHash",
+          "capabilityHash",
+          "generation",
+          "status",
+          "registeredAt",
+          "compliance attestation",
+          "lineage",
+          "revenue history"
+        ]
+      },
+      "current_service_observation": {
+        "url": "https://api.theagentregistry.org/api/v1/stats",
+        "http_status": 530,
+        "content_type": "text/plain; charset=UTF-8",
+        "body": "error code: 1033\n",
+        "server": "cloudflare",
+        "observed_at_header": "Tue, 25 Aug 2026 17:42:09 GMT",
+        "health_and_agents_endpoints": "The same 530 gate was observed for /health and /api/v1/agents?page=1&limit=200."
+      },
+      "capability_adjudication": {
+        "decision": "NO_GO",
+        "blockers": [
+          "The documented registry record has hashes and an operational-scope string but no mandatory callable endpoint, protocol card, input schema, or pricing/auth declaration.",
+          "KYA verifies whether an Ethereum wallet is registered and compliant; it does not consume a W3C credential, AG passport, or URL.",
+          "The public query API was unavailable behind Cloudflare error 1033 during the sweep, so current individual records could not be enumerated.",
+          "Self-registration is not a substitute: it requires generating an Ethereum key, a legally responsible human Haftungsperson address, signed meta-transactions, dependencies, and weekly attestations."
+        ]
+      },
+      "action": {
+        "performed": false,
+        "reason": "No individual registered identity with a public free compatible machine contract could be established, and the live public API was unavailable."
+      }
+    }
+  ],
+  "audit_notes": [
+    "No fixed-30 target or denominator file was edited.",
+    "No registry discovery status, scanner traffic, x402 challenge, or registration alone is represented as an Agent Guild conversion.",
+    "The HOL result is intentionally split: it proves a free pre-existing machine can perform a useful AG-origin discovery/readiness scan, but does not prove consumption of an AG passport or the exact AG preflight verdict payload."
+  ]
+}

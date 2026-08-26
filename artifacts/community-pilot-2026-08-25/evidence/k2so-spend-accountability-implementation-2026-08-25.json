@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-08-25T21:37:42Z",
+  "source_machine": "K-2SO",
+  "source_evidence": [
+    "evidence/k2so-x402-spend-accountability-machine-feedback-2026-08-25T2016Z.json",
+    "evidence/k2so-spend-accountability-contract-audit-2026-08-25T2028Z.json"
+  ],
+  "decision": "accepted_and_implemented_locally",
+  "repository_state": {
+    "worktree": "ag-spend-accountability",
+    "branch": "codex/spend-accountability",
+    "base_commit": "4921699aec8b18edc50211843107b901b35b308e",
+    "commit": "8cdaa6e723bad28e256c534870997f28ce4c8e6f",
+    "worktree_clean": true,
+    "pushed": false,
+    "deployed": false
+  },
+  "adaptation": {
+    "namespace": "io.agent-guild/spend-accountability",
+    "version": 1,
+    "owner_authorization": "POST /mandates/authorize optionally binds an exact distinct executor DID and caller-supplied liability URI into the Guild-issued authorization credential.",
+    "payment_join": "The optional x402 extension carries the mandate and authorization credentials with JCS digests, the distinct executor DID and original server-verified caller-proof digest, accepts[0] plus the actual Guild-signed offer JWS and digest, the server-derived paid-request digest, and a liability URI explicitly labelled caller_supplied_unverified.",
+    "enforcement": "Before facilitator contact, AG verifies the Guild credentials, cryptographic principal/executor separation, actual signed offer origin/signature/expiry/exact terms, caller proof, request and payment binding. The authorization credential is atomically single-use across payment identity, payload, request, proof and extension; only exact crash recovery by the same executor is accepted.",
+    "receipt": "The final dedicated settlement extension and io.agent-guild/evidence both sign the principal, executor, quote, liability limitations, reservation/settlement/completion lifecycle, transaction, exact request digest and delivered response digest.",
+    "failure_boundaries": "A definitive facilitator verify rejection atomically generation-rolls back the spend-use and payment identifier under the process lock so a corrected signature can retry. Ambiguous verify or settle outcomes remain reserved. Billing and payment recovery records preserve the immutable pre-settlement join, preventing later authority from being attached retroactively to an older transaction.",
+    "compatibility": "When the namespace is absent, ordinary x402 request, response, recovery and record shapes remain unchanged. Version 1 requires acceptIndex 0; future multi-offer selection requires a new advertised contract version."
+  },
+  "verification": {
+    "focused_contract_atomicity_http": "32 passed",
+    "accountability_atomicity_crash_review_set": "76 passed",
+    "payment_crash_idempotency_x402_slice": "91 passed",
+    "full_service_suite": "1843 passed, 16 skipped; one local-loopback TLS test deselected only because the sandbox forbids binding a socket",
+    "tls_test_outside_sandbox": "1 passed",
+    "x402_interoperability": "4 passed",
+    "independent_security_review": "pass; no remaining concrete security, temporal-authority or interoperability blocker",
+    "diff_check": "clean"
+  },
+  "commercial_result": {
+    "conversion": false,
+    "settled": false,
+    "external_revenue_usd": 0.0,
+    "reason": "The machine feedback changed AG's local contract, but K-2SO still has not settled or consumed a useful Guild result and the implementation is not deployed."
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_final_live_monitor",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T04:05:51.741175+00:00",
+  "mode": "read_only_production_bodies_processed_in_memory",
+  "qualification_rule": "A strict conversion requires a durable pre-existing identity in the fixed community joined to an independently useful completed Agent Guild action. Offers, challenges, discovery, probes, caller-supplied claims and self-identified user agents do not qualify.",
+  "production_read": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "paid_funnel_source": "https://agent-guild-5d5r.onrender.com/funnel/paid",
+    "instrumentation_source": "https://agent-guild-5d5r.onrender.com/instrumentation",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "measurement_source": "sqlite_durable",
+    "history_complete": true,
+    "snapshot_events": 10685,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 99,
+    "paid_offers_shown": 58,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "paid_funnel_qualified_distinct_actors": 20,
+    "paid_funnel_raw_impressions": 50783,
+    "genuine_external_events": 417,
+    "strictly_useful_new_completion_events": 0,
+    "new_identity_action_joins": 0
+  },
+  "project_nanda_pulse": {
+    "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+    "prior_conservative_floor": 141,
+    "events_after_prior_cutoff": 6,
+    "times_after_prior_cutoff": [
+      "2026-08-26T03:38:58.176282+00:00",
+      "2026-08-26T03:43:59.669298+00:00",
+      "2026-08-26T03:49:01.171419+00:00",
+      "2026-08-26T03:54:02.873993+00:00",
+      "2026-08-26T03:59:04.674565+00:00",
+      "2026-08-26T04:04:06.168794+00:00"
+    ],
+    "new_conservative_floor": 147,
+    "identity_result_join": false,
+    "strict_effect": 0,
+    "interpretation": "Continued free preflight use advances the conservative machine-observation floor only. A self-identified user agent without a durable controller identity, exact returned result, nonce, receipt or public action join is not a fixed-community conversion."
+  },
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_CONVERSION_OR_REVENUE"
+  },
+  "safety_and_write_accounting": {
+    "production_mutations": 0,
+    "external_messages_sent": 0,
+    "accounts_or_keys_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "response_files_written": 0
+  }
+}

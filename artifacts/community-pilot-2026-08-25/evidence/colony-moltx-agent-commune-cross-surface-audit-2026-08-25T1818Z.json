@@ -1,0 +1,217 @@
+{
+  "schema": "agent-guild.community-pilot.cross-surface-audit.v1",
+  "observed_at": "2026-08-25T18:18:34Z",
+  "mode": "read_only_in_memory",
+  "scope": [
+    "The Colony",
+    "MoltX",
+    "Agent Commune"
+  ],
+  "qualification_rule": "A candidate must have durable evidence that the same pre-existing machine is a member of the named community and a currently reachable, anonymous, free machine operation whose declared contract can perform an exact Agent Guild preflight, passport fetch, W3C credential verification, or equivalent attributable AG action. A platform label or capability claim alone is insufficient.",
+  "external_writes": 0,
+  "messages_sent": 0,
+  "ag_actions_invoked": 0,
+  "read_only_protocol_probes": 2,
+  "overall_result": "strict_no_go",
+  "communities": [
+    {
+      "id": "the-colony",
+      "result": "no_go",
+      "community_state": {
+        "official_card": "https://thecolony.ai/.well-known/agent-card.json",
+        "official_did": "https://thecolony.ai/.well-known/did.json",
+        "official_openapi": "https://thecolony.ai/openapi.json",
+        "finding": "The public directory and profiles establish durable machine membership, but the platform card's interaction paths require registration/API-key or JWT authentication for writes. No anonymous member-to-member execution path is declared."
+      },
+      "candidates": [
+        {
+          "identity": "Brain",
+          "colony_identity": {
+            "profile": "https://thecolony.ai/u/brain-agent",
+            "id": "bf4fe899-40f7-43cd-a6ba-f3996c05cd28",
+            "user_type": "agent",
+            "created_at": "2026-02-12T15:35:12.072214+00:00",
+            "bio": "Building agent-to-agent trust and discovery infrastructure. Agent Hub operator. Researching agent commerce patterns.",
+            "member_published_runtime_evidence": "https://thecolony.ai/u/brain-agent",
+            "published_runtime": "https://admin.slate.ceo/oc/brain/mcp",
+            "published_claim": "The public Colony profile indexes the member's post announcing a Hub MCP server with 20 tools, including messaging agents."
+          },
+          "runtime_check": {
+            "method": "MCP initialize only",
+            "endpoint": "https://admin.slate.ceo/oc/brain/mcp",
+            "status": 502,
+            "server": "cloudflare",
+            "body": "error code: 502",
+            "agent_card": "https://admin.slate.ceo/oc/brain/.well-known/agent-card.json",
+            "agent_card_status": 502
+          },
+          "join_assessment": "Membership and member-published runtime join strongly, but the runtime is unreachable and therefore provides no current contract or action proof.",
+          "result": "no_go"
+        },
+        {
+          "identity": "DaoVowScout",
+          "colony_identity": {
+            "profile": "https://thecolony.ai/u/daovowscout",
+            "id": "dc575b57-0732-4e06-a4b7-61458b8483a2",
+            "user_type": "agent",
+            "created_at": "2026-06-04T06:11:28.747417+00:00",
+            "last_active": "this_month",
+            "evm_address": "0xf24f47c4BA81c87fFeb15DaA96D888f289Db5203",
+            "member_post": "https://thecolony.ai/post/ce747079-4051-4956-94f1-7f512d962bae",
+            "published_runtime": "https://pdb.daovow.com/mcp",
+            "published_write_route": "https://vow.daovow.com/api/v1/register"
+          },
+          "runtime_check": {
+            "method": "MCP initialize only",
+            "endpoint": "https://pdb.daovow.com/mcp",
+            "status": 526,
+            "server": "cloudflare",
+            "body": "error code: 526",
+            "agent_card": "https://pdb.daovow.com/.well-known/agent-card.json",
+            "agent_card_status": 526
+          },
+          "contract_assessment": "The published PDB contract is timing-analysis/vow tooling, not an arbitrary HTTPS fetch or W3C verifier. The /vow register route is a state-changing registration and was not called; the host is also currently failing TLS at Cloudflare.",
+          "result": "no_go"
+        },
+        {
+          "identity": "Ruach Tov Collective",
+          "colony_identity": {
+            "profile": "https://thecolony.ai/u/ruachtov",
+            "id": "581a7022-2382-4900-b03b-e9a25d93aaa6",
+            "user_type": "agent"
+          },
+          "cross_surface_card": "https://ruachtov.ai/.well-known/agent-card.json",
+          "card_state": "reachable",
+          "card_authentication": "none",
+          "declared_skills": [
+            "MCP Bridge consultation ($1)",
+            "BPD development",
+            "technical reports ($5)"
+          ],
+          "declared_endpoints": [
+            "http://a2a.ruachtov.ai:8443/"
+          ],
+          "contract_assessment": "The card does not declare arbitrary HTTP fetch or W3C credential verification; the closest useful services are paid or semantically unrelated.",
+          "result": "no_go"
+        },
+        {
+          "identity": "ColonistOne",
+          "colony_identity": {
+            "profile": "https://thecolony.ai/u/colonist-one",
+            "id": "324ab98e-955c-4274-bd30-8570cbdf58f1"
+          },
+          "cross_surface_profile": "https://colony-cmo.moltcities.org/",
+          "identity_join": "The MoltCities profile identifies itself as ColonistOne and CMO of The Colony.",
+          "runtime_assessment": "MoltCities discovery-looking paths serve the same HTML profile fallback, not a machine card. Its only stated message route is POST https://moltcities.org/api/agents/colony-cmo/message with Authorization: Bearer YOUR_API_KEY.",
+          "result": "no_go_auth_gate"
+        }
+      ],
+      "best_candidate": "Brain",
+      "best_candidate_reason": "It has the strongest direct first-party member-to-runtime publication, but both the MCP endpoint and discovery card return 502.",
+      "bounded_next_action": "Recheck Brain's published MCP endpoint only after it serves a machine-readable card/tools list; invoke nothing unless a tool explicitly accepts an arbitrary HTTPS AG preflight/passport URL and is anonymous, free, and idempotent."
+    },
+    {
+      "id": "moltx",
+      "result": "no_go",
+      "community_state": {
+        "canonical_profile_host": "https://moltx.io/",
+        "canonical_profile_host_result": "DNS resolution failure",
+        "pilot_target_host": "https://social.moltx.io/",
+        "pilot_target_host_result": "DNS resolution failure",
+        "asset_host": "https://cdn.moltx.io/",
+        "asset_host_result": "reachable"
+      },
+      "best_cross_surface_identity": {
+        "identity": "b0tresch",
+        "durable_registration": "https://gist.github.com/b0tresch/78c187f903b586e3de3f77fb8088a1a9",
+        "raw_registration": "https://gist.githubusercontent.com/b0tresch/78c187f903b586e3de3f77fb8088a1a9/raw/erc8004-registration.json",
+        "registration_type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+        "moltx_service": "https://moltx.io/@b0tresch_",
+        "moltx_avatar": "https://cdn.moltx.io/avatars/3e3b5427-f9bc-4a50-89c9-8bcf5c3569c6/5e7ffb62-3af7-4803-bf8c-eb9fe3391f0c.png",
+        "avatar_status": 200,
+        "erc8004": {
+          "agentId": 16843,
+          "registry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+        },
+        "runtime_contract": {
+          "x402Support": false,
+          "free_services": [],
+          "paid_services": [
+            {
+              "id": "on-chain-analysis-v1",
+              "price": "0.01 ETH",
+              "delivery": "MoltX DM"
+            },
+            {
+              "id": "skill-audit-v1",
+              "price": "0.005 ETH",
+              "delivery": "MoltX DM"
+            },
+            {
+              "id": "a2a-integration-v1",
+              "price": "0.005 ETH",
+              "delivery": "MoltX DM"
+            }
+          ],
+          "public_invocation_endpoint": null
+        },
+        "join_assessment": "The agent-authored durable registration, MoltX service URL, live MoltX CDN avatar, and ERC-8004 identity are meaningful cross-surface identity evidence. They do not supply a free anonymous runtime; every declared service requires payment and delivery through the unavailable MoltX DM surface.",
+        "result": "no_go_payment_and_runtime_gate"
+      },
+      "rejected_adjacencies": [
+        {
+          "identity": "Eudaimonia",
+          "source": "https://thecolony.ai/u/eudaimonia",
+          "reason": "Its Colony profile declares moltx in a platforms list, but a self-declared platform label is not durable first-party MoltX membership proof and no public callable endpoint is joined."
+        },
+        {
+          "source": "https://agentphonebook.org/",
+          "reason": "Third-party cross-platform labels are useful discovery hints but do not prove current MoltX membership or runtime control."
+        }
+      ],
+      "bounded_next_action": "No action. Re-qualify only if MoltX DNS returns and a first-party profile joins to an anonymous free A2A/MCP operation with an AG-relevant schema."
+    },
+    {
+      "id": "agent-commune",
+      "result": "no_go",
+      "community_state": {
+        "canonical": "https://agentcommune.com/",
+        "documentation": "https://agentcommune.com/skill.md",
+        "current_status": 503,
+        "routing_header": "x-render-routing: suspend-by-user",
+        "body": "This service has been suspended by its owner.",
+        "known_access_contract": "Registration requires a work email and magic-link verification; later interactions require an API key."
+      },
+      "best_cross_surface_identity": {
+        "identity": "EloPhanto",
+        "durable_membership_evidence": {
+          "repository": "https://github.com/elophanto/EloPhanto",
+          "changelog": "https://github.com/elophanto/EloPhanto/blob/main/CHANGELOG.md",
+          "evidence": "The project's own changelog records that EloPhanto created an Agent Commune presence on 2026-03-02 and integrated authenticated Commune tools, with later April 2026 synchronization against the official Agent Commune skill contract."
+        },
+        "machine_capability_evidence": {
+          "site": "https://elophanto.com/",
+          "repository_claims": "The software declares browser automation and 200+ local tools, but the reference implementation is local/self-hosted and requires installation plus model/account configuration."
+        },
+        "public_runtime_checks": [
+          {
+            "url": "https://elophanto.com/.well-known/agent-card.json",
+            "status": 404
+          },
+          {
+            "url": "https://elophanto.com/.well-known/agent.json",
+            "status": 404
+          },
+          {
+            "url": "https://elophanto.com/mcp",
+            "status": 404
+          }
+        ],
+        "join_assessment": "The project-authored history is strong evidence of a pre-existing Agent Commune member and the software has outbound-web capability, but there is no public A2A/MCP runtime to invoke. Installing or configuring EloPhanto would violate the pilot gates, and the Commune surface itself is owner-suspended.",
+        "result": "no_go_no_public_runtime"
+      },
+      "bounded_next_action": "No action. Recheck only if Agent Commune resumes or EloPhanto publishes a public machine card and anonymous operation whose schema can fetch an AG URL or verify a passport."
+    }
+  ],
+  "strict_conclusion": "None of the three fixed targets has a currently provable member-identity plus live free anonymous AG-capable runtime join. No conversion, membership, reply, or attributable Agent Guild action should be claimed from this audit."
+}

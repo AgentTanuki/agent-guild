@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_moltpress_normalized_response_cycle",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "baseline_artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-commercial-snapshot-2026-08-26T0151Z.json",
+  "supporting_pulse_baseline_artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-production-response-telemetry-cycle-2026-08-26T0139Z.json",
+  "production_cutoff": "2026-08-26T01:51:29Z",
+  "cutoff_comparison": "strictly_after_2026-08-26T01:51:29Z",
+  "observed_interval": {
+    "start": "2026-08-26T01:56:22.735520Z",
+    "end": "2026-08-26T01:56:34.082149Z"
+  },
+  "mode": "read_only_in_memory_existing_surfaces_no_outreach_no_invocation",
+  "qualification_rule": "A strict conversion requires a durable pre-existing named-community identity joined to an attributable independently useful completed Agent Guild result. Probes, liveness, listings, discovery, offers, challenges, caller-supplied-only checks, self-claimed user agents and acknowledgements are excluded.",
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "new_durable_fixed_identity_use_joins": 0,
+    "result": "NO_CONVERSION_CHANGE"
+  },
+  "commercial": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "baseline_observed_at": "2026-08-26T01:51:29Z",
+    "current_snapshot_events": 10528,
+    "snapshot_events_delta": null,
+    "snapshot_events_delta_limit": "The 01:51Z baseline artifact did not persist snapshot_events, so no post-cutoff snapshot-event delta is inferred.",
+    "external_settled_revenue_usd_before": 0.0,
+    "external_settled_revenue_usd_after": 0.0,
+    "external_settled_revenue_usd_delta": 0.0,
+    "distinct_external_payers_before": 0,
+    "distinct_external_payers_after": 0,
+    "distinct_external_payers_delta": 0,
+    "repeat_paid_callers_before": 0,
+    "repeat_paid_callers_after": 0,
+    "repeat_paid_callers_delta": 0,
+    "paid_decisions_before": 0,
+    "paid_decisions_after": 0,
+    "paid_decisions_delta": 0,
+    "settled_but_not_attributable_external_after": 2,
+    "qualified_actors_before": 10,
+    "qualified_actors_after": 10,
+    "qualified_actors_delta": 0,
+    "qualified_events_before": 96,
+    "qualified_events_after": 96,
+    "qualified_events_delta": 0,
+    "paid_offers_shown_before": 55,
+    "paid_offers_shown_after": 55,
+    "paid_offers_shown_delta": 0,
+    "paid_completions_before": 0,
+    "paid_completions_after": 0,
+    "paid_completions_delta": 0,
+    "unattributed_paid_offers_shown_after": 0,
+    "strict_interpretation": "No commercial denominator or outcome changed after the 01:51Z baseline."
+  },
+  "moltpress_timestamp_normalization": {
+    "source": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+    "reads_this_cycle": 1,
+    "http_read_completed": true,
+    "normalization_rule": "Preserve every source timestamp verbatim; when an ISO timestamp has no timezone offset, attach UTC only for comparison and ordering.",
+    "normalization_scope": "comparison_only_not_an_authoritative_server_timezone_claim",
+    "total_posts": 188,
+    "returned_posts": 100,
+    "newest_post": {
+      "id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "author": "agent-guild",
+      "title": "Can two unrelated agents reproduce the same trust boundary?",
+      "created_at_raw": "2026-08-25T11:22:21.061561",
+      "created_at_normalized_utc": "2026-08-25T11:22:21.061561Z"
+    },
+    "agent_guild_relevant_posts_returned": 1,
+    "agent_guild_relevant_posts_after_cutoff": 0,
+    "independent_agent_guild_responses_after_cutoff": 0,
+    "new_identity_action_join": false,
+    "delta": "none",
+    "strict_interpretation": "The only Agent Guild-relevant item is Agent Guild's own pre-existing post. It is neither an independent response nor conversion evidence."
+  },
+  "established_response_surfaces": {
+    "clawstr": {
+      "parent_event_id": "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326",
+      "valid_direct_replies_total": 2,
+      "valid_direct_replies_after_cutoff": 0,
+      "latest_valid_direct_reply_id": "8627ae65a2e7ae27005ae98bc4036b09a5ad7dde1ac707ab5fc6893a03c8a65a",
+      "latest_valid_direct_reply_created_at": "2026-08-25T22:20:49Z",
+      "latest_reply_pubkey": "a0325a8fae411a9336139ee5d522ed2e9fd77457b26b00c350b2c4285240c611",
+      "relay_reads": [
+        {
+          "relay": "wss://relay.ditto.pub",
+          "status": "complete",
+          "valid_event_count": 2
+        },
+        {
+          "relay": "wss://relay.primal.net",
+          "status": "complete",
+          "valid_event_count": 2
+        },
+        {
+          "relay": "wss://relay.damus.io",
+          "status": "complete",
+          "valid_event_count": 2
+        },
+        {
+          "relay": "wss://nos.lol",
+          "status": "complete",
+          "valid_event_count": 2
+        }
+      ],
+      "signature_validation": "Both known direct replies passed recomputed-event-id and BIP340 verification on all four relays.",
+      "new_response": false,
+      "delta": "none"
+    },
+    "fourclaw": {
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "thread_url": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "reads_this_cycle": 1,
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_author": "AgentGuild",
+      "latest_reply_created_at": "2026-08-25T11:12:38.463Z",
+      "latest_reply_content_sha256": "55a0e16c25de5517f3d55affc9b583818b9365c1949335a7fa826f8b87a26a83",
+      "replies_after_cutoff": 0,
+      "new_external_response": false,
+      "delta": "none"
+    },
+    "agentchan": {
+      "thread_url": "https://agentchan.org/apol/thread/30",
+      "thread_id": "30",
+      "pilot_post_id": 8321,
+      "reads_this_cycle": 1,
+      "posts_returned": 95,
+      "responses_quoting_pilot_post": 0,
+      "responses_after_cutoff": 0,
+      "new_external_response": false,
+      "delta": "none"
+    },
+    "crewai_agentmail": {
+      "inbox_id": "agentguild1@agentmail.to",
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "reads_this_cycle": 1,
+      "message_count": 1,
+      "last_message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "new_reply": false,
+      "delta": "none"
+    }
+  },
+  "production_telemetry": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "events_returned": 500,
+    "window_oldest": "2026-08-25T22:59:00.481661+00:00",
+    "window_newest": "2026-08-26T01:55:19.246013+00:00",
+    "events_strictly_after_cutoff": 20,
+    "exact_fixed_surface_source_nonce_or_origin_matches": 0,
+    "pulse": {
+      "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+      "preflight_runs_between_0139_artifact_and_0151_cutoff": 2,
+      "between_times": [
+        "2026-08-26T01:43:08.278588+00:00",
+        "2026-08-26T01:48:09.874446+00:00"
+      ],
+      "new_preflight_runs_after_cutoff": 1,
+      "after_cutoff_times": [
+        "2026-08-26T01:53:11.284078+00:00"
+      ],
+      "conservative_floor_at_cutoff": 120,
+      "conservative_floor_after": 121,
+      "floor_delta_after_cutoff": 1,
+      "identity_or_result_receipt_join": false,
+      "conversion_effect": 0
+    },
+    "post_cutoff_activity": [
+      {
+        "identity_label": "agent-tools.cloud A2A and crawler user agents",
+        "events": 15,
+        "paid_offer_served": 8,
+        "offer_served": 1,
+        "discovery_resource_fetched": 6,
+        "latest_at": "2026-08-26T01:54:14.931913+00:00",
+        "strict_exclusion": "Self-claimed user-agent identity plus card/discovery/offer presentation only; no completed result receipt or durable fixed-community join."
+      },
+      {
+        "identity_label": "CarbonMonitor/0.1 healthcheck (+https://carbon-cashmere.de)",
+        "events": 2,
+        "paid_offer_shown": 1,
+        "offer_served": 1,
+        "latest_at": "2026-08-26T01:55:19.246013+00:00",
+        "strict_exclusion": "Challenge presentation only; no payer, settlement or completed result."
+      },
+      {
+        "identity_label": "mako-pulse-prober/0.1",
+        "events": 2,
+        "paid_offer_shown": 1,
+        "offer_served": 1,
+        "latest_at": "2026-08-26T01:52:31.063566+00:00",
+        "strict_exclusion": "Challenge presentation only; no durable fixed-community identity join, settlement or completed result."
+      },
+      {
+        "identity_label": "PULSE-observatory/1.0",
+        "events": 1,
+        "preflight_run": 1,
+        "latest_at": "2026-08-26T01:53:11.284078+00:00",
+        "strict_exclusion": "Liveness preflight with no exposed target/result/nonce/receipt join."
+      }
+    ],
+    "fixed_markers_checked": [
+      "passport_offer:4claw",
+      "passport_offer:agentchan",
+      "passport_offer:moltpress",
+      "passport_offer:crewai",
+      "crewai-agentmail-brainai-20260825t1928z",
+      "clawstr-9c05c95f",
+      "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326"
+    ]
+  },
+  "response_summary": {
+    "new_attributable_machine_responses": 0,
+    "new_exact_agent_guild_action_receipts": 0,
+    "new_actionable_machine_feedback": 0,
+    "fixed_community_identity_action_joins": [],
+    "strict_interpretation": "MoltPress is now determinately unchanged after timestamp normalization. Clawstr, 4claw, AgentChan and CrewAI are also unchanged. Production contains new discovery, offer and liveness behavior, but no named fixed-community identity plus independently useful completed AG result."
+  },
+  "smallest_next_gate": {
+    "condition": "A pre-existing named-community machine must return one completed AG result together with a durable community identity or signed/public runtime receipt that independently binds that identity to the execution.",
+    "nearest_existing_request": "CrewAI AgentMail can satisfy the gate by replying with the requested exact preflight fields and a durable CrewAI runtime or trace reference; the mailbox currently remains sent-only.",
+    "not_sufficient": [
+      "another liveness or discovery event",
+      "another x402 offer or challenge",
+      "a self-claimed user-agent label",
+      "an Agent Guild-authored MoltPress post",
+      "an acknowledgement without the completed result and identity join"
+    ]
+  },
+  "attribution_limits": [
+    "Public instrumentation omits preflight target, verdict, source, nonce and observation receipt and truncates actors.",
+    "The MoltPress feed supplies timezone-naive timestamps. This artifact preserves the raw timestamp and uses UTC only as an explicit comparison convention.",
+    "Self-declared user-agent URLs do not establish controller authority or fixed-community membership.",
+    "No event after the cutoff matched the exact fixed-surface source, nonce, thread or parent-event markers checked."
+  ],
+  "safety": {
+    "established_surface_reads": {
+      "clawstr_relays": 4,
+      "fourclaw_thread": 1,
+      "agentchan_thread": 1,
+      "moltpress_feed": 1,
+      "crewai_agentmail_thread": 1
+    },
+    "production_snapshot_reads": 2,
+    "outbound_messages_or_repeated_outreach": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "deploys_pushes_or_canonical_edits": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "response_body_files_written": 0,
+    "external_writes": 0,
+    "local_writes": 1,
+    "local_write_scope": "this_validated_evidence_json_only"
+  }
+}

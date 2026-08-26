@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_live_production_delta_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:15:00Z",
+  "cutoff": "2026-08-25T23:11:37Z",
+  "cutoff_comparison": "strictly_after_2026-08-25T23:11:37.000000+00:00",
+  "mode": "public_production_read_only_in_memory",
+  "strict_rule": "A conversion requires a durable pre-existing principal in an unconverted fixed-30 community plus an attributable useful completed Agent Guild result. User-agent claims, discovery, liveness probes without a result receipt, marketplace listing, offer inspection and payment presentation are insufficient.",
+  "baseline": {
+    "source": "live-machine-monitor-2026-08-25T2311Z.json",
+    "strict_total": 5,
+    "denominator": 30,
+    "pulse_conservative_floor": 89,
+    "pulse_latest_at": "2026-08-25T23:06:59.674953Z",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0
+  },
+  "telemetry": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "events_read": 500,
+    "events_strictly_after_cutoff": 10,
+    "first_event_at": "2026-08-25T23:11:37.217116+00:00",
+    "last_event_at": "2026-08-25T23:14:48.896022+00:00",
+    "callers": [
+      {
+        "user_agent": "x402-observer/1.0 (uptime+trust monitor; +https://x402.fuchss.app/trust)",
+        "actors": [
+          "anon",
+          "http:44347…"
+        ],
+        "attribution": "registry_crawler",
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T23:11:37.217339+00:00"
+      },
+      {
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "actors": [
+          "anon"
+        ],
+        "attribution": "unrecognised_external",
+        "events": {
+          "preflight_run": 1
+        },
+        "latest_at": "2026-08-25T23:12:01.279394+00:00"
+      },
+      {
+        "user_agent": "mako-pulse-prober/0.1",
+        "actors": [
+          "anon",
+          "http:8f42f…"
+        ],
+        "attribution": "unrecognised_external",
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T23:13:57.544589+00:00"
+      },
+      {
+        "user_agent": "K-2SO-DigitalLifeform/1.0 (x402-probe)",
+        "actors": [
+          "anon",
+          "http:6e994…"
+        ],
+        "attribution": "unrecognised_external",
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T23:14:00.242078+00:00"
+      },
+      {
+        "user_agent": "CarbonMonitor/0.1 healthcheck (+https://carbon-cashmere.de)",
+        "actors": [
+          "anon",
+          "http:9f47b…"
+        ],
+        "attribution": "unrecognised_external",
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T23:14:44.514485+00:00"
+      },
+      {
+        "user_agent": "CipherWatch/1.0 (Cloudflare Worker; liveness probe)",
+        "actors": [
+          "anon"
+        ],
+        "attribution": "unrecognised_external",
+        "events": {
+          "preflight_run": 1
+        },
+        "latest_at": "2026-08-25T23:14:48.896022+00:00"
+      }
+    ]
+  },
+  "identity_action_audit": [
+    {
+      "machine": "PULSE-observatory",
+      "candidate_fixed_community": "nanda",
+      "fixed_community_unconverted": true,
+      "durable_principal": false,
+      "useful_ag_operation_event": true,
+      "result_receipt_join": false,
+      "assessment": "One new preflight_run raises the conservative floor from 89 to 90. The truncated caller-controlled user agent remains the only NANDA claim; no official NANDA principal, card, source, signature, target, returned result or server-issued observation receipt binds this run.",
+      "strict_verdict": "reject_missing_identity_and_result_join"
+    },
+    {
+      "machine": "CipherWatch",
+      "candidate_fixed_community": null,
+      "fixed_community_unconverted": null,
+      "durable_principal": false,
+      "useful_ag_operation_event": true,
+      "result_receipt_join": false,
+      "assessment": "The machine completed another preflight liveness probe, but Cloudflare Worker and a caller-selected name prove neither controller identity nor fixed-community membership. Public telemetry exposes no target or returned result receipt.",
+      "strict_verdict": "reject_no_durable_principal_or_fixed_community_join"
+    },
+    {
+      "machine": "x402-observer",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_ag_operation_event": false,
+      "result_receipt_join": false,
+      "assessment": "The exact x402.fuchss.app principal has current Agentic Market/CDP marketplace records, but the observed registry-crawler action ended at offer presentation. No completed AG trust result or settlement exists.",
+      "strict_verdict": "reject_offer_probe_only"
+    },
+    {
+      "machine": "MAKO Payment Assurance",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_ag_operation_event": false,
+      "result_receipt_join": false,
+      "assessment": "The durable Agentic Market principal produced one more offer pair only. No invocation, settlement or returned AG result followed.",
+      "strict_verdict": "reject_offer_probe_only"
+    },
+    {
+      "machine": "K-2SO",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_ag_operation_event": false,
+      "result_receipt_join": false,
+      "assessment": "The durable autonomous merchant and marketplace principal produced one more offer pair only. The inbound user agent is not a signature and no completed AG result or settlement exists.",
+      "strict_verdict": "reject_offer_probe_only"
+    },
+    {
+      "machine": "CarbonMonitor / Carbon & Cashmere",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_ag_operation_event": false,
+      "result_receipt_join": false,
+      "assessment": "The durable exact-host marketplace principal produced one more healthcheck offer pair only. No completed AG trust result or settlement exists.",
+      "strict_verdict": "reject_offer_probe_only"
+    }
+  ],
+  "new_identity_join_check": {
+    "new_named_machine_identities": 0,
+    "new_durable_fixed_community_principals": 0,
+    "new_useful_identity_result_joins": 0,
+    "note": "Every named caller was already deeply resolved in fixed30-live-caller-identity-join-audit-2026-08-25T2247Z.json and fixed30-post-2257-live-caller-audit-2026-08-25T2302Z.json. This cycle adds behavior, not a new principal or identity binding."
+  },
+  "commercial": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "measurement_source": "sqlite_durable",
+    "history_complete": true,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "settled_but_not_attributable_external": 2,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "delta_from_baseline": {
+      "external_settled_revenue_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "qualified_actors": 0,
+      "qualified_events": 0,
+      "paid_offers_shown": 0,
+      "paid_completions": 0
+    }
+  },
+  "health": {
+    "source": "https://agent-guild-5d5r.onrender.com/health",
+    "ok": true,
+    "store": "sqlite",
+    "agents": 151,
+    "tasks": 237,
+    "attestations": 238,
+    "canonical_state_ok": true,
+    "served_checkpoint_index": 32,
+    "served_ledger_length": 923,
+    "floor_checkpoint_index": 32,
+    "floor_ledger_length": 919,
+    "floor_sources": [
+      "hwm",
+      "image_pin"
+    ],
+    "delta_from_baseline": {
+      "health_ok": 0,
+      "agents": 0,
+      "tasks": 0,
+      "attestations": 0,
+      "served_checkpoint_index": 0,
+      "served_ledger_length": 0,
+      "floor_checkpoint_index": 0,
+      "floor_ledger_length": 0
+    }
+  },
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "strict_delta": 0,
+    "revenue_before_usd": 0.0,
+    "revenue_after_usd": 0.0,
+    "revenue_delta_usd": 0.0,
+    "pulse_floor_before": 89,
+    "pulse_floor_after": 90,
+    "pulse_floor_delta": 1,
+    "result": "NO_CHANGE",
+    "reason": "PULSE and CipherWatch completed liveness preflights without durable identity/result joins. All durable fixed-community principals stopped at offer presentation."
+  },
+  "safety": {
+    "production_response_bodies": "processed_in_memory_only",
+    "response_body_files_written": 0,
+    "local_writes": 1,
+    "local_write_scope": "this_validated_evidence_json_only",
+    "external_writes": 0,
+    "outreach_or_invocation": 0,
+    "payments_accounts_installs_deployments_or_target_edits": 0
+  }
+}

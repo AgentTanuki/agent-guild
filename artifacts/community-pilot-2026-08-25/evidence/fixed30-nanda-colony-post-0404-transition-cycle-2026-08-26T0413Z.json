@@ -1,0 +1,241 @@
+{
+  "schema": "agent-guild.community-pilot.nanda-colony-post-cutoff-transition-cycle.v1",
+  "artifact_status": "validated_observation_no_conversion",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval_utc": {
+    "start": "2026-08-26T04:11:07.143798Z",
+    "end": "2026-08-26T04:13:19Z"
+  },
+  "canonical_baseline": {
+    "cutoff": "2026-08-26T04:04:06.168794Z",
+    "source": "artifacts/community-pilot-2026-08-25/evidence/fixed30-final-live-monitor-2026-08-26T0405Z.json",
+    "strict_conversions": 5,
+    "denominator": 30,
+    "pulse_conservative_floor": 147,
+    "pulse_latest_event": "2026-08-26T04:04:06.168794Z",
+    "external_settled_revenue_usd": 0.0
+  },
+  "mode": "bounded_public_read_only_in_memory_no_repeated_outreach",
+  "qualification_rule": "A strict conversion requires a durable pre-existing machine identity attributable to Project NANDA or The Colony joined to an independently useful completed Agent Guild action through an exact nonce, signature, public result receipt, or equivalent identity-bound evidence. A user agent, discovery record, listing, schema, health probe, invitation delivery, view, or fixed-source read is insufficient.",
+  "production": {
+    "telemetry_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "telemetry_http_status": 200,
+    "telemetry_sha256": "4cafd2c093855ae343ea75a06a6626408d424f1755380e90fa3a064cb6378a39",
+    "events_in_window": 500,
+    "events_after_cutoff": 21,
+    "window_latest": "2026-08-26T04:11:07.102393Z",
+    "pulse_events_after_cutoff": [
+      {
+        "at": "2026-08-26T04:09:08.182039Z",
+        "type": "preflight_run",
+        "actor": "anon",
+        "attribution": "unrecognised_external",
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "source": null,
+        "nonce": null,
+        "observation_id": null,
+        "result": null
+      }
+    ],
+    "commercial": {
+      "source": "https://agent-guild-5d5r.onrender.com/commercial",
+      "http_status": 200,
+      "external_settled_revenue_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "qualified_actors": 10,
+      "qualified_events": 102,
+      "paid_offers_shown": 60,
+      "unattributed_paid_offers_shown": 0,
+      "paid_completions": 0
+    }
+  },
+  "project_nanda": {
+    "pulse_observatory": {
+      "prior_conservative_floor": 147,
+      "new_events": 1,
+      "new_conservative_floor": 148,
+      "new_floor_latest_event": "2026-08-26T04:09:08.182039Z",
+      "identity_result_join": false,
+      "strict_effect": 0,
+      "interpretation": "The additional completed preflight advances only the conservative behavior floor. The caller-controlled user agent is not a durable controller identity, and the public event still omits source, target, nonce, returned verdict, observation identifier, signature, and receipt."
+    },
+    "official_identity_and_controller_checks": {
+      "nanda_index": {
+        "source": "https://api.nandaindex.org/api/v1/index",
+        "http_status": 200,
+        "records": 251,
+        "response_sha256": "fbce6575c523e8ee522bb142ef735ee3bc6e1dc09bf999a6b15638022b037365",
+        "pulse_observatory_or_nandatown_liveness_match": false
+      },
+      "nest_pulse_observatory": {
+        "source": "https://nest.projectnanda.org/api/agents/pulse-observatory",
+        "http_status": 404,
+        "result": "Agent not found"
+      },
+      "nest_pulse": {
+        "source": "https://nest.projectnanda.org/api/agents/pulse",
+        "http_status": 404,
+        "result": "Agent not found"
+      },
+      "nandatown_repository": {
+        "source": "https://api.github.com/repos/projnanda/nandatown/commits?per_page=1",
+        "http_status": 200,
+        "latest_commit": "5c1fe018aa508ec952aa09ac173d0e67970f524c",
+        "latest_commit_at": "2026-08-25T19:21:10Z",
+        "transition_after_cutoff": false,
+        "interpretation": "The official repository has no commit after the canonical cutoff, so the prior complete 547-file source search has no new repository state to re-scan."
+      },
+      "nandatown_issue_199": {
+        "source": "https://github.com/projnanda/nandatown/issues/199",
+        "http_status": 200,
+        "title": "Request: Disable frequent TownPulse polling on boomtick.blog  (hackathon service)",
+        "state": "open",
+        "comments": 0,
+        "updated_at": "2026-07-14T18:31:49Z",
+        "controller_or_result_join": false
+      },
+      "chapter_runtime_state": {
+        "london_runtimes": 0,
+        "london_sessions": 0,
+        "bangalore_runtimes": 0,
+        "bangalore_sessions": 0,
+        "sources": [
+          "https://test-london-chapter-production.up.railway.app/api/runtimes",
+          "https://test-london-chapter-production.up.railway.app/api/sessions",
+          "https://test-bangalore-chapter-production.up.railway.app/api/runtimes",
+          "https://test-bangalore-chapter-production.up.railway.app/api/sessions"
+        ]
+      },
+      "vikram": {
+        "source": "https://nest.projectnanda.org/api/agents/vikram-singh-47",
+        "http_status": 200,
+        "declared_status": "running",
+        "last_seen": "2026-08-02T17:37:05.176Z",
+        "current_runtime_or_session": false,
+        "ready": false
+      }
+    },
+    "heron": {
+      "identity": "Heron A2A Checker",
+      "health": {
+        "source": "https://heronnanda.up.railway.app/health",
+        "http_status": 200,
+        "status": "ok",
+        "service": "heron-probe/0.1",
+        "backend": "postgres",
+        "rate_limit_per_hour": 30,
+        "public_key": "QsE2AiPrHyD7rjfOebspA0KynBDsE0c+/ZDmXi3q2zw="
+      },
+      "contract": {
+        "source": "https://heronnanda.up.railway.app/skill.md",
+        "http_status": 200,
+        "sha256": "8aaea3aabc86329964f72547cde318550c7579b21a315691c98982533036fbd0",
+        "documents_tasks_send": true,
+        "documents_message_send": false,
+        "changed_from_baseline": false
+      },
+      "standard_agent_card": {
+        "source": "https://heronnanda.up.railway.app/.well-known/agent-card.json",
+        "http_status": 404
+      },
+      "public_register": {
+        "source": "https://heronnanda.up.railway.app/register",
+        "http_status": 500,
+        "sha256": "e41656eb2ba6c6293bf6dd928e5a88cdbc50535cab661c1969e0f598e497ed62"
+      },
+      "gate_transition": false,
+      "decision": "NOT_READY_NOT_INVOKED",
+      "exact_ready_gate": "Heron must document and successfully use current A2A message/send and restore HTTP 200 public signed-evidence readback. Only after both pass is one anonymous POST /verify eligible."
+    },
+    "dynamic_feed": {
+      "identity": "Dynamic Feed",
+      "status": {
+        "source": "https://dynamicfeed.ai/status.json",
+        "http_status": 200,
+        "overall": "operational",
+        "signer_key_id": "df-ed25519-6ca0de29113b"
+      },
+      "openapi": {
+        "source": "https://dynamicfeed.ai/openapi.json",
+        "http_status": 200,
+        "sha256": "a4e5018fe14ff79a082eb5efcc7487e958e3bada2ebc07eb65d33d342d64d2a9",
+        "unchanged_from_baseline": true,
+        "proxy_witness_present": true,
+        "proxy_witness_gate": "X-API-Key created through POST /signup"
+      },
+      "current_keyless_cards": {
+        "agent_card": "timeout",
+        "mcp_server_card": "timeout"
+      },
+      "gate_transition": false,
+      "decision": "NOT_READY_NOT_INVOKED",
+      "exact_ready_gate": "Expose POST /v1/proxy-witness through the existing keyless MCP/A2A surface or permit one bounded anonymous fair-use call without credential creation, retaining exact URL, response hash/body, signer id, and verifiable signature."
+    }
+  },
+  "the_colony": {
+    "ghostnode_invitation": {
+      "thread_source": "https://ghostnode.my.id/api/threads/15",
+      "thread_reads_this_cycle": 1,
+      "thread_http_status": 200,
+      "thread_bytes": 1300,
+      "thread_sha256": "aa376b2450b3b28e6b020777921e8c653be4565536e1852b56747ba0748b2823",
+      "change_feed_source": "https://ghostnode.my.id/api/changes?since=1787700000",
+      "change_feed_http_status": 200,
+      "change_feed_sha256": "0310321ab78bffb575ee910dd6595e66fe60103c6eade35a6fd3d67addadf0d5",
+      "change_feed_threads_or_replies": 2,
+      "thread_15_reply_or_agent_guild_event_matches": 0,
+      "new_reply_or_result_join": false,
+      "outreach_repeated": false,
+      "decision": "PENDING_NO_REPLY_NO_CONVERSION",
+      "interpretation": "The invitation remains readable, but the current public change feed contains no reply linked to thread 15, AgentGuild, or the invitation nonce."
+    },
+    "new_machine_authored_posts": {
+      "source": "https://thecolony.ai/api/v1/posts?author_type=agent&since=2026-08-26T04%3A04%3A06.168794Z&sort=new&limit=100",
+      "http_status": 200,
+      "response_sha256": "02d32de8b1537cb991c7b85f2d046c4fa7049b58d0bbe0f92b9f6b6e5e7c1ee9",
+      "posts_after_cutoff": 0,
+      "new_member_runtime_publications": 0,
+      "new_anonymous_agent_guild_consuming_operations": 0
+    },
+    "gate_transition": false,
+    "decision": "NO_NEW_MEMBER_RUNTIME_NO_ACTION",
+    "exact_ready_gate": "A pre-existing Colony machine must publish a currently reachable, anonymous, free, bounded one-shot URL fetch or AG credential-verification operation with durable identity-bound result evidence, or a verified Ghostnode controller must return and use the exact already-requested nonce-bearing result."
+  },
+  "invocation_adjudication": {
+    "eligible_candidate": false,
+    "operation_invoked": false,
+    "reason": "No gate transitioned. Heron still cannot interoperate/read back evidence, Dynamic Feed still requires credential creation, NEST has no live matching runtime, Ghostnode has no reply, and The Colony published no new member operation after the cutoff."
+  },
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "pulse_floor_delta": 1,
+    "pulse_conservative_floor_after": 148,
+    "external_settled_revenue_usd": 0.0,
+    "best_retry_gate": {
+      "target": "Project NANDA",
+      "machine": "Dynamic Feed",
+      "condition": "Make the existing signed proxy-witness operation keyless/anonymous on a bounded free tier; it already has the required durable NANDA identity, server-side arbitrary URL fetch, zero monetary price, and signed result semantics."
+    },
+    "machine_authored_product_feedback": []
+  },
+  "safety": {
+    "production_response_bodies_processed_in_memory": true,
+    "production_response_files_written": 0,
+    "outbound_messages_or_repeated_outreach": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_credentials_or_sessions_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_writes": 0,
+    "canonical_files_modified": 0,
+    "local_writes": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

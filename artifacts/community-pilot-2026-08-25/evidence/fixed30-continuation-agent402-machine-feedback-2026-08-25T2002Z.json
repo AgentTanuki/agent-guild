@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T20:02:32Z",
+  "starting_strict_conversions": 5,
+  "strict_conversions_added": 0,
+  "ending_strict_conversions": 5,
+  "mode": "read_only_in_memory_no_candidate_invocation",
+  "scope": [
+    "olas",
+    "virtuals_acp",
+    "agntcy",
+    "payai",
+    "nevermined",
+    "openserv",
+    "naptha",
+    "openclaw",
+    "elizaos",
+    "crewai",
+    "ag2_autogen",
+    "langchain",
+    "claws_network",
+    "agentic_market"
+  ],
+  "strict_qualification_rule": "A conversion requires a durable pre-existing identity in the named community and a current attributable machine operation that independently consumes an exact Agent Guild endpoint or trust artifact and returns a substantive result. Discovery, schema validation, listings, caller-side assertions, failed calls, authentication/payment gates and identity inference from timing alone do not qualify.",
+  "material_machine_behavior": {
+    "candidate_community": "payai",
+    "candidate_machine": "Agent402",
+    "pre_existing_identity_evidence": {
+      "prior_catalog_join": "PayAI's current public catalog contains resources on the exact agent402.tools origin, bound to its existing seller payTo address.",
+      "prior_evidence": [
+        "payai-agent402-a2a-validation-action-2026-08-25.json",
+        "payai-agent402-pow-card-validation-audit-2026-08-25.json"
+      ],
+      "current_discovery_user_agent_exact_as_publicly_exposed": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40",
+      "identity_limit": "The subsequent terms and invoke calls use user-agent node and actor anon. Their repeated tight sequence strongly suggests the same workflow but is not a signed or durable controller join."
+    },
+    "first_sequence": [
+      {
+        "at": "2026-08-25T19:44:47.170086+00:00",
+        "type": "discovery_resource_fetched",
+        "endpoint": "/robots.txt",
+        "actor": "http:e6e79…",
+        "user_agent": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40"
+      },
+      {
+        "at": "2026-08-25T19:44:47.240778+00:00",
+        "type": "discovery_resource_fetched",
+        "endpoint": "/.well-known/x402",
+        "actor": "http:e6e79…",
+        "user_agent": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40"
+      },
+      {
+        "at": "2026-08-25T19:44:47.321703+00:00",
+        "type": "discovery_resource_fetched",
+        "endpoint": "/openapi.json",
+        "actor": "http:e6e79…",
+        "user_agent": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40"
+      },
+      {
+        "at": "2026-08-25T19:44:47.686380+00:00",
+        "type": "swarm_terms_fetch",
+        "actor": "anon",
+        "user_agent": "node"
+      },
+      {
+        "at": "2026-08-25T19:44:48.086626+00:00",
+        "type": "swarm_invoke_denied",
+        "actor": "anon",
+        "user_agent": "node",
+        "capability": "{capability_id}"
+      }
+    ],
+    "second_sequence": [
+      {
+        "at": "2026-08-25T19:56:24.281664+00:00",
+        "type": "discovery_resource_fetched",
+        "endpoint": "/robots.txt",
+        "actor": "http:e6e79…",
+        "user_agent": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40"
+      },
+      {
+        "at": "2026-08-25T19:56:24.333892+00:00",
+        "type": "discovery_resource_fetched",
+        "endpoint": "/.well-known/x402",
+        "actor": "http:e6e79…",
+        "user_agent": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40"
+      },
+      {
+        "at": "2026-08-25T19:56:24.458103+00:00",
+        "type": "discovery_resource_fetched",
+        "endpoint": "/openapi.json",
+        "actor": "http:e6e79…",
+        "user_agent": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40"
+      },
+      {
+        "at": "2026-08-25T19:56:24.855135+00:00",
+        "type": "swarm_terms_fetch",
+        "actor": "anon",
+        "user_agent": "node"
+      },
+      {
+        "at": "2026-08-25T19:56:24.921089+00:00",
+        "type": "swarm_invoke_denied",
+        "actor": "anon",
+        "user_agent": "node",
+        "capability": "{capability_id}"
+      }
+    ],
+    "server_contract_and_recovery": {
+      "production_at_observation": {
+        "version": "2.5.39",
+        "openapi_path": "/invoke/{capability_id}",
+        "path_parameter": {
+          "name": "capability_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Capability Id"
+          }
+        },
+        "fixed_selector_present": false,
+        "denial": "unknown_capability",
+        "denial_payload_behavior_from_current_source": "Points to the identity index and terms but does not return the full capability_ids set, an exact substitution rule, or a complete retry request."
+      },
+      "observed_machine_behavior": "The workflow repeated the literal-template request approximately twelve minutes later against the same unchanged production contract.",
+      "local_adaptation_after_observation": {
+        "status": "implemented_locally_tested_not_deployed",
+        "changes": [
+          "Unknown-capability recovery now returns capability_ids, an exact substitution rule, and a runnable retry request.",
+          "OpenAPI and the top-level machine manifest now publish an exact json.repair example.",
+          "A fixed POST /invoke selector accepts {capability_id,payload} and routes through the same limits, telemetry, and signed-provenance gateway.",
+          "A successful guest invocation now returns an exact unpaid discovery probe for the current paid trust-search operation, the canonical x402 catalog, and an explicit never-auto-pay/never-reuse-quote rule."
+        ],
+        "verification": "24 focused swarm gateway and identity tests passed.",
+        "production_unchanged": true
+      }
+    },
+    "strict_decision": "REJECT",
+    "strict_reason": "The only operation attempt was denied before useful work. It returned no Agent Guild result or signed provenance and did not consume a passport, trust decision, preflight verdict, collaboration record or settlement. The PayAI-to-node caller join is also inferential rather than durable."
+  },
+  "current_delta_checks": {
+    "payai": {
+      "observed_at": "2026-08-25T19:57:01.890252+00:00",
+      "catalog_total": 26650,
+      "zero_price_records": 87,
+      "zero_price_hosts": 18,
+      "semantically_relevant_zero_price_records": 15,
+      "result": "No change from the prior snapshot. Aster Vale remains the only exact arbitrary-URL route and its published hosts remain unavailable."
+    },
+    "openserv": {
+      "catalog_total": 467,
+      "active_services": 88,
+      "active_zero_price_services": 0,
+      "result": "No qualifying route."
+    },
+    "virtuals_acp": {
+      "delta_after": "2026-08-25T19:40:00Z",
+      "updated_agents": 10,
+      "effective_zero_price_jobs": 0,
+      "notable_machine_signal": "Maiat currently advertises agent_trust, agent_reputation, evaluate and passport_register jobs, all priced from 0.02 to 0.03 USDC for those trust/passport operations; none consumes Agent Guild and none is free.",
+      "result": "No qualifying route."
+    },
+    "olas": {
+      "query": "https://hol.org/registry/api/v1/search?q=Olas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+      "free_online_results": 0,
+      "result": "No qualifying route."
+    },
+    "official_mcp_registry": {
+      "result": "No new attributable hosted route for the remaining frameworks. OpenClaw's hosted records remain fixed utilities, auth-gated fleet management, API-key services or paid governance; LangChain and AutoGen hosted matches require bearer tokens or expose fixed self-tests/documentation. Other exact framework names return no matching hosted machine."
+    }
+  },
+  "machine_product_feedback": {
+    "preserve": [
+      "The workflow did inspect machine-readable terms before attempting an action.",
+      "The failed operation is useful machine evidence even though it is not a conversion.",
+      "Human legibility is irrelevant; the issue is executable contract shape and automatic recovery behavior."
+    ],
+    "adaptation": "Accepted and implemented locally: a non-templated POST /invoke selector accepts {capability_id, payload} and routes through the same limits, signed provenance and telemetry as /invoke/{capability_id}; exact examples and structured recovery remain additive. Production is unchanged.",
+    "revenue_link": "After the first successful guest invocation, return one exact machine-selectable paid trust/deep-preflight next action with its current discovery URL. The observed workflow already reads x402 and terms, so repairing first-use execution is the immediate prerequisite to testing paid progression."
+  },
+  "adjudication": {
+    "strict_conversion": false,
+    "operation_invoked_by_auditor": false,
+    "external_writes_by_auditor": false,
+    "accounts_created": false,
+    "terms_accepted": false,
+    "wallets_or_spend": false,
+    "installs_or_config_writes": false
+  }
+}

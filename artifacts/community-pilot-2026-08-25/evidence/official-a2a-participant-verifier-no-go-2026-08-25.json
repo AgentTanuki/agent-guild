@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "target_id": "official_a2a",
+  "observed_at": "2026-08-25",
+  "conversion": false,
+  "machines": [
+    {
+      "name": "AlgoVoi Agent Trust Bench",
+      "identity": "did:web:agent-trust-bench.algovoi.co.uk",
+      "community_evidence": "https://github.com/a2aproject/A2A/issues/1628#issuecomment-4624139226",
+      "descriptor": "https://agent-trust-bench.algovoi.co.uk/.well-known/a2a-trust-signal.json",
+      "keys": "https://agent-trust-bench.algovoi.co.uk/agent-trust-bench/.well-known/atb-keys.json",
+      "openapi": "https://agent-trust-bench.algovoi.co.uk/openapi.json",
+      "result": "no_go",
+      "reason": "The service issues ATB credentials after its own benchmark and publishes Falcon-1024 keys for offline ATB verification. It exposes no operation accepting an arbitrary AG passport, AGD-1 decision, evidence bundle, or AG URL."
+    },
+    {
+      "name": "Clavis Agent Exchange Hub",
+      "identity": "clavis",
+      "registered_at": "2026-03-28T16:55:46.415Z",
+      "community_evidence": "https://github.com/a2aproject/A2A/issues/1628#issuecomment-4150148118",
+      "profile": "https://clavis.citriac.deno.net/agents/clavis",
+      "closest_operation": {
+        "method": "POST",
+        "url": "https://clavis.citriac.deno.net/validate?strict=true",
+        "body": "direct unwrapped A2A Agent Card object",
+        "response": "valid, score, errors, warnings, issues, skills, spec_version, validated_at",
+        "auth": "none",
+        "payment": "none"
+      },
+      "result": "no_go_strict",
+      "reason": "The operation performs local Agent Card field and type checks only. Source proves it does not fetch the endpoint, verify AG signatures, passports, checkpoints, evidence, or trust-extension contents. It is A2A-card conformance, not an Agent Guild trust action, and would create no AG production event."
+    }
+  ],
+  "adjudication": "No invocation was made. Clavis remains a safe optional conformance test, but neither machine has a contract that can establish a strict AG conversion."
+}

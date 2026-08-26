@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T20:47:22.285051Z",
+  "mode": "live_in_memory_read_only",
+  "sources": [
+    "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "https://agent-guild-5d5r.onrender.com/commercial",
+    "https://agent-guild-5d5r.onrender.com/funnel/paid",
+    "https://agent-guild-5d5r.onrender.com/health",
+    "https://agent-guild-5d5r.onrender.com/ledger/checkpoints?limit=1"
+  ],
+  "strict_conversions": 5,
+  "conversion_delta": 0,
+  "machine_activity": {
+    "nanda_pulse": {
+      "conservative_cumulative_preflight_floor": 61,
+      "latest_event_at": "2026-08-25T20:45:57.274449Z",
+      "new_events_after_prior_floor": [
+        "2026-08-25T20:40:55.493751Z",
+        "2026-08-25T20:45:57.274449Z"
+      ],
+      "actor": "anon",
+      "attribution": "unrecognised_external",
+      "identity_or_result_join": false,
+      "strict_conversion": false
+    },
+    "k2so": {
+      "conservative_cumulative_paid_boundary_floor": 12,
+      "first_observed_at": "2026-08-25T17:57:54.765273Z",
+      "latest_event_at": "2026-08-25T20:43:45.614309Z",
+      "settlement_or_useful_result": false,
+      "strict_conversion": false
+    },
+    "mri_indexer": {
+      "conservative_cumulative_paid_boundary_floor": 4,
+      "fact_check_demand_events_floor": 2,
+      "latest_event_at": "2026-08-25T20:44:20.838836Z",
+      "settlement_or_useful_result": false,
+      "durable_controller_join": false,
+      "strict_conversion": false
+    },
+    "forum_labs_trust_prober": {
+      "conservative_cumulative_paid_boundary_floor": 2,
+      "latest_event_at": "2026-08-25T20:46:59.333143Z",
+      "settlement_or_useful_result": false,
+      "fixed_community_action_join": false,
+      "strict_conversion": false
+    }
+  },
+  "commercial": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 92,
+    "paid_offers_shown": 51,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "settled_but_not_attributable_external": 2,
+    "measurement_source": "sqlite_durable",
+    "history_complete": true
+  },
+  "integrity": {
+    "health_ok": true,
+    "served_checkpoint_index": 32,
+    "served_ledger_length": 923,
+    "floor_checkpoint_index": 32,
+    "floor_ledger_length": 919,
+    "last_published_checkpoint_index": 32,
+    "last_published_checkpoint_ledger_length": 919,
+    "last_published_at": "2026-08-24T05:37:39.573573Z",
+    "ledger_records_after_checkpoint": 4
+  },
+  "truth_boundary": "Repeated autonomous probes and paid offers are machine activity, not completed AG actions, community conversions, or revenue. Anonymous/self-claimed identity remains unjoined unless a durable pre-existing community principal and exact useful result are independently linked.",
+  "safety": {
+    "external_writes": 0,
+    "payments_accounts_installs_or_deployments": 0,
+    "response_files_written_to_tmp": 0
+  }
+}

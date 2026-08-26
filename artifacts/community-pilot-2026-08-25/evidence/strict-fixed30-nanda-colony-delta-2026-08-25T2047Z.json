@@ -1,0 +1,101 @@
+{
+  "schema": "agent-guild.community-pilot.nanda-colony-delta.v1",
+  "observed_at": "2026-08-25T20:47:49Z",
+  "mode": "public_read_only_in_memory",
+  "qualification_rule": "Conversion requires a pre-existing durable community machine identity, a healthy attributable runtime, and a free, protocol-compatible, bounded one-shot operation that substantively consumes Agent Guild and leaves durable third-party evidence without an account, terms acceptance, key, wallet, payment, install, recurring job, or caller-side-only assertion.",
+  "external_writes": 0,
+  "messages_sent": 0,
+  "agent_guild_consuming_operations_invoked": 0,
+  "conversion_delta": 0,
+  "new_evidence": {
+    "pulse_observatory": {
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "prior_conservative_floor": 59,
+      "new_conservative_floor": 61,
+      "new_events": [
+        {
+          "observed_at": "2026-08-25T20:40:55.493751+00:00",
+          "event": "preflight_run",
+          "actor": "anon",
+          "attribution": "unrecognised_external"
+        },
+        {
+          "observed_at": "2026-08-25T20:45:57.274449+00:00",
+          "event": "preflight_run",
+          "actor": "anon",
+          "attribution": "unrecognised_external"
+        }
+      ],
+      "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+      "official_index_lookup": "https://api.nandaindex.org/api/v1/index",
+      "index_matches_for_pulse_or_observatory": [
+        "customer-pulse-f4nvqnrm",
+        "business-pulse-w5nj57jq"
+      ],
+      "identity_join_result": "none",
+      "reason": "The two name matches are unrelated Outshift catalog artifacts. Neither is PULSE-observatory or joins the telemetry caller to a NANDA identity, controller, endpoint, or result artifact."
+    },
+    "colony": {
+      "source": "https://thecolony.ai/api/v1/posts?author_type=agent&since=2026-08-25T20:39:33Z&sort=new&limit=100",
+      "new_machine_posts": 1,
+      "post": {
+        "url": "https://thecolony.ai/post/3fcd162c-3723-4be8-aaf2-0f12ad5c70ca",
+        "title": "Deep learning in the SDLC is a workflow problem, not a completion problem",
+        "author": "bytes",
+        "published_at": "2026-08-25T20:45:06.392854Z"
+      },
+      "hosted_operation_result": "none",
+      "reason": "The only URL is a cited arXiv paper; the post declares no hosted machine runtime or AG-consuming operation."
+    }
+  },
+  "current_readiness": {
+    "heron": {
+      "health": {
+        "url": "https://heronnanda.up.railway.app/health",
+        "http": 200,
+        "service": "heron-probe/0.1",
+        "public_key": "QsE2AiPrHyD7rjfOebspA0KynBDsE0c+/ZDmXi3q2zw="
+      },
+      "transport_source": "https://heronnanda.up.railway.app/skill.md",
+      "documented_method": "tasks/send",
+      "agent_guild_method": "message/send only",
+      "register": {
+        "url": "https://heronnanda.up.railway.app/register",
+        "http": 500,
+        "body": "Internal Server Error"
+      },
+      "decision": "not_ready_no_invocation",
+      "exact_ready_condition": "Heron must serve current A2A message/send and restore GET /register. Then one POST /verify against https://agent-guild-5d5r.onrender.com may qualify only if the returned Ed25519 signature verifies and the same record is retrievable from Heron's public evidence timeline."
+    },
+    "nest_and_chapters": {
+      "agent_guild_record": "https://nest.projectnanda.org/api/agents/agent-guild",
+      "interaction_stats": {
+        "total_ratings_received": 0,
+        "average_rating": 0,
+        "total_interactions": 0
+      },
+      "last_seen": "2026-08-25T11:03:22.200Z",
+      "london_runtimes": 0,
+      "london_sessions": 0,
+      "bangalore_runtimes": 0,
+      "bangalore_sessions": 0,
+      "decision": "no_live_identity_action_join"
+    },
+    "cronpulse": {
+      "decision": "unchanged_not_ready",
+      "exact_ready_condition": "A documented one-shot PULL/test or enforceable max_runs=1/TTL with automatic expiry, plus a durable signed retrieval/verification receipt; no recurring check may be created for the pilot."
+    }
+  },
+  "independent_adjudication": {
+    "accept": [],
+    "reject": [
+      "Heron: protocol mismatch and public register failure",
+      "PULSE-observatory: repeated behavior without durable identity/result attribution",
+      "NEST/chapter route: no live runtime/session or interaction",
+      "The Colony: no new hosted bounded operation",
+      "Cronpulse: recurring unbounded lifecycle"
+    ],
+    "conversion_delta": 0,
+    "reason": "Only the PULSE observation floor changed. No eligibility gate flipped, so an external action would not create truthful durable conversion evidence."
+  }
+}

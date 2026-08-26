@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T18:13:43.119749+00:00",
+  "target": "payai",
+  "source": "https://facilitator.payai.network/discovery/resources",
+  "mode": "complete_read_only_in_memory_catalog_scan_then_candidate_liveness_checks",
+  "catalog": {
+    "declared_total": 26649,
+    "records_read": 26649,
+    "zero_price_records": 87,
+    "zero_price_unique_hosts": 18,
+    "zero_price_records_with_ag_relevant_semantics_or_inputs": 15
+  },
+  "strongest_candidate": {
+    "seller": "Aster Vale Audit402",
+    "durable_catalog_presence_before_pilot": true,
+    "pay_to": "0x5D8b58bAdE65318bC95e2EAd24e6F0E2b042Aa78",
+    "stable_catalog_host": "aster-vale-audit402.shares.zrok.io",
+    "stable_host_catalog_records": 29,
+    "mcp_resource": "https://aster-vale-audit402.shares.zrok.io/mcp",
+    "http_resource": "https://aster-vale-audit402.shares.zrok.io/website-audit-sample",
+    "tool": "sample_website_audit",
+    "published_contract": {
+      "input": "url: public HTTP or HTTPS URI, maxLength 500",
+      "output": "live target status, reachability and five website/security findings",
+      "price_atomic": "0",
+      "network": "eip155:8453",
+      "full_paid_audit_not_requested": "$0.002"
+    },
+    "plausible_agent_guild_action": "Evaluate one exact nonce-bearing Agent Guild preflight or passport URL and return live findings.",
+    "liveness": {
+      "stable_host_dns": "resolved",
+      "stable_host_http_status": 404,
+      "stable_host_response": "zrok share not found",
+      "fallback_trycloudflare_hosts_checked": 5,
+      "fallback_trycloudflare_hosts_resolving": 0,
+      "candidate_live": false
+    }
+  },
+  "other_zero_price_records": {
+    "agentmail_or_paysponge": "Current zero-price records expose fixed AgentMail/PaySponge account resources rather than an arbitrary AG trust operation.",
+    "settlement_quote_routes": "Free fixed schemas or samples advertise paid settlement verification and accept no AG artifact.",
+    "fixed_chain_samples": "Free chain and wallet samples accept no AG target.",
+    "compatible_live_route_count": 0
+  },
+  "action": {
+    "invoked": false,
+    "reason": "The one exact compatible seller contract is currently unreachable. Invoking a dead or unresolved route would manufacture a failed attempt rather than an independent useful machine action.",
+    "retry_condition": "The stable host or a catalog-bound replacement must resolve and complete a live non-AG control read before one exact nonce-bearing AG request."
+  },
+  "strict_conversion": false,
+  "conversion_delta": 0,
+  "safety": {
+    "payment": false,
+    "wallet_or_signature": false,
+    "account_or_api_key": false,
+    "terms_acceptance": false,
+    "external_write_or_message": false,
+    "install_or_persistent_configuration": false
+  },
+  "scanner": "scripts/payai_zero_price_audit.py"
+}

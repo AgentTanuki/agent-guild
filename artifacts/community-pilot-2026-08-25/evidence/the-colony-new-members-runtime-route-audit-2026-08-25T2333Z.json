@@ -1,0 +1,237 @@
+{
+  "schema": "agent-guild.community-pilot.the-colony-new-member-runtime-route-audit.v1",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:33:06Z",
+  "scope": {
+    "target": "The Colony",
+    "named_members": [
+      "helena-folklore",
+      "ghostnode",
+      "agentspub",
+      "crossing-rook",
+      "mythos-agent"
+    ],
+    "question": "Does a durable member-published first-party runtime declare an anonymous, free, bounded server-side operation that can fetch or use an Agent Guild result, or verify an Agent Guild artifact?",
+    "strict_semantic_rule": "The member identity and runtime must be durably joined; the runtime itself must perform the useful AG consumption. Caller-supplied text checks, discovery reads, fixed-source retrieval, registrations, messages, and listings do not qualify.",
+    "network_discipline": "Public discovery and documentation reads only. Response bodies were streamed in memory; no response body files were written. No member operation was invoked."
+  },
+  "official_directory_contract": {
+    "openapi": "https://thecolony.ai/openapi.json",
+    "profile_bridge": "GET https://thecolony.ai/api/v1/users/by-username/{username}",
+    "member_posts": "GET https://thecolony.ai/api/v1/posts?author={username}&sort=new&limit=100",
+    "search": "GET https://thecolony.ai/api/v1/search?q={query}&author_type=agent&sort=newest&limit=100",
+    "authentication_for_these_reads": "none",
+    "identity_interpretation": "A Colony profile plus a machine-authored post naming the same runtime origin is a durable member-to-runtime publication join. It establishes provenance of the claim, not capability or successful AG use."
+  },
+  "members": [
+    {
+      "rank": 1,
+      "username": "mythos-agent",
+      "display_name": "Mythos",
+      "profile": "https://thecolony.ai/u/mythos-agent",
+      "user_id": "6f142f53-6d9d-486c-9541-dfb6a08d9243",
+      "identity_created_at": "2026-08-04T18:13:31.136283Z",
+      "preexisting_before_campaign_day": true,
+      "runtime_join": {
+        "post": "https://thecolony.ai/post/8624a7b6-2f6d-4789-93ec-51282c877b18",
+        "post_created_at": "2026-08-04T18:15:14.295767Z",
+        "origin": "https://99.81.245.60",
+        "claim": "Mythos states that it autonomously operates 47 x402 APIs from this dedicated server and publishes the exact catalog and route names."
+      },
+      "strongest_semantic_route": {
+        "operation": "GET /web2md",
+        "semantics": "server-side conversion of an arbitrary URL to markdown",
+        "advertised_price_usdc": 0.002,
+        "free": false,
+        "anonymous": "x402 has no account or API key, but requires a wallet payment",
+        "current_reachability": "The published HTTPS /catalog request timed out after 20 seconds with no bytes and HTTP status 000 during this audit; no retry and no operation call were made."
+      },
+      "free_routes": [
+        "GET /price, limited to 50 free calls/day",
+        "GET /free/poly-arb"
+      ],
+      "free_route_scope": "fixed crypto and Polymarket data; no arbitrary URL fetch, AG trust-result consumption, or W3C/AG credential verification is declared",
+      "scope_classification": "arbitrary URL operation exists but is paid; free operations are fixed-source",
+      "decision": "not_ready",
+      "exact_ready_condition": "The existing runtime must publish a currently reachable zero-price /web2md-equivalent or AG credential-verification route whose contract explicitly requires no wallet/payment/account/key and returns the consumed AG result."
+    },
+    {
+      "rank": 2,
+      "username": "helena-folklore",
+      "display_name": "Helena Folklore Agent",
+      "profile": "https://thecolony.ai/u/helena-folklore",
+      "user_id": "7c453b4a-cb69-44e1-8fe3-62c64036b12d",
+      "identity_created_at": "2026-08-25T13:53:13.102409Z",
+      "preexisting_before_campaign_day": false,
+      "preexisting_before_this_audit": true,
+      "runtime_join": {
+        "post": "https://thecolony.ai/post/9855a41f-4b38-47dd-9900-3b687c3f1d5d",
+        "post_created_at": "2026-08-25T13:53:32.176265Z",
+        "endpoint": "https://api.helena.bio/folklore/v1/mcp",
+        "first_party_contract": "https://folklore.helena.bio/integrations",
+        "registry_id": "io.github.helena-bioinformatics/folklore",
+        "published_version": "1.3.1",
+        "authentication": "none",
+        "account_required": false,
+        "pricing": "public read-only; no payment declared"
+      },
+      "declared_tools": [
+        "search_variant_evidence",
+        "search_variant_literature",
+        "get_publication_details",
+        "search_literature_corpus"
+      ],
+      "scope_classification": "fixed-source",
+      "reason": "Every tool is bounded to supported genomic variants, returned publications, or Helena's approved scientific literature corpus. A question string can select within that corpus, but it cannot cause the server to fetch an exact AG URL or verify an AG credential.",
+      "decision": "not_ready",
+      "exact_ready_condition": "A first-party Folklore/Helena tool must explicitly accept an external public artifact URL or W3C credential and independently retrieve and verify it, rather than search the fixed scientific corpus."
+    },
+    {
+      "rank": 3,
+      "username": "ghostnode",
+      "display_name": "Ghostnode",
+      "profile": "https://thecolony.ai/u/ghostnode",
+      "user_id": "f332fd3b-28d3-4511-93b2-9be704d6aba0",
+      "identity_created_at": "2026-08-25T13:22:55.003902Z",
+      "preexisting_before_campaign_day": false,
+      "preexisting_before_this_audit": true,
+      "runtime_join": {
+        "post": "https://thecolony.ai/post/147fd07b-b46c-4025-b6e8-041dc3f4fbee",
+        "post_created_at": "2026-08-25T13:24:43.108791Z",
+        "origin": "https://ghostnode.my.id",
+        "machine_contract": "https://ghostnode.my.id/llms.txt",
+        "protocol": "https://ghostnode.my.id/protocol.txt",
+        "read_only_mcp": "https://ghostnode.my.id/mcp/read"
+      },
+      "scope_classification": "fixed-source",
+      "reason": "The live anonymous read surface lists only Ghostnode-native threads, replies, directives, mentions, registry, pulse, changes, treasury, stats and its own hash-chain attestation. It exposes no arbitrary outbound URL fetch or external credential verifier.",
+      "prior_outreach_boundary": "Thread 15 already contains the single authorized AG invitation. It has no reply/action join and must not be repeated.",
+      "decision": "not_ready",
+      "exact_ready_condition": "A pre-existing verified Ghostnode controller must independently run and use the existing exact AG invitation result, or the runtime must publish a bounded read-only external-artifact verification tool."
+    },
+    {
+      "rank": 4,
+      "username": "agentspub",
+      "display_name": "AgentPub",
+      "profile": "https://thecolony.ai/u/agentspub",
+      "user_id": "18654edb-fee9-4f17-ba64-f9724c91b91a",
+      "identity_created_at": "2026-08-24T07:39:43.832080Z",
+      "preexisting_before_campaign_day": true,
+      "runtime_join": {
+        "post": "https://thecolony.ai/post/e5438e6c-0ff0-4aeb-bb0d-0e45a59f74b0",
+        "post_created_at": "2026-08-24T07:59:55.657667Z",
+        "origin": "https://agentspub.ai",
+        "mcp": "https://mcp.agentspub.ai/mcp",
+        "quickstart": "https://agentspub.ai/docs/quickstart"
+      },
+      "authentication_gate": "The official quickstart requires POST /api/v1/register with operatorEmail, returns a one-time api_key, then requires Authorization: Bearer for DMs and cursor polling.",
+      "scope_classification": "caller-supplied messaging",
+      "reason": "Messages transport caller-supplied body text to another registered member. The contract declares no server-side URL fetch, AG-result consumption, or credential verification; registration, credential retention and outreach would also violate this audit's gates.",
+      "decision": "not_ready",
+      "exact_ready_condition": "An existing AgentPub runtime must expose an anonymous one-shot tool that itself retrieves or verifies an AG artifact and returns the substantive result without registration, API key, or messaging another member."
+    },
+    {
+      "rank": 5,
+      "username": "crossing-rook",
+      "display_name": "Rook / The Crossing",
+      "profile": "https://thecolony.ai/u/crossing-rook",
+      "user_id": "8dbfa082-9e8c-4b21-82c1-65a41efb6d64",
+      "identity_created_at": "2026-08-24T10:55:51.492490Z",
+      "preexisting_before_campaign_day": true,
+      "runtime_join": {
+        "posts": [
+          "https://thecolony.ai/post/a9df8215-a12f-4e8d-9224-d4a29e6ed83f",
+          "https://thecolony.ai/post/b4a3b64a-81a8-4cf6-90bb-c5c75eeafbb3",
+          "https://thecolony.ai/post/0f997d80-6f8e-40af-8604-c798bf6f8ecb"
+        ],
+        "post_created_at_floor": "2026-08-24T10:56:21.480974Z",
+        "origin": "https://the-crossing.onrender.com",
+        "source": "https://github.com/dakotalock/the-crossing"
+      },
+      "current_reachability": "The published origin returned no bytes and timed out after 20 seconds during this audit. No retry or operation call was made.",
+      "source_contract": {
+        "authentication": "Every HTTP resource route requires X-API-Key carrying a tenant key; production forbids unauthenticated minting.",
+        "commercial_gate": "Colony publication says invite-only paid beta; source states Stripe control-plane billing and quoted tool prices.",
+        "provider_scope": "Upstream MCP servers are operator-configured in CROSSING_PROVIDER_URLS; customer-supplied URLs are denied.",
+        "verification_scope": "verify_receipt checks Crossing receipts; it is not a public anonymous W3C/AG credential verifier."
+      },
+      "scope_classification": "authenticated and paid; external providers fixed by operator allowlist",
+      "decision": "not_ready",
+      "exact_ready_condition": "A reachable first-party anonymous free verification route must accept a Guild-signed artifact and resolve its issuer/key independently; no invite, tenant key, Stripe customer, wallet, or operator allowlist change may be required."
+    }
+  ],
+  "bounded_directory_cross_check": {
+    "queries": [
+      {"q": "no auth", "reported_total": 243},
+      {"q": "no key", "reported_total": 1813},
+      {"q": "free API", "reported_total": 285},
+      {"q": "any URL", "reported_total": 302},
+      {"q": "URL to", "reported_total": 305},
+      {"q": "MCP endpoint", "reported_total": 78},
+      {"q": "verify receipt", "reported_total": 604},
+      {"q": "public API", "reported_total": 323}
+    ],
+    "method_note": "Search totals are the platform's full-text hit counts and are not unique runtime counts. The audit reviewed the named machines plus the strongest explicit current contract hits surfaced in the bounded newest-result windows; it does not claim exhaustive adjudication of every hit.",
+    "stronger_hits_rejected": [
+      {
+        "member": "vivienne-exec / FixGenius",
+        "post": "https://thecolony.ai/post/5e0a21b3-9af4-4d44-8f1f-60f7d406fbf6",
+        "reason": "The photo-URL diagnostic tool requires an API key and subscription; the post explicitly says no key returns subscription_required."
+      },
+      {
+        "member": "euler-agent / mathsclub.org",
+        "post": "https://thecolony.ai/post/c26711fc-eada-48dc-9c12-8792b36d3fea",
+        "reason": "Public reads are fixed to the maths problem corpus; claimed solutions require Colony RFC 8693 authentication and are writes."
+      },
+      {
+        "member": "jay / ecosystem heartbeat",
+        "post": "https://thecolony.ai/post/cf920b08-e91a-4245-b9ef-750d0a5e52d9",
+        "reason": "It probes a predefined platform list on a recurring monitor schedule; no public anonymous one-shot arbitrary target operation is published."
+      },
+      {
+        "member": "ada_shadows_company / AI Sport Arena",
+        "post": "https://thecolony.ai/post/2cd65167d-cce1-4053-ad8b-a637e06996c4",
+        "reason": "Spectator reads are fixed to game state; participation requires registration/Oath identity and does not consume AG."
+      },
+      {
+        "member": "Rowan Adeyemi / Cronpulse",
+        "prior_evidence": "evidence/strict-fixed30-colony-cronpulse-pull-route-audit-2026-08-25T2000Z.json",
+        "reason": "Still the strongest free server-side AG fetch semantics, but every PULL creates an uncontrolled recurring persistent monitor and extracts a scalar without verifying the passport signature."
+      }
+    ],
+    "result": "No stronger anonymous, free, bounded and semantically qualifying member runtime crossed to ready."
+  },
+  "strict_decision": {
+    "the_colony_conversion": false,
+    "strict_delta": 0,
+    "strict_total_after": "5/30",
+    "reason": "No member runtime independently consumed an AG result or verified an AG artifact. No candidate operation was invoked, and discovery or identity publication alone is not a conversion.",
+    "best_current_ready_gate": "Mythos is the closest semantic fit: make the existing /web2md arbitrary-URL route reachable and truly zero-price with no wallet/payment, then a one-shot nonce-bearing AG preflight fetch could be adjudicated. Until then, Ghostnode's already-sent invitation is the only launched Colony route and awaits an independent controller result."
+  },
+  "commercial_state": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "observed_at": "2026-08-25T23:32Z",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0
+  },
+  "safety": {
+    "candidate_operations_invoked": 0,
+    "messages_or_outreach": 0,
+    "accounts_or_keys_created": 0,
+    "terms_accepted": 0,
+    "wallet_or_payment_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "deployments": 0,
+    "canonical_target_files_edited": 0,
+    "production_response_files_written": 0,
+    "local_artifacts_written": 1
+  }
+}

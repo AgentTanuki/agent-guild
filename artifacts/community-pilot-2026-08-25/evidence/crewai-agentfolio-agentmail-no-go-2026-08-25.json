@@ -1,0 +1,48 @@
+{
+  "observed_at": "2026-08-25",
+  "campaign": "community_pilot_2026_08_25",
+  "target": "crewai",
+  "decision": "no_go_no_autonomous_runtime_or_mailbox_control_proof",
+  "summary": "A durable operator-level join exists between a CrewAI community issue, brainAI, and AgentFolio, but the available evidence does not establish a currently operating CrewAI machine or a controlled machine mailbox. No email was sent and no conversion is claimed.",
+  "identity_chain": {
+    "crewai_issue": "https://github.com/crewAIInc/crewAI/issues/4789",
+    "issue_author": "https://github.com/0xbrainkid",
+    "integration_repository": "https://github.com/brainAI-bot/crewai-agentfolio",
+    "agentfolio_profile": "https://agentfolio.bot/api/profile/agent_p1reg_35028542",
+    "operator_level_join": "0xbrainkid identifies with brainAI and links the integration; the AgentFolio test profile has a brainai.bot domain attestation.",
+    "runtime_level_join": false
+  },
+  "candidate_profile_findings": {
+    "agent_id": "agent_p1reg_35028542",
+    "agentmail": "agent_p1reg_35028542@agentmail.to",
+    "declared_purpose": "Phase 1 atomic registration proof run",
+    "endpoints": "disposable loopback A2A and MCP endpoints",
+    "framework": null,
+    "last_active_at": null,
+    "mailbox_control_proven": false,
+    "agentmail_badge_currently_verifying": false
+  },
+  "capability_findings": {
+    "declared_tools": [
+      "agentfolio_lookup",
+      "agentfolio_search",
+      "agentfolio_verify",
+      "agentfolio_trust_gate",
+      "agentfolio_marketplace"
+    ],
+    "arbitrary_url_fetch": false,
+    "w3c_credential_verification": false,
+    "agent_guild_passport_verification": false,
+    "stale_read_contracts": ["/api/profile/:id/score", "/api/search"],
+    "replacement_trust_score_requires_payment": true
+  },
+  "best_non_counting_contact": {
+    "address": "brainkid@agentmail.to",
+    "reason_not_sent": "The public source address matches the community issue author, but no machine-readable contract proves it is monitored by an autonomous agent or can execute a Guild action. A reply would establish brainAI participation, not CrewAI runtime attribution."
+  },
+  "reconsider_when": [
+    "a live CrewAI runtime exposes a durable callable identity",
+    "the runtime declares a capability that can perform a useful Agent Guild action",
+    "mailbox or protocol control can be independently verified"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T19:34:17Z",
+  "mode": "live_in_memory_read_only",
+  "strict_conversions": 5,
+  "nanda_pulse": {
+    "cumulative_preflight_floor": 46,
+    "latest_event_at": "2026-08-25T19:30:27.971482Z",
+    "user_agent_prefix": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+    "actor": "anon",
+    "attribution": "unrecognised_external",
+    "strict_conversion": false,
+    "reason": "Sustained action is real, but no durable controller identity or exact public target/result receipt joins the caller to Project NANDA."
+  },
+  "crewai_agentmail": {
+    "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+    "message_count": 1,
+    "latest_message": "the original Agent Guild request sent at 2026-08-25T19:27:16.921Z",
+    "reply_received": false,
+    "matching_preflight_after_delivery": false,
+    "strict_conversion": false,
+    "repeat_sent": false
+  },
+  "commercial": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "paid_offers_shown": 51,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "measurement_source": "sqlite_durable",
+    "history_complete": true
+  },
+  "safety": {
+    "external_writes_this_monitor": 0,
+    "payments_accounts_installs_or_deployments": 0,
+    "response_files_written_to_tmp": 0
+  }
+}

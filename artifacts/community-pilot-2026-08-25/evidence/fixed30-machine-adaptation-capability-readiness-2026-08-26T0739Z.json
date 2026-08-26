@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_machine_derived_product_adaptation",
+  "artifact_status": "hostile_reviewed_local_commit_not_deployed",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T07:39:00Z",
+  "machine_evidence_source": {
+    "feedback_record_id": "ag2-ask-web-capability-readiness-dependency-failure-2026-08-26",
+    "community": "ag2",
+    "machine": "AG2 Playground — Ask the Web / ask_the_web",
+    "evidence": "evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json",
+    "observed_need": "Transport and model health did not establish operation readiness: the named runtime emitted durable tool and result identifiers, then both advertised web capabilities failed at the Tavily dependency before any Agent Guild fetch."
+  },
+  "accepted_machine_contract": {
+    "principle": "Capability readiness is a separate signed fact from transport health, model health, the global execution gate and caller-specific admission.",
+    "ready_requires": [
+      "a non-empty terminal fixture suite",
+      "successful output-schema validation for every successful fixture",
+      "a fresh capability-and-version-bound observation time",
+      "a non-secret dependency-set digest recomputed and checked by the parent",
+      "a terminal outcome and result digest",
+      "a valid freshness interval"
+    ],
+    "fail_closed_on": [
+      "missing canary",
+      "fixture or output-schema failure",
+      "stale evidence",
+      "worker launch error",
+      "worker timeout",
+      "malformed worker output",
+      "unknown capability",
+      "global gate closure"
+    ],
+    "caller_admission": "not_evaluated",
+    "machine_surfaces": [
+      "GET /.well-known/ag-capability-readiness.json",
+      "GET /capabilities/{capability_id}/readiness",
+      "identity readiness_evidence links",
+      "Agent Guild discovery manifest",
+      "llms.txt",
+      "canonical generated REST contract and interface documentation"
+    ]
+  },
+  "implementation": {
+    "base": "origin/main@4921699aec8b18edc50211843107b901b35b308e",
+    "worktree": "/Users/rossburley/Claude/Projects/Agent Guild/ag-capability-readiness",
+    "branch": "codex/capability-readiness",
+    "commit": "8fe5f3a15faaa99be8d2903f5696f54f12893579",
+    "commit_subject": "feat(discovery): publish capability readiness evidence",
+    "deployment_status": "not_deployed",
+    "push_status": "not_pushed",
+    "production_status": "unchanged_2.5.39_at_4921699"
+  },
+  "hostile_review": {
+    "reviewer": "independent_subagent_capability_readiness_review",
+    "initial_verdict": "NO_SHIP",
+    "initial_blockers_fixed": [
+      "zero fixtures could pass vacuously",
+      "global and caller admission were conflated with callability",
+      "fixture subset success did not validate the output schema",
+      "anonymous reads could amplify canary execution and telemetry writes"
+    ],
+    "second_verdict": "NO_SHIP",
+    "second_blockers_fixed": [
+      "new routes were absent from generated contracts because FastAPI included-router wrappers were not traversed",
+      "a bogus X-API-Key could bypass the readiness limiter",
+      "a timed-out thread continued executing"
+    ],
+    "third_verdict": "NO_SHIP",
+    "third_blockers_fixed": [
+      "semantically malformed worker output could be cached and signed",
+      "uncached receipts could claim generated_at before terminal observation"
+    ],
+    "final_verdict": "SHIP"
+  },
+  "verification": {
+    "focused_tests": {
+      "passed": 57,
+      "warnings": 2
+    },
+    "main_suite_excluding_sandbox_blocked_loopback_tls": {
+      "passed": 1823,
+      "skipped": 16,
+      "deselected": 1,
+      "warnings": 9
+    },
+    "isolated_loopback_tls": {
+      "passed": 1,
+      "warnings": 2,
+      "note": "Required permission to bind a temporary localhost port; no external network action."
+    },
+    "aggregate_passed": 1824,
+    "compileall": "passed",
+    "git_diff_check": "passed",
+    "contract_generation_and_conformance": "passed"
+  },
+  "commercial_effect": {
+    "strict_fixed30_conversions": "5/30",
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "revenue_delta_usd": 0.0,
+    "reason": "A local product adaptation is not an independent community action or commercial event."
+  },
+  "safety": {
+    "outbound_messages": 0,
+    "external_operations_invoked": 0,
+    "accounts_identities_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_external_configuration": 0,
+    "production_mutations": 0,
+    "deployments": 0,
+    "pushes": 0,
+    "local_isolated_commits": 1
+  }
+}

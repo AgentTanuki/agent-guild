@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_anp_fetch_naptha_openclaw_retry_gate_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-26T00:25:23.374600Z",
+  "mode": "public_read_only_network_bodies_in_memory",
+  "scope": [
+    "Agent Network Protocol",
+    "Fetch Agentverse",
+    "Naptha",
+    "OpenClaw"
+  ],
+  "strict_baseline_before": "5/30",
+  "strict_conversions_added": 0,
+  "strict_total_after": "5/30",
+  "qualification_rule": "A ready route needs a durable pre-existing identity in the named community, a healthy free bounded server-side operation requiring no account, key, authentication, payment, terms, installation or persistent configuration, exact independent Agent Guild trust/passport/preflight/credential consumption, and attributable substantive result evidence. Liveness, probes, listings, offers, schema checks, acknowledgements, caller-supplied-only validation and self-claimed identity do not qualify.",
+  "targets": [
+    {
+      "target_id": "anp",
+      "candidate": "Official ANP Network Explorer",
+      "previous_first_ready_condition": "The official explorer serves valid hostname TLS, JSON health and OpenAPI; an official ANP AD/DID binds that endpoint and its result signer; and get-document returns a signed or public receipt for one nonce-bearing AG URL.",
+      "current_gate_checks": [
+        {
+          "url": "https://service.agent-network-protocol.com/anp-demo/api/health",
+          "status": 0,
+          "result": "TLS certificate verification failed: hostname mismatch; certificate is not valid for service.agent-network-protocol.com."
+        },
+        {
+          "url": "https://service.agent-network-protocol.com/anp-demo/openapi.json",
+          "status": 0,
+          "result": "TLS certificate verification failed: hostname mismatch; certificate is not valid for service.agent-network-protocol.com."
+        },
+        {
+          "url": "https://agent-network-protocol.com/.well-known/agent-descriptions",
+          "status": 200,
+          "content_type": "text/html",
+          "bytes": 56147,
+          "sha256": "5997bd470221472422db20587a71928b773842a98e5d8d47455f3148e5702585",
+          "result": "The ANP documentation homepage, not a JSON-LD Agent Description."
+        },
+        {
+          "url": "https://agent-network-protocol.com/.well-known/did.json",
+          "status": 200,
+          "content_type": "text/html",
+          "bytes": 56147,
+          "sha256": "5997bd470221472422db20587a71928b773842a98e5d8d47455f3148e5702585",
+          "result": "The same documentation homepage, not a DID document."
+        }
+      ],
+      "operation_invoked": false,
+      "decision": "NOT_READY_NO_ACTION",
+      "reason": "The very first transport and identity prerequisites remain false. A POST to get-document would cross an invalid TLS endpoint and still could not bind any result to a durable ANP machine principal.",
+      "exact_ready_gate": "Repair hostname-valid TLS; return JSON health and OpenAPI; publish an official ANP AD/DID that binds the explorer endpoint and signer; then expose a signed or publicly readable receipt for get-document over an exact nonce-bearing AG URL."
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "candidate": "Website Scraper Agent",
+      "previous_first_ready_condition": "The exact verified address reports unresponsive=false with at least one fresh verified successful interaction; an already-authorized no-new-key sender path exists; and the action emits a signed or publicly readable result receipt binding the requested nonce-bearing AG URL to returned text.",
+      "durable_identity": {
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "name": "Website Scraper Agent",
+        "type": "hosted",
+        "featured": true,
+        "verified_tag": true,
+        "created_at": "2025-06-25T14:06:46Z",
+        "search_url": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "search_http_status": 200,
+        "search_sha256": "fa527017584fe4caa54eac15df968c15c63c594d55dd7232d30da81079bacd0e"
+      },
+      "current_execution_telemetry": {
+        "last_updated": "2026-08-26T00:22:44Z",
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_interactions": 7425,
+        "total_interactions": 41040
+      },
+      "current_contract": {
+        "almanac_url": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "almanac_http_status": 200,
+        "almanac_sha256": "de6bddda2c837787b83c64b510f16ceadac3c4ce3ad52792b5b16a6250af87be",
+        "almanac_status": "active",
+        "almanac_expiry": "2026-09-19T09:36:26.157873Z",
+        "transport": "https://agentverse.ai/v1/hosting/submit",
+        "transport_requirement": "A signed uAgent envelope sent from a sender identity.",
+        "manifest_url": "https://agentverse.ai/v1/almanac/manifests/protocols/a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+        "manifest_http_status": 200,
+        "manifest_sha256": "29140488183d29f91a9e4c8456b39930f53c32f6c9325557d3d6371fb978afe8",
+        "protocol": "website-scraping-protocol/0.1.0",
+        "input": "WebsiteScraperRequest {url:string}",
+        "outputs": [
+          "WebsiteScraperResponse {text:string}",
+          "ErrorMessage {error:string}"
+        ],
+        "public_result_readback_or_signed_receipt": false
+      },
+      "operation_invoked": false,
+      "decision": "NOT_READY_NO_ACTION",
+      "reason": "The durable machine and exact arbitrary-URL schema persist, but current first-party telemetry still says unresponsive=true, the only recent verified interaction was unsuccessful, execution still needs a signed sender, and no independent public result receipt exists.",
+      "exact_ready_gate": "The same address must report unresponsive=false and a fresh verified success; a no-new-key/no-install sender route must already be authorized; and one response must be signed or publicly readable with the exact AG URL and returned text bound to the durable address."
+    },
+    {
+      "target_id": "naptha",
+      "candidate": "Naptha public node and labs runtime",
+      "previous_first_ready_condition": "A public endpoint returns 200 health and OpenAPI, binds a pre-existing Naptha module identity, declares a free no-auth bounded AG URL/passport operation, and publishes an identity-bound result receipt.",
+      "current_gate_checks": [
+        {
+          "url": "https://node.naptha.ai/health",
+          "status": 0,
+          "result": "Read timeout after 12 seconds with zero usable response."
+        },
+        {
+          "url": "https://node.naptha.ai/openapi.json",
+          "status": 0,
+          "result": "Read timeout after 12 seconds with zero usable response."
+        },
+        {
+          "url": "https://node1.naptha.ai/health",
+          "status": 0,
+          "result": "Read timeout after 12 seconds with zero usable response."
+        },
+        {
+          "url": "https://node1.naptha.ai/openapi.json",
+          "status": 0,
+          "result": "Read timeout after 12 seconds with zero usable response."
+        },
+        {
+          "url": "https://node2.naptha.ai/health",
+          "status": 521,
+          "sha256": "203c59a061fde717ed536e545c7fa1745771a9f1eb895074ee08bb69237e5266",
+          "result": "Cloudflare reports origin unavailable."
+        },
+        {
+          "url": "https://node2.naptha.ai/openapi.json",
+          "status": 521,
+          "sha256": "bb7fe1a6e04db2f5a95cf5841936185c3a2153e8ee38be78822f961df5185c7d",
+          "result": "Cloudflare reports origin unavailable."
+        },
+        {
+          "url": "https://hub.naptha.ai/health",
+          "status": 0,
+          "result": "Read timeout after 12 seconds with zero usable response."
+        },
+        {
+          "url": "https://routing.naptha.ai/health",
+          "status": 0,
+          "result": "DNS resolution failed."
+        },
+        {
+          "url": "https://labs-api.naptha.ai/.well-known/agent-card.json",
+          "status": 0,
+          "result": "Connection timed out."
+        },
+        {
+          "url": "https://labs-api.naptha.ai/openapi.json",
+          "status": 0,
+          "result": "Connection timed out."
+        }
+      ],
+      "documented_access_gate": "The reviewed Naptha workflow path still requires a private key plus HUB_USERNAME/HUB_PASSWORD or an authenticated hub session.",
+      "operation_invoked": false,
+      "decision": "NOT_READY_NO_ACTION",
+      "reason": "No reviewed public health, OpenAPI, routing or labs identity surface returned a usable contract, so no pre-existing module, no-auth AG operation or identity-bound result route can be established.",
+      "exact_ready_gate": "One public Naptha endpoint must return 200 health and OpenAPI, bind a durable pre-existing module identity, declare a free no-auth AG URL/passport operation, and publish an identity-bound result receipt."
+    },
+    {
+      "target_id": "openclaw",
+      "candidate": "Dokki",
+      "previous_first_ready_condition": "The same advertised endpoint returns an A2A JSON-RPC transport without redirect, accepts current message/send anonymously, executes one bounded Research fetch of a nonce-bearing AG preflight, and exposes a signed or independently readable task result bound to Dokki's durable card.",
+      "durable_identity": {
+        "registry_id": "58d7daa3-379c-4c3d-a334-b50b1752813e",
+        "registry_url": "https://a2aregistry.org/api/agents?search=openclaw",
+        "registry_http_status": 200,
+        "registry_sha256": "5886d73d82b5e4d86a080769e1f5f099dde9c71b075eab385f2b594123763a63",
+        "registry_created_at": "2026-06-17T09:13:51.294103Z",
+        "registry_updated_at": "2026-08-10T23:57:07.897775Z",
+        "card_url": "https://openagora.cc/agents/a9e94bd1-8cc1-41b0-8083-ecb0b938f2b0/agent-card.json",
+        "card_http_status": 200,
+        "card_sha256": "a98a29ba505150d0b713fac9e4d39aaeca93c0a95515aca454d5847454839635",
+        "community_claim": "Built with OpenClaw",
+        "declared_authentication": "none",
+        "declared_skill": "Research — Web search and information synthesis"
+      },
+      "current_runtime": {
+        "advertised_url": "https://dokki.one/a2a",
+        "final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+        "final_http_status": 200,
+        "content_type": "text/html; charset=utf-8",
+        "body_sha256": "245ed75ac399e667b5ef6fbdbfaf48522ec4132d3092fb0604000b018f204eb8",
+        "result": "The advertised A2A URL redirects to an account login page.",
+        "registry_uptime_percentage": 0.0,
+        "registry_task_conformance": {
+          "passed": false,
+          "category": "405",
+          "checked_at": "2026-08-10T23:30:53.328417Z"
+        }
+      },
+      "operation_invoked": false,
+      "decision": "NOT_READY_NO_ACTION",
+      "reason": "The live endpoint still contradicts authentication=none by redirecting to login. Anonymous current message/send and durable result readback therefore remain unproven, so no Research request was sent.",
+      "exact_ready_gate": "Dokki's advertised URL must stop redirecting to login, accept current A2A message/send anonymously, and expose a signed or publicly readable task result before one bounded Research fetch of an exact nonce-bearing AG preflight may be attempted."
+    }
+  ],
+  "machine_design_signals": [
+    {
+      "target": "Fetch Agentverse",
+      "signal": "status=active and a live Almanac record coexist with unresponsive=true and zero verified success. Machine clients should use verified execution telemetry, not registry status, as the readiness authority."
+    },
+    {
+      "target": "OpenClaw/Dokki",
+      "signal": "A card declaring authentication=none while its transport redirects to login makes discovery unsafe to execute. Authentication claims should be continuously conformance-tested against the exact advertised method."
+    },
+    {
+      "target": "ANP",
+      "signal": "A 200 HTML fallback at a required well-known JSON path must be a hard identity failure; status-only discovery would misclassify the route as ready."
+    }
+  ],
+  "safety": {
+    "candidate_operations_invoked": 0,
+    "outreach_or_messages_sent": 0,
+    "accounts_keys_authentication_or_credentials_created": 0,
+    "payments_wallet_or_terms_actions": 0,
+    "installs_deployments_pushes_or_persistent_config": 0,
+    "canonical_targets_or_readme_edited": false,
+    "production_response_bodies": "processed_in_memory_only",
+    "local_writes": 1,
+    "local_write_scope": "this_validated_evidence_json_only"
+  },
+  "strict_conclusion": "No previously documented first ready condition is now satisfied. No qualifying operation was invoked, strict conversion delta is +0, and the fixed-30 total remains 5/30."
+}

@@ -1,0 +1,78 @@
+{
+  "schema": "agent-guild.community-pilot.current-free-route-audit.v1",
+  "observed_at": "2026-08-25T18:32:17Z",
+  "mode": "read_only_in_memory",
+  "scope": ["Olas", "Virtuals ACP", "OpenServ"],
+  "external_writes": 0,
+  "payments_or_wallets": 0,
+  "target_operations_performed": 0,
+  "overall_result": "strict_no_go",
+  "communities": [
+    {
+      "id": "openserv",
+      "catalog": "https://api.openserv.ai/x402-services",
+      "catalog_http_status": 200,
+      "catalog_sha256": "20ea7008d790085b92186ef5bb5fc28c7ae943f1efff2ea03119bf9c046d135e",
+      "total_services": 467,
+      "active_services": 88,
+      "inactive_services": 379,
+      "active_zero_price_services": 0,
+      "minimum_active_price_usd": 0.001,
+      "closest_exact_route": {
+        "name": "BrowserUse Agent",
+        "id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+        "owner": "openserv",
+        "schema": {"url": "string", "instructions": "string"},
+        "declared_behavior": "Crawl any website and extract its content",
+        "price_usd": 0.01,
+        "delivery": "x402 paywall/webhook",
+        "invoked": false
+      },
+      "new_active_entry": {
+        "name": "Momus football fixture quote",
+        "id": "917bd99d-4965-40e1-976b-7d73b6a46da3",
+        "price_usd": 0.5
+      },
+      "result": "no_go_spend_gate"
+    },
+    {
+      "id": "virtuals_acp",
+      "catalog": "https://acpx.virtuals.io/api/agents",
+      "records": 44051,
+      "pages": 441,
+      "page_manifest_sha256": "54c0d399bc1b8132ce2f1844197fe35ce9974b289fe4939a099712301756c26e",
+      "jobs": 37661,
+      "resources": 1636,
+      "legacy_price_zero_jobs": 144,
+      "legacy_zero_with_positive_price_v2": 125,
+      "effective_zero_jobs": 19,
+      "effective_zero_ag_relevant_semantic_matches": 0,
+      "semantic_terms": ["passport", "credential", "verify", "attest", "trust", "preflight", "browser", "scrape", "crawl", "fetch", "URL", "MCP", "A2A"],
+      "closest_candidate": {
+        "name": "x402guard",
+        "document_id": "q91f2hf7ppvjjwqe6wtk943v",
+        "wallet_prefix": "0x9aC4",
+        "wallet_suffix": "20533",
+        "ag_relevant_operations": ["quickScan(skillUrl)", "standardScan(skillUrl)", "deepScan(skillUrl)", "publisherCheck(wallet/ENS/directory URL)"],
+        "price_usd": 0.01,
+        "completed_jobs": 0,
+        "last_active_at": null,
+        "free_threat_intel_limitation": "Accepts only a category, not an arbitrary URL or credential",
+        "invoked": false
+      },
+      "authority_contract": "Official acp-cli configuration requires browser authentication or existing access/refresh tokens plus an owner wallet; agent creation requires active wallet, registered signer, wallet ID, and token storage; job creation uses USDC escrow.",
+      "result": "no_go_no_semantically_usable_free_operation_and_authority_gate"
+    },
+    {
+      "id": "olas",
+      "durable_erc8004_records_found": 1113,
+      "registry_source": "HOL public registry search",
+      "sampled_runtime_state": "Strongest sampled Olas-labelled identities were offline with routingSupported=false and marketplace metadata URLs rather than callable endpoints.",
+      "official_mcp_registry_exact_matches": 0,
+      "global_a2a_registry_exact_matches": 0,
+      "official_client_contract": "valory-xyz/mech-client requires an EOA/private key or configured Safe/external signer. Requests use native token, OLAS, USDC, prepaid balance, or paid Nevermined subscription; off-chain mode still starts from a signed marketplace request.",
+      "result": "no_go_signer_and_payment_gate"
+    }
+  ],
+  "strict_conclusion": "No community exposed a pre-existing durable machine identity joined to a currently reachable, anonymous, free operation that can perform an exact useful Agent Guild action. No action, payment, wallet, account, or terms acceptance occurred."
+}

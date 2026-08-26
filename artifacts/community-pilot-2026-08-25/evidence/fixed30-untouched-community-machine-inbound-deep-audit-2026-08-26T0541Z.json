@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_untouched_community_machine_inbound_deep_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T05:31:44Z",
+    "end": "2026-08-26T05:41:03Z"
+  },
+  "mode": "public_read_only_no_send_no_invoke",
+  "scope": [
+    "moltx",
+    "agent_commune",
+    "fetch_agentverse",
+    "naptha",
+    "elizaos",
+    "ag2",
+    "langchain",
+    "claws_network",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "qualification_rule": "A route needs a durable pre-existing autonomous machine identity in the named fixed community, plus a public machine-owned inbound route or hosted free anonymous bounded operation. Independent public evidence must establish current web-fetch or credential capability, and the requested lifecycle must be able to return a result bound to that machine. A fresh recipient, mailbox alone, framework label, listing, health response, availability probe, caller-supplied-only check or acknowledgement is not authority or conversion.",
+  "canonical_guard": {
+    "ledger": "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "ledger_updated_at": "2026-08-26T05:31:44Z",
+    "canonical_script": "artifacts/community-pilot-2026-08-25/scripts/check_outreach_eligibility.mjs",
+    "script_execution": "node_runtime_unavailable",
+    "fallback": "Applied the canonical script's exact closed-community, converted-state and known-recipient predicates directly against outreach-ledger.json and targets.json.",
+    "community_only_results": [
+      {"community":"moltx","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"agent_commune","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"fetch_agentverse","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"naptha","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"elizaos","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"ag2","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"langchain","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"claws_network","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"reddit_ai_agents","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"reddit_agents_of_ai","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"}
+    ],
+    "recipient_specific_override": {
+      "community": "moltx",
+      "recipient": "gendolf@agentmail.to",
+      "decision": "DENY_OUTREACH",
+      "reason": "recipient_already_contacted_or_attempted",
+      "prior_thread": "6259089d-0515-4e17-a66b-480e1d509426",
+      "prior_fixed_community": "virtuals_acp",
+      "interpretation": "A different fixed-community attribution does not make the same recipient fresh. This route is passive research only and must not receive another request."
+    }
+  },
+  "alias_and_recipient_history": {
+    "known_campaign_recipients": [
+      "brainkid@agentmail.to",
+      "bro-agent@agentmail.to",
+      "k2so@ascii.dev",
+      "scienceclaw@agentmail.to",
+      "gendolf@agentmail.to"
+    ],
+    "search_method": "Case-insensitive target id, community name, candidate name, address and domain search across all pilot JSON/Markdown artifacts, followed by current public web discovery for AgentMail or equivalent inbound routes.",
+    "community_alias_counts": [
+      {"community":"moltx","aliases":["MoltX","moltx.io"],"matching_project_artifacts":24},
+      {"community":"agent_commune","aliases":["Agent Commune","agentcommune.com"],"matching_project_artifacts":17},
+      {"community":"fetch_agentverse","aliases":["Fetch Agentverse","Website Scraper Agent","agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs"],"matching_project_artifacts":32},
+      {"community":"naptha","aliases":["Naptha","naptha.ai"],"matching_project_artifacts":21},
+      {"community":"elizaos","aliases":["elizaOS","Eliza Cloud","api.eliza.app"],"matching_project_artifacts":20},
+      {"community":"ag2","aliases":["AG2 Playground","Ask the Web","playground.ag2.ai"],"matching_project_artifacts":9},
+      {"community":"langchain","aliases":["LangChain","Chat LangChain","chat.langchain.com","Authenticated MCP Agent"],"matching_project_artifacts":23},
+      {"community":"claws_network","aliases":["Claws Network","claws.network"],"matching_project_artifacts":14},
+      {"community":"reddit_ai_agents","aliases":["r/AI_Agents","Acrid","Most-Agent-7566"],"matching_project_artifacts":17},
+      {"community":"reddit_agents_of_ai","aliases":["r/AgentsOfAI","NexAgora","DualExtreme02536"],"matching_project_artifacts":15}
+    ],
+    "new_public_inbound_discovery": {
+      "machine": "Gendolf",
+      "mailbox": "gendolf@agentmail.to",
+      "community_join": "MoltX",
+      "fresh_recipient": false,
+      "result": "valid durable route discovery but denied for any further outreach"
+    },
+    "other_agentmail_search_results": [
+      {"identity":"Kit_Fox","mailbox":"kit_fox@agentmail.to","reason_not_candidate":"Strong machine profile and web-search claim, but no durable official join to a scoped fixed community was established."},
+      {"identity":"Klaus","mailbox":"klaus@agentmail.to","reason_not_candidate":"Durable machine mailbox exists, but the public identity is in r/ClaudeCode rather than either scoped Reddit fixed community and no scoped framework join was established."},
+      {"identity":"AgentMailr","mailbox":null,"reason_not_candidate":"The r/AI_Agents post is a human/operator product announcement, not a durable autonomous machine principal with a result-bound execution pipeline."}
+    ],
+    "freshness_conclusion": "Recipient freshness never determined ranking. Gendolf is the strongest route despite being non-fresh and therefore outreach-denied; the other published mailboxes were rejected for missing fixed-community identity joins."
+  },
+  "qualifying_ready_routes": [],
+  "strongest_routes": [
+    {
+      "rank": 1,
+      "fixed_community": "moltx",
+      "machine": "Gendolf",
+      "route_type": "published AgentMail inbound channel",
+      "route": "gendolf@agentmail.to",
+      "durable_identity_join": {
+        "official_moltx_profile": "https://moltx.io/Gendolf?tab=posts",
+        "official_profile_evidence": "The durable MoltX profile identifies Gendolf as The Trust Wizard, autonomous AI agent, creator of isnad, and a 24/7 persistent agent.",
+        "machine_owned_portfolio": "https://danieliushka.github.io/gendolf-portfolio/",
+        "portfolio_http_status": 200,
+        "portfolio_bindings": [
+          "Gendolf",
+          "isnad Agent Trust Protocol",
+          "MoltX",
+          "Virtuals ACP",
+          "AgentMail",
+          "gendolf@agentmail.to"
+        ],
+        "public_machine_profile": "https://www.clawk.ai/Gendolf"
+      },
+      "current_identity_limit": {
+        "moltx_live_read": "DNS_ENOTFOUND",
+        "interpretation": "The cached first-party MoltX profile is durable pre-pilot membership evidence, but the official surface cannot currently produce a fresh runtime receipt."
+      },
+      "independent_capability_evidence": {
+        "official_records": [
+          "https://acpx.virtuals.io/api/agents/yo09vk70ixw0duugb5dalqjb",
+          "https://acpx.virtuals.io/api/agents/hwxfm0asvv07d2c7hdssfsy0"
+        ],
+        "current_http_status": 200,
+        "identity": "Both records name Gendolf and bind isnad.site plus stable wallets.",
+        "declared_capabilities": [
+          "deep_research: Brave Search, full web fetching and browser automation with sourced URLs",
+          "agent_audit: real requests, on-chain checks, response-quality evidence and buy/skip/avoid result",
+          "qa_testing: browser, CLI and network tools",
+          "trust_score/agent_trust_score: isnad-backed quantified trust output"
+        ],
+        "prior_jobs": "The primary Gendolf record reports one successful job; all current ACP capability jobs are priced, but the AgentMail portfolio is a separate public summon channel."
+      },
+      "why_it_could_return_ag_evidence": "A same-thread reply can preserve the exact nonce-bearing preflight fields, a trust/audit decision, and one durable Gendolf identity reference. The mailbox and public profiles bind the response channel to the pre-existing machine, while the official records independently prove web and trust execution capabilities.",
+      "exact_blockers": [
+        "The recipient is already present in the canonical campaign ledger from a Virtuals ACP request; the recipient-specific guard is DENY_OUTREACH and the request must never be repeated or reframed for MoltX.",
+        "No reply or completed AG action exists yet in the existing thread.",
+        "The live MoltX domain is currently DNS-unreachable, so a future result would still need the pre-existing cached profile plus an independently durable machine-owned identity receipt."
+      ],
+      "next_allowed_step": "Passive monitoring of existing thread 6259089d-0515-4e17-a66b-480e1d509426 only; never send a MoltX-specific follow-up."
+    },
+    {
+      "rank": 2,
+      "fixed_community": "ag2",
+      "machine": "AG2 Playground — Ask the Web",
+      "route_type": "hosted anonymous one-shot AG-UI operation",
+      "route": "POST https://playground.ag2.ai/demos/ask-the-web/chat/",
+      "durable_identity_join": {
+        "official_showcase": "https://github.com/ag2ai/build-with-ag2",
+        "official_source": "https://github.com/ag2ai/build-with-ag2/tree/main/beta/ask-the-web",
+        "live_runtime": "https://playground.ag2.ai/demos/ask-the-web/",
+        "machine_name": "ask_the_web"
+      },
+      "independent_capability_evidence": {
+        "published_semantics": "The first-party playground says one AG2 agent searches with Tavily, fetches the best sources, and returns citation-backed answers with live source cards.",
+        "tool_contracts": [
+          "tavily_search({query,max_results})",
+          "fetch_url({url}) -> readable URL content"
+        ],
+        "access": "Public, no caller account or key, sponsor-funded, listed at price 0 USD.",
+        "current_health": {"http_status":200,"ok":true,"provider":"vertexai","model":"gemini-3.6-flash"}
+      },
+      "why_it_could_return_ag_evidence": "The AG-UI event stream emits server-generated tool-call and message IDs, exact tool arguments and returned content, providing an identity-bound result path if fetch_url retrieves the nonce-bearing AG JSON.",
+      "exact_blockers": [
+        "The prior bounded attempt produced Tavily InvalidAPIKeyError for both search and fetch_url before AG was reached.",
+        "Current health proves only Vertex/Gemini model readiness and still publishes no Tavily capability canary.",
+        "The route is not fresh: repeat is prohibited until an independent public canary proves the failed dependency recovered."
+      ],
+      "first_ready_gate": "A public capability-level canary must show fresh Tavily extraction success; only a later separately authorized attempt could use a corrected AG URL and require exact tool args, returned AG body or digest, server IDs and matching Guild telemetry."
+    },
+    {
+      "rank": 3,
+      "fixed_community": "fetch_agentverse",
+      "machine": "Website Scraper Agent",
+      "route_type": "public uAgent inbound protocol",
+      "route": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "durable_identity_join": {
+        "official_record": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "created_at": "2025-06-25T14:06:46Z",
+        "community_attribution": "Fetch-hosted uAgent with official Agentverse address, owner id and registered protocols."
+      },
+      "independent_capability_evidence": {
+        "protocol": "website-scraping-protocol 0.1.0",
+        "request": "WebsiteScraperRequest { url: string }",
+        "response": "WebsiteScraperResponse { text: string }",
+        "manifest": "https://agentverse.ai/v1/almanac/manifests/protocols/a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849"
+      },
+      "why_it_could_return_ag_evidence": "The protocol is an exact arbitrary-URL server fetch and its signed uAgent response can bind returned AG JSON text to the durable Agentverse address.",
+      "current_state": {
+        "last_observed_at": "2026-08-26T05:16:55Z",
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_interactions": 7480,
+        "total_interactions": 41095
+      },
+      "exact_blockers": [
+        "Agentverse's current record marks the machine unresponsive with zero verified successes.",
+        "Submitting a uAgent message requires a signed sender/mailbox lifecycle rather than anonymous one-shot HTTP admission.",
+        "No public result-read endpoint exposes an independently readable durable receipt."
+      ],
+      "first_ready_gate": "A fresh verified success plus a documented pre-existing senderless/keyless request rail and a public or independently signed result binding exact AG URL, body/digest, machine address and completion time."
+    }
+  ],
+  "remaining_scope_results": [
+    {"community":"agent_commune","decision":"NO_ROUTE","reason":"The service remains owner-suspended at HTTP 503; no live member runtime or mailbox-to-capability join exists."},
+    {"community":"naptha","decision":"NO_ROUTE","reason":"The prior public node remains unreachable and current execution requires account/service credentials; no independent mailbox route was found."},
+    {"community":"elizaos","decision":"NO_ROUTE","reason":"Eliza Cloud has a live A2A card and packaged WEB_FETCH code, but no public hosted skill binds them; public entry starts wallet auth and agent chat is credentialed and credit-debit."},
+    {"community":"langchain","decision":"NO_ROUTE","reason":"Chat LangChain requires a guest/auth token and only exposes link-status checking; the signed Authenticated MCP Agent has a public fixed selftest while all input-bearing work is paid."},
+    {"community":"claws_network","decision":"NO_ROUTE","reason":"No hosted member operation or Agent Card exists; published onboarding requires install, wallet, persistent files, recurring jobs and operator-authority inversion."},
+    {"community":"reddit_ai_agents","decision":"NO_ROUTE","reason":"Acrid is a durable machine principal with a server-side fetch form, but email is required, a marketing subscription fires in parallel, and output is visibility critique rather than parsed/verified AG evidence."},
+    {"community":"reddit_agents_of_ai","decision":"NO_ROUTE","reason":"NexAgora has durable machines but no machine-principal join to r/AgentsOfAI; all documented API calls require handler account, bearer key and terms acceptance."}
+  ],
+  "strict_result": {
+    "ready_routes": 0,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "messages_or_operations": 0,
+    "conclusion": "Three strong identity/capability routes exist as retry- or history-gated candidates, but none is currently eligible for action or conversion."
+  },
+  "machine_design_signal": {
+    "new_attributable_feedback": false,
+    "reinforced_observation": "Inbound address, execution capability, community identity, operation health and result durability are separate machine contracts. Gendolf shows a mailbox plus capability can be valid yet campaign-history denied; AG2 shows transport health can coexist with dependency failure; Fetch shows a registered protocol can coexist with an unresponsive runtime and private sender lifecycle."
+  },
+  "safety": {
+    "external_messages_replies_reactions_or_posts": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_wallets_or_terms": 0,
+    "payments_or_spend": 0,
+    "installs_or_persistent_config": 0,
+    "external_mutations": 0,
+    "public_reads": 8,
+    "network_bodies": "processed_in_memory_only",
+    "response_body_files": 0,
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

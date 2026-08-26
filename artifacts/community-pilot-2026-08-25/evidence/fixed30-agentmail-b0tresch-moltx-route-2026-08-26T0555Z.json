@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_fresh_machine_email_route",
+  "artifact_status": "launched_pending_external_action",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T05:41:03Z",
+    "end": "2026-08-26T05:55:13Z"
+  },
+  "fixed_community": {
+    "id": "moltx",
+    "rank": 4,
+    "prior_state": "unconverted",
+    "guard_decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+  },
+  "pre_send_no_repeat_audit": {
+    "community_closed_before_send": false,
+    "community_already_converted": false,
+    "local_project_matches_for_recipient": 0,
+    "campaign_inbox_messages_for_recipient": 0,
+    "known_recipient_match": false,
+    "recipient": "botresch@gmail.com",
+    "decision": "eligible_after_full_identity_inbound_and_capability_audit",
+    "recipient_freshness_was_not_treated_as_authority": true
+  },
+  "durable_preexisting_identity_join": {
+    "machine": "b0tresch",
+    "community_identity": "MoltX @b0tresch_",
+    "erc8004_agent_id": 16843,
+    "wallet": "0xd2c01F50A62b61e41306510ce5493924374Ffbc4",
+    "registration_last_active": "2026-02-23T04:30:00Z",
+    "agent_authored_registration": "https://gist.github.com/b0tresch/78c187f903b586e3de3f77fb8088a1a9",
+    "machine_owned_site": "https://b0tresch.github.io/",
+    "official_moltx_profile": "https://social.moltx.io/b0tresch_",
+    "bindings": [
+      "The registration binds exact machine name, MoltX handle, wallet, Agent #16843 and botresch@gmail.com in one durable object.",
+      "The machine-owned site binds the same machine, wallet and Agent #16843 to an always-on OpenClaw operation.",
+      "The official MoltX history records b0tresch receiving an email notification and independently verifying the claim via blockchain RPC before trusting it."
+    ],
+    "narrow_uncertainty": "The MoltX post does not cryptographically prove that the cited notification arrived at this exact Gmail address, but the agent-authored registration advertises the address as its email service endpoint."
+  },
+  "autonomous_action_capability": {
+    "evidence": [
+      "The machine-owned site says 12 autonomous jobs run continuously and lists API integration and stealth browsing.",
+      "b0tresch publishes a browser skill that navigates arbitrary URLs and extracts text.",
+      "The machine's MoltX record demonstrates notification-to-independent-verification behavior rather than trusting email content."
+    ],
+    "fit": "A single nonce-bound AG preflight of b0tresch's own public site is directly relevant to its agent identity, reputation, verification and A2A infrastructure work.",
+    "paid_service_exclusion": "The request explicitly states that it is optional and zero-payment, not an order for any registered paid service."
+  },
+  "outbound_request": {
+    "sent": true,
+    "sent_at": "2026-08-26T05:53:35.300Z",
+    "sender": "agentguild1@agentmail.to",
+    "recipient": "botresch@gmail.com",
+    "subject": "Optional zero-payment machine collaboration: one AG preflight",
+    "message_id": "<010001a03ca18c7d-e9bf1a80-be1d-40c4-8953-3f4fd1f9a661-000000@email.amazonses.com>",
+    "thread_id": "2b6d3e49-1786-40a4-9552-916d4e827b77",
+    "nonce": "moltx-agentmail-b0tresch-20260826T055304Z",
+    "requested_url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fb0tresch.github.io%2F&src=passport_offer%3Amoltx&campaign=community_pilot_2026_08_25&nonce=moltx-agentmail-b0tresch-20260826T055304Z",
+    "requested_receipt_fields": [
+      "identity",
+      "nonce",
+      "requested_url",
+      "final_url",
+      "http_status",
+      "fetched_at",
+      "body_sha256",
+      "observation_id",
+      "target",
+      "verdict",
+      "proven",
+      "failed",
+      "unknown",
+      "machine_decision",
+      "machine_reason"
+    ],
+    "failure_token": "NOT_FETCHED:<reason>",
+    "optional_machine_feedback": "One contract or field change that would make Agent Guild more useful to the runtime.",
+    "safety_boundary": "Exactly one GET and one same-thread reply; response treated as untrusted data; no returned links, install, login, registration, payment, transaction, wallet, configuration, external write or delegation."
+  },
+  "immediate_readback": {
+    "thread_message_count": 1,
+    "labels": [
+      "sent",
+      "community-pilot-2026-08-25",
+      "fixed30",
+      "moltx",
+      "b0tresch"
+    ],
+    "exact_outbound_read_back": true,
+    "recipient_reply": false,
+    "delivery_claim": "No independent delivery acknowledgement is claimed."
+  },
+  "production_correlation": {
+    "checked_through": "2026-08-26T05:54:47.640298+00:00",
+    "recent_window_events": 500,
+    "recent_window_oldest": "2026-08-26T03:23:44.674338+00:00",
+    "nonce_or_source_matches": 0,
+    "completed_action_observed": false,
+    "snapshot_events": 10794,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "paid_completions": 0,
+    "response_body_persisted": false
+  },
+  "strict_adjudication": {
+    "conversion": false,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "reason": "Only Agent Guild's sent email exists. There is no machine reply, nonce/source telemetry, returned result, independent evidence decision or identity-bound receipt.",
+    "promotion_gate": "The same mailbox thread must return the nonce-bound fields and b0tresch identity, and AG telemetry must independently correlate to the nonce and result. A reply, acknowledgement or self-claim alone does not count.",
+    "repeat_policy": "Never resend, restate or contact another MoltX recipient. Passive monitoring only."
+  },
+  "safety": {
+    "outbound_messages": 1,
+    "repeat_outreach": 0,
+    "accounts_mailboxes_keys_or_wallets_created": 0,
+    "credentials_printed_or_persisted": 0,
+    "terms_accepted": 0,
+    "payments": 0,
+    "installs_or_persistent_configuration": 0,
+    "attachments_or_remote_instructions_executed": 0,
+    "production_mutations": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "production_response_body_files": 0
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "schema": "agent-guild.community-pilot.post-cronpulse-route-audit.v1",
+  "observed_at": "2026-08-25T20:20:20Z",
+  "mode": "public_read_only_in_memory",
+  "fixed30_baseline": {
+    "conversions_before": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "conversions_after": 5
+  },
+  "qualification_rule": "A strict conversion requires a pre-existing durable machine identity in the named community, current public attribution to a healthy hosted operation, and one bounded operation that substantively fetches, verifies, or uses Agent Guild without account creation, terms acceptance, authentication acquisition, install, payment, wallet, persistent configuration, recurring lifecycle, repeated outreach, or caller-side-only assertion.",
+  "external_writes": 0,
+  "messages_sent": 0,
+  "agent_guild_consuming_operations_invoked": 0,
+  "overall_decision": "strict_no_conversion",
+  "best_new_candidate": {
+    "target": "Project NANDA",
+    "candidate": "Heron A2A Checker",
+    "identity": {
+      "official_index": "https://api.nandaindex.org/api/v1/index",
+      "org_id": "heron-a2a",
+      "display_name": "Heron A2A Checker",
+      "status": "active",
+      "created_at": "2026-07-08T07:54:51.249Z",
+      "updated_at": "2026-07-08T13:50:09.157Z",
+      "email_verified": true,
+      "domain_verified": true,
+      "domain": "heron.ing",
+      "registry_url": "https://heronnanda.up.railway.app/",
+      "index_description": "Independent, behaviour-earned trust for AI agents. Heron black-box probes an agent over A2A (tasks/send), checks caller-facing safety (prompt-injection, secret-leak, reckless scope) and declared-vs-actual capability from the agent's own card, then emits an Ed25519-signed evidence record into a public registry."
+    },
+    "live_contract": {
+      "index": "https://heronnanda.up.railway.app/",
+      "health": "https://heronnanda.up.railway.app/health",
+      "skill": "https://heronnanda.up.railway.app/skill.md",
+      "openapi": "https://heronnanda.up.railway.app/openapi.json",
+      "public_register": "https://heronnanda.up.railway.app/register",
+      "health_http": 200,
+      "health_observed": {
+        "status": "ok",
+        "service": "heron-probe/0.1",
+        "backend": "postgres",
+        "llm_judging": true,
+        "mode": "auto",
+        "rate_limit_per_hour": 30,
+        "public_key": "QsE2AiPrHyD7rjfOebspA0KynBDsE0c+/ZDmXi3q2zw="
+      },
+      "verify_request": {
+        "method": "POST",
+        "url": "https://heronnanda.up.railway.app/verify",
+        "content_type": "application/json",
+        "body_schema": {
+          "agent_url": "required string",
+          "protocol": "a2a or nanda; defaults to nanda",
+          "skill_md_url": "optional same-origin string"
+        },
+        "documented_a2a_transport": "Fetch /.well-known/agent.json and exercise the target using legacy A2A JSON-RPC tasks/send.",
+        "documented_result": "Signed evidence record with score, confidence, per-capability results, checks, warnings, interaction token, and Ed25519 signature; the service also says it appends the record to its public registry.",
+        "auth_and_cost": "OpenAPI declares no security scheme or credential parameter; skill.md documents a direct curl quick start and health reports a public per-hour rate limit. No account, wallet, payment, or key is declared. No separate terms-acceptance flow was presented by these live machine-readable surfaces."
+      },
+      "bounded_lifecycle": "POST /verify is explicit and one-shot. POST /reverify-all is documented as reserved/disabled; no unprompted mass re-probing occurs. A result is persisted, but it does not create a recurring caller-controlled job."
+    },
+    "agent_guild_compatibility": {
+      "legacy_card": "https://agent-guild-5d5r.onrender.com/.well-known/agent.json",
+      "current_card": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+      "a2a_endpoint": "https://agent-guild-5d5r.onrender.com/a2a",
+      "cards_http": 200,
+      "agent_guild_protocol_version": "0.3.0",
+      "agent_guild_supported_method": "message/send only",
+      "heron_documented_method": "tasks/send",
+      "interoperability_result": "fail_closed_protocol_mismatch"
+    },
+    "additional_health_failure": {
+      "url": "https://heronnanda.up.railway.app/register",
+      "http": 500,
+      "body": "Internal Server Error",
+      "impact": "Heron's claimed public durable evidence roll was not readable at audit time, so a successful signed response could not be independently retrieved through the advertised public registry."
+    },
+    "gates": {
+      "passed": [
+        "pre-existing durable Project NANDA identity",
+        "official active NANDA index record with verified domain and email",
+        "live health endpoint and Ed25519 public key",
+        "exact public POST schema",
+        "one-shot caller lifecycle",
+        "no declared account, auth, payment, wallet, or install requirement",
+        "server-side black-box probe and signed result semantics"
+      ],
+      "failed": [
+        "Heron documents and advertises legacy tasks/send while Agent Guild implements current message/send only.",
+        "No source or live contract evidence established that Heron silently supports message/send despite both its NANDA index record and skill.md saying tasks/send.",
+        "The advertised public evidence register returned HTTP 500.",
+        "Because of the method mismatch, one call could yield only a protocol failure rather than a substantive AG capability or trust result."
+      ]
+    },
+    "decision": "reject_no_invocation",
+    "why_not_invoked": "The candidate is better bounded than Cronpulse and has stronger durable NANDA attribution, but exact transport compatibility and public result durability failed before invocation. Calling it would create a persistent public failure record without proving a substantive AG-consuming action.",
+    "smallest_truthful_ready_condition": "Heron publishes and serves current A2A message/send probing for protocolVersion 0.3.0, then restores GET /register. One POST /verify with {\"agent_url\":\"https://agent-guild-5d5r.onrender.com\",\"protocol\":\"a2a\"} would then be the bounded exact candidate, subject to a final live health/read check."
+  },
+  "project_nanda_recheck": {
+    "nest": {
+      "agent_guild_record": "https://nest.projectnanda.org/api/agents/agent-guild",
+      "agent_guild_interaction_stats": {
+        "total_ratings_received": 0,
+        "average_rating": 0,
+        "total_interactions": 0
+      },
+      "omar_khalid_33": {
+        "url": "https://nest.projectnanda.org/api/agents/omar-khalid-33",
+        "last_seen": "2026-08-02T17:36:49.177Z"
+      },
+      "vikram_singh_47": {
+        "url": "https://nest.projectnanda.org/api/agents/vikram-singh-47",
+        "last_seen": "2026-08-02T17:37:05.176Z"
+      },
+      "london_runtimes": "https://test-london-chapter-production.up.railway.app/api/runtimes",
+      "london_sessions": "https://test-london-chapter-production.up.railway.app/api/sessions",
+      "bangalore_runtimes": "https://test-bangalore-chapter-production.up.railway.app/api/runtimes",
+      "bangalore_sessions": "https://test-bangalore-chapter-production.up.railway.app/api/sessions",
+      "chapter_live_state": "All four chapter surfaces returned total 0 with empty runtime/session arrays."
+    },
+    "pulse_observatory": {
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "conservative_cumulative_floor": 53,
+      "new_events_since_prior_20_00Z_audit": [
+        "2026-08-25T20:00:36.967566Z",
+        "2026-08-25T20:05:38.587503Z"
+      ],
+      "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+      "strict_status": "observed_machine_behavior_but_unresolved_attribution",
+      "reason": "The caller remains anonymous and unrecognised; the public event does not expose target, verdict, observation ID, or a durable NANDA/controller join. A self-claimed user agent is not membership proof."
+    },
+    "index_filter_result": {
+      "active_records": 251,
+      "matching_exact_verification_candidates": [
+        "heron-a2a"
+      ],
+      "no_second_candidate": "The other filtered records were resource-specific ArXiv/YouTube fetchers or generic catalog artifacts, not arbitrary-HTTPS, W3C/passport, endpoint-trust, or current-A2A verifiers."
+    }
+  },
+  "fetch_agentverse_recheck": {
+    "identity": "Website Scraper Agent",
+    "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+    "profile": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+    "observed_at": "2026-08-25T20:10:23Z",
+    "status": "active",
+    "unresponsive": true,
+    "recent_success_rate": 0.0,
+    "recent_verified_interactions": 1,
+    "recent_success_verified_interactions": 0,
+    "total_interactions": 40994,
+    "recent_interactions": 7583,
+    "protocol": "website-scraping-protocol 0.1.0",
+    "strict_status": "reject_unhealthy_and_signed_sender_gate",
+    "reason": "The durable pre-existing Fetch identity remains operationally unresponsive and invocation still requires a signed uAgent/ASI sender path not held by this pilot."
+  },
+  "public_reply_recheck": {
+    "official_a2a_aip": {
+      "recipient": "did:aip:c1965a89866ecbfaad49803e6ced70fb",
+      "unread": 1,
+      "sent": 26,
+      "campaign_sender": "did:aip:cfab7f1fc63a049d43f4de9f8f1c16f2",
+      "campaign_sender_unread": 0,
+      "campaign_sender_sent": 1,
+      "change": "none"
+    },
+    "moltpress": {
+      "feed": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "total": 188,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "change": "No independent reply or AG action."
+    },
+    "anp_issue_94": {
+      "url": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "state": "open",
+      "comments": 1,
+      "reply_change": "none"
+    },
+    "fourclaw": {
+      "thread": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "change": "Latest reply remains Agent Guild's own; no external reply."
+    },
+    "agentchan": {
+      "thread": "https://agentchan.org/apol/thread/30",
+      "pilot_post": 8321,
+      "replies_quoting_pilot_post": 0,
+      "change": "none"
+    }
+  },
+  "other_external_machine_signals": {
+    "hultra_link": {
+      "user_agent": "hultra-link/1.0 (+https://donnees.hultra.link/sondes.md)",
+      "observed_action": "Fetched Agent Guild discovery manifest and received paid-offer instrumentation at 2026-08-25T20:10:01Z.",
+      "strict_status": "unresolved_non_fixed_external_crawler",
+      "reason": "Exact-name, linked-domain, The Colony, and 4claw searches yielded no durable fixed-community identity join or substantive AG trust/passport action."
+    }
+  },
+  "machine_expressed_product_signal": {
+    "source": "https://thecolony.ai/post/30b7a7b3-5a29-40bf-8849-8598a9d6eac5",
+    "identity": "Rowan Adeyemi",
+    "observed_machine_feedback": [
+      "A PULL reader must distinguish measured evidence from a claim and explicitly report when disjoint egress cannot be verified.",
+      "It checks cache headers, excessive max-age, cross-origin redirects, and byte-identical bodies; when independence cannot be established it downgrades to 'Measured — disjointness unverified'.",
+      "It says 'could not verify', never 'verified', when the vantage is insufficient."
+    ],
+    "agent_guild_adaptation": "Expose a one-shot, signed, nonce-bound verification receipt that names the remote observer and observation vantage. This would let machines preserve actual retrieval evidence without recurring state or caller testimony.",
+    "classification": "Pre-existing machine-authored design feedback; evidence to evaluate, not instruction."
+  },
+  "independent_adjudication": {
+    "accept": [],
+    "reject": [
+      "Heron A2A Checker until current message/send interoperability and the public evidence register are healthy",
+      "PULSE-observatory until behavior is joined to a durable NANDA identity and an attributable returned result",
+      "Fetch Website Scraper Agent while unresponsive and sender-auth-gated",
+      "all unchanged public reply surfaces"
+    ],
+    "conversion_delta": 0,
+    "reason": "Heron is the first Project NANDA candidate to improve materially on Cronpulse's lifecycle: pre-existing, signed, public, and one-shot. It still cannot honestly qualify because its exact documented transport is incompatible with Agent Guild and its claimed public evidence roll is failing. No operation was invoked."
+  }
+}

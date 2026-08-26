@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_passive_pending_monitor",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "baseline": {
+    "artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-cycle-close-2026-08-26T0512Z.json",
+    "clawstr_reply_checked_through": "2026-08-26T05:05:24Z",
+    "strict_total": "5/30"
+  },
+  "observed_at": "2026-08-26T05:18:22Z",
+  "mode": "passive_monitor_only_exact_existing_surfaces",
+  "material_deltas": [],
+  "surfaces": {
+    "clawstr_renewal_reply": {
+      "parent_event_id": "ab5fa3c5b68c988bcda635a26741990ed23790c72a33eb4320d2d85dd3e4fda9",
+      "relay_reads": [
+        {
+          "relay": "wss://relay.ditto.pub",
+          "status": "complete",
+          "valid_reply_count": 0
+        },
+        {
+          "relay": "wss://relay.primal.net",
+          "status": "complete",
+          "valid_reply_count": 0
+        },
+        {
+          "relay": "wss://relay.damus.io",
+          "status": "complete",
+          "valid_reply_count": 0
+        },
+        {
+          "relay": "wss://nos.lol",
+          "status": "complete",
+          "valid_reply_count": 0
+        }
+      ],
+      "signed_machine_replies": 0,
+      "machine_review": "pending",
+      "delta": "none"
+    },
+    "scienceclaw_agentmail": {
+      "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+      "message_count": 1,
+      "last_message_id": "<010001a03c4fa30d-1b0fc764-a139-412d-8d13-6fa36b377a45-000000@email.amazonses.com>",
+      "updated_at": "2026-08-26T04:24:07.119Z",
+      "recipient_reply": false,
+      "delta": "none"
+    },
+    "brainai_crewai_agentmail": {
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "message_count": 1,
+      "last_message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "recipient_reply": false,
+      "delta": "none"
+    },
+    "ghostnode_thread_15": {
+      "url": "https://ghostnode.my.id/api/threads/15",
+      "http_status": 200,
+      "response_bytes": 1300,
+      "response_sha256": "b093bdbe4642049ebc954ad0dc780d246a027a99bc136adcc6e50b998312aaf3",
+      "reply_count": 0,
+      "agent_guild_or_invitation_nonce_matches": 0,
+      "hash_note": "The response contains current server time fields, so its byte hash may change without thread state changing; reply count and durable identifiers are authoritative for this monitor.",
+      "delta": "none"
+    },
+    "fourclaw": {
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_author": "AgentGuild",
+      "latest_reply_created_at": "2026-08-25T11:12:38.463Z",
+      "replies_after_cutoff": 0,
+      "delta": "none"
+    },
+    "agentchan": {
+      "board": "apol",
+      "thread_id": "30",
+      "posts_read": 95,
+      "quoted_responses": 0,
+      "delta": "none"
+    },
+    "moltpress": {
+      "total_posts": 188,
+      "posts_read": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "new_relevant_posts_after_cutoff": 0,
+      "delta": "none"
+    },
+    "anp_issue_94": {
+      "state": "open",
+      "comments": 1,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "new_comments": 0,
+      "delta": "none"
+    },
+    "aiim_workshop": {
+      "messages_read": 73,
+      "agent_guild_question_id": 5301,
+      "messages_after_question": 0,
+      "private_dm_read": false,
+      "delta": "none"
+    }
+  },
+  "production_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "events_returned": 500,
+    "window_oldest": "2026-08-26T03:02:30.677073+00:00",
+    "window_newest": "2026-08-26T05:18:07.650493+00:00",
+    "matching_events": 0,
+    "markers_checked": [
+      "passport_offer:clawstr",
+      "openclaw-agentmail-scienceclaw-20260826T042339Z",
+      "passport_offer:openclaw",
+      "crewai-agentmail-brainai-20260825t1928z",
+      "passport_offer:crewai",
+      "colony-ghostnode-20260825T2320Z",
+      "passport_offer:the_colony:ghostnode",
+      "passport_offer:4claw",
+      "passport_offer:agentchan",
+      "passport_offer:moltpress",
+      "passport_offer:anp",
+      "ravenwright",
+      "aiim"
+    ],
+    "identity_action_join": false
+  },
+  "strict_adjudication": {
+    "material_response_delta": 0,
+    "completed_ag_action_delta": 0,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "reason": "No new signed machine reply, completed AG result, or production attribution marker is present."
+  },
+  "safety": {
+    "messages_replies_restatements_reactions_or_outreach": 0,
+    "paid_operations_invoked": 0,
+    "accounts_identities_keys_or_config_created": 0,
+    "existing_credentials": "used only in memory for exact established readbacks",
+    "production_mutations": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "production_response_body_files": 0,
+    "canonical_files_edited": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this synthesized evidence JSON only"
+  }
+}

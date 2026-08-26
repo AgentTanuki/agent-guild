@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "agntcy",
+  "observed_at": "2026-08-25T16:13:32Z",
+  "conversion": false,
+  "provisional_conversion_rejected": true,
+  "community_identity": {
+    "for_you_catalog": "https://for.you.com/.well-known/ai-catalog.json",
+    "identifier": "urn:air:toddmorourke.com:server:seo-tools",
+    "display_name": "Todd O'Rourke SEO Tools (MCP)",
+    "listing": "discovered",
+    "for_you_verified": false,
+    "claim_status": "unclaimed",
+    "source_registry": "https://toddmorourke.com/.well-known/ai-catalog.json",
+    "source_registry_updated_at": "2026-07-16T00:00:00Z",
+    "publisher_did": "did:web:toddmorourke.com",
+    "publisher_did_document": "https://toddmorourke.com/.well-known/did.json",
+    "identity_caveat": "The independent HTTPS source registry and DID service bind the machine to toddmorourke.com, but the DID document publishes no verificationMethod and For You labels the discovered listing unclaimed and verified=false. This is durable domain attribution, not a cryptographically signed registry claim."
+  },
+  "machine_contract": {
+    "card": "https://toddmorourke.com/.well-known/mcp/seo-tools.json",
+    "endpoint": "https://toddmorourke.com/wp-json/ard/v1/mcp",
+    "server_name": "Todd O'Rourke SEO Tools",
+    "server_version": "1.2.0",
+    "transport": "streamable-http",
+    "protocol_version": "2025-06-18",
+    "authentication_declared": false,
+    "payment_declared": false,
+    "tool": "okf_convert",
+    "tool_contract": "Fetch one public page and return an Open Knowledge Format concept file with the requested resource and converted markdown."
+  },
+  "interaction": {
+    "first_attempt": {
+      "mcp_response_id": "4cfe4659-0931-49d3-b041-b7703cf7f139",
+      "production_event_at": "2026-08-25T16:12:59.594164+00:00",
+      "excluded": true,
+      "reason": "The pilot incorrectly percent-encoded the attribution query fields into the target value, producing a malformed endpoint and a false do_not_delegate result. This client error is retained and excluded."
+    },
+    "corrected_request_url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Ftoddmorourke.com%2Fwp-json%2Fard%2Fv1%2Fmcp&src=passport_offer%3Aagntcy&campaign=community_pilot_2026_08_25&nonce=agntcy-todd-okf-corrected-20260825-1615",
+    "mcp_response_id": "0f44e0e9-a2b6-4bbe-88c6-b5e93119950e",
+    "okf_generated_at": "2026-08-25T16:13:32+00:00",
+    "returned_resource_matches_request": true,
+    "full_machine_readable_verdict_preserved": true,
+    "agent_guild_result": {
+      "target": "https://toddmorourke.com/wp-json/ard/v1/mcp",
+      "verdict": "delegate_with_caution",
+      "proven": [
+        "endpoint_reachable:mcp initialise handshake",
+        "protocol_handshake:completed a real A2A/MCP handshake"
+      ],
+      "failed": ["agent_card_resolves"],
+      "unknowns": [
+        "agent_card_signed",
+        "payment_claim_holds",
+        "independent_evidence"
+      ]
+    },
+    "production_event": {
+      "at": "2026-08-25T16:13:32.876107+00:00",
+      "type": "preflight_run",
+      "endpoint": "preflight",
+      "user_agent": "OKF-Generator/0.1 (+https://toddmorourke.com/)",
+      "actor": "anon",
+      "live_classifier": "unrecognised_external"
+    }
+  },
+  "adjudication": {
+    "identity_to_action_join": "For You's pre-existing discovered catalog row points to the publisher's same-origin catalog and MCP card. The live endpoint negotiated with the exact published server name/version, then its OKF tool returned the exact nonce-bearing Guild URL and the full fresh preflight body. Production recorded the matching preflight_run under the publisher-identifying OKF user agent within the same second.",
+    "useful_action": "The independent machine retrieved and preserved AG's live delegation verdict for its own MCP endpoint, including the proven handshake and all failed/unknown checks.",
+    "why_not_a_probe": "The action was performed through the machine's declared content-conversion capability and returned the complete Guild decision as its substantive result; it was not a Guild-operated reachability probe or a documentation fetch.",
+    "community_membership_join": "rejected",
+    "community_membership_reason": "AGNTCY Directory discussion 455 shows For You requested participation, completed only a dry-run import, and was invited to follow joining instructions. No completed federation, AGNTCY directory/routing record, or signed AGNTCY identity joins For You or Todd to the fixed community target.",
+    "community_membership_evidence": "https://github.com/agntcy/dir/discussions/455",
+    "account_created": false,
+    "wallet_created": false,
+    "payment_made": false,
+    "conversion": false
+  },
+  "machine_derived_product_finding": {
+    "observed": "AG proved the MCP handshake, then failed the MCP-only machine for lacking an A2A Agent Card and rendered delegate_with_caution. The machine itself makes no A2A claim.",
+    "adaptation": "The independently corroborated transport-aware preflight fix names the proven protocol and marks unrelated cross-protocol checks not_applicable instead of failed.",
+    "local_branch": "codex/transport-aware-preflight",
+    "local_commit": "82ae6a7",
+    "deployment_status": "tested_not_deployed"
+  },
+  "final_decision": "A durable independent Todd-domain machine performed a useful AG action, but AGNTCY community attribution is unproven. Retain as external product evidence and do not increment the fixed target."
+}

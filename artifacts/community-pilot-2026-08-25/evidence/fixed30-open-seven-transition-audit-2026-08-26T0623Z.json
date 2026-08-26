@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_open_seven_transition_audit",
+  "artifact_status": "validated_catalogue_window_volatility_no_route_transition",
+  "baseline": "artifacts/community-pilot-2026-08-25/evidence/fixed30-open-seven-cross-surface-deep-audit-2026-08-26T0611Z.json",
+  "observed_interval": {
+    "start": "2026-08-26T06:21:22Z",
+    "end": "2026-08-26T06:23:49Z"
+  },
+  "mode": "public_read_only_no_send_no_invoke",
+  "scope": [
+    "elizaos",
+    "ag2",
+    "langchain",
+    "claws_network",
+    "agentic_market",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "catalogue_reconciliation": {
+    "community": "agentic_market",
+    "catalogue": "https://api.agentic.market/v1/services",
+    "authoritative_prior_artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-payai-agentic-market-route-recheck-2026-08-26T0146Z.json",
+    "authoritative_prior_snapshot": {
+      "observed_at": "2026-08-26T01:45:24.523766Z",
+      "services_returned": 50,
+      "endpoints_returned": 1400,
+      "same_interval_reads": [1340, 1421, 1400],
+      "reason_authoritative": "This artifact records the exact observation timestamp and normalizes amount=0 by scheme, distinguishing 129 QuickNode upto routes with a $10 ceiling from the single exact-zero route."
+    },
+    "newer_comparable_observations": [
+      {
+        "artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-post-0159-commercial-expansion-cycle-2026-08-26T0318Z.json",
+        "generated_at": "2026-08-26T03:18:38Z",
+        "services_returned": 50,
+        "endpoints_returned": 1705
+      },
+      {
+        "artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-post-0318-commercial-readiness-cycle-2026-08-26T0334Z.json",
+        "generated_at": "2026-08-26T03:34:21Z",
+        "services_returned": 50,
+        "endpoints_returned": 1372
+      },
+      {
+        "artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-open-seven-cross-surface-deep-audit-2026-08-26T0611Z.json",
+        "observed_at": "2026-08-26T06:11:27Z",
+        "services_returned": 50,
+        "endpoints_returned": 1335
+      }
+    ],
+    "current_observed_state": {
+      "observed_at": "2026-08-26T06:21:22Z",
+      "services": 50,
+      "endpoints": 1391,
+      "delta_vs_immediately_prior_0611_snapshot": 56,
+      "delta_vs_canonical_0145_snapshot": -9,
+      "delta_vs_newer_0334_snapshot": 19,
+      "delta_vs_newer_0318_snapshot": -314,
+      "exact_zero_price_endpoints": 1,
+      "exact_zero_route": {
+        "service": "api-messari-io",
+        "url": "https://api.messari.io/metrics/v2/networks/",
+        "description": "List networks (free tier pricing in Messari x402 docs)"
+      }
+    },
+    "classification": "bounded_page_or_snapshot_volatility_not_catalogue_growth",
+    "window_nuance": "The endpoint total is the sum inside the API's current bounded 50-service response, not a stable monotonic global-catalogue counter. The response exposes no service or endpoint creation/update timestamps. Counts have moved both up and down across otherwise comparable reads, so +56 versus 06:11Z must not be called growth; 1,391 is also 9 below the canonical 1,400 snapshot.",
+    "qualification_effect": "none",
+    "reason": "The only endpoint whose exact pricing.amount is the string '0' is the same unrelated Messari network-list operation. No free route independently fetches, verifies or uses an exact AG artifact."
+  },
+  "unchanged_gates": [
+    {
+      "community": "elizaos",
+      "route": "https://cheshireterminal.ai/a2a/elizero/.well-known/agent-card.json",
+      "current_state": "HTTP 200 text/html returning the Cheshire Terminal SPA rather than Agent Card JSON",
+      "gate": "eliZERO still has no published arbitrary-fetch, credential-verification or AG-decision operation and no durable result contract"
+    },
+    {
+      "community": "ag2",
+      "route": "https://playground.ag2.ai/demos/ask-the-web/",
+      "current_state": "The public page remains live and still declares relative POST chat/ plus fetch_url and tavily_search tools",
+      "gate": "Dependency recovery is not proven; the last authorized bounded run failed with Tavily InvalidAPIKeyError, and this audit made no invocation"
+    },
+    {
+      "community": "langchain",
+      "routes": [
+        "https://a2aregistry.org/api/agents?search=langchain",
+        "https://registry.modelcontextprotocol.io/v0.1/servers?search=langchain&version=latest&limit=100"
+      ],
+      "current_state": "The A2A search still returns Authenticated MCP Agent, HiveGate and AAAA-Nexus; the official MCP Registry still returns langchain-mcp and doc2mcp/langchain",
+      "gate": "No new anonymous free hosted operation independently consuming AG; useful inputs remain authenticated, paid or install-only"
+    },
+    {
+      "community": "claws_network",
+      "route": "https://registry.modelcontextprotocol.io/v0.1/servers?search=claws&version=latest&limit=100",
+      "current_state": "The same four adjacent string matches remain and none is joined to durable Claws Network membership plus a hosted AG-capable operation",
+      "gate": "no hosted member-runtime join"
+    },
+    {
+      "community": "reddit_ai_agents",
+      "route": "https://www.reddit.com/r/AI_Agents/new/.rss?limit=15",
+      "current_state": "No feed entry newer than the 2026-08-26T06:11:27Z cutoff",
+      "gate": "no new machine-principal plus autonomous-runtime join"
+    },
+    {
+      "community": "reddit_agents_of_ai",
+      "route": "https://www.reddit.com/r/AgentsOfAI/new/.rss?limit=15",
+      "current_state": "No feed entry newer than the 2026-08-26T06:11:27Z cutoff",
+      "gate": "no new machine-principal plus autonomous-runtime join"
+    }
+  ],
+  "strict_result": {
+    "safe_machine_native_routes_added": 0,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "best_retry_gate": "AG2 Ask the Web must demonstrate a neutral successful fetch after its Tavily dependency recovers before a nonce-bearing AG request is eligible."
+  },
+  "safety": {
+    "messages_or_outreach": 0,
+    "operations_invoked": 0,
+    "payments_accounts_keys_wallets_terms_or_installs": 0,
+    "external_writes": 0,
+    "response_bodies": "processed_in_memory_only",
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this reconciled catalogue-window evidence JSON only"
+  }
+}

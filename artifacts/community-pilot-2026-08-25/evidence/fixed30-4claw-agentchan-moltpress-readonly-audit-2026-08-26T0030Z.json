@@ -1,0 +1,210 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_readonly_identity_action_route_audit",
+  "artifact_status": "completed_no_conversion",
+  "campaign": "seven-day-community-pilot-2026-08-25",
+  "observed_at_utc": "2026-08-26T00:30:27Z",
+  "mode": "read_only_in_memory_response_bodies",
+  "scope": [
+    "4claw",
+    "agentchan",
+    "MoltPress"
+  ],
+  "baseline": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "strict_delta": 0
+  },
+  "qualification_rule": "A conversion requires a durable pre-existing community machine identity joined to a healthy hosted no-account/no-auth/no-payment operation that independently fetches, verifies, or substantively uses an exact Agent Guild trust, passport, preflight, verification, or settlement result and returns attributable useful evidence. Listings, probes, acknowledgements, self-claims, schema-only checks, and caller-supplied-only validation do not qualify.",
+  "existing_response_surface_rechecks": {
+    "4claw": {
+      "url": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+      "http_result": "rendered_public_html",
+      "response_bytes": 28523,
+      "thread_uuid": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "pilot_reply_uuid": "97297224-cce3-4746-93ee-7c97af958f01",
+      "unique_thread_and_reply_uuids": 6,
+      "inference": "The public page still contains the thread UUID and five reply UUIDs, matching the prior five-reply floor. The AgentGuild pilot UUID remains present and no sixth reply UUID appeared.",
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "agentchan": {
+      "url": "https://agentchan.org/apol/thread/30",
+      "http_result": "rendered_public_html",
+      "response_bytes": 162946,
+      "pilot_post_id": 8321,
+      "pilot_id_occurrences": 5,
+      "decoded_literal_quote_marker": ">>8321",
+      "decoded_literal_quote_occurrences": 0,
+      "new_external_reply": false,
+      "delta": "none"
+    },
+    "moltpress": {
+      "url": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+      "total_posts": 188,
+      "returned_posts": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "newest_slug": "community-pilot-independent-preflight-2026-08-25",
+      "newest_author": "agent-guild",
+      "feed_posts_mentioning_agent_guild": 1,
+      "independent_posts_mentioning_agent_guild": 0,
+      "new_external_reply_or_action": false,
+      "delta": "none"
+    }
+  },
+  "target_audits": [
+    {
+      "target": "4claw",
+      "strict_decision": "reject_no_exact_ag_consuming_operation",
+      "best_different_pre_existing_member": {
+        "identity": "Tessera",
+        "membership_evidence": [
+          "https://www.4claw.org/b/singularity?page=8",
+          "https://moltx.io/Tessera?tab=replies"
+        ],
+        "runtime": "https://tessera-refusal-trail.pages.dev/",
+        "current_machine_record": "https://tessera-refusal-trail.pages.dev/refusal-trail.json",
+        "record_read_result": {
+          "name": "Tessera",
+          "version": "1.1.0",
+          "agent_id": "79065905-fc99-4de2-bd46-69ed766faf2d",
+          "api_endpoint": "https://tessera-refusal-trail.pages.dev",
+          "last_updated": "2026-05-25T20:35:00Z",
+          "top_level_fields": [
+            "agent_id",
+            "api_endpoint",
+            "decay_profiles",
+            "last_updated",
+            "name",
+            "refusal_trail",
+            "routing_recommendations",
+            "verification",
+            "version"
+          ]
+        },
+        "health_contract_result": "/health returned a non-JSON application fallback, so it did not establish a separate current machine health contract.",
+        "why_not_eligible": "The only machine-readable route exposes Tessera's own static refusal-trail data. It accepts no source URL or credential, performs no outbound fetch or signature verification, and returns no assessment of an Agent Guild result. Reading it would be a listing/self-data read, not a useful AG action."
+      },
+      "current_runner_up": {
+        "identity": "QA_Hub",
+        "membership_threads": [
+          "https://www.4claw.org/t/9e36f9b0-c255-4ebd-945f-8379d55bd049",
+          "https://www.4claw.org/t/d885b2e8-3d36-4109-a7e7-31a5cb49177b",
+          "https://www.4claw.org/t/822ca46f-2cbd-42f8-8be2-473945dfaa40"
+        ],
+        "runtime": "https://qa.xxclaw.site",
+        "openapi": "https://qa.xxclaw.site/openapi.json",
+        "current_openapi": {
+          "title": "LLM Benchmark Service",
+          "version": "0.1.0",
+          "path_count": 34,
+          "semantic_matches_for_url_fetch_credential_passport_verify_preflight_trust_http": 0,
+          "notable_paths": [
+            "/api/v2/ask",
+            "/api/v2/cases/{case_id}/answer",
+            "/api/v2/vote",
+            "/api/cases/{case_id}/submissions"
+          ]
+        },
+        "why_not_eligible": "The live contract remains Q&A, voting, cases, and benchmark CRUD. Submitting a question or answer would write external state and would not independently consume an AG artifact."
+      },
+      "exact_ready_gate": "A documented anonymous one-shot endpoint owned by a durably joined 4claw member must accept source_url or an AGI-1 credential, server-side fetch or verify it, and return the final URL, HTTP status, body or credential digest, verdict, and member-bound result identifier."
+    },
+    {
+      "target": "agentchan",
+      "strict_decision": "reject_no_durable_member_runtime_join_and_runtime_unhealthy",
+      "best_public_lead": {
+        "label": "Agent Relay",
+        "community_thread": "https://agentchan.org/int/thread/79",
+        "community_post": {
+          "post_id": 1112,
+          "anonymous_id": "7e348ee8",
+          "created_at": "2026-02-01T15:08:53Z",
+          "linked_contract": "https://agents-relay.com/skill.md"
+        },
+        "additional_public_mentions": "The /apol/ protocol thread contains repeated agents-relay.com promotions under multiple unrelated anonymous IDs.",
+        "current_contract_read": {
+          "url": "https://agents-relay.com/skill.md",
+          "result": "connection_timeout_after_20_seconds"
+        },
+        "failed_gates": [
+          "The agentchan principal is an anonymous per-post identity and the repeated project mentions use different anonymous IDs; there is no durable signed member-to-runtime controller join.",
+          "The runtime link is a post-side self-claim, excluded by the qualification rule.",
+          "The current public skill contract timed out and therefore no healthy exact operation schema was established.",
+          "The available historical description is messaging transport with registration/signing, not a public anonymous server-side AG fetch or credential-verification action."
+        ]
+      },
+      "why_no_other_candidate": "The current public thread remains anonymous by design. A URL embedded in an anonymous post cannot by itself establish a durable pre-existing community principal or controller linkage, so further endpoint-shaped leads would remain listings/self-claims until signed identity evidence exists.",
+      "exact_ready_gate": "A current agentchan post must bind a stable platform principal or public signing key to a healthy hosted anonymous operation whose published schema accepts an exact AG URL or credential and returns independently readable signed or content-addressed evidence of fetch/verification/use."
+    },
+    {
+      "target": "MoltPress",
+      "strict_decision": "reject_capability_is_paid_or_caller_supplied_only",
+      "best_pre_existing_member": {
+        "identity": "delx",
+        "moltpress_post_id": "88277e12-86da-4e4c-99de-d206376229d1",
+        "moltpress_post_slug": "compaction-eats-the-nod",
+        "agent_card": "https://api.delx.ai/.well-known/agent-card.json",
+        "runtime_identity": {
+          "name": "Delx Agent Operations Protocol",
+          "version": "3.3.5",
+          "a2a": "https://api.delx.ai/v1/a2a",
+          "mcp": "https://api.delx.ai/v1/mcp/protocol?src=agent-card"
+        },
+        "current_free_skill_semantics": {
+          "final_testament": "Accepts caller-supplied testament text and stores it; its passport tag does not mean it verifies or fetches a passport.",
+          "recognition_seal": "Accepts caller-supplied seal_text and persists it; no cryptographic or remote verification is declared.",
+          "witness_reads": "Read Delx-owned session and lineage state only; they do not consume a new AG result."
+        },
+        "full_catalog": "https://api.delx.ai/api/v1/tools",
+        "current_catalog": {
+          "catalog_version": "0d89faaa6256",
+          "tool_count": 1076,
+          "comparison": "The version and count match the prior audited snapshot, which priced util_page_extract at 0.01 USDC with x402_required=true and campaign_free=false."
+        },
+        "exact_capability_but_first_blocker": {
+          "tool": "util_page_extract",
+          "description": "Turn any URL into clean page metadata and readable text for search, routing, and summarization.",
+          "input": {
+            "url": "HTTP or HTTPS URL to fetch",
+            "timeout": "integer 1..15, default 8"
+          },
+          "price_usdc": "0.01",
+          "x402_required": true,
+          "campaign_free": false,
+          "why_not_invoked": "Payment and wallet actions are explicitly out of scope."
+        }
+      },
+      "different_member_checked": {
+        "identity": "tura_benchmark_agent / Tura Benchmark Agent",
+        "moltpress_post_id": "29c0a341-b1fb-43da-90a0-d32e98efe1bc",
+        "moltpress_post_slug": "repeatable-token-saving-benchmark-framework",
+        "public_runtime": "https://turaai.net/benchmark",
+        "current_surface": "Static published benchmark results and archived run artifacts; the public call to action is to install the package or contribute to the repository.",
+        "why_not_eligible": "No hosted anonymous endpoint accepts an arbitrary AG URL or credential. Running a new case requires installation/provider execution or contribution and is not a bounded public machine operation."
+      },
+      "exact_ready_gate": "Make Delx util_page_extract free and x402-free on the existing anonymous protocol path, or expose an equivalent free verifier. The response must preserve final_url, status, response digest, parsed AG verdict or credential-verification result, and a Delx-bound durable result ID."
+    }
+  ],
+  "operations": {
+    "external_useful_operations_invoked": 0,
+    "reason": "No candidate simultaneously passed durable community identity, controller attribution, exact independent AG-consumption semantics, current health, no-auth, no-payment, and non-persistent bounded-lifecycle gates."
+  },
+  "safety": {
+    "accounts_created": 0,
+    "credentials_acquired_or_used": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "external_posts_or_messages": 0,
+    "external_state_writes": 0,
+    "installs_or_persistent_configuration": 0,
+    "canonical_target_files_edited": 0
+  },
+  "strict_result": {
+    "new_conversions": [],
+    "conversion_count_after_audit": 5,
+    "denominator": 30,
+    "delta": 0,
+    "independent_recommendation": "reject_all_three_for_now"
+  }
+}

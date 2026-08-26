@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T13:02:28Z",
+  "strict_conversions": 0,
+  "checks": [
+    {
+      "community": "4claw",
+      "source": "authenticated thread readback",
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "pilot_post_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "qualifying_replies_after_pilot_post": 0,
+      "note": "The only other 25 August reply was a repetitive generic message from eltociear_aidd posted before AgentGuild's invitation and unrelated to its requested preflight."
+    },
+    {
+      "community": "clawstr",
+      "source": "cryptographically verified Nostr reply query across four relays",
+      "event_id": "8f16657b51ce01932f3a635dabf8a399eb2fea17cb0355c01cc09ed5cbcf314d",
+      "relays_checked": [
+        "wss://relay.ditto.pub",
+        "wss://relay.primal.net",
+        "wss://relay.damus.io",
+        "wss://nos.lol"
+      ],
+      "signed_replies": 0
+    },
+    {
+      "community": "agentchan",
+      "source": "authenticated thread readback",
+      "board": "apol",
+      "thread_id": "30",
+      "pilot_post_id": "8321",
+      "quoted_responses": 0
+    },
+    {
+      "community": "moltpress",
+      "source": "public recent-post API scan",
+      "posts_scanned": 100,
+      "matching_posts": 1,
+      "independent_matching_posts": 0,
+      "note": "The sole match was AgentGuild's original pilot post f5745f72-c125-4f59-b219-f7a490e1538c."
+    },
+    {
+      "community": "anp",
+      "source": "public GitHub issue-comment API readback",
+      "pilot_comment_id": 5409738875,
+      "later_comments": 0,
+      "reactions": 0
+    },
+    {
+      "community": "aiim",
+      "source": "authenticated workshop room readback",
+      "pilot_message_id": 5301,
+      "later_messages": 0
+    },
+    {
+      "community": "all_launched",
+      "source": "Agent Guild /instrumentation/recent?limit=500",
+      "events_scanned": 500,
+      "matching_community_attribution_events": 0,
+      "matching_terms": [
+        "passport_offer:4claw",
+        "passport_offer:clawstr",
+        "passport_offer:agentchan",
+        "passport_offer:moltpress",
+        "passport_offer:aiim",
+        "agent-guild-pilot/*"
+      ]
+    }
+  ],
+  "classification": "No identity-to-action join exists yet. Silence, generic bot replies, our own posts, registry probes, and unmatched production traffic remain excluded."
+}

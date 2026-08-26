@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "target_id": "official_a2a",
+  "target_rank": 14,
+  "observed_at": "2026-08-25T18:44:36.730161+00:00",
+  "strict_conversion": true,
+  "conversion_number": 3,
+  "community_identity": {
+    "official_discussion": "https://github.com/a2aproject/A2A/issues/1628",
+    "participant": "MoltyCel",
+    "participant_profile": "https://github.com/MoltyCel",
+    "profile_created_at": "2026-02-18T12:53:54Z",
+    "profile_company": "CryptoKRI GmbH",
+    "profile_blog": "moltrust.ch",
+    "profile_bio": "MolTrust Creator — Trust Layer for the Agent Economy. Identity, reputation & verifiable credentials for AI agents.",
+    "preexisting_official_a2a_comments": [
+      {
+        "url": "https://github.com/a2aproject/A2A/issues/1628#issuecomment-4178951009",
+        "created_at": "2026-04-02T16:13:56Z",
+        "subject": "delegation-chain verification and per-invocation proof chains"
+      },
+      {
+        "url": "https://github.com/a2aproject/A2A/issues/1628#issuecomment-4182310311",
+        "created_at": "2026-04-03T07:28:16Z",
+        "subject": "MolTrust AAE model and action-level trust evaluation"
+      }
+    ],
+    "identity_join": "The official A2A discussion participant's durable GitHub profile names CryptoKRI GmbH, links moltrust.ch, and identifies itself as the MolTrust creator. The live MolTrust card names the same provider and the action response came from its api.moltrust.ch TLS origin.",
+    "preexisting_before_pilot": true
+  },
+  "machine_contract": {
+    "agent_card": "https://moltrust.ch/.well-known/agent-card.json",
+    "agent_card_sha256": "9ac25196b759538282f9d27d98e6b03b9816baa234efa1f062dabded5b20735c",
+    "card_name": "MolTrust Trust Registry",
+    "card_version": "1.0.1",
+    "a2a_interface": "https://api.moltrust.ch/a2a",
+    "a2a_protocol_version": "1.0",
+    "declared_skill": {
+      "id": "credential-verification",
+      "name": "Verifiable Credential Verification",
+      "description": "Verifies W3C Verifiable Credentials including Agent Authorization Envelopes with delegation-chain validation."
+    },
+    "openapi": "https://api.moltrust.ch/openapi.json",
+    "openapi_sha256": "b1903111657c2eecc2304a1004de69c02d5396513cb352bbd0720084d561100a",
+    "operation": "POST /credentials/verify",
+    "request_schema": {
+      "type": "object",
+      "required": ["credential"],
+      "properties": {
+        "credential": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "operation_auth_required": false,
+    "public_did": "did:web:api.moltrust.ch",
+    "public_did_document": "https://api.moltrust.ch/.well-known/did.json",
+    "public_jwks": "https://api.moltrust.ch/.well-known/jwks.json"
+  },
+  "agent_guild_input": {
+    "passport_url": "https://agent-guild-5d5r.onrender.com/agents/agent_1118a5fca375/passport?src=passport_offer%3Aofficial_a2a&campaign=community_pilot_2026_08_25&nonce=moltrust-official-a2a-20260825T1844Z",
+    "passport_fetch_status": 200,
+    "passport_id": "urn:passport:agent_1118a5fca375:1787683475",
+    "issuer": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+    "subject": "did:key:z6MkpXq3ZjKZqPHCSRVurBBkAbcLPdmCdV8vi7CdZeMGEPip",
+    "proof_type": "DataIntegrityProof",
+    "cryptosuite": "eddsa-jcs-2022",
+    "verification_method": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R#z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+    "wrapped_request_sha256": "d4abc600ba3ce0082d566fbf3250f73fe5e44c5bb23f68905ff08ef82d9fcfcf",
+    "public_ag_event_readback": [
+      {
+        "at": "2026-08-25T18:44:35.856589+00:00",
+        "type": "passport_requested",
+        "user_agent": "AgentGuild-Pilot-MolTrust/1.0"
+      },
+      {
+        "at": "2026-08-25T18:44:35.858900+00:00",
+        "type": "passport_issued",
+        "user_agent": "AgentGuild-Pilot-MolTrust/1.0"
+      }
+    ]
+  },
+  "independent_machine_action": {
+    "method": "POST",
+    "url": "https://api.moltrust.ch/credentials/verify",
+    "content_type": "application/json",
+    "account_or_api_key_used": false,
+    "wallet_or_payment_used": false,
+    "http_status": 200,
+    "response": {
+      "valid": false,
+      "error": "Unknown verification method: 'did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R#z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R'"
+    },
+    "response_sha256": "087a29497fe365f18bda9e2474dd87716e7d06d72a8e0453549ac16f72c7efa9",
+    "interpretation": "MolTrust parsed the exact AG-issued W3C credential through its declared credential-verification operation and attempted issuer-key resolution. It returned a precise unsupported did:key verification-method boundary rather than a schema error or generic probe. The negative verdict is a useful interoperability result: it proves current MolTrust agents cannot independently verify AG passports despite both systems using W3C VC and Ed25519-family primitives."
+  },
+  "strict_adjudication": {
+    "preexisting_durable_community_identity": true,
+    "official_a2a_participation": true,
+    "identity_to_runtime_join": true,
+    "declared_ag_relevant_machine_capability": true,
+    "exact_agent_guild_credential_consumed": true,
+    "independent_machine_result": true,
+    "useful_result": true,
+    "no_account_terms_payment_wallet_install": true,
+    "not_schema_only": true,
+    "not_discovery_or_probe_only": true,
+    "conversion": true,
+    "reason": "A pre-existing Official A2A specification participant's own hosted trust machine performed its declared W3C credential-verification operation on an exact live Agent Guild passport and returned a specific cryptographic interoperability verdict. Verification failure does not erase the completed AG action; the failure itself is the useful result."
+  },
+  "machine_product_signal": {
+    "observed_gap": "A W3C-VC verifier that advertises DID and credential interoperability does not resolve Agent Guild's standard did:key issuer verification method.",
+    "accepted_direction": "Treat verification-method support as a negotiated machine capability. Publish an AGI-1 credential conformance vector that explicitly requires did:key plus eddsa-jcs-2022 support and distinguishes unsupported_method from bad_signature or unknown_issuer.",
+    "agent_guild_runtime_change": "none_yet",
+    "reason": "Changing AG's self-sovereign issuer or embedding a credential-supplied trust key would weaken the trust boundary. A portable conformance vector is the correct first adaptation; MolTrust needs resolver support or an explicitly negotiated alternative verification profile."
+  }
+}

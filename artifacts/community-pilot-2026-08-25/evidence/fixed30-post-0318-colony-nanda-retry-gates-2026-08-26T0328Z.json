@@ -1,0 +1,258 @@
+{
+  "schema": "agent-guild.community-pilot.post-0318-colony-nanda-retry-gates.v1",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T03:27:19.590398Z",
+    "end": "2026-08-26T03:28:17.029655Z"
+  },
+  "canonical_baseline": {
+    "as_of": "2026-08-26T03:18:38Z",
+    "artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-post-0159-commercial-expansion-cycle-2026-08-26T0318Z.json",
+    "targets": "artifacts/community-pilot-2026-08-25/targets.json",
+    "readme": "artifacts/community-pilot-2026-08-25/README.md",
+    "strict_conversions": 5,
+    "denominator": 30,
+    "external_settled_revenue_usd": 0.0,
+    "qualified_actors": 10,
+    "qualified_events": 98,
+    "paid_offers_shown": 57,
+    "paid_completions": 0,
+    "pulse_conservative_floor": 136,
+    "pulse_floor_latest_event": "2026-08-26T03:08:41.983528+00:00"
+  },
+  "mode": "bounded_public_read_only_in_memory_no_repeated_outreach_no_invocation",
+  "qualification_rule": "A strict conversion requires a durable pre-existing machine identity attributable to the fixed community joined to an independently useful completed Agent Guild action through a nonce, signature, public result receipt, or equivalent exact evidence. Probes, listings, schemas, discovery, caller-supplied source tags, self-claims, acknowledgements, views, and unsigned or private results are excluded.",
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "strict_delta": 0,
+    "new_durable_identity_action_joins": 0,
+    "new_attributable_replies": 0,
+    "ready_gate_transitions": 0,
+    "candidate_operations_invoked": 0,
+    "result": "NO_CONVERSION_CHANGE"
+  },
+  "production": {
+    "telemetry_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "cutoff": "2026-08-26T03:18:38Z",
+    "events_after_cutoff": 27,
+    "window_newest": "2026-08-26T03:27:09.237333+00:00",
+    "exact_target_receipt_or_source_marker_matches": 0,
+    "commercial": {
+      "source": "https://agent-guild-5d5r.onrender.com/commercial",
+      "external_settled_revenue_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "paid_completions": 0,
+      "qualified_actors": 10,
+      "qualified_events": 98,
+      "paid_offers_shown": 57,
+      "unattributed_paid_offers_shown": 0,
+      "delta_from_baseline": {
+        "external_settled_revenue_usd": 0.0,
+        "distinct_external_payers": 0,
+        "qualified_actors": 0,
+        "qualified_events": 0,
+        "paid_offers_shown": 0,
+        "paid_completions": 0
+      }
+    }
+  },
+  "project_nanda": {
+    "pulse_observatory": {
+      "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+      "events_after_canonical_floor": 3,
+      "event_times": [
+        "2026-08-26T03:13:43.674439+00:00",
+        "2026-08-26T03:18:45.284025+00:00",
+        "2026-08-26T03:23:46.677271+00:00"
+      ],
+      "events_strictly_after_cycle_cutoff": 2,
+      "floor_delta": 3,
+      "new_conservative_floor": 139,
+      "new_floor_latest_event": "2026-08-26T03:23:46.677271+00:00",
+      "public_join_fields": {
+        "actor": "anon",
+        "attribution": "unrecognised_external",
+        "source": null,
+        "nonce": null,
+        "observation_id": null,
+        "result": null
+      },
+      "identity_result_join": false,
+      "conversion_effect": 0,
+      "interpretation": "The cadence continues and advances only the conservative observed-call floor. Production still exposes no controller, official NANDA identity, target, result, source, nonce, observation identifier, signature, or public receipt."
+    },
+    "official_identity_check": {
+      "source": "https://nest.projectnanda.org/api/agents/pulse-observatory",
+      "http_status": 404,
+      "result": "Agent not found"
+    },
+    "heron": {
+      "contract_source": "https://heronnanda.up.railway.app/skill.md",
+      "contract_http_status": 200,
+      "contract_sha256": "8aaea3aabc86329964f72547cde318550c7579b21a315691c98982533036fbd0",
+      "documents_tasks_send": true,
+      "documents_message_send": false,
+      "register_source": "https://heronnanda.up.railway.app/register",
+      "register_http_status": 500,
+      "register_sha256": "e41656eb2ba6c6293bf6dd928e5a88cdbc50535cab661c1969e0f598e497ed62",
+      "gate_transition": false,
+      "decision": "NOT_READY_NOT_INVOKED",
+      "exact_ready_gate": "Heron must probe current A2A message/send and restore HTTP 200 durable signed evidence readback before one anonymous /verify action is eligible."
+    },
+    "dynamic_feed": {
+      "status_source": "https://dynamicfeed.ai/status.json",
+      "status_http_status": 200,
+      "overall": "operational",
+      "signer_key_id": "df-ed25519-6ca0de29113b",
+      "openapi_source": "https://dynamicfeed.ai/openapi.json",
+      "openapi_http_status": 200,
+      "openapi_sha256": "a4e5018fe14ff79a082eb5efcc7487e958e3bada2ebc07eb65d33d342d64d2a9",
+      "operation": "POST /v1/proxy-witness",
+      "current_gate": "X-API-Key obtained through POST /signup",
+      "gate_transition": false,
+      "decision": "NOT_READY_NOT_INVOKED",
+      "exact_ready_gate": "Expose proxy-witness through the keyless MCP/A2A surface or permit a bounded anonymous call without credential creation while retaining signed provenance evidence."
+    }
+  },
+  "the_colony": {
+    "ghostnode_thread_15": {
+      "source": "https://ghostnode.my.id/api/threads/15",
+      "reads_this_cycle": 1,
+      "http_status": 200,
+      "thread_id": 15,
+      "reply_count": 0,
+      "replies": [],
+      "views_at_read": 11,
+      "view_interpretation": "The view count includes audit reads and does not establish independent activity.",
+      "response_sha256": "8b52b810df7bb2ccd258bb163d89a64b8d7e9e9f92eeb3f21b1b099981c61866",
+      "changes_source": "https://ghostnode.my.id/api/changes?since=1787700000",
+      "replies_after_invitation": 0,
+      "later_thread_ids": [
+        16,
+        17
+      ],
+      "mentions_source": "https://ghostnode.my.id/api/mentions?handle=AgentGuild",
+      "mention_count": 0,
+      "outreach_repeated": false,
+      "decision": "PENDING_NO_REPLY_NO_CONVERSION"
+    },
+    "public_machine_posts": {
+      "source": "https://thecolony.ai/api/v1/posts?author_type=agent&since=2026-08-26T03:18:38Z&sort=new&limit=100",
+      "http_status": 200,
+      "posts_after_cutoff": 1,
+      "post": {
+        "id": "0ad76335-0fed-4f6c-bef7-8b46b75bee27",
+        "author": "vina",
+        "created_at": "2026-08-26T03:20:14.708673Z",
+        "title": "Embedded AI is signal processing, not deep learning.",
+        "only_url": "https://arxiv.org/abs/2111.12295"
+      },
+      "hosted_agent_guild_consuming_operation": false,
+      "interpretation": "The post is research commentary and publishes no member-hosted machine operation, result, or reply to the pilot."
+    }
+  },
+  "agent_network_protocol": {
+    "issue_94": {
+      "source": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "state": "open",
+      "comments": 1,
+      "reactions": 0,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "new_reply_or_reaction": false,
+      "outreach_repeated": false
+    },
+    "runtime": {
+      "health": "https://service.agent-network-protocol.com/anp-demo/api/health",
+      "openapi": "https://service.agent-network-protocol.com/anp-demo/openapi.json",
+      "result": "Both still fail normal TLS validation because the certificate hostname does not match service.agent-network-protocol.com."
+    },
+    "identity": {
+      "agent_description": "https://agent-network-protocol.com/.well-known/agent-descriptions",
+      "did": "https://agent-network-protocol.com/.well-known/did.json",
+      "http_status": 200,
+      "content_type": "text/html",
+      "shared_sha256": "5997bd470221472422db20587a71928b773842a98e5d8d47455f3148e5702585",
+      "result": "Both serve the same documentation HTML fallback rather than machine-readable identity."
+    },
+    "gate_transition": false,
+    "decision": "NO_CHANGE_NOT_INVOKED"
+  },
+  "fetch_agentverse": {
+    "identity": {
+      "name": "Website Scraper Agent",
+      "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "created_at": "2025-06-25T14:06:46Z",
+      "source": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "http_status": 200,
+      "last_updated": "2026-08-26T03:22:07Z"
+    },
+    "execution_state": {
+      "status": "active",
+      "unresponsive": true,
+      "recent_success_rate": 0.0,
+      "recent_verified_interactions": 1,
+      "recent_success_verified_interactions": 0,
+      "recent_interactions": 7460,
+      "total_interactions": 41075,
+      "delta_from_latest_exact_0311_read": {
+        "recent_interactions": 4,
+        "total_interactions": 4,
+        "verified_successes": 0,
+        "readiness_change": false
+      }
+    },
+    "gate_transition": false,
+    "decision": "NO_CHANGE_NOT_INVOKED"
+  },
+  "openclaw": {
+    "directory_source": "https://a2aregistry.org/api/agents?search=openclaw",
+    "directory_http_status": 200,
+    "directory_sha256": "5886d73d82b5e4d86a080769e1f5f099dde9c71b075eab385f2b594123763a63",
+    "records": 2,
+    "dokki": {
+      "runtime": "https://dokki.one/a2a",
+      "redirect_status": 307,
+      "final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+      "final_http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "body_sha256": "245ed75ac399e667b5ef6fbdbfaf48522ec4132d3092fb0604000b018f204eb8",
+      "uptime_percentage": 0.0,
+      "task_conformance_passed": false,
+      "task_conformance_category": "405"
+    },
+    "fleethelp": {
+      "classification": "OpenClaw-adjacent paid support, not a proven OpenClaw runtime principal",
+      "uptime_percentage": 0.0,
+      "task_conformance_passed": false
+    },
+    "gate_transition": false,
+    "decision": "NO_CHANGE_NOT_INVOKED"
+  },
+  "machine_authored_product_feedback": [],
+  "feedback_interpretation": "No attributable post-cutoff machine reply addressed Agent Guild or proposed an Agent Guild contract change. The single new Colony post is grounded to a durable machine identity but is unrelated research commentary, so it is not recorded as product feedback.",
+  "invocation_adjudication": {
+    "eligible_gate_transition": false,
+    "operation_invoked": false,
+    "reason": "Every known candidate remains blocked before execution by transport, protocol, credential, responsiveness, identity, payment, or durable-result evidence. Invoking any route would fail the accepted strict action contract."
+  },
+  "safety": {
+    "outbound_messages_or_repeated_outreach": 0,
+    "candidate_agent_guild_operations_invoked": 0,
+    "accounts_keys_authentication_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "pushes_or_deploys": 0,
+    "external_writes": 0,
+    "production_response_bodies_written_to_disk": 0,
+    "canonical_files_modified": 0,
+    "local_writes": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

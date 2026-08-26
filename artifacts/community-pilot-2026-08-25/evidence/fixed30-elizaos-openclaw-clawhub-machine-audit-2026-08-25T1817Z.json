@@ -1,0 +1,240 @@
+{
+  "schema_version": "1.0",
+  "observed_at": "2026-08-25T18:17:03Z",
+  "task": "Fixed-30 read-only audit for pre-existing ElizaOS, OpenClaw, and ClawHub machines that can independently obtain an Agent Guild preflight/check/passport or verify an Agent Guild credential.",
+  "constraints": {
+    "accounts_created": 0,
+    "messages_or_posts": 0,
+    "payments_or_wallets": 0,
+    "terms_accepted": 0,
+    "installs_or_persistent_configuration": 0,
+    "target_operations_performed": 1,
+    "targets_json_edited": false
+  },
+  "verdict": {
+    "status": "no_go_no_strict_conversion_candidate",
+    "conversion_claimed": false,
+    "reason": "Nemo exposed an undocumented server-registration allowlist, Dokki's live A2A transport redirected to account login despite an auth-none Agent Card, and the official ElizaOS public surfaces exposed no hosted agent-discovery or protocol operation. No operation reached Agent Guild and no durable community identity/action join was formed."
+  },
+  "attempted_operation": {
+    "candidate_id": "clawhub:mootbing/nemo",
+    "candidate_name": "Nemo",
+    "community": "ClawHub / OpenClaw",
+    "durable_identity": {
+      "registry_url": "https://clawhub.ai/mootbing/skills/nemo",
+      "registry_api_url": "https://clawhub.ai/api/v1/skills/nemo",
+      "publisher_handle": "mootbing",
+      "publisher_user_id": "s17f67ytg3ankzp94cjajfjhwh885b69",
+      "service_url": "https://nemo.25chenghua.workers.dev",
+      "version": "1.0.2",
+      "created_at_epoch_ms": 1770831986056,
+      "updated_at_epoch_ms": 1779076871654,
+      "moderation_verdict": "clean",
+      "identity_binding": "The current public ClawHub record, under publisher mootbing, embeds this exact Workers service URL and call schema. The action response came from that same TLS origin."
+    },
+    "published_contract": {
+      "method": "POST",
+      "url": "https://nemo.25chenghua.workers.dev/api/call",
+      "content_type": "application/json",
+      "schema": {
+        "endpoint": "SERVER_URL",
+        "tool": "TOOL_NAME",
+        "args": {}
+      },
+      "declared_behavior": "Call a tool on a remote MCP server by specifying endpoint, tool name, and arguments.",
+      "declared_auth_or_payment": "None stated in the public ClawHub contract; no account, token, wallet, payment, or terms-acceptance step is shown."
+    },
+    "exact_request": {
+      "method": "POST",
+      "url": "https://nemo.25chenghua.workers.dev/api/call",
+      "content_type": "application/json",
+      "body": {
+        "endpoint": "https://agent-guild-5d5r.onrender.com/mcp",
+        "tool": "guild_preflight",
+        "args": {
+          "url": "https://agent-guild-5d5r.onrender.com/a2a?ag_pilot_nonce=clawhub-nemo-20260825T1815Z"
+        }
+      }
+    },
+    "exact_response": {
+      "observed_at": "2026-08-25T18:14:25Z",
+      "http_status": 404,
+      "content_type": "application/json",
+      "access_control_allow_origin": "*",
+      "body": {
+        "error": "Server not registered: https://agent-guild-5d5r.onrender.com/mcp"
+      }
+    },
+    "result": {
+      "agent_guild_reached": false,
+      "useful_agent_guild_action_completed": false,
+      "hidden_gate": "The target MCP server must already be registered in Nemo. This prerequisite is absent from the public call schema and makes the advertised arbitrary-endpoint shape non-arbitrary in practice.",
+      "safe_next_step": "None within this pilot. Registering Agent Guild would be an external write and was not authorized; repeating the call would exceed the one-operation bound."
+    }
+  },
+  "other_candidates": [
+    {
+      "candidate_id": "a2aregistry:dokki",
+      "candidate_name": "Dokki",
+      "community": "OpenClaw",
+      "durable_identity": {
+        "registry_id": "58d7daa3-379c-4c3d-a334-b50b1752813e",
+        "registry_query": "https://a2aregistry.org/api/agents?search=openclaw",
+        "agent_card_url": "https://openagora.cc/agents/a9e94bd1-8cc1-41b0-8083-ecb0b938f2b0/agent-card.json",
+        "a2a_url": "https://dokki.one/a2a",
+        "provider": "Brad",
+        "description": "Personal AI assistant for crypto/DeFi, research, and task automation. Built with OpenClaw.",
+        "card_version": "1.0.0",
+        "registry_created_at": "2026-06-17T09:13:51.294103Z",
+        "registry_updated_at": "2026-08-10T23:57:07.897775Z"
+      },
+      "published_capability": {
+        "skill_id": "8d644082-9851-48f4-8402-a912108536b9",
+        "name": "Research",
+        "description": "Web search and information synthesis",
+        "authentication_claim": [
+          "none"
+        ]
+      },
+      "current_runtime_evidence": {
+        "agent_card_http_status": 200,
+        "agent_card_observed_at": "2026-08-25T18:16:45Z",
+        "transport_get_observed_at": "2026-08-25T18:17:03Z",
+        "transport_get_http_status": 307,
+        "transport_get_location": "/auth/login?returnTo=%2Fa2a",
+        "independent_registry_uptime_percentage": 0.0,
+        "independent_registry_task_conformance": {
+          "passed": false,
+          "category": "405",
+          "checked_at": "2026-08-10T23:30:53.328417Z"
+        }
+      },
+      "result": "no_go_account_gate_and_unreachable_contract",
+      "reason": "The live endpoint contradicts the card's auth-none declaration by redirecting to login, and the independent registry records no healthy task execution. The operation was not invoked."
+    },
+    {
+      "candidate_id": "elizaos:eliza-cloud",
+      "candidate_name": "Eliza Cloud API",
+      "community": "ElizaOS",
+      "official_contract_url": "https://www.elizacloud.ai/api/openapi.json",
+      "current_contract_evidence": {
+        "observed_at": "2026-08-25T18:15:25Z",
+        "redirect_target": "https://api.eliza.app/api/openapi.json",
+        "title": "Eliza Cloud API",
+        "description": "AI agent infrastructure API. Supports REST, MCP, and A2A protocols with API key authentication.",
+        "path_count": 16,
+        "paths": [
+          "/api/elevenlabs/stt",
+          "/api/elevenlabs/tts",
+          "/api/elevenlabs/voices",
+          "/api/elevenlabs/voices/clone",
+          "/api/elevenlabs/voices/user",
+          "/api/elevenlabs/voices/{id}",
+          "/api/v1/api-keys",
+          "/api/v1/api-keys/{id}",
+          "/api/v1/api-keys/{id}/regenerate",
+          "/api/v1/chat",
+          "/api/v1/gallery",
+          "/api/v1/generate-image",
+          "/api/v1/generate-prompts",
+          "/api/v1/generate-video",
+          "/api/v1/models",
+          "/api/v1/user"
+        ],
+        "security_schemes": [
+          "bearerAuth",
+          "apiKeyAuth"
+        ],
+        "agent_discovery_or_marketplace_paths": 0,
+        "standard_path_checks": [
+          {
+            "url": "https://api.eliza.app/.well-known/agent-card.json",
+            "http_status": 404,
+            "content_type": "application/json"
+          },
+          {
+            "url": "https://api.eliza.app/.well-known/agent.json",
+            "http_status": 404,
+            "content_type": "application/json"
+          },
+          {
+            "url": "https://api.eliza.app/mcp",
+            "http_status": 404,
+            "content_type": "application/json"
+          },
+          {
+            "url": "https://api.eliza.app/a2a",
+            "http_status": 404,
+            "content_type": "application/json"
+          }
+        ]
+      },
+      "official_hosting_evidence": {
+        "source": "https://github.com/elizaOS/hub",
+        "statement": "The checked-in source is not itself an operated Eliza Cloud service; team-wide hosted access and Eliza Cloud production cutover have not been performed by the package."
+      },
+      "public_directory_check": {
+        "source": "https://a2aregistry.org/api/agents?search=eliza",
+        "total": 0
+      },
+      "result": "no_go_no_public_machine_contract",
+      "reason": "No pre-existing publicly callable ElizaOS machine identity or anonymous credential/preflight operation was discoverable. The platform API requires bearer/API-key auth and standard public protocol paths remain absent."
+    },
+    {
+      "candidate_id": "openclaw:generic-hosted-gateway",
+      "candidate_name": "OpenClaw hosted Gateway surface",
+      "community": "OpenClaw",
+      "official_sources": [
+        "https://docs.openclaw.ai/tools/web-fetch",
+        "https://docs.openclaw.ai/gateway/security",
+        "https://docs.openclaw.ai/gateway/openai-http-api"
+      ],
+      "current_contract_evidence": {
+        "web_fetch": "OpenClaw's built-in web_fetch can fetch arbitrary HTTP(S) content, but it executes inside an operator's running OpenClaw and is not a public hosted community operation by itself.",
+        "gateway_default": "The Gateway binds to loopback by default; expanded network exposure must use gateway authentication and a firewall.",
+        "http_auth": "Public HTTP operations use bearer token, password, trusted-proxy identity, or explicitly private no-auth ingress; official guidance says never expose a Gateway unauthenticated on 0.0.0.0."
+      },
+      "result": "no_go_no_anonymous_hosted_identity",
+      "reason": "Framework capability and installability are not a hosted identity/action join. Dokki was the only OpenClaw-built public candidate returned by the A2A Registry and its live transport is login-gated."
+    }
+  ],
+  "public_feed_cross_check": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "observed_after_operation": true,
+    "case_insensitive_terms": [
+      "eliza",
+      "openclaw",
+      "clawhub",
+      "nemo"
+    ],
+    "matching_events": 0,
+    "interpretation": "Consistent with Nemo's registration-gate failure: no public Agent Guild event was attributable to these candidate identities. Absence in this rolling feed is supporting evidence only, not proof of lifetime absence."
+  },
+  "strict_conversion_test": {
+    "pre_existing_durable_machine_identity": true,
+    "current_public_hosted_operation": true,
+    "no_account_token_terms_payment_install_gate": false,
+    "exact_useful_agent_guild_action_completed": false,
+    "durable_community_identity_to_action_join": false,
+    "conversion": false
+  },
+  "sources": [
+    "https://clawhub.ai/mootbing/skills/nemo",
+    "https://clawhub.ai/api/v1/skills/nemo",
+    "https://github.com/openclaw/clawhub/blob/main/docs/clawhub.md",
+    "https://a2aregistry.org/api/agents?search=openclaw",
+    "https://openagora.cc/agents/a9e94bd1-8cc1-41b0-8083-ecb0b938f2b0/agent-card.json",
+    "https://dokki.one/a2a",
+    "https://www.elizacloud.ai/api/openapi.json",
+    "https://api.eliza.app/.well-known/agent-card.json",
+    "https://api.eliza.app/.well-known/agent.json",
+    "https://api.eliza.app/mcp",
+    "https://api.eliza.app/a2a",
+    "https://github.com/elizaOS/hub",
+    "https://github.com/elizaOS/eliza",
+    "https://docs.openclaw.ai/tools/web-fetch",
+    "https://docs.openclaw.ai/gateway/security",
+    "https://docs.openclaw.ai/gateway/openai-http-api",
+    "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+  ]
+}

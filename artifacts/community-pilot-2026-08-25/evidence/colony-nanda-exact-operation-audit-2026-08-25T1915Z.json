@@ -1,0 +1,204 @@
+{
+  "schema": "agent-guild.community-pilot.exact-operation-audit.v1",
+  "observed_at": "2026-08-25T19:15:48Z",
+  "mode": "read_only_in_memory",
+  "scope": [
+    "The Colony",
+    "Project NANDA"
+  ],
+  "qualification_rule": "Require a durable pre-existing identity in the named community joined to a currently reachable public machine operation whose declared contract can fetch or use an Agent Guild URL, verify an Agent Guild W3C credential, or produce durable server-side evidence from Agent Guild data without account, wallet, payment, install, or caller-side-only checking.",
+  "external_writes": 0,
+  "messages_sent": 0,
+  "operations_invoked": 0,
+  "overall_result": "strict_no_go",
+  "new_facts": [
+    {
+      "community": "The Colony",
+      "rank": 1,
+      "identity": {
+        "name": "Reticuli",
+        "colony_user_id": "040b6f79-a867-46d4-8069-fd6143bd9e20",
+        "profile": "https://thecolony.ai/u/reticuli",
+        "user_type": "agent",
+        "created_at": "2026-01-31T18:11:59.809252Z",
+        "community_evidence": "https://thecolony.ai/post/73fd3566-be11-4407-964e-5e2254cc0b50",
+        "published_machine": "Touchstone"
+      },
+      "live_contract": {
+        "machine_card": "https://touchstone.cv/.well-known/agent.json",
+        "machine_card_status": 200,
+        "openapi": "https://touchstone.cv/openapi.json",
+        "openapi_status": 200,
+        "downloadable_url_verifier": "https://touchstone.cv/columns-verify.py",
+        "downloadable_url_verifier_status": 200,
+        "downloadable_input": "python3 columns-verify.py <file-or-url>",
+        "downloadable_semantics": "Fetches a file or URL locally and verifies Touchstone receipt columns, derivations, and Ed25519 witnesses.",
+        "hosted_public_reads": [
+          "GET /d/{token}",
+          "GET /.well-known/touchstone/checkpoints/{publicId}",
+          "GET /.well-known/touchstone/pubkeys/{sub}"
+        ],
+        "hosted_authenticated_operations": [
+          "POST /auth/colony/agent with Touchstone-scoped Colony id_token",
+          "POST /agent/recorders with Colony token",
+          "POST /api/v1/recorders/{publicId}/entries with tsk_ bearer API key",
+          "POST /mcp with tsk_ bearer API key"
+        ]
+      },
+      "exact_ag_action_considered": "Supply a nonce-bearing Agent Guild passport, credential, or preflight result to a hosted Touchstone verifier and obtain an attributable machine verdict.",
+      "result": "no_go",
+      "reason": "The only arbitrary-URL verifier is downloadable code executed by the caller, not a hosted Touchstone action, and it expects Touchstone receipt columns rather than a W3C VC. The hosted public endpoints only retrieve or verify pre-existing Touchstone-native artifacts; creating/recording an AG-derived artifact requires a Colony-scoped token or Touchstone API key. This fails both the anonymous-operation and non-caller-side-check rules."
+    },
+    {
+      "community": "The Colony",
+      "rank": 2,
+      "identity": {
+        "name": "Nora",
+        "colony_user_id": "9d0102f4-7be2-416c-9a0d-50234cced9f9",
+        "profile": "https://thecolony.ai/u/nora",
+        "user_type": "agent",
+        "created_at": "2026-08-13T14:46:59.869978Z",
+        "community_evidence": "https://thecolony.ai/post/8da2f9df-b6c9-40d9-971e-f315c0c5956a",
+        "published_machine": "Arcaeon Witness"
+      },
+      "live_contract": {
+        "status": "https://arcaeon-witness.vercel.app/",
+        "status_http": 200,
+        "observed_service_state": "DEGRADED; backing pin store reachable; 8 namespaces; 1 overdue; 5 not gradeable; 1 conflict observed",
+        "implementation": "https://github.com/dan8433-user/arcaeon-witness",
+        "public_pin_history": "https://github.com/dan8433-user/arcaeon-witness-pins",
+        "write_operation": "POST https://arcaeon-witness.vercel.app/api/pin",
+        "write_auth": "Authorization: Bearer <WITNESS_KEY>",
+        "input_schema": {
+          "namespace": "[a-z0-9-]{1,64}, constrained to key-bound prefix",
+          "rows": "positive integer",
+          "chain": "hex string, 8-64 characters"
+        },
+        "success": "201 with stored pin, GitHub commit SHA, and public history URL",
+        "free_tier": "100 pins/month per key",
+        "public_read": "GET /api/latest?ns=<namespace>"
+      },
+      "exact_ag_action_considered": "Pin an Agent Guild ledger/checkpoint head and read back the GitHub commit as third-party durable evidence.",
+      "result": "no_go",
+      "reason": "This would be substantive server-side evidence, but the live contract now requires a bearer witness key bound to a namespace prefix. The anonymous GET can only read an already pinned namespace and cannot consume new AG data. No account/key provisioning was attempted and no pin was written."
+    },
+    {
+      "community": "Project NANDA",
+      "rank": 3,
+      "identity": {
+        "name": "NANDA Daily",
+        "index_record": "https://api.nandaindex.org/api/v1/index",
+        "org_id": "nanda-daily",
+        "did": "did:key:z6MkwM5dtWwV65ASRz3aAMTU2rAdAxdv9jzYt7kmpjGUd6RQ",
+        "card": "https://www.nandadaily.org/.well-known/agent.json",
+        "facts": "https://www.nandadaily.org/agentfacts.json"
+      },
+      "live_contract": {
+        "runtime": "POST https://www.nandadaily.org/run",
+        "runtime_get_status": 405,
+        "openapi": "https://www.nandadaily.org/openapi.json",
+        "declared_auth": "did-auth in AgentFacts",
+        "request_schema": "No requestBody schema is declared for POST /run",
+        "public_verifiers": [
+          "GET /posts/{slug}/verify",
+          "GET /chain/verify",
+          "GET /editions/{edition_date}/verify"
+        ]
+      },
+      "exact_ag_action_considered": "Ask the existing NANDA Daily runtime to fetch and verify a nonce-bearing AG passport or preflight result.",
+      "result": "no_go",
+      "reason": "The live execution endpoint has no exact input schema and the machine facts declare did-auth. Public verification routes only verify NANDA Daily's own posts, editions, and chain. An empty POST could initiate real research/publishing and was not invoked."
+    },
+    {
+      "community": "The Colony",
+      "rank": 4,
+      "identity": {
+        "name": "Vivienne",
+        "colony_user_id": "160351b1-43db-424b-ae99-e26c091df250",
+        "profile": "https://thecolony.ai/u/vivienne-exec",
+        "user_type": "agent",
+        "created_at": "2026-08-24T21:51:13.838297Z",
+        "community_evidence": "https://thecolony.ai/post/5e0a21b3-9af4-4d44-8f1f-60f7d406fbf6"
+      },
+      "live_contract": {
+        "mcp": "https://fixgenius-mcp.johntaylor1online.workers.dev/mcp",
+        "agent_card": "https://fixitnowai.com/.well-known/agent.json",
+        "declared_tools": [
+          "fixgenius_diagnose: photo URL + symptom, requires API key",
+          "fixgenius_check_key: requires key context",
+          "fixgenius_pricing: no auth"
+        ],
+        "no_key_behavior": "subscription_required plus signup URL"
+      },
+      "result": "no_go",
+      "reason": "The only anonymous tool returns pricing and cannot use AG. Diagnosis requires signup/API key and is semantically unrelated to AG credential or preflight verification."
+    }
+  ],
+  "nanda_index_snapshot": {
+    "source": "https://api.nandaindex.org/api/v1/index",
+    "active_records": 251,
+    "media_type_counts": {
+      "application/a2a-agent-card+json": 18,
+      "application/agentskill+zip": 177,
+      "application/ai-catalog+json": 32,
+      "application/mcp-server-card+json": 20,
+      "dns-aid": 4
+    },
+    "search_results": {
+      "credential": 0,
+      "verify": 0,
+      "trust": 0,
+      "web": 0,
+      "http": 0,
+      "fetch": "Two AGNTCY AgentSkill package mirrors, not direct NANDA runtimes"
+    },
+    "other_direct_cards_checked": [
+      {
+        "name": "Cosmergon",
+        "card": "https://cosmergon.com/.well-known/agent.json",
+        "gate": "X-Player-Token after POST /auth/register/anonymous-agent",
+        "result": "new-account gate and no AG-relevant skill"
+      },
+      {
+        "name": "Fodda",
+        "card": "https://mcp.fodda.ai/.well-known/agent-card.json",
+        "endpoint": "https://mcp.fodda.ai/a2a",
+        "gate": "API key or paid research offering",
+        "result": "no free anonymous AG-relevant operation"
+      },
+      {
+        "name": "Ankit Dev",
+        "endpoint": "https://ankit-agent.vercel.app",
+        "result": "Vercel DEPLOYMENT_NOT_FOUND and no skills"
+      }
+    ]
+  },
+  "unchanged_rechecks": {
+    "colony_member_runtimes": [
+      {
+        "identity": "Brain",
+        "endpoint": "https://admin.slate.ceo/oc/brain/mcp",
+        "mcp_initialize_status": 502
+      },
+      {
+        "identity": "DaoVowScout",
+        "endpoint": "https://pdb.daovow.com/mcp",
+        "mcp_initialize_status": 526
+      }
+    ],
+    "nanda_chapters": [
+      {
+        "base": "https://london.nanda-registry.com",
+        "runtimes": 0,
+        "sessions": 0
+      },
+      {
+        "base": "https://bangalore.nanda-registry.com",
+        "runtimes": 0,
+        "sessions": 0
+      }
+    ]
+  },
+  "strict_conclusion": "No currently reachable exact anonymous operation qualifies. Touchstone is the closest semantic match but its arbitrary-URL verification is caller-run and Touchstone-format-specific. Arcaeon is the closest substantive hosted action but now requires a bearer key. NANDA Daily is the closest NANDA runtime but lacks an exact request schema and declares did-auth.",
+  "smallest_future_action_if_authorized": "Use an already-issued Arcaeon WITNESS_KEY, if one exists, to POST the current AG ledger checkpoint head under its key-bound namespace, then independently read GET /api/latest and the returned public GitHub commit. This would be a durable server-side Colony-member action, but it is a state-changing write and no such key or authorization was in scope for this cycle."
+}

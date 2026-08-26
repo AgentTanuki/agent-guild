@@ -1,0 +1,267 @@
+{
+  "schema": "agent-guild.community-pilot.nevermined-agntcy-langchain-keyless-route-audit.v1",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:45:00Z",
+  "mode": "current_public_read_only_discovery_in_memory",
+  "scope": [
+    "Nevermined",
+    "AGNTCY",
+    "LangChain"
+  ],
+  "qualification_rule": "A strict route must join a durable pre-existing fixed-community machine identity to a live, anonymous, free, bounded operation that independently retrieves, verifies, or otherwise consumes a public Agent Guild artifact and returns a substantive durable result. Listings, discovery reads, fixed self-tests, caller-supplied-only scoring or verification, acknowledgements, and payment or identity setup do not qualify.",
+  "baseline": {
+    "strict_total_before": "5/30",
+    "these_three_targets_converted_before": 0
+  },
+  "targets": [
+    {
+      "rank": 1,
+      "target_id": "nevermined",
+      "candidate": "Revettr",
+      "durable_identity": {
+        "provider_did": "did:web:revettr.com",
+        "nevermined_participant_issue": "https://github.com/nevermined-io/payments/issues/286",
+        "issue_state": "open",
+        "issue_created_at": "2026-04-11T01:03:01Z",
+        "issue_updated_at": "2026-08-17T14:00:56Z",
+        "risk_discovery": "https://revettr.com/.well-known/risk-check.json",
+        "mcp_discovery": "https://revettr.com/.well-known/mcp/server.json",
+        "mcp_endpoint": "https://revettr.com/mcp"
+      },
+      "current_health": {
+        "url": "https://revettr.com/health",
+        "http_status": 200,
+        "status": "ok",
+        "version": "0.1.0",
+        "payments": "operational",
+        "scoring": "operational"
+      },
+      "current_contract": {
+        "risk_discovery_version": "0.2.0",
+        "mcp_discovery_version": "0.1.0",
+        "openapi": "https://revettr.com/openapi.json",
+        "mcp_endpoint_level_price": "$0.01 via x402 or MPP",
+        "free_operations": [
+          {
+            "operation": "POST /v1/score",
+            "free_tier": "100 requests/day per IP with bounded wallet coverage",
+            "input": "caller supplies any combination of domain, ip, wallet_address, company_name",
+            "classification": "caller-supplied subject scoring"
+          },
+          {
+            "operation": "POST /v1/attest",
+            "free_tier": "10 requests/minute per IP",
+            "input": "same caller-supplied ScoreRequest",
+            "output": "Revettr-signed compliance_risk envelope",
+            "classification": "caller-supplied subject attestation"
+          },
+          {
+            "operation": "POST /v1/iss-verdict",
+            "free_tier": "free prototype",
+            "input": "caller-validated iss plus iss_kind and optional context",
+            "contract_boundary": "The OpenAPI explicitly says MCP identity validation is the caller's job and the result is advisory/non-blocking.",
+            "classification": "caller-supplied issuer risk; not credential verification"
+          },
+          {
+            "operation": "GET /v1/session/verify?token=...",
+            "free_tier": "60 requests/minute",
+            "input": "caller supplies a Revettr session JWS",
+            "verification_scope": "only Revettr session tokens issued by POST /v1/score/session",
+            "classification": "fixed-issuer token verification; not W3C or AG credential verification"
+          }
+        ],
+        "operator_only": "export_audit_bundle requires REVETTR_ADMIN_TOKEN",
+        "independent_external_artifact_fetch_declared": false,
+        "agent_guild_credential_verifier_declared": false
+      },
+      "secondary_nevermined_runtime": {
+        "name": "Authenticated MCP Agent",
+        "url": "https://authenticated-mcp-traced-agent.getvda.ai",
+        "nevermined_join": "Its current llms.txt says execution is metered via Nevermined x402 micropayments.",
+        "free_surface": "fixed canned selftest only",
+        "substantive_execution": "metered",
+        "reason_not_stronger": "The free result proves only its own fixed capability execution and does not accept or consume an AG artifact."
+      },
+      "bounded_first_party_participant_search": {
+        "source": "https://api.github.com/search/issues?q=repo%3Anevermined-io%2Fpayments+is%3Aissue+%28MCP+OR+agent+OR+x402%29",
+        "reported_total": 30,
+        "result": "Revettr issue 286 remains the only durable public participant-runtime lead with trust semantics; no newly published free AG-consuming runtime surfaced."
+      },
+      "decision": "NO_GO",
+      "strict_delta": 0,
+      "reason": "Revettr is live and attributable to Nevermined, but every free relevant operation consumes identifiers or Revettr-native tokens supplied by the caller. It neither fetches an AG passport/preflight nor verifies an AG credential. The other live Nevermined-metered runtime exposes only a fixed free selftest and charges for input-bearing execution.",
+      "smallest_exact_readiness_gate": "Add one anonymous free Revettr operation accepting {credential_url} for a public AG passport. It must server-side fetch under bounded SSRF-safe rules, resolve the credential issuer key independently, verify the W3C signature, and return a Revettr-signed result binding final_url, body_sha256, issuer, signature_valid and checked_at."
+    },
+    {
+      "rank": 2,
+      "target_id": "agntcy",
+      "candidate": "current signed/imported AGNTCY Directory catalog",
+      "current_directory": {
+        "manifest": "https://ai-catalog.outshift.io/.well-known/ai-catalog.json",
+        "records_endpoint": "https://ai-catalog.outshift.io/v1/agents",
+        "host_identity": "urn:ai:org.agntcy:host:12D3KooWLf9p3cedc86xGQBaqak6rAFmQk1HxKAK1yh7umHE3amu",
+        "total_records": 3228,
+        "delta_from_prior_complete_audit": 0,
+        "mcp_records": 813,
+        "mcp_records_with_declared_remote_url": 257,
+        "a2a_records": 2,
+        "a2a_result": "Both are Hello World cards with localhost URLs (ports 9999 and 8080), so neither is a hosted operation.",
+        "trust_shape": "Imported records carry AGNTCY Directory Sigstore provenance and status trusted=true, verified=false."
+      },
+      "current_import_policy": {
+        "source": "https://github.com/agntcy/dir/blob/main/.github/workflows/scripts/import-records.json",
+        "mcp_namespaces": 25,
+        "agent_skill_repositories": 30,
+        "interpretation": "The current allowlist remains vendor/package scoped. It still excludes dev.fetchgate/fetchgate and Todd O'Rourke / For You."
+      },
+      "prior_useful_external_machine": {
+        "identity": "urn:air:toddmorourke.com:server:seo-tools",
+        "runtime": "https://toddmorourke.com/wp-json/ard/v1/mcp",
+        "tool": "okf_convert",
+        "useful_action": "Previously fetched and returned the complete nonce-bearing AG preflight result.",
+        "why_not_counted": "The action is valid, but neither the Todd runtime nor For You has an AGNTCY Directory record or completed federation join."
+      },
+      "federation_state": {
+        "source": "https://github.com/agntcy/dir/discussions/455",
+        "state": "open",
+        "created_at": "2025-09-25T16:02:02Z",
+        "updated_at": "2026-07-24T17:10:05Z",
+        "answer_chosen_at": null,
+        "join_requirements": "Directory CLI/SDK install, SPIRE trust bundle, repository fork, federation config PR and connectivity verification",
+        "pilot_boundary": "These steps require install, persistent configuration and external writes and were not attempted."
+      },
+      "mcp_scan_interpretation": "The complete current 813-record MCP subset was paged in memory. Its remote declarations are package/vendor imports whose cards expose documentation, tenant/product APIs, templates, or authenticated services; the cards do not establish a free anonymous external-AG fetch or W3C verifier. A remote URL or registry listing is not an executable tool contract.",
+      "decision": "NO_GO",
+      "strict_delta": 0,
+      "reason": "The catalog count and membership boundary are unchanged. The only proven free machine that already consumed AG remains outside AGNTCY; current AGNTCY A2A records are localhost, and no signed/imported hosted record declares a qualifying free operation.",
+      "smallest_exact_readiness_gate": "For You must complete federation so the Todd machine appears as a signed/imported AGNTCY record before a fresh action, while retaining its anonymous free okf_convert URL-fetch contract. After that pre-existing membership join exists, one fresh nonce-bound AG fetch returning the full result could be adjudicated."
+    },
+    {
+      "rank": 3,
+      "target_id": "langchain",
+      "candidate": "Authenticated MCP Agent",
+      "durable_identity": {
+        "a2a_registry_id": "d80326d1-8724-4e92-a502-ef8241befcb0",
+        "registry_created_at": "2026-08-18T00:10:21.639716Z",
+        "card": "https://authenticated-mcp-traced-agent.getvda.ai/.well-known/agent-card.json",
+        "a2a": "https://authenticated-mcp-traced-agent.getvda.ai/a2a/",
+        "mcp": "https://authenticated-mcp-traced-agent.getvda.ai/mcp",
+        "governance": "https://authenticated-mcp-traced-agent.getvda.ai/governance.md",
+        "provider": "VDA / GOSCE",
+        "version": "0.1.1",
+        "card_signature": "detached Ed25519/EdDSA JWS with published JWKS",
+        "framework_proof": "The live health and governance surfaces both enumerate langchain-core, and the signed card declares its orchestration skill is provided by langchain-core."
+      },
+      "current_health": {
+        "http_status": 200,
+        "status": "ok",
+        "version": "0.1.1",
+        "packages": [
+          "bcrypt",
+          "cryptography",
+          "langchain-core",
+          "mcp",
+          "opentelemetry-sdk",
+          "python-jose"
+        ]
+      },
+      "current_free_contract": {
+        "openapi": "https://authenticated-mcp-traced-agent.getvda.ai/openapi.json",
+        "free_paths": [
+          "GET/POST /selftest",
+          "GET /verify",
+          "POST /mcp-free"
+        ],
+        "machine_index_rule": "The current llms.txt states tools all: invoke,selftest and free: selftest.",
+        "selftest_semantics": "Runs the real executor on fixed canned input, returns an assertion grade, trust manifest and signed VDA Witness record.",
+        "input_bearing_execution": "metered via Nevermined x402",
+        "external_url_or_ag_artifact_input": false,
+        "strict_classification": "fixed self-test; not independent AG consumption"
+      },
+      "official_registry_sweep": {
+        "official_mcp_source": "https://registry.modelcontextprotocol.io/v0.1/servers?search=langchain",
+        "versioned_rows": 4,
+        "unique_identities": 2,
+        "identities": [
+          {
+            "name": "io.github.baixianger/langchain-mcp",
+            "latest_version": "2.0.0",
+            "route": "stdio package only",
+            "reason": "Requires install and publishes no hosted runtime."
+          },
+          {
+            "name": "io.github.doc2mcp/langchain",
+            "latest_version": "1.0.1781396655",
+            "route": "hosted fixed LangChain documentation MCP",
+            "reason": "Requires a secret Bearer project token."
+          }
+        ],
+        "first_party_docs_mcp": {
+          "contract": "https://docs.langchain.com/use-these-docs",
+          "endpoint": "https://docs.langchain.com/mcp",
+          "scope": "queries only LangChain, LangGraph and LangSmith documentation",
+          "strict_classification": "fixed-source documentation search"
+        }
+      },
+      "a2a_registry_cross_check": {
+        "source": "https://www.a2aregistry.org/api/agents?search=langchain&limit=100",
+        "reported_total": 3,
+        "other_hits": [
+          {
+            "name": "HiveGate",
+            "reason": "Its card declares a LangChain adapter, not execution by LangChain; onboarding/trust bridging requires x402 or API key and the trust bridge charges a fee."
+          },
+          {
+            "name": "AAAA-Nexus",
+            "reason": "Its card mentions portable identity across LangChain and offers anonymous trial calls, but publishes no LangChain dependency/runtime proof and its verification skills classify caller-supplied payloads rather than fetch an AG artifact."
+          }
+        ]
+      },
+      "decision": "NO_GO",
+      "strict_delta": 0,
+      "reason": "The strongest genuine LangChain machine is live, signed and anonymous for discovery, but its only free execution is a fixed canned selftest. The official docs MCP is fixed-source; the only other official hosted record requires a secret token; adapter-label A2A records do not prove framework execution.",
+      "smallest_exact_readiness_gate": "On the existing signed Authenticated MCP Agent, publish one free bounded input-bearing tool such as fetch_and_witness_public_json({url}). It must SSRF-safely fetch an exact public AG passport or preflight URL, return final_url, status, parsed result and body_sha256, and bind those fields into the existing signed VDA Witness record."
+    }
+  ],
+  "result": {
+    "decision": "NO_GO",
+    "newly_ready_routes": 0,
+    "candidate_operations_invoked": 0,
+    "strict_conversions_added": 0,
+    "strict_total_after": "5/30",
+    "reason": "All three strongest identities still fail the semantic or access gate before execution: Nevermined has caller-supplied-only free checks, AGNTCY lacks a qualifying signed hosted member, and LangChain limits free execution to a fixed selftest."
+  },
+  "commercial_state": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "observed_at": "2026-08-25T23:45:00Z",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0
+  },
+  "machine_feedback": {
+    "finding": "Operation names and registry labels are not semantics: Revettr's free verify route verifies only its own session JWS, AGNTCY remote URLs are often templates or authenticated vendor services, and LangChain's /mcp-free transport exposes only a fixed selftest.",
+    "conservative_ag_recommendation": "Keep readiness machine-readable at operation granularity with accepted input provenance, external-fetch behavior, verification trust root, free/paid state, and durable output binding. Do not infer AG consumption from names such as verify, trust, remote, or free.",
+    "agent_guild_runtime_change_recommended": false,
+    "reason": "This pass found target-side identity, semantics and access gaps, not a newly established AG production defect."
+  },
+  "safety": {
+    "public_reads_only": true,
+    "production_response_bodies_written_to_files": false,
+    "external_writes_or_outreach": 0,
+    "accounts_or_keys_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "candidate_operations_invoked": 0,
+    "deployments_or_pushes": 0,
+    "canonical_targets_or_readme_edited": 0,
+    "local_evidence_files_written": 1
+  }
+}

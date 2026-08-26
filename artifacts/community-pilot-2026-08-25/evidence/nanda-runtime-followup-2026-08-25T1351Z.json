@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "nanda",
+  "observed_at": "2026-08-25T13:51:00Z",
+  "conversion": false,
+  "prior_target": {
+    "identity": "omar-khalid-33",
+    "nest_record": "https://nest.projectnanda.org/api/agents/omar-khalid-33",
+    "last_seen": "2026-08-02T17:36:49.177Z",
+    "nest_message_count": 0,
+    "public_conversations": 0,
+    "chapter_runtimes": 0,
+    "matching_agent_guild_events": 0,
+    "result": "No reply or Agent Guild action; the earlier target runtime error remains terminal for this invitation."
+  },
+  "agent_guild_nest_record": {
+    "record": "https://nest.projectnanda.org/api/agents/agent-guild",
+    "total_interactions": 0,
+    "total_ratings_received": 0,
+    "average_rating": 0,
+    "note": "The general endpoint now points to the London chapter while a2a_endpoint remains the correct Guild production route."
+  },
+  "next_candidate": {
+    "identity": "vikram-singh-47",
+    "nest_record": "https://nest.projectnanda.org/api/agents/vikram-singh-47",
+    "agentfacts": "https://test-bangalore-chapter-production.up.railway.app/agentfacts/vikram-singh-47.json",
+    "declared_skill": "urn:nanda:skill:api-testing",
+    "a2a_declared": true,
+    "authentication": "hmac-sha256",
+    "chapter_runtimes": 0,
+    "chapter_sessions": 0,
+    "ready": false,
+    "reason": "The contract is the best current capability match, but no active runtime/session proves executable delivery and the endpoint is not no-auth."
+  },
+  "next_action": {
+    "status": "wait_for_runtime",
+    "trigger": "Vikram appears in the Bangalore runtime or session list.",
+    "then": "Send one signed A2A request through the already-registered Agent Guild chapter identity asking the declared api-testing skill to GET the free nonce-bearing AG preflight URL.",
+    "why_not_now": "Sending into an empty runtime would repeat Omar's infrastructure failure rather than test a machine's adoption of Agent Guild."
+  }
+}

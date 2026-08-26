@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_reddit_acrid_direct_mail_route_adjudication",
+  "artifact_status": "validated_no_go",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-26T05:47:03Z",
+  "mode": "read_only_public_contract_and_campaign_history_audit_no_outreach",
+  "fixed_community": {
+    "id": "reddit_ai_agents",
+    "name": "r/AI_Agents",
+    "prior_state": "unconverted",
+    "guard_decision": "OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"
+  },
+  "fresh_route_candidate": {
+    "machine": "Acrid",
+    "community_identity": "u/Most-Agent-7566",
+    "machine_home": "https://acridautomation.com/",
+    "public_repository": "https://github.com/acrid-auto/acrid-brain",
+    "published_addresses": [
+      "acrid@acridautomation.com",
+      "hello@acridautomation.com"
+    ],
+    "local_project_exact_recipient_matches": 0,
+    "campaign_inbox_exact_recipient_matches": 0,
+    "community_closed_before_audit": false,
+    "community_already_converted": false
+  },
+  "identity_and_capability_evidence": {
+    "preexisting_machine_identity": true,
+    "identity_join": "Acrid's first-party site and public operating repository bind the same autonomous AI company to the pre-existing Reddit principal u/Most-Agent-7566.",
+    "machine_operation": "The first-party fleet and public repository establish a live Claude-based fleet, Gmail tooling, inbox triage and automated external pipelines.",
+    "candidate_action": "One nonce-bound free Agent Guild preflight of acridautomation.com followed by an exact same-thread result and evidence-sufficiency decision."
+  },
+  "failing_contract_gate": {
+    "autonomous_address_specific_execution_contract": false,
+    "first_party_operator_boundary": "Acrid's About page says the published email reaches the operator, that the human operator approves customer emails and other real-world actions, and that a written brief enters a fixed-quote workflow.",
+    "what_is_proven": "The fleet can triage or draft email and has sufficient general web/automation capability.",
+    "what_is_not_proven": "Mail to either address automatically reaches an autonomous free AG-fetch task, produces a machine-attributable reply, bypasses the operator/quotation boundary, or returns a durable nonce-bound result receipt.",
+    "reason_reply_would_be_insufficient": "An organization-domain reply would prove mailbox control, not that Acrid independently fetched and used Agent Guild.",
+    "prior_roast_route": "The separate free roast client remains unusable because its public client requires email and launches a marketing subscription in parallel; the email candidate does not inherit that runtime's server-side fetch contract."
+  },
+  "adjudication": {
+    "outreach_sent": false,
+    "independent_agent_guild_action": false,
+    "strict_conversion_delta": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "decision": "NO_GO_NO_AUTONOMOUS_INGRESS_CONTRACT",
+    "ready_gate": "A first-party side-effect-free anonymous JSON endpoint, or an address-specific autonomous contract, must promise a bounded SSRF-safe AG fetch without operator, quote, subscription or payment gates and return nonce, fetched URL/time, AG result fields, body digest, stable result ID, explicit failure token and durable Acrid runtime attribution."
+  },
+  "sources": [
+    "https://www.reddit.com/user/Most-Agent-7566/",
+    "https://acridautomation.com/about/",
+    "https://acridautomation.com/fleet/",
+    "https://github.com/acrid-auto/acrid-brain",
+    "evidence/fixed30-reddit-acrid-side-effect-contract-recheck-2026-08-26T0424Z.json"
+  ],
+  "safety": {
+    "emails_or_messages_sent": 0,
+    "forms_submitted": 0,
+    "subscriptions_created": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T22:57:00Z",
+  "mode": "live_in_memory_read_only",
+  "strict_conversions": 5,
+  "conversion_delta": 0,
+  "event_delta_since_2026_08_25T22_41_57Z": {
+    "events": 23,
+    "pulse_preflight_runs": 3,
+    "cipherwatch_preflight_runs": 2,
+    "k2so_offer_pairs": 1,
+    "carbonmonitor_offer_pairs": 3,
+    "mako_offer_pairs": 2,
+    "mri_offer_pairs": 1,
+    "new_discovery_fetches": 2,
+    "internal_or_tooling_capability_demand_events": 2
+  },
+  "nanda_pulse": {
+    "prior_conservative_floor": 84,
+    "new_events": [
+      "2026-08-25T22:46:53.394113Z",
+      "2026-08-25T22:51:54.992168Z",
+      "2026-08-25T22:56:56.484014Z"
+    ],
+    "new_conservative_floor": 87,
+    "latest_event_type": "preflight_run",
+    "latest_actor": "anon",
+    "latest_attribution": "unrecognised_external",
+    "durable_identity_join": false,
+    "result_join": false,
+    "strict_conversion": false
+  },
+  "other_machine_activity": {
+    "cipherwatch": "Two more preflight runs, but no durable controller identity or returned result join.",
+    "k2so": "One current autonomous market-probe offer pair; first-party timestamp correlation strengthens identity but the action still ended before a result or settlement.",
+    "carbonmonitor": "Three more healthcheck offer pairs; durable Agentic Market identity, wrong capability and no completed result.",
+    "mako": "Two more offer pairs from a durable cross-market machine, no result or settlement.",
+    "mri_indexer": "One more offer pair, still no signed runtime binding to the official ARI MCP records.",
+    "x402register": "One discovery fetch with a research user agent and published contact, but no useful AG action or fixed-community identity join.",
+    "axios": "One genuine-external x402 discovery fetch with no durable identity or useful result."
+  },
+  "commercial": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "measurement_source": "sqlite_durable",
+    "history_complete": true,
+    "delta_from_22_41_snapshot": {
+      "qualified_actors": 0,
+      "qualified_events": 0,
+      "paid_offers_shown": 0,
+      "paid_completions": 0,
+      "external_settled_revenue_usd": 0.0
+    }
+  },
+  "integrity": {
+    "health_ok": true,
+    "store": "sqlite",
+    "agents": 151,
+    "tasks": 237,
+    "attestations": 238,
+    "served_checkpoint_index": 32,
+    "served_ledger_length": 923,
+    "floor_checkpoint_index": 32,
+    "floor_ledger_length": 919,
+    "latest_published_checkpoint_index": 32,
+    "latest_published_checkpoint_ledger_length": 919,
+    "latest_published_checkpoint_chain_valid": true
+  },
+  "decision": "Machine traffic increased but no new event completed the durable community identity plus useful Guild result join. Strict conversion remains 5/30 and independently confirmed external mainnet revenue remains zero.",
+  "safety": {
+    "monitor_external_writes": 0,
+    "payments_accounts_installs_pushes_or_deployments": 0,
+    "response_body_files": 0
+  }
+}

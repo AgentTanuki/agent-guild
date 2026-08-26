@@ -1,0 +1,274 @@
+{
+  "schema_version": "community-pilot-evidence-v1",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "mode": "bounded_public_discovery_plus_one_free_read_only_machine_action",
+  "observed_interval": {
+    "start": "2026-08-26T04:31:00Z",
+    "end": "2026-08-26T04:50:00Z"
+  },
+  "scope": [
+    "olas",
+    "virtuals_acp",
+    "nevermined",
+    "openserv",
+    "naptha",
+    "elizaos",
+    "ag2",
+    "langchain",
+    "agentic_market",
+    "claws_network",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "exclusion_rule": "Every identity named in targets.json and prior pilot evidence was excluded, including x402guard, Revettr, BrowserUse, Eliza Cloud's prior card, AG2 Assistant, Authenticated MCP Agent, Chat LangChain, MAKO, Acrid, Nexagora/DualExtreme02536, HiveGate, AAAA-Nexus, and every alternate identity recorded in fixed30-fresh-identity-route-search-2026-08-26T0430Z.json.",
+  "strict_success_rule": "A pre-existing durable community identity must complete an independently useful Agent Guild action through a free anonymous machine operation and return a result durably attributable to that identity. Accepted transport or tool calls, listings, failed fetches, caller-generated identifiers, and provider errors are insufficient.",
+  "strongest_genuinely_new_identity": {
+    "target_id": "ag2",
+    "name": "AG2 Playground — Ask the Web",
+    "decision": "EXECUTED_NO_CONVERSION",
+    "identity_join": {
+      "official_showcase": "https://github.com/ag2ai/build-with-ag2",
+      "official_source": "https://github.com/ag2ai/build-with-ag2/tree/main/beta/ask-the-web",
+      "live_runtime": "https://playground.ag2.ai/demos/ask-the-web/",
+      "identity_evidence": [
+        "The official ag2ai/build-with-ag2 README links playground.ag2.ai as Try the Playground (no setup).",
+        "The live page identifies itself as AG2 Playground and links the exact official source directory.",
+        "The backend creates a named autogen.beta.Agent with name ask_the_web and mounts AGUIStream(agent) at /chat.",
+        "The README records the demo as built for the May 3 AG2 Hackathon, before this pilot."
+      ]
+    },
+    "published_access_contract": {
+      "homepage_offer": {
+        "price": "0",
+        "price_currency": "USD"
+      },
+      "authentication": "none published or observed",
+      "account_or_key_required_from_caller": false,
+      "operation": "POST https://playground.ag2.ai/demos/ask-the-web/chat/",
+      "transport": "AG-UI RunAgentInput over HTTP with text/event-stream response",
+      "server_tools": [
+        {
+          "name": "tavily_search",
+          "schema": {
+            "query": "string",
+            "max_results": "integer default 5"
+          }
+        },
+        {
+          "name": "fetch_url",
+          "schema": {
+            "url": "string"
+          },
+          "declared_result": "Readable URL content as plain text"
+        }
+      ],
+      "side_effect_scope": "Published behavior is search and read-only URL extraction; no write, registration, payment, wallet, contact, or persistence operation is declared.",
+      "provider_funding": "The official README says the hosted demo uses sponsor credits for Tavily and Gemini/OpenAI; the pilot supplied no credential or funds."
+    },
+    "pre_action_health": {
+      "url": "https://playground.ag2.ai/demos/ask-the-web/healthz",
+      "http_status": 200,
+      "body": {
+        "ok": true,
+        "provider": "vertexai",
+        "model": "gemini-3.6-flash"
+      }
+    },
+    "bounded_action": {
+      "started_at": "2026-08-26T04:48:47.857Z",
+      "finished_at": "2026-08-26T04:48:57.564Z",
+      "http_status": 200,
+      "response_bytes": 6192,
+      "response_sha256": "c1f9cac8a57a36928bf942e5a156f9658f17d49f1d9a77a23cb3d0e6740e0904",
+      "caller_thread_id": "ag2-community-pilot-20260826T044820Z",
+      "caller_run_id": "ag2-run-20260826T044820Z",
+      "requested_action": "After the agent's required search, call fetch_url on an Agent Guild preflight URL for the AG2 chat endpoint and return the fetched target, verdict, checks, unknowns, source URL, and status.",
+      "request_url_as_emitted_to_tool": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fplayground.ag2.ai%2Fdemos%2Fask-the-web%2Fchat%2F%26src%3Dpassport_offer%253Aag2%26campaign%3Dcommunity_pilot_2026_08_25%26nonce%3Dag2-askweb-20260826T044820Z",
+      "request_url_caveat": "The pilot caller incorrectly percent-encoded the attribution separators into the url parameter. This malformed first request is excluded and would require a corrected fresh URL after the runtime is healthy. The provider failure occurred before any outbound request, so this mistake caused no Guild event and is not used to diagnose the runtime failure.",
+      "events": [
+        {
+          "type": "TOOL_CALL_START",
+          "tool_call_id": "call_284714",
+          "tool": "tavily_search"
+        },
+        {
+          "type": "TOOL_CALL_RESULT",
+          "message_id": "720ea737-f940-4dc6-8644-1018e8a1b022",
+          "tool_call_id": "call_284714",
+          "result": "tavily.errors.InvalidAPIKeyError: Unauthorized: missing or invalid API key"
+        },
+        {
+          "type": "TOOL_CALL_START",
+          "tool_call_id": "call_276969",
+          "tool": "fetch_url"
+        },
+        {
+          "type": "TOOL_CALL_ARGS",
+          "tool_call_id": "call_276969",
+          "result": "The exact requested Agent Guild URL was emitted as the server tool argument."
+        },
+        {
+          "type": "TOOL_CALL_RESULT",
+          "message_id": "bb773f24-facf-49a9-bd79-e27499bc89d8",
+          "tool_call_id": "call_276969",
+          "result": "tavily.errors.InvalidAPIKeyError: Unauthorized: missing or invalid API key",
+          "source_frame": "/app/demos/ask_the_web/backend.py line 58, client.extract"
+        },
+        {
+          "type": "TEXT_MESSAGE_END",
+          "message_id": "bfe483bd-a6fe-49ae-bb64-4438d2f46717",
+          "assistant_result": "The content from the requested URL could not be retrieved; requested Agent Guild fields cannot be provided."
+        }
+      ],
+      "guild_telemetry_match": false,
+      "guild_telemetry_query": "GET https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500",
+      "telemetry_interpretation": "No event contained ag2-askweb-20260826T044820Z, consistent with Tavily rejecting the call before fetching Agent Guild.",
+      "external_operation_count": 1,
+      "useful_completion": false
+    },
+    "strict_ruling": {
+      "accepted": false,
+      "reason": "The official AG2 machine accepted and executed the orchestration path, but its own URL-fetch provider rejected both search and fetch before Agent Guild was reached. Server-generated tool/message IDs durably prove the failure, not a completed useful AG action."
+    },
+    "exact_first_ready_gate": "Restore a valid Tavily credential and demonstrate a neutral fresh successful fetch. Then send one corrected AG URL whose src, campaign, and nonce are top-level query parameters; require fetch_url tool args containing that exact URL, returned AG JSON or body hash, a server-generated result/message ID, and matching Guild telemetry before considering strict conversion."
+  },
+  "other_target_results": [
+    {
+      "target_id": "virtuals_acp",
+      "current_source": "https://acpx.virtuals.io/api/agents?pagination[page]=1&pagination[pageSize]=100&sort=createdAt:desc",
+      "current_total": 44051,
+      "page_count": 441,
+      "new_records_since_prior_complete_snapshot": 0,
+      "decision": "NO_NEW_IDENTITY",
+      "first_gate": "A newly published effective-zero job with a schema-valid AG URL or credential input, anonymous execution, and an identity-bound result."
+    },
+    {
+      "target_id": "openserv",
+      "current_source": "https://api.openserv.ai/x402-services",
+      "records": 467,
+      "active": 88,
+      "active_exact_zero": 0,
+      "minimum_active_price_usd": 0.001,
+      "new_records_since_prior_snapshot": 0,
+      "decision": "NO_NEW_IDENTITY",
+      "first_gate": "A new active exact-zero server-side URL/credential operation with an owner-bound result."
+    },
+    {
+      "target_id": "agentic_market",
+      "current_source": "https://api.agentic.market/v1/services",
+      "services": 50,
+      "endpoints": 1324,
+      "nominal_zero_endpoints": 130,
+      "strict_exact_zero_endpoints": 1,
+      "only_strict_exact_zero": "Messari GET /metrics/v2/networks/",
+      "ag_relevant_nominal_zero": 0,
+      "decision": "NO_NEW_IDENTITY",
+      "first_gate": "A different durable market service must expose exact-zero AG-semantic server-side use rather than an upto liability or unrelated static list."
+    },
+    {
+      "target_id": "nevermined",
+      "current_source": "https://api.github.com/search/issues?q=repo:nevermined-io/payments+is:issue+(MCP+OR+A2A+OR+agent)",
+      "issues_reviewed": 25,
+      "result": "Revettr remains the only issue-backed external machine identity with relevant trust semantics; it was excluded. Other records are SDK defects, examples, or integrations without a public participant runtime.",
+      "decision": "NO_NEW_IDENTITY",
+      "first_gate": "A new Nevermined participant must publish a free server-fetching AG artifact operation and identity-bound result."
+    },
+    {
+      "target_id": "naptha",
+      "current_source": "https://api.github.com/orgs/NapthaAI/repos?per_page=100&sort=pushed",
+      "new_candidates": [
+        "NapthaAI/autoa2a",
+        "NapthaAI/automcp",
+        "NapthaAI/discovery-project"
+      ],
+      "result": "autoa2a and automcp are local converter/deployment frameworks whose hosted flow requires GitHub sign-in and environment keys. auto-mcp.com did not resolve and labs.naptha.ai returned 522. No pre-existing hosted module operation was found.",
+      "decision": "NO_GO",
+      "first_gate": "A healthy hosted module bound to a durable Naptha identity with no-auth AG URL input and a public result receipt."
+    },
+    {
+      "target_id": "elizaos",
+      "candidate": "elizaOS/hub Merge Steward agent-one",
+      "identity_source": "https://github.com/elizaOS/hub",
+      "result": "The official source publishes an extensive agent-native API, but explicitly says it is a tested distribution, not a running hosted service, and that Eliza Cloud production cutover was not performed. The corresponding git.slop.cash health, OpenAPI, well-known, and agent bootstrap paths returned 404.",
+      "decision": "NO_GO",
+      "first_gate": "Deploy the documented control plane publicly and expose a read-only no-auth operation that independently consumes an AG artifact."
+    },
+    {
+      "target_id": "langchain",
+      "registry_checks": {
+        "a2a_langgraph": 1,
+        "a2a_deep_agents": 0,
+        "a2a_langserve": 0,
+        "mcp_langgraph": 0,
+        "mcp_deepagents": 0,
+        "mcp_langserve_relevant": 0
+      },
+      "result": "The only A2A LangGraph match was previously excluded FleetHelp; the lone MCP langserve string match was Nim langserver and unrelated.",
+      "decision": "NO_NEW_IDENTITY",
+      "first_gate": "A genuinely LangChain-executed public no-token fetch/verify runtime with a server-issued result ID."
+    },
+    {
+      "target_id": "olas",
+      "result": "Current official Olas source still identifies live Mechs as on-chain workers and requires a wallet/payment/signed request; no new signerless hosted identity was found.",
+      "decision": "NO_NEW_IDENTITY",
+      "first_gate": "A new pre-existing Mech with a no-signer, no-payment exact AG action and identity-bound result."
+    },
+    {
+      "target_id": "claws_network",
+      "result": "No new safe hosted Claws Network member operation was found after excluding all prior generic MCP name matches and the official persistent wallet/heartbeat lifecycle.",
+      "decision": "NO_NEW_IDENTITY",
+      "first_gate": "A named pre-existing Claws member must publish a hosted no-install/no-wallet read-only AG operation."
+    },
+    {
+      "target_id": "reddit_ai_agents",
+      "result": "No new autonomous Reddit identity with a public native AG-capable contract was established; product posts and human authorship were not promoted to machine identity.",
+      "decision": "NO_NEW_IDENTITY",
+      "first_gate": "A pre-existing autonomous Reddit principal must bind itself to a free machine endpoint and return an endpoint/principal-bound AG result."
+    },
+    {
+      "target_id": "reddit_agents_of_ai",
+      "result": "The current RSS feed surfaced CoArena and other human-authored product posts, but none supplied a durable autonomous Reddit principal plus public native contract.",
+      "decision": "NO_NEW_IDENTITY",
+      "first_gate": "A pre-existing autonomous Reddit principal must bind itself to a free machine endpoint and return an endpoint/principal-bound AG result."
+    }
+  ],
+  "machine_derived_product_signal": {
+    "source_identity": "Official AG2 Playground ask_the_web agent",
+    "durable_evidence": {
+      "fetch_tool_call_id": "call_276969",
+      "fetch_result_message_id": "bb773f24-facf-49a9-bd79-e27499bc89d8",
+      "response_sha256": "c1f9cac8a57a36928bf942e5a156f9658f17d49f1d9a77a23cb3d0e6740e0904"
+    },
+    "signal": "Transport health and model health were green while every advertised web operation was unusable because the server-side Tavily credential was invalid.",
+    "conservative_ag_recommendation": "Keep endpoint reachability separate from operation readiness. For a claimed capability, report readiness as unknown unless the machine publishes a fresh capability-level canary or a recent terminal receipt that binds capability, dependency set, observed_at, and result digest. Do not infer working tools from HTTP health or OpenAPI alone."
+  },
+  "strict_result": {
+    "before": "5/30",
+    "conversions_added": 0,
+    "after": "5/30"
+  },
+  "commercial_context": {
+    "observed_at": "2026-08-26T04:50:00Z",
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "paid_completions": 0,
+    "snapshot_events": 10730
+  },
+  "safety": {
+    "external_machine_actions": 1,
+    "external_machine_action_type": "free anonymous read-only web research/fetch",
+    "messages_or_outreach": 0,
+    "accounts_keys_wallets_terms_or_payments": 0,
+    "installs_or_persistent_config": 0,
+    "production_mutations": 0,
+    "response_files": 0,
+    "canonical_files_edited": 0,
+    "notes": "All network bodies were processed in memory. The only write is this local evidence artifact."
+  }
+}

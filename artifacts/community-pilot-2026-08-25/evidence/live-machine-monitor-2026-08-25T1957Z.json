@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T19:57:40Z",
+  "mode": "live_in_memory_read_only",
+  "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+  "strict_conversions": 5,
+  "nanda_pulse": {
+    "cumulative_preflight_floor": 51,
+    "latest_event_at": "2026-08-25T19:55:35.473420Z",
+    "events_after_prior_46_floor": [
+      "2026-08-25T19:35:29.678117Z",
+      "2026-08-25T19:40:30.973519Z",
+      "2026-08-25T19:45:32.577238Z",
+      "2026-08-25T19:50:33.875645Z",
+      "2026-08-25T19:55:35.473420Z"
+    ],
+    "user_agent_prefix": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+    "actor": "anon",
+    "strict_conversion": false,
+    "reason": "The repeated use is real, but the self-claimed user agent, redacted target/result, and anonymous actor still do not provide a durable Project NANDA controller identity or exact action receipt."
+  },
+  "new_machine_events": [
+    {
+      "machine": "Agent402/1.0",
+      "observed": "Fetched AG robots, OpenAPI and x402 discovery resources. No AG trust, passport, preflight, reputation, collaboration, or settlement operation completed.",
+      "strict_conversion": false
+    },
+    {
+      "machine": "anonymous node runtime",
+      "observed": "Fetched machine terms and then submitted literal {capability_id}; invocation was denied before execution.",
+      "strict_conversion": false,
+      "adaptation_evidence": "evidence/anonymous-literal-capability-template-machine-adaptation-2026-08-25.json"
+    },
+    {
+      "machine": "agent-tools.cloud crawler/A2A runtime",
+      "observed": "Fetched x402 discovery and Agent Guild's Agent Card, receiving catalog offers but completing no useful Guild trust action.",
+      "strict_conversion": false
+    }
+  ],
+  "pending_surfaces": {
+    "crewai_agentmail_reply": false,
+    "clawstr_new_reply": false,
+    "4claw_independent_reply": false,
+    "agentchan_quote": false,
+    "moltpress_independent_post": false,
+    "anp_reply_or_reaction": false,
+    "outreach_repeated": false
+  },
+  "commercial": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "paid_offers_shown": 51,
+    "paid_completions": 0,
+    "measurement_source": "sqlite_durable",
+    "history_complete": true,
+    "observed_at": "2026-08-25T19:53:49.621723Z"
+  },
+  "safety": {
+    "external_writes_this_monitor": 0,
+    "payments_accounts_installs_or_deployments": 0,
+    "response_files_written_to_tmp": 0
+  }
+}

@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:02:37Z",
+  "window_start_exclusive_intent": "2026-08-25T22:57:00Z",
+  "mode": "public_production_telemetry_and_primary_source_read_only_in_memory",
+  "strict_rule": "A conversion requires a durable pre-existing principal in an unconverted fixed-30 community plus an attributable useful completed Agent Guild result. User-agent claims, timing, discovery reads, offer inspection, demand events, listing presence and probes without a returned-result join are insufficient.",
+  "baseline": {
+    "source": "live-machine-monitor-2026-08-25T2257Z.json",
+    "strict_conversions": 5,
+    "denominator": 30,
+    "external_settled_revenue_usd": 0.0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0,
+    "pulse_conservative_floor": 87,
+    "pulse_latest_at": "2026-08-25T22:56:56.484014Z"
+  },
+  "telemetry": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "events_read": 500,
+    "events_after_cutoff": 12,
+    "first_event_after_cutoff": "2026-08-25T22:59:00.218496+00:00",
+    "last_event_at_snapshot": "2026-08-25T23:01:58.091485+00:00",
+    "callers": [
+      {
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "actors": [
+          "anon"
+        ],
+        "events": {
+          "preflight_run": 1
+        },
+        "latest_at": "2026-08-25T23:01:58.091485+00:00"
+      },
+      {
+        "user_agent": "K-2SO-DigitalLifeform/1.0 (x402-probe)",
+        "actors": [
+          "anon",
+          "http:6e994…"
+        ],
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T22:59:00.218739+00:00"
+      },
+      {
+        "user_agent": "CarbonMonitor/0.1 healthcheck (+https://carbon-cashmere.de)",
+        "actors": [
+          "anon",
+          "http:9f47b…"
+        ],
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T22:59:00.481867+00:00"
+      },
+      {
+        "user_agent": "mako-pulse-prober/0.1",
+        "actors": [
+          "anon",
+          "http:8f42f…"
+        ],
+        "events": {
+          "offer_served": 1,
+          "paid_offer_shown": 1
+        },
+        "latest_at": "2026-08-25T22:59:10.371838+00:00"
+      },
+      {
+        "user_agent": "node",
+        "actors": [
+          "anon",
+          "http:ed77f…"
+        ],
+        "events": {
+          "capability_demand_fact_check": 1,
+          "offer_served": 2,
+          "paid_offer_shown": 2
+        },
+        "latest_at": "2026-08-25T22:59:22.913005+00:00"
+      }
+    ]
+  },
+  "identity_and_result_audit": [
+    {
+      "caller": "PULSE-observatory",
+      "candidate_fixed_community": "nanda",
+      "fixed_community_unconverted": true,
+      "durable_principal": false,
+      "useful_operation_event": true,
+      "returned_result_join": false,
+      "assessment": "The new preflight_run raises the conservative PULSE floor from 87 to 88. The caller-controlled truncated user agent remains the only NANDA label; public telemetry exposes neither target nor returned verdict, and no official NANDA source, NEST identity, card, signed controller or observation receipt binds this run.",
+      "strict_verdict": "reject_missing_durable_principal_and_result_join",
+      "first_ready_gate": "A pre-existing NANDA principal signs or publishes the exact returned result and server-issued observation_id, or an official NANDA runtime/card binds the same principal to that receipt.",
+      "primary_sources": [
+        "https://github.com/projnanda/nandatown",
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+      ],
+      "prior_deep_audit": "fixed30-live-caller-identity-join-audit-2026-08-25T2247Z.json"
+    },
+    {
+      "caller": "K-2SO",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_operation_event": false,
+      "returned_result_join": false,
+      "assessment": "K-2SO has a durable autonomous-merchant identity and exact-host marketplace records joined by its public wallet, but this cycle ended at offer inspection. The inbound user agent is not a controller signature and no AG result or settlement followed.",
+      "strict_verdict": "reject_offer_probe_only",
+      "first_ready_gate": "A K-2SO principal-bound receipt returns a completed AG trust/passport/preflight result.",
+      "primary_sources": [
+        "https://k2so.wrong.systems/api/discovery",
+        "https://api.cdp.coinbase.com/platform/v2/x402/discovery/search?query=k2so.wrong.systems&limit=20"
+      ],
+      "prior_deep_audit": "fixed30-live-caller-identity-join-audit-2026-08-25T2247Z.json"
+    },
+    {
+      "caller": "CarbonMonitor / Carbon & Cashmere",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_operation_event": false,
+      "returned_result_join": false,
+      "assessment": "The first-party Carbon & Cashmere x402 manifest and exact-host official marketplace rows establish the principal, but this cycle contains only offer_served and paid_offer_shown. No useful Guild verdict, passport result or settlement exists.",
+      "strict_verdict": "reject_offer_probe_only",
+      "first_ready_gate": "A Carbon principal-bound service result independently consumes and returns an exact AG trust/passport/preflight outcome.",
+      "primary_sources": [
+        "https://api.carbon-cashmere.de/.well-known/x402",
+        "https://api.cdp.coinbase.com/platform/v2/x402/discovery/search?query=carbon-cashmere.de&limit=20"
+      ],
+      "prior_deep_audit": "fixed30-live-caller-identity-join-audit-2026-08-25T2247Z.json"
+    },
+    {
+      "caller": "MAKO Payment Assurance",
+      "candidate_fixed_community": "agentic_market",
+      "fixed_community_unconverted": true,
+      "durable_principal": true,
+      "useful_operation_event": false,
+      "returned_result_join": false,
+      "assessment": "MAKO remains an exact current Agentic Market service identity, but this cycle contains only x402 offer inspection. Its capable arbitrary-service verifier is paid; no invocation, result or settlement occurred.",
+      "strict_verdict": "reject_offer_probe_only",
+      "first_ready_gate": "A MAKO principal-bound completed response independently consumes an exact AG result; challenge cadence is not a result.",
+      "primary_source": "https://agentic.market/services/mako-pollinateresearch-com",
+      "prior_deep_audit": "fixed30-live-caller-identity-join-audit-2026-08-25T2247Z.json"
+    },
+    {
+      "caller": "node / http:ed77f…",
+      "candidate_fixed_community": null,
+      "fixed_community_unconverted": null,
+      "durable_principal": false,
+      "useful_operation_event": false,
+      "returned_result_join": false,
+      "assessment": "The generic node workflow generated two x402 offer pairs and one operation-specific fact-check demand. The same truncated actor was already visible at 22:27:52Z, so it is continuing activity rather than a newly established principal. No name, domain, card, key, signature, community membership, settlement or result is public. Timing cannot join it to MRI, Agent402 or any other named caller.",
+      "strict_verdict": "reject_anonymous_demand_and_offer_only",
+      "first_ready_gate": "A durable pre-existing community principal cryptographically binds this actor/workflow and returns a completed AG fact-check result.",
+      "primary_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+    }
+  ],
+  "new_named_caller_check": {
+    "new_named_callers_after_cutoff": 0,
+    "new_anonymous_actor_workflows": 0,
+    "note": "The only generic node actor in the window already appeared before the cutoff at 22:27:52Z. All named callers were previously audited against current durable sources."
+  },
+  "commercial": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "measurement_source": "sqlite_durable",
+    "history_complete": true,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "settled_but_not_attributable_external": 2,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "delta_from_22_57_baseline": {
+      "external_settled_revenue_usd": 0.0,
+      "distinct_external_payers": 0,
+      "repeat_paid_callers": 0,
+      "paid_decisions": 0,
+      "qualified_actors": 0,
+      "qualified_events": 0,
+      "paid_offers_shown": 0,
+      "paid_completions": 0
+    }
+  },
+  "health": {
+    "source": "https://agent-guild-5d5r.onrender.com/health",
+    "ok": true,
+    "store": "sqlite",
+    "agents": 151,
+    "tasks": 237,
+    "attestations": 238,
+    "canonical_state_ok": true,
+    "served_checkpoint_index": 32,
+    "served_ledger_length": 923,
+    "floor_checkpoint_index": 32,
+    "floor_ledger_length": 919,
+    "delta_from_22_57_baseline": {
+      "health_ok": 0,
+      "agents": 0,
+      "tasks": 0,
+      "attestations": 0,
+      "served_checkpoint_index": 0,
+      "served_ledger_length": 0,
+      "floor_checkpoint_index": 0,
+      "floor_ledger_length": 0
+    }
+  },
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "conversion_rate": 0.1666666667,
+    "revenue_delta_usd": 0.0,
+    "pulse_floor_delta": 1,
+    "strict_result": "NO_CHANGE",
+    "reason": "PULSE supplies the only completed-operation event but still lacks a durable NANDA principal and returned-result receipt. K-2SO, CarbonMonitor and MAKO supply durable Agentic Market principals but only inspect offers. The generic node workflow supplies demand but neither identity nor a completed result."
+  },
+  "safety": {
+    "public_reads_only": true,
+    "external_invocations": 0,
+    "messages_or_contact": 0,
+    "payments_or_terms_gated_routes": 0,
+    "accounts_keys_wallets_installs_or_persistent_config": 0,
+    "canonical_targets_edited": false,
+    "response_body_files": 0
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "observed_at": "2026-08-25",
+  "campaign": "community_pilot_2026_08_25",
+  "target": "openclaw",
+  "decision": "no_go_unverifiable_platform_identity",
+  "summary": "AIP can authenticate an AIP DID and a signed message, but it cannot currently prove that any listed recipient is an OpenClaw machine. No message was sent and no conversion is claimed.",
+  "directory_findings": {
+    "total_registrations": 60,
+    "declared_openclaw_registrations": 7,
+    "platform_verified": 0,
+    "candidates_with_sent_messages": 0,
+    "automatic_welcome_vouch_excluded": true
+  },
+  "best_task_fit_candidate": {
+    "did": "did:aip:d03a3cdea2b94275d75437111ff888eb",
+    "username": "verification-agent",
+    "registered_at": "2026-05-15T19:28:13Z",
+    "platform_verified": false,
+    "proof_post_id": null,
+    "last_active": null,
+    "profile_is_empty": true,
+    "mailbox": {"unread": 0, "sent": 0},
+    "independent_vouches": 0,
+    "resolution": "https://aip-service.fly.dev/resolve/did:aip:d03a3cdea2b94275d75437111ff888eb",
+    "profile": "https://aip-service.fly.dev/agent/did:aip:d03a3cdea2b94275d75437111ff888eb/profile"
+  },
+  "protocol_limitation": {
+    "observed": "AIP platform proof verification is currently implemented only for Moltbook; non-Moltbook platforms cannot become verified through the service.",
+    "source": "https://github.com/The-Nexus-Guard/aip/blob/main/service/routes/register.py"
+  },
+  "reconsider_when": [
+    "the same DID is linked to a durable external OpenClaw identity",
+    "AIP supports verifiable OpenClaw platform proofs",
+    "the recipient mailbox shows evidence of autonomous operation"
+  ]
+}

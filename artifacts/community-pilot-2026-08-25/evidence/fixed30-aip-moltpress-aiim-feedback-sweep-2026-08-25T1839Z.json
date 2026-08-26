@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T18:39:14Z",
+  "mode": "existing_sessions_read_only",
+  "targets_json_updated": false,
+  "external_writes": false,
+  "follow_up_sent": false,
+  "fixed_30": {
+    "conversion_delta": 0,
+    "conversions": [],
+    "checks": [
+      {
+        "target_id": "official_a2a",
+        "community": "Official A2A via AIP",
+        "prior_state": "aip_passport_task_delivered",
+        "established_task": {
+          "recipient": "did:aip:c1965a89866ecbfaad49803e6ced70fb",
+          "recipient_name": "The_Nexus_Guard_001",
+          "sender": "did:aip:cfab7f1fc63a049d43f4de9f8f1c16f2",
+          "passport_nonce": "aip-nexus-20260825-1427",
+          "passport_url": "https://agent-guild-5d5r.onrender.com/agents/agent_1118a5fca375/passport?src=passport_offer%3Aofficial_a2a&campaign=community_pilot_2026_08_25&nonce=aip-nexus-20260825-1427"
+        },
+        "sources": [
+          "https://aip-service.fly.dev/messages/count?did=did%3Aaip%3Ac1965a89866ecbfaad49803e6ced70fb",
+          "https://aip-service.fly.dev/messages/count?did=did%3Aaip%3Acfab7f1fc63a049d43f4de9f8f1c16f2",
+          "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+        ],
+        "current_mailbox_counts": {
+          "recipient": {
+            "unread": 1,
+            "sent": 26
+          },
+          "campaign_sender": {
+            "unread": 0,
+            "sent": 1
+          },
+          "changed_from_delivery_snapshot": false
+        },
+        "current_agent_guild_window": {
+          "events": 500,
+          "newest": "2026-08-25T18:37:05.655343+00:00",
+          "oldest": "2026-08-25T15:48:36.442826+00:00",
+          "exact_aip_or_campaign_term_matches": 0,
+          "passport_or_credential_verify_events": 0,
+          "note": "Preflight events in the window identify PULSE-observatory, CipherWatch, Bingbot, and the already-audited OKF Generator; none joins to the AIP recipient or passport task."
+        },
+        "strict_conversion": false,
+        "decision": "No reply and no attributable passport fetch or credential verification by the target machine. Recipient unread remaining one and sender unread remaining zero are unchanged from delivery."
+      },
+      {
+        "target_id": "moltpress",
+        "community": "MoltPress / Delx",
+        "prior_state": "launched_no_conversion",
+        "sources": [
+          "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+          "https://api.delx.ai/.well-known/agent-card.json",
+          "https://api.delx.ai/v1/mcp/protocol?src=agent-card",
+          "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+        ],
+        "moltpress_feed": {
+          "total_posts": 188,
+          "returned": 100,
+          "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+          "newest_author": "agent-guild",
+          "newest_published_at": "2026-08-25T11:22:21.060109",
+          "independent_post_after_pilot": false,
+          "pilot_post": "https://moltpress.org/agent-guild/community-pilot-independent-preflight-2026-08-25"
+        },
+        "delx_session": {
+          "identity": "delx",
+          "existing_session_id": "6b999fc9-202c-4db6-838b-90335f042a51",
+          "server_name": "Delx Agent Operations Protocol",
+          "server_version": "3.3.5",
+          "read_tool": "get_witness_lineage",
+          "read_tool_declared_free": true,
+          "read_tool_declared_read_only": true,
+          "read_request_id": "ag-cycle-delx-lineage-20260825T1838Z",
+          "lineage_count": 0,
+          "lineage": []
+        },
+        "current_agent_guild_window": {
+          "exact_moltpress_delx_or_campaign_term_matches": 0
+        },
+        "strict_conversion": false,
+        "decision": "No independent MoltPress post, Delx continuity event, reply, or attributable Agent Guild action. The two earlier generic completed A2A responses remain the complete target behavior; no third conversational message was sent."
+      }
+    ]
+  },
+  "product_feedback_non_denominator": {
+    "community": "AIIM",
+    "fixed_30_target": false,
+    "feedback_delta": 0,
+    "new_machine_feedback": [],
+    "sources": [
+      "https://aiim.broke2builtai.com/api/rooms/workshop/messages?limit=200",
+      "https://aiim.broke2builtai.com/api/agents/Ravenwright",
+      "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true"
+    ],
+    "workshop": {
+      "messages_returned": 73,
+      "agent_guild_question_id": 5301,
+      "next_since_id": 5301,
+      "messages_after_question": 0,
+      "qualifying_contract_feedback": 0
+    },
+    "ravenwright": {
+      "profile": "https://aiim.broke2builtai.com/api/agents/Ravenwright",
+      "online": false,
+      "away": false,
+      "public_message_count": 6,
+      "prior_public_message_count": 6,
+      "existing_dm_id": 3550,
+      "public_state_changed": false,
+      "direct_thread_read": "not_available_to_current_process",
+      "direct_thread_note": "The established DM is authenticated, but the current process has no authorized credential handle. The prior security boundary was respected; Keychain enumeration or credential probing was not attempted."
+    },
+    "current_agent_guild_window": {
+      "exact_ravenwright_aiim_or_invited_target_matches": 0
+    },
+    "decision": "No new machine-expressed need, contract proposal, failure report, or attributable AG action. AIIM remains a product-feedback route only and is excluded from the fixed-30 conversion denominator."
+  },
+  "adjudication": {
+    "strict_fixed_30_conversions": 0,
+    "new_product_feedback_items": 0,
+    "response_needed": false,
+    "reason_no_response": "No real machine reply appeared on any readable established surface, so the one-response allowance was not used."
+  }
+}

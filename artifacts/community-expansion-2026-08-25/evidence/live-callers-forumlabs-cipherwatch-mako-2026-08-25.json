@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-08-25T17:43:45Z",
+  "scope": [
+    "forum-labs-trust-prober/1.0 (+https://forum-labs.com)",
+    "CipherWatch/1.0 (Cloudflare Worker; liveness probe)",
+    "mako-pulse-prober/0.1"
+  ],
+  "mode": "read_only",
+  "overall_verdict": "no_strict_conversion_or_free_identity_bound_action_route",
+  "conversion_claimed": false,
+  "fixed_targets_edited": false,
+  "callers_contacted_or_invoked": false,
+  "callers": [
+    {
+      "caller": "forum-labs-trust-prober/1.0 (x402 endpoint QoS monitor; +https://forum-labs.com)",
+      "identity_verdict": "high_confidence_domain_and_software_controller_not_cryptographic_caller_proof",
+      "controller": {
+        "name": "Forum Labs",
+        "domain": "https://forum-labs.com/",
+        "repository": "https://github.com/forum-labs/payfetch",
+        "npm": "@forum-labs/payfetch",
+        "evidence": "The Forum Labs homepage publishes the exact forum-labs-trust-prober User-Agent, describes its append-only x402 monitoring network, and links the matching repository and package. The caller-selected User-Agent is not a signature."
+      },
+      "telemetry": {
+        "behavior": "Repeated unpaid x402 challenge inspection only; no settlement, passport verification, or completed non-probe AG action.",
+        "samples": [
+          {
+            "at": "2026-08-25T16:02:07.846043+00:00",
+            "type": "paid_offer_shown",
+            "endpoint": "x402_challenge",
+            "public_actor": "http:3c9be…"
+          },
+          {
+            "at": "2026-08-25T17:34:47.543474+00:00",
+            "type": "paid_offer_shown",
+            "endpoint": "x402_challenge",
+            "public_actor": "http:4ca56…"
+          }
+        ],
+        "identity_gap": "The public pseudonymous actor changed between observations and is truncated; the domain self-link, not the actor token, supplies the controller attribution."
+      },
+      "community_membership": [
+        {
+          "community_id": "aaif_mcp",
+          "kind": "fixed_30",
+          "status": "proven",
+          "identity": "io.github.forum-labs/payfetch",
+          "evidence": "The official MCP Registry record is active, latest, published 2026-07-06, and binds the GitHub repository to npm @forum-labs/payfetch."
+        },
+        {
+          "community_id": "payanagent",
+          "kind": "expansion_194",
+          "status": "resource_listed_not_agent_record",
+          "identity": "https://api.forum-labs.com/v1/trust/report",
+          "offer_id": "kh775sxd8rae6zvf3aqs9mk2g98ac970",
+          "price_usd": 0.02,
+          "pay_to": "0xffa3e5fa7AE5F0DD1fd196Cbd41d40325E4Aa831"
+        },
+        {
+          "community_id": "x402-ecosystem",
+          "kind": "expansion_194",
+          "status": "proven_protocol_participant",
+          "evidence": "Forum Labs publishes paid x402 trust endpoints and its Payfetch package depends on @x402/core."
+        }
+      ],
+      "public_contract": {
+        "hosted_trust_score": {
+          "method_and_path": "GET https://api.forum-labs.com/v1/trust/score?url=<endpoint>",
+          "price_usd": 0.005
+        },
+        "hosted_trust_report": {
+          "method_and_path": "POST https://api.forum-labs.com/v1/trust/report",
+          "price_usd": 0.02
+        },
+        "local_fetch_client": {
+          "name": "Payfetch",
+          "can_fetch_arbitrary_http": true,
+          "hosted": false,
+          "requirements": [
+            "Node 22 and package installation",
+            "exactly one wallet signer source; the process refuses to start without it",
+            "persistent local policy, state, and append-only receipt ledger"
+          ]
+        }
+      },
+      "strict_free_ag_path": {
+        "status": "no",
+        "reason": "The hosted trust operations are paid. Payfetch could fetch a free AG URL, but it is not a public hosted member action and requires installation, wallet key material, and persistent local state. No generic W3C VC, did:key, AGI-1 passport verifier, or remote free preflight consumer is published."
+      },
+      "primary_sources": [
+        "https://forum-labs.com/",
+        "https://forum-labs.com/trust.html",
+        "https://forum-labs.com/trust-methodology.html",
+        "https://github.com/forum-labs/payfetch",
+        "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.forum-labs%2Fpayfetch&version=latest&limit=10",
+        "https://payanagent.com/api/v1/discover"
+      ]
+    },
+    {
+      "caller": "CipherWatch/1.0 (Cloudflare Worker; liveness probe)",
+      "identity_verdict": "unattributed",
+      "controller": null,
+      "telemetry": {
+        "behavior": "It repeatedly completed the public AG preflight route, explicitly labelling itself a liveness probe.",
+        "samples": [
+          "2026-08-25T16:54:48.186146+00:00",
+          "2026-08-25T17:02:50.248444+00:00",
+          "2026-08-25T17:12:48.291884+00:00",
+          "2026-08-25T17:20:49.373097+00:00",
+          "2026-08-25T17:30:48.178069+00:00",
+          "2026-08-25T17:38:49.716869+00:00"
+        ],
+        "event_type": "preflight_run",
+        "endpoint": "preflight",
+        "public_actor": "anon",
+        "qualification": "The machine demonstrably consumes AG preflight without payment or account, but only as an anonymous liveness probe; the public feed does not expose its target parameter or a durable caller principal."
+      },
+      "community_membership": [],
+      "excluded_false_joins": [
+        "Cloudflare Worker identifies hosting technology, not membership in the expansion record cloudflare-web-bot-auth-verified-bots.",
+        "Unrelated products named CipherWatch, including ExeQuantum/EQCore and independent SIEM projects, have no evidence linking them to this caller."
+      ],
+      "catalog_checks": {
+        "official_x402_bazaar_exact_name": "no matching resource",
+        "payanagent_exact_name": "no matching agent or offer",
+        "public_exact_user_agent_search": "no controller result"
+      },
+      "public_contract": null,
+      "strict_free_ag_path": {
+        "status": "behavior_observed_but_not_identity_bound",
+        "reason": "AG telemetry proves recurring no-payment preflight use, but there is no public controller, community identity, callable contract, signature, request ID, or durable actor token. It cannot be treated as adoption or conversion."
+      },
+      "primary_sources": [
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+        "https://api.cdp.coinbase.com/platform/v2/x402/discovery/search",
+        "https://payanagent.com/api/v1/discover"
+      ]
+    },
+    {
+      "caller": "mako-pulse-prober/0.1",
+      "identity_verdict": "high_confidence_product_and_controller_match_not_cryptographic_caller_proof",
+      "controller": {
+        "machine": "_MAKO / MAKO Payment Assurance",
+        "operator": "Pollinate Research / Chris Dover",
+        "domain": "https://mako.pollinateresearch.com/",
+        "repository": "https://github.com/ChrisDover/_MAKO",
+        "receipt_signer": "0x12BBC7Cde00eB800588243A0B3B4E8E802673BFf",
+        "pay_to": "0x6e4DfBe49858E9Cb93162352D75DBD1E409A7737",
+        "evidence": "The distinctive Mako Pulse product, recurring caller name, public Pulse scoreboard, machine manifest, PayanAgent offer, and Agentic Market listing all converge on the same domain. The inbound User-Agent itself is not signed."
+      },
+      "telemetry": {
+        "behavior": "Approximately six-minute recurring unpaid x402 challenge inspection; no settlement or completed non-probe AG action.",
+        "window_observed": {
+          "first": "2026-08-25T14:53:39.093795+00:00",
+          "last": "2026-08-25T17:41:47.313916+00:00"
+        },
+        "stable_public_actor": "http:8f42f…",
+        "event_type": "paid_offer_shown",
+        "endpoint": "x402_challenge"
+      },
+      "community_membership": [
+        {
+          "community_id": "agentic_market",
+          "kind": "fixed_30",
+          "status": "proven",
+          "identity": "mako.pollinateresearch.com",
+          "listing": "https://agentic.market/services/mako-pollinateresearch-com",
+          "listed_routes": 3
+        },
+        {
+          "community_id": "payanagent",
+          "kind": "expansion_194",
+          "status": "proven_resource_listing",
+          "identity": "https://mako.pollinateresearch.com/api/agent-commerce/verify",
+          "offer_id": "kh7ffa33xas1w0sb6r3pz1n07s89hk48",
+          "price_usd": 0.25,
+          "pay_to": "0x6e4DfBe49858E9Cb93162352D75DBD1E409A7737"
+        },
+        {
+          "community_id": "x402-ecosystem",
+          "kind": "expansion_194",
+          "status": "proven_protocol_participant"
+        }
+      ],
+      "public_contract": {
+        "arbitrary_service_verifier": {
+          "method_and_path": "POST https://mako.pollinateresearch.com/api/agent-commerce/verify",
+          "input": "target_url plus task, budget, required output, and risk mode",
+          "behavior": "Live-probes a target's x402 discovery/challenge when needed",
+          "price_usd": 0.25
+        },
+        "pulse_score": {
+          "method_and_path": "GET https://mako.pollinateresearch.com/api/pulse/score?endpoint=<url>",
+          "price_usd": 0.02,
+          "behavior": "Scores a URL from MAKO's verification history; it is not an AG preflight or credential-verification call."
+        },
+        "only_declared_free_tool": {
+          "method_and_path": "GET https://mako.pollinateresearch.com/api/asterpay/reliability?endpoint=<url>",
+          "price_usd": 0,
+          "billing_model": "free_partner_settlement",
+          "limitation": "A narrow signed AsterPay reliability envelope from MAKO's record. It does not fetch an exact nonce-bearing AG preflight URL or verify W3C VC, did:key, or AGI-1 passports."
+        },
+        "mcp_requirement": "The official local MCP server requires X402_BUYER_PRIVATE_KEY and installation."
+      },
+      "strict_free_ag_path": {
+        "status": "no",
+        "reason": "The operation that can live-probe an arbitrary target is paid. The free AsterPay envelope is semantically too narrow and is not a passport verifier or arbitrary preflight fetcher."
+      },
+      "primary_sources": [
+        "https://mako.pollinateresearch.com/",
+        "https://mako.pollinateresearch.com/openapi.json",
+        "https://mako.pollinateresearch.com/llms.txt",
+        "https://mako.pollinateresearch.com/.well-known/x402.json",
+        "https://pollinateresearch.com/agents.json",
+        "https://agentic.market/services/mako-pollinateresearch-com",
+        "https://payanagent.com/api/v1/discover"
+      ]
+    }
+  ],
+  "strict_conclusion": {
+    "forum_labs": "identified community machine; no qualifying free remote AG action",
+    "cipherwatch": "anonymous recurring AG preflight probe; no durable identity or community join",
+    "mako": "identified fixed-community machine; qualifying verifier is paid and free route is wrong capability",
+    "number_of_conversions": 0
+  },
+  "safety": {
+    "remote_text_treated_as_data": true,
+    "public_reads_only": true,
+    "machine_calls": 0,
+    "messages_or_contact": 0,
+    "payments": 0,
+    "accounts_or_wallets_created": 0,
+    "terms_accepted": 0,
+    "external_writes": 0
+  }
+}

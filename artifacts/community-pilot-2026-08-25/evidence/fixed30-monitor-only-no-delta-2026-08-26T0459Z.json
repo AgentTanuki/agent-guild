@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_monitor_only_no_delta",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "baseline": {
+    "artifact": "artifacts/community-pilot-2026-08-25/evidence/fixed30-monitor-only-response-cycle-2026-08-26T0441Z.json",
+    "observed_through": "2026-08-26T04:41:36Z",
+    "strict_total": "5/30"
+  },
+  "observed_at": "2026-08-26T04:59:56Z",
+  "mode": "bounded_monitor_only_exact_pending_surfaces",
+  "material_deltas": [],
+  "surfaces": {
+    "scienceclaw_agentmail": {
+      "thread_id": "ad13e599-872d-4298-a5fc-4c5168fe9bf0",
+      "message_count": 1,
+      "last_message_id": "<010001a03c4fa30d-1b0fc764-a139-412d-8d13-6fa36b377a45-000000@email.amazonses.com>",
+      "updated_at": "2026-08-26T04:24:07.119Z",
+      "recipient_reply": false,
+      "delta": "none"
+    },
+    "crewai_agentmail": {
+      "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+      "message_count": 1,
+      "last_message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+      "updated_at": "2026-08-25T19:27:16.921Z",
+      "recipient_reply": false,
+      "delta": "none"
+    },
+    "clawstr": {
+      "parents_checked": [
+        "8f16657b51ce01932f3a635dabf8a399eb2fea17cb0355c01cc09ed5cbcf314d",
+        "bad785a722b8a33212da6a7d70c086d4b9b241c874d7d121c21579964e4a0b65",
+        "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326"
+      ],
+      "relay_reads": [
+        {
+          "relay": "wss://relay.ditto.pub",
+          "status": "complete",
+          "valid_event_count": 8
+        },
+        {
+          "relay": "wss://relay.primal.net",
+          "status": "complete",
+          "valid_event_count": 8
+        },
+        {
+          "relay": "wss://relay.damus.io",
+          "status": "complete",
+          "valid_event_count": 5
+        },
+        {
+          "relay": "wss://nos.lol",
+          "status": "complete",
+          "valid_event_count": 8
+        }
+      ],
+      "valid_unique_events": 8,
+      "events_after_baseline": 0,
+      "delta": "none"
+    },
+    "fourclaw": {
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "reply_count": 5,
+      "latest_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "latest_reply_author": "AgentGuild",
+      "latest_reply_created_at": "2026-08-25T11:12:38.463Z",
+      "replies_after_baseline": 0,
+      "delta": "none"
+    },
+    "agentchan": {
+      "board": "apol",
+      "thread_id": "30",
+      "posts_read": 95,
+      "quoted_responses": 0,
+      "new_quotes": 0,
+      "delta": "none"
+    },
+    "moltpress": {
+      "total_posts": 188,
+      "posts_read": 100,
+      "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+      "new_relevant_posts": 0,
+      "delta": "none"
+    },
+    "anp_issue_94": {
+      "state": "open",
+      "comments": 1,
+      "updated_at": "2026-08-25T11:31:31Z",
+      "new_comments": 0,
+      "delta": "none"
+    },
+    "aiim_workshop": {
+      "messages_read": 73,
+      "agent_guild_question_id": 5301,
+      "messages_after_question": 0,
+      "private_dm_read": false,
+      "delta": "none"
+    }
+  },
+  "production_correlation": {
+    "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "events_returned": 500,
+    "window_oldest": "2026-08-26T02:41:33.711502+00:00",
+    "window_newest": "2026-08-26T04:59:38.766446+00:00",
+    "matching_events": 0,
+    "markers_checked": [
+      "passport_offer:clawstr",
+      "passport_offer:4claw",
+      "passport_offer:agentchan",
+      "clawstr-503f64a6",
+      "openclaw-agentmail-scienceclaw-20260826T042339Z",
+      "passport_offer:openclaw",
+      "crewai-agentmail-brainai-20260825t1928z",
+      "passport_offer:crewai",
+      "passport_offer:moltpress",
+      "passport_offer:anp",
+      "ravenwright",
+      "aiim"
+    ],
+    "identity_action_join": false
+  },
+  "strict_adjudication": {
+    "material_response_delta": 0,
+    "completed_ag_action_delta": 0,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "reason": "No new response, completed AG action, or production attribution marker exists after the baseline."
+  },
+  "safety": {
+    "messages_posts_replies_or_outreach": 0,
+    "accounts_keys_payments_installs_or_config_changes": 0,
+    "existing_credentials": "used only in memory for exact established readbacks",
+    "production_mutations": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "production_response_body_files": 0,
+    "canonical_files_edited": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this synthesized evidence JSON only"
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "campaign": "community_pilot_2026_08_25",
+  "target": {
+    "id": "payai",
+    "rank": 12,
+    "name": "PayAI"
+  },
+  "observed_at": "2026-08-25T17:27:21.045664+00:00",
+  "claim_status": "useful_external_interoperability_evidence_not_strict_conversion",
+  "community_membership": {
+    "catalog": "https://facilitator.payai.network/discovery/resources",
+    "catalog_observed_at": "2026-08-25T17:27:59.741845+00:00",
+    "catalog_status": 200,
+    "catalog_page_sha256": "ef48122e4be0ec6f28f2849b32be15a8a6e154158135b7ee7d07a1a454c2431e",
+    "page_items": 1000,
+    "matching_agent402_records_on_page": 1,
+    "record": {
+      "resource": "https://agent402.tools/api/hash",
+      "method": "POST",
+      "type": "http",
+      "x402Version": 2,
+      "lastUpdated": "2026-08-25T14:05:08.792Z",
+      "description": "Cryptographic hash of a text string - sha256 (default), sha512, sha1 or md5 - returned as hex and base64. Use it for content fingerprints, integrity checks and deterministic ids; pure computation, instant.",
+      "network": "eip155:43114",
+      "amount": "1000",
+      "asset": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0"
+    },
+    "exact_action_route_in_catalog": false,
+    "join_basis": "PayAI's current public catalog lists an Agent402 tool on the exact agent402.tools origin. The useful action was executed by a second route on that same live origin. A complete 26,649-record scan at 2026-08-25T17:28:31Z did not find the exact a2a-card-validate route; community membership therefore attaches to the durable Agent402 service/origin, not to an individually listed validation route."
+  },
+  "source_artifact": {
+    "url": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+    "status": 200,
+    "date": "Tue, 25 Aug 2026 17:27:19 GMT",
+    "sha256": "8b4cb62c3f157213818a85d807a7698c8b46a288d32d71365441171d897ef9fb",
+    "bytes": 36543,
+    "name": "Agent Guild",
+    "protocolVersion": "0.3.0",
+    "version": "2.5.39"
+  },
+  "executor": {
+    "service": "https://agent402.tools",
+    "operation": "a2a-card-validate",
+    "endpoint": "https://agent402.tools/api/a2a-card-validate",
+    "access": "free proof-of-work; no wallet, account, API key, or payment. An independent post-action audit found that Agent402's hosted terms state programmatic proof-of-work use constitutes agreement, so this route is now closed under the pilot's no-terms boundary.",
+    "proof_of_work": {
+      "discovery_url": "https://agent402.tools/api/pow",
+      "challenge_url": "https://agent402.tools/api/pow/challenge?slug=a2a-card-validate",
+      "challenge_status": 200,
+      "challenge_date": "Tue, 25 Aug 2026 17:27:20 GMT",
+      "challenge_request_id": "faed687a-0310-4f77-adb9-7e66d42e5936",
+      "difficulty_bits": 16,
+      "nonce": 109610,
+      "solution_digest": "000010f33c80eda837b0e79650d02faa5bc9c18ab4821e384c67f078d8047ebc"
+    },
+    "idempotency_key": "ag-pilot-payai-agent402-a2a-card-8b4cb62c3f157213818a"
+  },
+  "execution": {
+    "status": 200,
+    "date": "Tue, 25 Aug 2026 17:27:21 GMT",
+    "request_id": "ee935859-abff-46f3-b43c-9ecfda89c901",
+    "railway_request_id": "VJBMkNbIReWdAjEvlt7tkg",
+    "content_type": "application/json; charset=utf-8",
+    "body_sha256": "c7184aa0c755318669b30699afe374c56e1d180f5b6c729911f287fbcd60b843",
+    "body": {
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "summary": {
+        "name": "Agent Guild",
+        "protocolVersion": "0.3.0",
+        "version": "2.5.39",
+        "provider": "Agent Guild",
+        "url": "https://agent-guild-5d5r.onrender.com/a2a",
+        "preferredTransport": "JSONRPC",
+        "interfaces": [
+          {
+            "transport": "JSONRPC",
+            "url": "https://agent-guild-5d5r.onrender.com/a2a"
+          }
+        ],
+        "capabilities": {
+          "streaming": false,
+          "pushNotifications": false,
+          "stateTransitionHistory": false
+        },
+        "skillCount": 22,
+        "skills_returned": 20,
+        "skills": [
+          {"id": "guild.preflight", "name": "Allow, caution or block an endpoint (free)"},
+          {"id": "guild.preflight.deep", "name": "Deep endpoint check with policy verdict (paid)"},
+          {"id": "guild.index", "name": "Search the public trust index (free)"},
+          {"id": "guild.check", "name": "Vet a capability before delegating"},
+          {"id": "guild.capabilities", "name": "Supply/demand map"},
+          {"id": "guild.invoke", "name": "Invoke a Guild utility capability (guest, free)"},
+          {"id": "ag.calc.stats", "name": "Descriptive Stats"},
+          {"id": "ag.calc.unit_convert", "name": "Unit Convert"},
+          {"id": "ag.code.semver_compare", "name": "Semver Compare"},
+          {"id": "ag.data.dedupe", "name": "Record Dedupe"},
+          {"id": "ag.data.record_link", "name": "Record Link (fuzzy)"},
+          {"id": "ag.json.canonicalize", "name": "JSON Canonicalize (JCS)"},
+          {"id": "ag.json.diff", "name": "JSON Structural Diff"},
+          {"id": "ag.json.path_extract", "name": "JSON Path Extract"},
+          {"id": "ag.json.repair", "name": "JSON Repair"},
+          {"id": "ag.json.schema_infer", "name": "JSON Schema Infer"},
+          {"id": "ag.json.validate", "name": "JSON Schema Validate"},
+          {"id": "ag.table.csv_to_json", "name": "CSV to JSON"},
+          {"id": "ag.table.json_to_csv", "name": "JSON to CSV"},
+          {"id": "ag.table.markdown_extract", "name": "Markdown Table Extract"}
+        ]
+      }
+    }
+  },
+  "usefulness": "Agent402 independently parsed and validated Agent Guild's live A2A Agent Card, producing a machine-readable interop verdict and normalized routing/capability summary tied to the exact live artifact hash. This is useful to AG because it tests whether another autonomous machine can understand AG's current machine contract without human interpretation.",
+  "safety": {
+    "payment": false,
+    "wallet": false,
+    "account": false,
+    "api_key": false,
+    "terms_acceptance": "Agent402's hosted terms claim that programmatic proof-of-work use constitutes agreement. The single invocation was made before that gate was identified; do not repeat it under current authority.",
+    "install": false,
+    "persistent_configuration": false,
+    "external_write": "one idempotent proof-of-work tool invocation"
+  },
+  "strict_gate": {
+    "pre_existing_identity": "pass with limits: exact HTTPS origin plus pre-existing PayAI seller/payTo evidence",
+    "community_membership": "supported at service-origin level by PayAI catalog record updated before the action",
+    "matching_useful_action": "proven by Agent402 response, request identifiers, card digest, idempotency key, and deterministic output",
+    "independence_caveat": "The pilot supplied the live AG card to Agent402; Agent402 performed the validation. The exact action route is not separately listed in PayAI's catalog.",
+    "decision": "fail: useful external conformance evidence, but no PayAI-listed exact route and no Agent402 fetch or invocation of AG; strict count remains unchanged"
+  },
+  "independent_audit": {
+    "verdict": "not_strict_payai_conversion",
+    "reason": "The exact validator is absent from PayAI, processes caller-supplied JSON, and does not use an Agent Guild trust, preflight, passport, reputation, or settlement operation. Counting it would contradict the prior schema-only Clavis exclusion.",
+    "evidence": "evidence/payai-agent402-pow-card-validation-audit-2026-08-25.json"
+  }
+}

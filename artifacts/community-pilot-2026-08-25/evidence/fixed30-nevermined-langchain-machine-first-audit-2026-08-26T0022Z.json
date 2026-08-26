@@ -1,0 +1,242 @@
+{
+  "schema": "agent-guild.community-pilot.nevermined-langchain-machine-first-audit.v1",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at_utc": "2026-08-26T00:22:03Z",
+  "mode": "current_public_first_party_and_registry_reads_in_memory",
+  "scope": [
+    "nevermined",
+    "langchain"
+  ],
+  "qualification_rule": "A strict route must join a durable pre-existing fixed-community machine identity to a live free anonymous bounded operation that independently consumes an Agent Guild trust, passport, preflight, verification, or settlement result. Caller-supplied-only validation, schema checks, probes, offers, listings, acknowledgements, fixed self-tests, and merely fetching availability do not qualify.",
+  "overall_decision": "NO_GO",
+  "strict_conversion_delta": 0,
+  "targets": [
+    {
+      "target_id": "nevermined",
+      "decision": "NO_GO",
+      "strongest_machine": {
+        "name": "Revettr",
+        "provider_did": "did:web:revettr.com",
+        "durable_nevermined_membership": {
+          "source": "https://github.com/nevermined-io/payments/issues/286",
+          "state": "open",
+          "created_at": "2026-04-11T01:03:01Z",
+          "updated_at": "2026-08-17T14:00:56Z",
+          "identity_claim": "The issue author identifies Revettr as an operating trust-evidence issuer and proposes integration into Nevermined's x402 verify flow."
+        },
+        "machine_surfaces": {
+          "health": "https://revettr.com/health",
+          "risk_discovery": "https://revettr.com/.well-known/risk-check.json",
+          "mcp_discovery": "https://revettr.com/.well-known/mcp/server.json",
+          "mcp_endpoint": "https://revettr.com/mcp",
+          "openapi": "https://revettr.com/openapi.json"
+        },
+        "current_health": {
+          "http_status": 200,
+          "status": "ok",
+          "version": "0.1.0",
+          "payments": "operational",
+          "scoring": "operational"
+        },
+        "current_free_operations": [
+          {
+            "operation": "POST /v1/score",
+            "free_tier": "100 requests/day per IP",
+            "input": "Caller supplies domain, ip, wallet_address, company_name, or stellar_wallet.",
+            "server_work": "Revettr independently gathers applicable domain, IP, sanctions, wallet, ERC-8004, and Stellar risk signals.",
+            "strict_limit": "The subject is caller supplied and the operation does not fetch or verify an AG artifact or consume an AG verdict."
+          },
+          {
+            "operation": "POST /v1/attest",
+            "free_tier": "10 requests/minute per IP",
+            "input": "The same caller-supplied ScoreRequest identifiers.",
+            "output": "Compact ES256 JWS compliance_risk attestation issued by did:web:revettr.com.",
+            "strict_limit": "A signed Revettr score is durable evidence, but its subject is not an independently retrieved AG trust result."
+          },
+          {
+            "operation": "POST /v1/iss-verdict",
+            "free_tier": "free prototype",
+            "input": "Caller supplies an already validated iss and iss_kind.",
+            "machine_declared_boundary": "The discovery and OpenAPI state that issuer identity validation is the caller's job and the result is advisory/non-blocking.",
+            "strict_limit": "It does not resolve or verify an AG passport, credential, or issuer key."
+          },
+          {
+            "operation": "GET /v1/session/verify?token=...",
+            "free_tier": "60 requests/minute",
+            "verification_scope": "Only Revettr ES256 session tokens created by its paid /v1/score/session route.",
+            "strict_limit": "It is not a general W3C or AG credential verifier."
+          }
+        ],
+        "paid_mcp_contract": {
+          "price": "$0.01",
+          "protocols": [
+            "x402",
+            "mpp"
+          ],
+          "reason_not_invoked": "Payment is forbidden and the declared tools still accept only caller-supplied subject identifiers."
+        }
+      },
+      "official_nevermined_machine_registry": {
+        "openapi": "https://api.sandbox.nevermined.app/api/v1/rest/docs-json",
+        "version": "1.20.0",
+        "public_reads": [
+          "GET /api/v1/protocol/agents/{agentId}",
+          "GET /api/v1/protocol/agents/{agentId}/plans",
+          "GET /api/v1/protocol/plans/{planId}/agents"
+        ],
+        "discovery_limit": "All public agent reads require a pre-known agent or plan id; the agent and plan catalogs require bearer authentication.",
+        "all_plans_probe": {
+          "url": "https://api.sandbox.nevermined.app/api/v1/protocol/all-plans",
+          "http_status": 401,
+          "code": "BCK.AUTH.0002",
+          "message": "Anonymous access is not permitted on this endpoint."
+        },
+        "new_public_machine_identity_discovered": false
+      },
+      "secondary_runtime": {
+        "name": "Authenticated MCP Agent",
+        "url": "https://authenticated-mcp-traced-agent.getvda.ai",
+        "nevermined_join": "Its live llms.txt explicitly states that input-bearing execution is metered by Nevermined x402.",
+        "free_operation": "Fixed canned selftest only.",
+        "strict_limit": "It accepts no external AG input on the free path."
+      },
+      "candidate_operation_invoked": false,
+      "exact_missing_join": "Revettr is a live durable Nevermined participant with useful trust machinery, but none of its free operations independently obtains an AG artifact or verifies an AG signature. Nevermined's own public protocol surfaces cannot enumerate candidate agents anonymously.",
+      "smallest_exact_ready_gate": "On Revettr, add one anonymous free bounded `fetch_and_attest_credential({credential_url})` operation. It must SSRF-safely GET the AG passport URL, bind final_url and body_sha256, resolve the issuer key independently, verify the W3C signature and expiry, and return a Revettr-signed envelope containing issuer, credential_subject, signature_valid, checked_at and a clear caller_supplied=false/source=server_fetched marker."
+    },
+    {
+      "target_id": "langchain",
+      "decision": "NO_GO",
+      "strongest_first_party_machine": {
+        "name": "Chat LangChain",
+        "community_identity": {
+          "repository": "https://github.com/langchain-ai/chat-langchain",
+          "commit": "6f7ee9f49ac8ea75440136b3c58bba55eee56c1a",
+          "commit_url": "https://github.com/langchain-ai/chat-langchain/commit/6f7ee9f49ac8ea75440136b3c58bba55eee56c1a",
+          "hosted_runtime": "https://chat.langchain.com",
+          "runtime_http_status": 200,
+          "framework": "Managed Deep Agents plus LangChain Agents"
+        },
+        "declared_scope": "Documentation assistant for LangChain, LangGraph, and LangSmith with docs MCP, support knowledge base, guardrails, and link validation.",
+        "machine_interface_checks": {
+          "https://chat.langchain.com/.well-known/agent-card.json": 404,
+          "https://chat.langchain.com/openapi.json": 404,
+          "https://chat.langchain.com/api/openapi.json": 404,
+          "https://chat.langchain.com/llms.txt": 404,
+          "GET https://chat.langchain.com/api/auth/guest": 405
+        },
+        "identity_gate": {
+          "source": "https://github.com/langchain-ai/chat-langchain/blob/6f7ee9f49ac8ea75440136b3c58bba55eee56c1a/identity.py",
+          "ingress_mode": "validated_token",
+          "allowed_token_types": "Supabase access token or Managed Deep Agents guest token",
+          "guest_issue_route": "POST /identity/guest via the frontend POST /api/auth/guest proxy",
+          "guest_token_ttl": "24h",
+          "reason_not_attempted": "The task forbids signup/auth acquisition, and guest issuance creates an authenticated actor/thread identity."
+        },
+        "closest_tool": {
+          "name": "check_links",
+          "source": "https://github.com/langchain-ai/chat-langchain/blob/6f7ee9f49ac8ea75440136b3c58bba55eee56c1a/src/tools/link_check_tools.py",
+          "input_schema": {
+            "urls": "list[string]",
+            "timeout": "float, default 10 seconds"
+          },
+          "execution": "For non-LangChain domains it sends HEAD and falls back to GET only on HTTP 405; it returns URL validity, status, error, and redirect final_url.",
+          "strict_limit": "It does not read, parse, hash, verify, or use the AG response body. Calling it with an AG preflight URL would be only an availability probe, explicitly excluded from conversion."
+        },
+        "candidate_operation_invoked": false
+      },
+      "strongest_keyless_registry_machine": {
+        "name": "Authenticated MCP Agent",
+        "a2a_registry_id": "d80326d1-8724-4e92-a502-ef8241befcb0",
+        "runtime": "https://authenticated-mcp-traced-agent.getvda.ai",
+        "health": {
+          "http_status": 200,
+          "version": "0.1.1",
+          "packages": [
+            "bcrypt",
+            "cryptography",
+            "langchain-core",
+            "mcp",
+            "opentelemetry-sdk",
+            "python-jose"
+          ]
+        },
+        "signed_identity": {
+          "card": "https://authenticated-mcp-traced-agent.getvda.ai/.well-known/agent.json",
+          "proof_type": "JsonWebSignature2020",
+          "algorithm": "EdDSA",
+          "jwks": "https://agents.getvda.ai/.well-known/jwks.json"
+        },
+        "free_contract": {
+          "paths": [
+            "GET/POST /selftest",
+            "GET /verify",
+            "POST /mcp-free"
+          ],
+          "llms_rule": "all tools: invoke,selftest; free tool: selftest",
+          "selftest_semantics": "Runs real LangChain-backed execution on fixed canned input and returns a signed VDA Witness record.",
+          "strict_limit": "No caller-controlled external URL or AG artifact is accepted. Input-bearing invoke remains Nevermined-x402 metered."
+        }
+      },
+      "registry_refresh": {
+        "official_mcp_langchain": {
+          "url": "https://registry.modelcontextprotocol.io/v0.1/servers?search=langchain&version=latest&limit=100",
+          "current_matches": 2,
+          "records": [
+            {
+              "name": "io.github.baixianger/langchain-mcp",
+              "version": "2.0.0",
+              "route": "stdio package only",
+              "gate": "install required; no hosted runtime"
+            },
+            {
+              "name": "io.github.doc2mcp/langchain",
+              "version": "1.0.1781396655",
+              "route": "hosted fixed LangChain documentation MCP",
+              "gate": "required secret bearer project token"
+            }
+          ]
+        },
+        "official_mcp_langgraph_matches": 0,
+        "official_mcp_langsmith_matches": 0,
+        "a2a_langchain": {
+          "url": "https://a2aregistry.org/api/agents?search=langchain&limit=100",
+          "current_matches": 3,
+          "interpretation": "Authenticated MCP Agent is the only record with direct LangChain runtime proof. HiveGate is an adapter/bridge listing with fees, and AAAA-Nexus only names LangChain in cross-framework portability claims."
+        },
+        "a2a_langgraph_matches": 1,
+        "a2a_langgraph_interpretation": "FleetHelp is an operations/support agent record; the search hit does not prove LangGraph execution and its card declares no AG-consuming fetch or verifier.",
+        "a2a_langsmith_matches": 0
+      },
+      "exact_missing_join": "Chat LangChain supplies the strongest first-party identity and an outbound URL checker, but authenticated ingress blocks the permitted path and the tool is only a status probe. The strongest anonymous signed LangChain machine exposes only a fixed selftest; its external-input path is paid.",
+      "smallest_exact_ready_gate": "On Chat LangChain, expose a stateless public no-token one-shot machine endpoint whose declared input is `{url:string}` and whose implementation uses an SSRF-safe GET, not `check_links`. It must parse the exact nonce-bearing AG preflight or passport JSON, return the consumed observation_id or credential-verification fields plus final_url, body_sha256 and completed_at, and issue a stable receipt/result id readable without the guest token."
+    }
+  ],
+  "machine_derived_adaptation": {
+    "established_runtime_defect": false,
+    "adaptation_candidate": "Publish operation-level provenance metadata that distinguishes `caller_supplied`, `server_fetched`, and `fixed_canned` subjects, plus `assertion_grade`, `trust_root`, and `durable_result` fields. Revettr's machine contract and the VDA selftest make these distinctions explicit, while registry labels such as verify, trust, free, or link-check otherwise overstate what a machine actually consumed.",
+    "classification": "discovery_and_evidence_interoperability_candidate_only",
+    "reason": "The no-go is caused by target-side access and operation semantics, not an observed failure in Agent Guild production."
+  },
+  "result": {
+    "newly_ready_routes": 0,
+    "candidate_operations_invoked": 0,
+    "strict_conversions_added": 0,
+    "strict_delta": 0,
+    "reason": "Nevermined's strongest participant remains caller-subject-only, while LangChain's first-party outbound tool is authenticated and probe-only; its anonymous signed machine remains fixed-input-only."
+  },
+  "safety": {
+    "public_reads_only": true,
+    "production_response_bodies_written_to_files": false,
+    "external_writes_or_outreach": 0,
+    "accounts_or_keys_created": 0,
+    "auth_or_guest_tokens_acquired": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "candidate_operations_invoked": 0,
+    "canonical_targets_or_readme_edited": 0,
+    "local_evidence_files_written": 1
+  }
+}

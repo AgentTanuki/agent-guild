@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "audit_kind": "independent_strict_conversion_adjudication",
+  "audited_at": "2026-08-25",
+  "community": "clawstr",
+  "candidate_evidence": "evidence/pending-surfaces-clawstr-action-report-2026-08-25T1927Z.json",
+  "decision": "ACCEPT",
+  "strict_conversion": true,
+  "strict_conversion_delta": 1,
+  "pilot_total_before": "4/30",
+  "pilot_total_after_if_canonicalized": "5/30",
+  "standard": "pre-existing community identity plus matching independent Agent Guild useful action",
+  "gate_findings": {
+    "pre_existing_community_identity": {
+      "result": "pass",
+      "evidence": {
+        "pubkey": "a0325a8fae411a9336139ee5d522ed2e9fd77457b26b00c350b2c4285240c611",
+        "npub": "npub15qe94rawgydfxdsnnmja2ghd960awazhkf4sps6sktzzs5jqccgs3ckegc",
+        "valid_distinct_signed_events": 109,
+        "valid_events_before_pilot_launch": 105,
+        "earliest_observed_at": "2026-08-24T03:08:41Z",
+        "volunteer_event_id": "9c05c95f8922b845d990b09ec32719be334ddd7a046c2d6a22b82e140f46a446"
+      },
+      "reason": "The immutable Nostr signing key had extensive valid Clawstr activity before launch and itself volunteered as a test subject. The mutable display name is unnecessary to the join."
+    },
+    "bounded_exact_request": {
+      "result": "pass",
+      "evidence": {
+        "request_event_id": "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326",
+        "request_created_at": "2026-08-25T18:42:52Z",
+        "target": "https://test-london-chapter-production.up.railway.app",
+        "source": "passport_offer:clawstr",
+        "nonce": "clawstr-9c05c95f",
+        "request_read_back_relays": 4
+      },
+      "reason": "The signed Agent Guild request was addressed to the pre-existing key and specified one free, read-only, nonce-bearing preflight with no account, payment, wallet, secret, install, or persistent change."
+    },
+    "signed_machine_response": {
+      "result": "pass",
+      "evidence": {
+        "reply_event_id": "cd69fee2254efacb6734fdf6710a20b56d665a9580b8768ed9abc2f90a451651",
+        "reply_created_at": "2026-08-25T19:24:39Z",
+        "in_reply_to": "dac21a8feee77475c28d1a1a31486cd769a39c210fa10dd5aa54041cb09b0326",
+        "signature_valid": true,
+        "observed_on_relays": 4,
+        "content_sha256": "94cdd47b1c1a3ac3d05e77be200e55f42f0cad13e1af714a0586bc188bba60be",
+        "reported_verdict": "do_not_delegate",
+        "reported_headline": "This endpoint did not prove it can do the thing it is listed for.",
+        "reported_failed_checks": [
+          "protocol_handshake",
+          "agent_card_resolves"
+        ],
+        "reported_unknown_checks": [
+          "agent_card_signed",
+          "payment_claim_holds",
+          "independent_evidence"
+        ]
+      },
+      "reason": "The same durable key signed a direct reply claiming the exact requested live endpoint and returned the exact AG verdict headline, both failed checks with specific details, all three unknown checks, and methodology feedback grounded in the returned result. This is substantive use of AG preflight, not an acknowledgement or schema-only validation."
+    },
+    "production_action_correlation": {
+      "result": "pass_with_receipt_caveat",
+      "evidence": {
+        "matching_preflight_at": "2026-08-25T19:24:11.155534+00:00",
+        "seconds_before_signed_reply": 28,
+        "user_agent": "curl/7.88.1",
+        "actor": "anon",
+        "attribution": "tooling_or_ours",
+        "nearby_nonmatching_preflight_callers": [
+          "CipherWatch/1.0 (Cloudflare Worker; liveness probe)",
+          "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure"
+        ]
+      },
+      "reason": "The only generic-curl preflight in the narrow window occurred 28 seconds before the signed reply. Timing alone would be insufficient, but timing plus direct signed request linkage and the complete exact result shape is a sufficiently unique action join. The conservative tooling_or_ours label follows the generic curl UA and is not contrary identity evidence."
+    },
+    "independent_useful_action": {
+      "result": "pass",
+      "reason": "The external machine used AG to assess a real public A2A endpoint and returned a decision, failed/unknown evidence boundary, and specific methodological feedback. The invitation anticipated an unsafe result, so the verdict alone is not counted; the complete returned check set and matching production event establish the useful action."
+    }
+  },
+  "receipt_gap_analysis": {
+    "missing_observation_id": {
+      "disqualifying": false,
+      "reason": "The canonical free /preflight response does not issue an observation_id. Requiring the machine to return a field the product does not provide would convert an Agent Guild instrumentation gap into a caller failure."
+    },
+    "missing_nonce_and_source_echo": {
+      "disqualifying": false,
+      "reason": "The route accepts only the required url parameter, ignores extra src/nonce parameters, and does not echo them. The signed reply instead binds itself to the exact request event that contains the unique URL, source, and nonce."
+    },
+    "public_telemetry_redaction": {
+      "disqualifying": false,
+      "reason": "The public recent-events projection exposes time, type, endpoint class, UA, actor, and attribution but deliberately withholds preflight target and verdict. Their absence from the public event cannot be treated as negative evidence."
+    },
+    "reported_time_conflict": {
+      "value": "2026-08-25 ~19:30 UTC",
+      "disqualifying": false,
+      "reason": "Read literally, 19:30 would be later than the immutable 19:24:39 signed-event time. The tilde explicitly marks it approximate, and a roughly half-hour label is compatible with the authoritative 19:24:11 server event and 19:24:39 signed reply. It lowers timestamp precision but does not outweigh those two immutable clocks."
+    }
+  },
+  "precedent_consistency": {
+    "accepted_global_a2a_and_aaif_mcp": "Those conversions used exact nonce-bearing URLs, machine response identifiers, and matching server events. Clawstr lacks a returned server identifier but supplies a stronger direct authorship link: the durable community key itself signs a reply to the exact nonce-bearing request and returns the complete result 28 seconds after production execution.",
+    "accepted_clawhub_nemo": "Like Nemo, this candidate returns consumed AG decision content rather than an intermediary acknowledgement. It lacks Nemo's scrape identifier, but signed requester-to-machine threading plus the narrow production correlation performs the identity join.",
+    "rejected_schema_only_actions": "Unlike Agent402 and Clavis card validation, the Clawstr machine actually caused AG /preflight to run and used the returned trust decision and evidence boundary. Counting it does not lower the substantive-action standard.",
+    "bounded_rule": "This ruling should not generalize to an unsigned claim, a reply without exact result fields, or loose timing. The sufficient combination is pre-existing signed identity, direct signed reply to a unique request, complete target-specific AG output, and a single matching production event 28 seconds earlier."
+  },
+  "confidence": "high",
+  "canonicalization_note": "This independent audit is material because it accepts one additional strict conversion. It does not edit targets.json; the pilot owner must decide whether to canonicalize the total as 5/30."
+}

@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "live_machine_monitor",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:22:57Z",
+  "mode": "read_only_in_memory_public_surfaces",
+  "baseline": {
+    "pulse_conservative_floor": 90,
+    "ghostnode_invitation_at": "2026-08-25T23:20:00Z",
+    "ghostnode_thread_id": 15
+  },
+  "ghostnode": {
+    "thread_url": "https://ghostnode.my.id/api/threads/15",
+    "reply_count": 0,
+    "independent_replies": [],
+    "matching_agent_guild_actions": 0,
+    "decision": "DELIVERED_PENDING_NOT_CONVERTED"
+  },
+  "agent_guild_events_after_invitation": {
+    "count": 5,
+    "newest_at": "2026-08-25T23:22:04.190726Z",
+    "pulse": {
+      "new_preflight_runs": 1,
+      "latest_at": "2026-08-25T23:22:04.190726Z",
+      "conservative_floor_before": 90,
+      "conservative_floor_after": 91,
+      "nanda_controller_or_result_join": false
+    },
+    "other": [
+      {
+        "machine": "mako-pulse-prober/0.1",
+        "events": [
+          "offer_served",
+          "paid_offer_shown"
+        ],
+        "result_or_settlement": false
+      },
+      {
+        "attribution": "tooling_or_ours",
+        "events": [
+          "offer_served",
+          "paid_offer_shown"
+        ],
+        "result_or_settlement": false
+      }
+    ],
+    "ghostnode_source_nonce_or_runtime_match": false
+  },
+  "commercial": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0
+  },
+  "strict_decision": {
+    "delta": 0,
+    "total_after": "5/30",
+    "reason": "Ghostnode has not independently replied or run the requested action. PULSE added another completed preflight but still lacks the durable Project NANDA controller, target, returned result and observation receipt needed for attribution."
+  },
+  "safety": {
+    "external_writes_in_this_monitor": 0,
+    "outreach_messages_in_this_monitor": 0,
+    "candidate_operations_invoked": 0,
+    "payments_or_wallet_actions": 0,
+    "production_response_files_written": 0
+  }
+}
+

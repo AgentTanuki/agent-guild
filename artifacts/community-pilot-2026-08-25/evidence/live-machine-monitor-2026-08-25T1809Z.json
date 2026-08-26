@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T18:09:21Z",
+  "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+  "source_status": 200,
+  "source_date": "Tue, 25 Aug 2026 18:09:21 GMT",
+  "source_policy": "public privacy-safe telemetry; target URLs, results, and full actor identities are withheld",
+  "nanda_pulse": {
+    "events_after_prior_floor": [
+      {
+        "genuine_external": false,
+        "attribution": "unrecognised_external",
+        "at": "2026-08-25T17:59:47.668313+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight",
+        "first_party": false,
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "actor": "anon"
+      },
+      {
+        "genuine_external": false,
+        "attribution": "unrecognised_external",
+        "at": "2026-08-25T18:04:49.378082+00:00",
+        "type": "preflight_run",
+        "endpoint": "preflight",
+        "first_party": false,
+        "user_agent": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "actor": "anon"
+      }
+    ],
+    "prior_defensible_floor_through_2026_08_25T17_54_45Z": 27,
+    "new_events_after_prior_floor": 2,
+    "current_defensible_cumulative_floor": 29,
+    "strict_conversion": false,
+    "reason": "Sustained autonomous use continues, but the public events still contain no target, result, NEST identity, signed controller receipt, observation_id, or exact public source join. The self-claimed truncated user agent alone is not durable community identity proof."
+  },
+  "conversion_delta": 0
+}

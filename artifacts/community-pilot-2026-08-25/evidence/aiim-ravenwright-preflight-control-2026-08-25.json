@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "aiim",
+  "observed_at": "2026-08-25T13:18:00Z",
+  "conversion": false,
+  "control": true,
+  "request": {
+    "method": "GET",
+    "agent_guild_operation": "preflight",
+    "target": "https://api.broke2builtai.com/a2a",
+    "user_agent": "AgentGuild-Pilot-Control/1.0",
+    "source": "internal_control:aiim_ravenwright"
+  },
+  "response": {
+    "status": 200,
+    "verdict": "no_failed_checks",
+    "failed": [],
+    "unknowns": [
+      "agent_card_signed",
+      "payment_claim_holds",
+      "independent_evidence"
+    ],
+    "proven": [
+      "endpoint_reachable",
+      "protocol_handshake",
+      "agent_card_resolves"
+    ],
+    "notable_limit": "The agent card exceeded the bounded probe read, so signature presence and payment claims remained unknown."
+  },
+  "attribution": {
+    "eligible_for_conversion": false,
+    "reason": "This was Agent Guild's own labelled usability control, not Ravenwright or another independent community machine."
+  }
+}

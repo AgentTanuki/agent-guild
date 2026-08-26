@@ -1,0 +1,191 @@
+{
+  "schema_version": "community-pilot-framework-route.v1",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T19:12:32Z",
+  "scope": [
+    "crewai",
+    "ag2",
+    "langchain",
+    "naptha",
+    "openclaw",
+    "elizaos"
+  ],
+  "constraints": {
+    "public_contract_and_identity_reads_only": true,
+    "response_bodies_kept_in_memory": true,
+    "machine_tools_invoked": 0,
+    "messages_or_external_writes": 0,
+    "accounts_or_credentials_created": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "targets_json_edited": false
+  },
+  "strict_result": {
+    "decision": "RANKED_NO_GO",
+    "qualifying_routes": 0,
+    "reason": "No pre-existing identity in the six named framework communities currently combines proven framework-runtime membership, a live hosted operation, anonymous zero-cost access, and substantive Agent Guild preflight, passport, trust-decision, collaboration, or settlement semantics."
+  },
+  "ranked_candidates": [
+    {
+      "rank": 1,
+      "target": "openclaw",
+      "candidate": "Dokki",
+      "identity_join": {
+        "registry_id": "58d7daa3-379c-4c3d-a334-b50b1752813e",
+        "registry_created_at": "2026-06-17T09:13:51.294103Z",
+        "card": "https://openagora.cc/agents/a9e94bd1-8cc1-41b0-8083-ecb0b938f2b0/agent-card.json",
+        "runtime": "https://dokki.one/a2a",
+        "framework_evidence": "The durable A2A Registry description explicitly says the personal assistant is built with OpenClaw.",
+        "declared_skill": "Research — Web search and information synthesis",
+        "declared_authentication": "none"
+      },
+      "current_contract": {
+        "agent_card_http_status": 200,
+        "runtime_get_final_status": 200,
+        "runtime_get_final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+        "runtime_content_type": "text/html; charset=utf-8",
+        "registry_uptime_percentage": 0.0,
+        "registry_task_conformance": "405 / failed"
+      },
+      "plausible_ag_action": "Use the declared research skill to fetch a nonce-bearing AG preflight for Dokki's own endpoint and return the complete verdict.",
+      "decision": "NO_GO",
+      "gate": "The live runtime contradicts the no-auth card by redirecting to account login, and independent task conformance remains failed."
+    },
+    {
+      "rank": 2,
+      "target": "langchain",
+      "candidate": "io.github.mikerawsonnz/llm-observability-orchestration",
+      "identity_join": {
+        "registry": "Official MCP Registry",
+        "version": "1.0.0",
+        "repository": "https://github.com/mikerawsonnz/gosce-agents",
+        "runtime": "https://langchain-core-langsmith-openai-8c02f9.getvda.ai/mcp",
+        "description": "Run a prompt through a LangChain system + human chain over Gemini on Vertex AI; optional LangSmith."
+      },
+      "current_contract": {
+        "runtime_get_status": 405,
+        "runtime_get_content_type": "application/json",
+        "declared_tools_from_prior_same-day_negotiation": [
+          "invoke",
+          "selftest"
+        ],
+        "free_surface": "Fixed-input canned selftest only",
+        "substantive_surface": "invoke returned HTTP 402 before prompt execution"
+      },
+      "decision": "NO_GO",
+      "gate": "The free tool cannot accept an AG artifact or URL; the only substantive prompt operation is payment-gated and does not declare outbound AG access."
+    },
+    {
+      "rank": 3,
+      "target": "crewai",
+      "candidate": "Fetch Agentverse CrewAI-labelled runtimes",
+      "current_contracts": [
+        {
+          "name": "Job Search Agent",
+          "address": "agent1qfwawxsxm2yuyy7gcagyc5a2p72gj47zam2x8hnecmsa5qxuwn7zup8xysa",
+          "framework_evidence": "Profile explicitly declares CrewAI.",
+          "status": "inactive",
+          "unresponsive": false,
+          "last_updated": "2025-12-02T21:03:08Z",
+          "recent_interactions": 0,
+          "declared_semantics": "Job matching only"
+        },
+        {
+          "name": "Blood Report Analysis Agent",
+          "address": "agent1q2hgjvgsc0sf4fqldkru3rdxrhl4uhjzkszq5g0j9z752up2whn4ulrljql",
+          "framework_evidence": "Profile declares CrewAI plus uAgents Adapter.",
+          "status": "inactive",
+          "unresponsive": true,
+          "last_updated": "2025-10-30T12:57:10Z",
+          "recent_verified_interactions": 0,
+          "declared_semantics": "Medical PDF analysis only"
+        }
+      ],
+      "official_mcp_registry_exact_matches": 0,
+      "decision": "NO_GO",
+      "gate": "The two genuine framework-labelled machines remain inactive and expose bounded non-AG workflows. The AgentFolio issue/profile join remains operator-level rather than a live CrewAI runtime identity."
+    },
+    {
+      "rank": 4,
+      "target": "ag2",
+      "candidate": "ai.smithery/DynamicEndpoints-autogen_mcp",
+      "current_contract": {
+        "official_mcp_query_ag2_matches": 0,
+        "official_mcp_query_autogen_matches": 1,
+        "registry_version": "0.3.0",
+        "repository": "https://github.com/DynamicEndpoints/Autogen_MCP",
+        "runtime": "https://server.smithery.ai/@DynamicEndpoints/autogen_mcp/mcp",
+        "required_header": "Authorization: Bearer {smithery_api_key}"
+      },
+      "decision": "NO_GO",
+      "gate": "The route requires a secret Smithery credential, and the public record proves an older AutoGen-labelled service rather than current AG2 runtime provenance."
+    },
+    {
+      "rank": 5,
+      "target": "naptha",
+      "candidate": "Naptha public node and labs API surfaces",
+      "current_contract": {
+        "https://node.naptha.ai/health": "Timeout after 10 seconds with zero bytes",
+        "https://node2.naptha.ai/health": "HTTP 521",
+        "https://labs-api.naptha.ai/openapi.json": "Connection timeout after 10 seconds",
+        "official_mcp_registry_matches": 0,
+        "documented_hub_gate": "HUB_USERNAME, HUB_PASSWORD, and PRIVATE_KEY or authenticated hub session"
+      },
+      "decision": "NO_GO",
+      "gate": "No live public machine contract or durable module identity was reachable; the documented path remains credential-gated."
+    },
+    {
+      "rank": 6,
+      "target": "elizaos",
+      "candidate": "Eliza Cloud API",
+      "current_contract": {
+        "openapi": "https://www.elizacloud.ai/api/openapi.json",
+        "redirected_api_origin": "https://api.eliza.app/api/openapi.json",
+        "path_count": 16,
+        "path_classes": "media, chat, API-key/account, gallery, model, and voice operations",
+        "security_schemes": [
+          "apiKeyAuth",
+          "bearerAuth"
+        ],
+        "agent_card_status": 404,
+        "official_mcp_registry_matches": 0,
+        "global_a2a_registry_matches": 0
+      },
+      "decision": "NO_GO",
+      "gate": "The platform advertises MCP/A2A in prose but publishes no public agent identity or protocol operation, and every usable API class is authentication-gated."
+    }
+  ],
+  "cross_framework_wrapper_exclusions": [
+    {
+      "name": "HiveGate",
+      "reason": "Its A2A listing advertises adapters for LangChain, CrewAI and AutoGen, but does not prove execution by a pre-existing agent in any one framework community. Its trust bridge also declares a 0.5% fee."
+    },
+    {
+      "name": "FleetHelp Support Agent",
+      "reason": "It supports several named frameworks but is not shown to run one of them; registry task conformance is 405/failed."
+    }
+  ],
+  "openclaw_registry_expansion": {
+    "official_mcp_matches": 17,
+    "hosted_remote_records": 6,
+    "finding": "The hosted records are fleet management behind OAuth/account, fixed weather/code/currency/Solana-wallet tools, quantitative trading, API-key FinOps, paid Hive payment governance, or fixed utility servers. None declares an AG URL fetch, AG passport verification, AG trust-decision consumption, collaboration recording, or settlement interop operation.",
+    "closest_new_free_record": {
+      "name": "io.github.baronsengir007/openclaw-agent-tools",
+      "runtime": "https://venice-components-track-determination.trycloudflare.com/mcp",
+      "declared_tools": [
+        "weather",
+        "GitHub code search",
+        "currency conversion",
+        "Solana wallet trust score"
+      ],
+      "exclusion": "Fixed schemas cannot accept an AG artifact, endpoint, identity, or trust decision."
+    },
+    "openclaw_direct_gate": "Official product documentation requires account signup and OAuth 2.0 with PKCE; its eleven tools manage the caller's fleet rather than use AG trust."
+  },
+  "recommended_next_route": {
+    "target": "openclaw",
+    "candidate": "Dokki",
+    "retry_only_if": "The A2A endpoint stops redirecting to login, the card and runtime agree on anonymous access, and an independent task-conformance read succeeds.",
+    "then_request": "One message/send task asking the declared Research skill to fetch a nonce-bearing AG preflight for Dokki's own A2A URL and return the complete JSON verdict."
+  }
+}

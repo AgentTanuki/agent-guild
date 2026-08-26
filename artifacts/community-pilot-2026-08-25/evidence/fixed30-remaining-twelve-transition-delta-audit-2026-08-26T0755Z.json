@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_remaining_twelve_transition_delta_audit",
+  "artifact_status": "validated_no_qualified_transition",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T07:55:34Z",
+  "observed_interval": {
+    "start": "2026-08-26T07:50:45Z",
+    "end": "2026-08-26T07:55:34Z"
+  },
+  "mode": "strict_read_only_delta_adjudication_no_send_no_invoke",
+  "scope": [
+    "agent_commune",
+    "olas",
+    "fetch_agentverse",
+    "nevermined",
+    "openserv",
+    "naptha",
+    "ag2",
+    "langchain",
+    "claws_network",
+    "agentic_market",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "scope_rule": "Only transition predicates that could have changed after the 07:03Z, 07:05Z and 07:08Z audits were rechecked. Immutable conclusions were not re-probed unless the authoritative repository head changed.",
+  "canonical_inputs": [
+    {
+      "path": "artifacts/community-pilot-2026-08-25/targets.json",
+      "sha256": "3cbf23c683a50b502f0599fd27a2b10b9db01da4925e069143469537fd9f4c51",
+      "modified": false
+    },
+    {
+      "path": "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+      "sha256": "a1f03d988e75744b939370f700f9d36411a34d22e3e05939e2bc3a378c0ddb27",
+      "modified": false,
+      "scope_finding": "None of the twelve target ids appears in closed_communities, known_recipients or process_exceptions; this supplies no send authority and no outreach was attempted."
+    },
+    {
+      "path": "artifacts/community-expansion-2026-08-25/expanded-community-universe.json",
+      "sha256": "47e229c085df36211df89b1c26004fed2a525eea54f3b5de37764d36cff214ee",
+      "modified": false,
+      "scope_finding": "The priority queue is an expansion queue, not a fixed-pilot conversion source. Its Nexagora entry remains qualifies_gated at rank 29 because a human handler, account, key and binding terms are required."
+    }
+  ],
+  "baseline_evidence": [
+    {
+      "path": "artifacts/community-pilot-2026-08-25/evidence/fixed30-framework-transition-predicate-audit-2026-08-26T0703Z.json",
+      "sha256": "a84ea3f63fd669bde7c864e87f63a40c10e74bc782ee277da120fbea491e80e7"
+    },
+    {
+      "path": "artifacts/community-pilot-2026-08-25/evidence/fixed30-market-social-transition-predicate-audit-2026-08-26T0705Z.json",
+      "sha256": "a19a3a3687be6f1362f58065834be40f3fac7163661035827938db29a1b67e34"
+    },
+    {
+      "path": "artifacts/community-pilot-2026-08-25/evidence/fixed30-agentic-market-transition-read-2026-08-26T0708Z.json",
+      "sha256": "d8b9641046a7459afd8527120905084df44f89739a8f4ebb04123932303f96d1"
+    },
+    {
+      "path": "artifacts/community-pilot-2026-08-25/evidence/fixed30-cycle-close-2026-08-26T0740Z.json",
+      "sha256": "68918eea64165b62e427057545919f33e3d040d6a1fee305d48e161fd8ba2f70"
+    },
+    {
+      "path": "artifacts/community-pilot-2026-08-25/evidence/fixed30-passive-monitor-2026-08-26T0750Z.json",
+      "sha256": "1413578b1f16da80500325ecdac595e796e1615ab3656ea814c424007652ab42",
+      "latest_cycle_finding": "Strict state remained 5/30 with zero new identity-action joins, zero paid completions and zero recipient replies through the 07:50Z passive monitor."
+    }
+  ],
+  "qualification_rule": "A route qualifies only when a durable pre-pilot machine identity bound to the named fixed community autonomously completes an independently useful Agent Guild fetch, parse, decision or credential verification through an already-authorized no-new-account/no-key/no-signer/no-wallet/no-payment/no-install route and returns a durable identity-bound result. Liveness, catalogs, caller-supplied claims, operator relay, paid challenges and local undeployed adaptations are insufficient.",
+  "qualified_routes": [],
+  "adjudications": [
+    {
+      "target_id": "agent_commune",
+      "transition_checks": {
+        "community_root": {"url": "https://agentcommune.com/", "status": 503, "header": "x-render-routing: suspend-by-user"},
+        "community_skill": {"url": "https://agentcommune.com/skill.md", "status": 503},
+        "elophanto_discovery": {"agent_card": 404, "agent_json": 404, "mcp": 404},
+        "authoritative_source_head": "eb213bddcc5098f849f474958b0f206f43b39e51",
+        "source_changed_from_baseline": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "Public autonomous ingress still fails: Agent Commune remains owner-suspended and the durable EloPhanto member exposes no anonymous identity-bound hosted operation."
+    },
+    {
+      "target_id": "olas",
+      "transition_checks": {
+        "free_online_registry_totals": {"Olas": 0, "Autonolas": 0, "Mech": 0},
+        "authoritative_source_head": "28115ed8e88aa4bbbdde709ff14fdc63e63cef37",
+        "source_changed_from_baseline": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "No no-signer/no-payment identity-bound operation exists: the public registry still returns zero free-and-online Olas, Autonolas or Mech routes and the official signer/payment contract is unchanged."
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "transition_checks": {
+        "profile": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "last_updated": "2026-08-26T07:52:46Z",
+        "status": "active",
+        "unresponsive": true,
+        "total_interactions": 41124,
+        "delta_total_from_0703": 11,
+        "recent_interactions": 7509,
+        "delta_recent_from_0703": 11,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_success_rate": 0.0
+      },
+      "transition": false,
+      "exact_first_failing_gate": "Anonymous admission still fails: the published uAgent usage contract requires a stateful cryptographic sender rather than a senderless result API; the exact scraper also remains unresponsive with zero verified successful interactions."
+    },
+    {
+      "target_id": "nevermined",
+      "transition_checks": {
+        "revettr_health": {"status": 200, "body": {"status": "ok", "version": "0.1.0", "payments": "operational", "scoring": "operational"}},
+        "revettr_openapi_paths": ["/health", "/v1/attest", "/v1/iss-verdict", "/v1/risk-check", "/v1/risk-check/batch", "/v1/score", "/v1/score/batch", "/v1/score/session", "/v1/session/verify", "/v1/waitlist", "/v1/waitlist/count"],
+        "credential_url_or_passport_fetch_path": null,
+        "authoritative_source_head": "012ec6216a657c0de8283675b5c831c9f418eb26",
+        "source_changed_from_baseline": false,
+        "nevermined_membership_issue": {"state": "open", "updated_at": "2026-08-17T14:00:56Z", "changed_from_baseline": false}
+      },
+      "transition": false,
+      "exact_first_failing_gate": "Independent exact Agent Guild consumption still fails: Revettr's free signed operations accept caller-supplied subjects or native tokens and expose no SSRF-safe credential URL fetch, issuer-key resolution or AG passport verification route."
+    },
+    {
+      "target_id": "openserv",
+      "transition_checks": {
+        "catalog_status": 200,
+        "catalog_records": 467,
+        "active_records": 80,
+        "active_exact_zero_records": 0,
+        "browser_use": {"active": true, "price_usd": 0.01, "output_schema": null}
+      },
+      "transition": false,
+      "exact_first_failing_gate": "No-payment admission still fails: BrowserUse remains $0.01 and the live catalog still has zero active exact-zero services."
+    },
+    {
+      "target_id": "naptha",
+      "transition_checks": {
+        "node_health": "timeout_after_12_seconds_zero_bytes",
+        "node_openapi": "timeout_after_12_seconds_zero_bytes",
+        "node1_health": "timeout_after_12_seconds_zero_bytes",
+        "node2_health_status": 521,
+        "hub_health": "timeout_after_12_seconds_zero_bytes",
+        "labs_agent_card": "timeout",
+        "labs_openapi": "timeout",
+        "authoritative_source_heads": {
+          "naptha_sdk": "9180febd0caab3974f86dd93e2f20ff96f1fb811",
+          "autoa2a": "8245673f5c61fd04c7292dd1ffacc38fd02b78de",
+          "automcp": "19044443371570218ea60ff089bcd40318be1cae"
+        },
+        "source_changed_from_baseline": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "Public runtime discovery still fails: no checked official node, hub, card or OpenAPI surface returned a usable contract."
+    },
+    {
+      "target_id": "ag2",
+      "transition_checks": {
+        "ask_the_web_health": {"status": 200, "body": {"ok": true, "provider": "vertexai", "model": "gemini-3.6-flash"}},
+        "tavily_dependency_canary_present": false,
+        "authoritative_source_head": "29eeac374d18003696d8725d88e76d20176034a1",
+        "source_changed_from_baseline": false,
+        "local_capability_readiness_adaptation": "not_deployed_no_strict_effect"
+      },
+      "transition": false,
+      "exact_first_failing_gate": "Capability readiness remains unproven: the green health document still reports only model transport state and provides no fresh terminal Tavily search/extract canary after the observed InvalidAPIKeyError."
+    },
+    {
+      "target_id": "langchain",
+      "transition_checks": {
+        "chat_agent_card_status": 404,
+        "chat_openapi_status": 404,
+        "authoritative_source_head": "6f7ee9f49ac8ea75440136b3c58bba55eee56c1a",
+        "source_changed_from_baseline": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "No-account ingress still fails: the strongest first-party runtime requires a Supabase or newly issued guest token, and it still publishes no anonymous machine contract."
+    },
+    {
+      "target_id": "claws_network",
+      "transition_checks": {
+        "public_site_status": 200,
+        "api_openapi_status": 404,
+        "api_agent_card_status": 404,
+        "api_agent_json_status": 404,
+        "authoritative_source_head": "b6dc1e67575d9e2eb9fdbcbf6c7aa0dc2f35b23a",
+        "source_changed_from_baseline": false
+      },
+      "transition": false,
+      "exact_first_failing_gate": "No pre-existing Claws principal exposes public autonomous ingress; the only documented join path still requires forbidden installation, persistence, wallet custody and external writes."
+    },
+    {
+      "target_id": "agentic_market",
+      "transition_checks": {
+        "catalog_status": 200,
+        "services_in_bounded_snapshot": 50,
+        "endpoints_in_current_snapshot": 1357,
+        "exact_zero_routes": 1,
+        "sole_exact_zero_route": {"service": "Messari", "url": "https://api.messari.io/metrics/v2/networks/", "agent_guild_semantics": false},
+        "upto_zero_minimum_note": "QuickNode routes advertising amount/minAmount 0.00 also advertise maxAmount 10.00 under scheme=upto and are not guaranteed no-payment routes.",
+        "mako_minimum_listed_price_usdc": 0.02
+      },
+      "transition": false,
+      "exact_first_failing_gate": "No exact-free Agent Guild consumption route exists: the sole guaranteed exact-zero listing remains the unrelated Messari network list, while MAKO and all AG-adjacent routes remain paid or non-substantive."
+    },
+    {
+      "target_id": "reddit_ai_agents",
+      "transition_checks": {
+        "authoritative_source_head": "e0cb7c568a029fca7f9376397f25984b43ab7c6e",
+        "source_changed_from_baseline": false,
+        "machine_discovery": {"agent_card": 404, "openapi": 404, "mcp": 404},
+        "roast_page": {"status": 200, "sha256": "5855a2e48424832f55c36554fcae679489e50590dcb0b2c254c038a682dea51f", "email_required_marker_present": true, "email_subscribe_effect_present": true, "roast_webhook_present": true}
+      },
+      "transition": false,
+      "exact_first_failing_gate": "Machine-controlled Reddit principal binding still fails: first-party evidence still says the operator posts. Independently, the public URL-fetch form still requires email and triggers the secondary subscription effect."
+    },
+    {
+      "target_id": "reddit_agents_of_ai",
+      "transition_checks": {
+        "nexagora_profile": {"status": 200, "identity": "@DualExtreme02536", "level": 100, "posts": 18, "comments": 165, "reddit_or_agents_of_ai_binding_present": false},
+        "agent_docs": {"status": 200, "sha256": "8a5ee3d0689719c80189f26826b2c52e3b6e7bf2ee811f59f7681c9fe7cd1acc", "bearer_required_marker_present": true, "nexa_live_key_marker_present": true, "public_no_auth_claim_present": false},
+        "public_machine_discovery": {"api_root": 404, "agent_card": 404, "openapi": 404, "per_agent_card": 404}
+      },
+      "transition": false,
+      "exact_first_failing_gate": "No machine-owned r/AgentsOfAI principal is joined to the active Nexagora identity; the public profile remains unchanged at 18 posts and 165 comments with no Reddit binding."
+    }
+  ],
+  "strict_result": {
+    "fully_qualified_routes": 0,
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "commercial_delta": {"external_settled_revenue_usd": 0.0, "distinct_external_payers": 0, "paid_completions": 0},
+    "decision": "NO_NEW_DURABLE_PREEXISTING_FIXED_COMMUNITY_IDENTITY_JOINED_TO_AN_INDEPENDENTLY_USEFUL_COMPLETED_AGENT_GUILD_ACTION"
+  },
+  "safety": {
+    "public_and_primary_source_reads_only": true,
+    "messages_comments_posts_or_email_sent": 0,
+    "useful_or_paid_operations_invoked": 0,
+    "accounts_identities_keys_wallets_or_signers_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs": 0,
+    "external_writes": 0,
+    "canonical_files_modified": 0,
+    "network_response_body_files_written": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this timestamped evidence JSON only"
+  }
+}

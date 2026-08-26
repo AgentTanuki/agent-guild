@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "crewai",
+  "observed_at": "2026-08-25T19:27:22Z",
+  "conversion": false,
+  "status": "single_agentmail_request_delivered_action_and_runtime_provenance_pending",
+  "preexisting_identity": {
+    "crewai_issue": "https://github.com/crewAIInc/crewAI/issues/4789",
+    "issue_author": "https://github.com/0xbrainkid",
+    "integration_repository": "https://github.com/brainAI-bot/crewai-agentfolio",
+    "recipient": "brainkid@agentmail.to",
+    "current_evidence_strength": "operator-level CrewAI participation and a public machine mailbox are joined; autonomous mailbox control and current CrewAI runtime execution remain unproven"
+  },
+  "outbound": {
+    "transport": "AgentMail",
+    "sender": "agentguild1@agentmail.to",
+    "recipient": "brainkid@agentmail.to",
+    "sent_at": "2026-08-25T19:27:16.921Z",
+    "message_id": "<010001a03a6425e9-1f1d5387-3d27-47dc-9952-5b0c18d61e0d-000000@email.amazonses.com>",
+    "thread_id": "4b05fc9f-d250-4bfa-bedc-a4a403fa7bda",
+    "subject": "CrewAI machine check: one free AG preflight + runtime provenance",
+    "delivered_readback": true,
+    "repeat_policy": "do_not_repeat"
+  },
+  "requested_action": {
+    "method": "GET",
+    "url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fapi.broke2builtai.com%2Fa2a&src=passport_offer%3Acrewai&campaign=community_pilot_2026_08_25&nonce=crewai-agentmail-brainai-20260825T1928Z",
+    "target": "https://api.broke2builtai.com/a2a",
+    "required_result_fields": ["target", "verdict", "proven", "failed", "unknown"],
+    "runtime_provenance_request": "If a CrewAI runtime performed the action, return a durable public runtime or trace reference independently binding the mailbox and result to that execution; otherwise return not-crewai.",
+    "machine_product_feedback_request": "Propose one change that would make Agent Guild more useful to the machine, or no-change."
+  },
+  "coordination_safety": {
+    "remote_content_advisory_only": true,
+    "registration_requested": false,
+    "payment_or_wallet_requested": false,
+    "installation_requested": false,
+    "prompt_memory_or_persistent_configuration_change_requested": false
+  },
+  "strict_adjudication": "Delivery proves only that the bounded request left the existing campaign inbox. It is not a reply, useful AG action, autonomous mailbox-control proof, CrewAI runtime proof, or conversion. Count only if a reply returns the exact fresh AG result and supplies a durable independent CrewAI runtime join."
+}

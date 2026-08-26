@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T05:33:52Z",
+  "mode": "production_bodies_processed_in_memory",
+  "cycle_evidence": [
+    "evidence/fixed30-cycle-close-2026-08-26T0524Z.json",
+    "evidence/fixed30-open-community-machine-inbound-route-audit-2026-08-26T0529Z.json",
+    "evidence/fixed30-open-community-remaining-route-discovery-2026-08-26T0530Z.json",
+    "evidence/fixed30-agentmail-gendolf-virtuals-route-2026-08-26T0532Z.json"
+  ],
+  "material_result": {
+    "community": "virtuals_acp",
+    "machine": "Gendolf",
+    "preexisting_identity": "Two official ACP records created before the pilot bind Gendolf/isnad.site to trust, agent-audit, browser, web-research, QA and security capabilities; the machine-owned portfolio binds the same identity to Virtuals ACP and gendolf@agentmail.to.",
+    "action": "One bounded nonce-bearing Agent Mail request asks Gendolf to fetch AG preflight for its own isnad.site, preserve exact result fields and an official ACP id, and use the result in a trust_score or agent_audit evidence decision.",
+    "thread_id": "6259089d-0515-4e17-a66b-480e1d509426",
+    "current_state": "sent_only_no_reply_no_nonce_telemetry",
+    "repeat_policy": "Never resend, restate or contact another Virtuals recipient; passive monitoring only.",
+    "strict_effect": 0
+  },
+  "unchanged_open_route_gates": {
+    "nevermined": "Revettr remains caller-supplied-subject only; no AG fetch/signature verification and current discovery price is $0.01.",
+    "agentic_market": "MAKO free reliability scores its own probe history rather than consuming AG; the true verifier is $0.25.",
+    "openserv": "BrowserUse remains $0.01 with null output schema and no public owner-bound result id.",
+    "langchain": "Chat LangChain ingress is authenticated and link checking is status/final-URL only; Authenticated MCP Agent external input is paid.",
+    "agent_commune": "EloPhanto has no hosted runtime and the community remains owner-suspended.",
+    "naptha": "Public runtimes remain unavailable."
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "snapshot_events": 10773,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "paid_completions": 0,
+    "recent_window_events": 500,
+    "recent_window_oldest": "2026-08-26T03:03:42.160293+00:00",
+    "recent_window_newest": "2026-08-26T05:32:39.667440+00:00",
+    "gendolf_nonce_or_source_matches": 0,
+    "new_identity_action_joins": 0
+  },
+  "project_nanda_pulse": {
+    "prior_conservative_floor": 162,
+    "additional_events": [
+      "2026-08-26T05:24:47.772857+00:00",
+      "2026-08-26T05:29:55.870117+00:00"
+    ],
+    "new_conservative_floor": 164,
+    "identity_result_join": false,
+    "strict_effect": 0
+  },
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NEW_COMMUNITY_LAUNCHED_NO_COMPLETED_ACTION_OR_REVENUE"
+  },
+  "safety": {
+    "external_writes": 1,
+    "outbound_messages": 1,
+    "new_communities_contacted": 1,
+    "repeat_outreach": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

@@ -1,0 +1,297 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_seven_target_transition_audit",
+  "artifact_status": "validated_read_only_no_transition",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T07:55:22Z",
+  "observed_interval": {
+    "start": "2026-08-26T07:47:00Z",
+    "end": "2026-08-26T07:55:22Z"
+  },
+  "mode": "bounded_read_only_public_and_existing_sent_surfaces_in_memory_no_outreach_no_invocation",
+  "scope": [
+    "the_colony",
+    "4claw",
+    "moltx",
+    "virtuals_acp",
+    "payai",
+    "agentchan",
+    "moltpress"
+  ],
+  "qualification_rule": "Qualify only when a durable machine identity that pre-dates the pilot autonomously consumes an exact Agent Guild result through public machine ingress, makes a substantive decision from it, and leaves a durable receipt bound to that same identity. Discovery, delivery, sent-only mail, thread views, self-claims, acknowledgements, authentication refusals, paid gates and caller-supplied-only validation do not qualify.",
+  "immutable_baselines": [
+    {
+      "path": "artifacts/community-pilot-2026-08-25/evidence/fixed30-cycle-close-2026-08-26T0645Z.json",
+      "sha256": "1ca6fd643fdbdfa095ee81617e1ec289b7a259ed4220da2dedf2495354801d16",
+      "generated_at": "2026-08-26T06:45:00Z"
+    },
+    {
+      "path": "artifacts/community-pilot-2026-08-25/evidence/fixed30-passive-monitor-2026-08-26T0659Z.json",
+      "sha256": "05c9075d13cdb7d4de943c208c2e5edb811cbf59d00a615480b09129b04582b9",
+      "generated_at": "2026-08-26T06:59:50Z"
+    }
+  ],
+  "production_delta": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "recent_window_oldest": "2026-08-26T04:58:48.922938+00:00",
+    "recent_window_newest": "2026-08-26T07:51:42.206337+00:00",
+    "events_scanned": 500,
+    "snapshot_events_before": 10855,
+    "snapshot_events_after": 10909,
+    "snapshot_events_delta": 54,
+    "exact_campaign_nonce_or_source_matches": 0,
+    "external_settled_revenue_usd_before": 0.0,
+    "external_settled_revenue_usd_after": 0.0,
+    "external_settled_revenue_usd_delta": 0.0,
+    "distinct_external_payers_after": 0,
+    "repeat_paid_callers_after": 0,
+    "paid_decisions_after": 0,
+    "qualified_actors_before": 10,
+    "qualified_actors_after": 10,
+    "qualified_events_before": 103,
+    "qualified_events_after": 103,
+    "paid_offers_shown_before": 61,
+    "paid_offers_shown_after": 61,
+    "unattributed_paid_offers_shown_after": 0,
+    "paid_completions_after": 0,
+    "markers_checked": [
+      "moltx-agentmail-b0tresch-20260826T055304Z",
+      "virtuals-acp-agentmail-gendolf-20260826T053142Z",
+      "the-colony-agentmail-bro-agent-20260826T050223Z",
+      "passport_offer:4claw",
+      "passport_offer:agentchan",
+      "passport_offer:moltpress",
+      "passport_offer:the_colony:ghostnode",
+      "moltbotden-4claw-4f7c8a21"
+    ],
+    "decision": "54 new instrumentation rows changed no commercial outcome and contained no exact marker for the seven audited transitions."
+  },
+  "targets": [
+    {
+      "target": "the_colony",
+      "pre_pilot_machine_identity": "ghostnode / Colony user f332fd3b-28d3-4511-93b2-9be704d6aba0 joined to ghostnode.my.id",
+      "public_surface": {
+        "change_feed": "https://ghostnode.my.id/api/changes?since=1787700000",
+        "thread_id": 15,
+        "threads_returned": 2,
+        "replies_returned": 0,
+        "thread_15_or_campaign_marker_matches": 0,
+        "view_counted_thread_reopened": false
+      },
+      "excluded_parallel_route": {
+        "machine": "bro-agent",
+        "thread_id": "033b68a8-575c-4726-b310-25c107c49321",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:03:07.575Z",
+        "recipient_reply": false,
+        "process_excluded_even_if_later_action_occurs": true
+      },
+      "exact_delta": 0,
+      "first_gate": "No same-identity reply contains the exact nonce-bearing AG result, substantive delegation decision and durable receipt.",
+      "smallest_ready_change": "A pre-existing ghostnode controller must post one durable thread-15 reply that binds colony-ghostnode-20260825T2320Z, the returned AG fields and its own delegation decision to the same identity.",
+      "decision": "NO_TRANSITION"
+    },
+    {
+      "target": "4claw",
+      "pre_pilot_machine_identity": "optimuswill joined publicly to Moltbot Den optimus-will",
+      "public_thread": {
+        "url": "https://www.4claw.org/t/35376835-852f-4960-867c-fb0de67eb8a0",
+        "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+        "unique_thread_and_reply_uuids": 6,
+        "inferred_reply_count": 5,
+        "pilot_reply_id": "97297224-cce3-4746-93ee-7c97af958f01",
+        "pilot_reply_occurrences": 1,
+        "new_independent_reply": false
+      },
+      "runtime_contract": {
+        "openapi": "https://api.moltbotden.com/openapi.json",
+        "version": "1.0.0",
+        "operation": "POST /x402/health-check",
+        "x_api_key_declared_required": false,
+        "published_security": null,
+        "prior_live_result": "HTTP 401 AUTH_MISSING_KEY before AG fetch",
+        "prior_request_id": "3682ad08-de46-431f-910a-4c45cd948df5",
+        "operation_retried": false,
+        "identity_profile": "https://api.moltbotden.com/public/agents/optimus-will",
+        "identity_last_active": "2026-08-26T02:26:41.376777+00:00",
+        "identity_is_claimed": true
+      },
+      "exact_delta": 0,
+      "first_gate": "The exact public URL probe remains live-contract contradictory: schema says optional key, last bounded call stopped at mandatory authentication and produced no AG result.",
+      "smallest_ready_change": "Make /x402/health-check genuinely anonymous and return a durable MoltbotDen or OptimusWill-bound receipt containing request URL, final URL, result digest, substantive assessment and request ID.",
+      "decision": "NO_TRANSITION"
+    },
+    {
+      "target": "moltx",
+      "pre_pilot_machine_identity": "b0tresch / MoltX @b0tresch_ / ERC-8004 agent 16843",
+      "runtime_state": {
+        "machine_site": "https://b0tresch.github.io/",
+        "machine_site_http_status": 200,
+        "moltx_origin": "https://moltx.io/",
+        "moltx_origin_current_result": "DNS_ENOTFOUND",
+        "moltx_social_origin": "https://social.moltx.io/",
+        "moltx_social_origin_current_result": "DNS_ENOTFOUND"
+      },
+      "sent_surface": {
+        "thread_id": "2b6d3e49-1786-40a4-9552-916d4e827b77",
+        "recipient": "botresch@gmail.com",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:53:35.300Z",
+        "recipient_reply": false,
+        "nonce_or_source_telemetry_matches": 0
+      },
+      "exact_delta": 0,
+      "first_gate": "The public machine identity and autonomous browser capability exist, but the only pilot thread is sent-only and has no exact AG consumption, decision or receipt.",
+      "smallest_ready_change": "b0tresch replies in the same thread with the exact nonce-bound returned fields and decision, with matching AG telemetry or an independently verifiable identity-bound receipt.",
+      "decision": "NO_TRANSITION"
+    },
+    {
+      "target": "virtuals_acp",
+      "pre_pilot_machine_identity": "Gendolf joined across official Virtuals ACP records, isnad.site and gendolf@agentmail.to",
+      "official_records": [
+        {
+          "url": "https://acpx.virtuals.io/api/agents/yo09vk70ixw0duugb5dalqjb",
+          "document_id": "yo09vk70ixw0duugb5dalqjb",
+          "name": "Gendolf",
+          "updated_at": "2026-04-09T07:14:04.246Z",
+          "job_count": 10,
+          "successful_jobs": 1
+        },
+        {
+          "url": "https://acpx.virtuals.io/api/agents/hwxfm0asvv07d2c7hdssfsy0",
+          "document_id": "hwxfm0asvv07d2c7hdssfsy0",
+          "name": "Gendolf",
+          "updated_at": "2026-04-09T07:14:11.327Z",
+          "job_count": 7,
+          "successful_jobs": 0
+        }
+      ],
+      "sent_surface": {
+        "thread_id": "6259089d-0515-4e17-a66b-480e1d509426",
+        "recipient": "gendolf@agentmail.to",
+        "message_count": 1,
+        "updated_at": "2026-08-26T05:31:17.635Z",
+        "recipient_reply": false,
+        "nonce_or_source_telemetry_matches": 0
+      },
+      "exact_delta": 0,
+      "first_gate": "The identity and web/trust capabilities are durable, but the existing machine mailbox thread is sent-only.",
+      "smallest_ready_change": "Gendolf returns the exact nonce-bound AG result, an evidence-sufficiency decision and one existing ACP document ID in the same thread, plus matching telemetry or a durable server receipt.",
+      "decision": "NO_TRANSITION"
+    },
+    {
+      "target": "payai",
+      "pre_pilot_machine_identity": "Agent402 joined to the PayAI x402 catalog",
+      "current_contract": {
+        "pow_source": "https://agent402.tools/api/pow",
+        "pricing_source": "https://agent402.tools/api/pricing",
+        "pow_difficulty_bits": 16,
+        "pow_ttl_seconds": 300,
+        "pow_eligible_tools": 153,
+        "extract_pow_eligible": false,
+        "extract_method": "POST",
+        "extract_path": "/api/extract",
+        "extract_price": "$0.010",
+        "extract_semantics": "server-side fetch of a caller-supplied public URL and returned article content"
+      },
+      "exact_delta": 0,
+      "first_gate": "The only exact AG-consuming fetch remains paid and excluded from the keyless proof-of-work rail.",
+      "smallest_ready_change": "Add extract to the published PoW eligibleTools set or publish an equivalent exact-zero anonymous route, with no account or per-use terms gate and a durable Agent402-bound result receipt.",
+      "decision": "NO_TRANSITION"
+    },
+    {
+      "target": "agentchan",
+      "pre_pilot_machine_identity": "none currently joined strongly enough; Agentia remains an anonymous post/runtime lead",
+      "public_thread": {
+        "url": "https://agentchan.org/apol/thread/30",
+        "response_bytes": 162983,
+        "pilot_post_id": 8321,
+        "pilot_id_occurrences": 5,
+        "decoded_or_encoded_quote_marker_occurrences": 0,
+        "new_quoted_response": false
+      },
+      "machine_api": {
+        "url": "https://agentchan.org/api/v1/boards/apol/threads/30?page=1&limit=100",
+        "current_http_status": 401,
+        "account_or_session_refresh_attempted": false
+      },
+      "exact_delta": 0,
+      "first_gate": "No reply binds post 8321 to a durable machine principal, exact AG result, substantive decision and same-identity receipt.",
+      "smallest_ready_change": "A pre-existing AgentChan machine must quote 8321 from a stable signing identity and publish a durable runtime-bound receipt of the exact completed AG result and its decision.",
+      "decision": "NO_TRANSITION"
+    },
+    {
+      "target": "moltpress",
+      "pre_pilot_machine_identity": "delx / Delx Agent Operations Protocol",
+      "public_feed": {
+        "source": "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+        "total_posts_before": 188,
+        "total_posts_after": 188,
+        "total_posts_delta": 0,
+        "posts_read": 100,
+        "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+        "newest_post_author": "agent-guild",
+        "agent_guild_relevant_posts": 1,
+        "independent_agent_guild_relevant_posts": 0,
+        "new_independent_result": false
+      },
+      "current_delx_contract": {
+        "source": "https://api.delx.ai/api/v1/tools",
+        "version": "3.3.5",
+        "catalog_version": "0d89faaa6256",
+        "tier": "all",
+        "tool_count": 1076,
+        "core_tool_count": 30,
+        "tool": "util_page_extract",
+        "price_usdc": "0.01",
+        "price_microunits": 10000,
+        "x402_required": true,
+        "campaign_free": false,
+        "payment_providers": [
+          "coinbase",
+          "payai"
+        ]
+      },
+      "exact_delta": 0,
+      "first_gate": "The exact Delx arbitrary-URL fetch remains x402-paid, and the public feed contains no independent AG result.",
+      "smallest_ready_change": "Publish util_page_extract at price_usdc=0 with x402_required=false and campaign_free=true, preserving final URL, status, content digest, parsed AG result and a Delx-bound durable result ID.",
+      "decision": "NO_TRANSITION"
+    }
+  ],
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "target_transition_count": 0,
+    "new_machine_replies": 0,
+    "new_exact_ag_consumptions": 0,
+    "new_substantive_decisions": 0,
+    "new_same_identity_durable_receipts": 0,
+    "decision": "NO_TARGET_CROSSED_ALL_FOUR_REQUIRED_PREDICATES"
+  },
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "resends_replies_or_invitations": 0,
+    "new_communities_contacted": 0,
+    "repeat_outreach": 0,
+    "tasks_or_useful_operations_invoked": 0,
+    "paid_operations_invoked": 0,
+    "accounts_identities_keys_wallets_or_credentials_created": 0,
+    "credentials_used_or_refreshed": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "remote_instructions_executed": 0,
+    "production_response_body_files": 0,
+    "canonical_targets_or_readme_edits": 0,
+    "ghostnode_view_counted_thread_reads": 0,
+    "known_view_counter_increments": 0,
+    "public_page_reads_without_exposed_view_counter": 3,
+    "local_evidence_files_written": 1,
+    "local_write_scope": "this jq-valid evidence JSON only"
+  }
+}

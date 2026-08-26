@@ -1,0 +1,386 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_framework_transition_predicate_audit",
+  "artifact_status": "validated_no_qualified_transition",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T06:52:58Z",
+    "end": "2026-08-26T07:02:59Z"
+  },
+  "mode": "public_read_only_source_and_live_state_no_send_no_invoke",
+  "scope": [
+    "fetch_agentverse",
+    "openserv",
+    "naptha",
+    "ag2",
+    "langchain"
+  ],
+  "qualification_predicates_in_order": [
+    "A durable machine identity existed before the pilot and is bound by primary evidence to the named fixed community.",
+    "That machine exposes a public autonomous ingress requiring no new account, credential, key, signer, wallet, payment, terms acceptance, installation or persistent sender lifecycle.",
+    "The ingress is currently operation-ready for the exact advertised capability, not merely transport- or model-healthy.",
+    "The machine independently fetches, parses or cryptographically verifies the exact nonce-bearing Agent Guild artifact rather than checking liveness, echoing text or validating caller-supplied claims.",
+    "The machine makes a substantive decision from the Agent Guild result.",
+    "The result is durable and identity-bound, with at least a server result id, exact nonce or source digest, final URL, body digest or verified credential digest, completion time and machine identity/version."
+  ],
+  "reconciled_prior_evidence": [
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-open-seven-deep-route-discovery-2026-08-26T0608Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-open-seven-cross-surface-deep-audit-2026-08-26T0611Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-capability-gate-transition-audit-2026-08-26T0502Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-nevermined-langchain-machine-first-audit-2026-08-26T0022Z.json",
+    "artifacts/community-pilot-2026-08-25/evidence/fixed30-anp-fetch-naptha-openclaw-retry-gate-audit-2026-08-26T0025Z.json"
+  ],
+  "fully_qualified_candidates": [],
+  "targets": [
+    {
+      "target_id": "fetch_agentverse",
+      "strongest_machine": {
+        "name": "Website Scraper Agent",
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "created_at": "2025-06-25T14:06:46Z",
+        "profile": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "almanac": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "machine_owned_transport": "https://agentverse.ai/v1/hosting/submit",
+        "almanac_expiry": "2026-09-19T09:36:26.157873Z"
+      },
+      "content_addressed_contract": {
+        "url": "https://agentverse.ai/v1/almanac/manifests/protocols/a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+        "protocol": "website-scraping-protocol/0.1.0",
+        "digest": "proto:a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+        "request": "WebsiteScraperRequest{url:string}",
+        "responses": [
+          "WebsiteScraperResponse{text:string}",
+          "ErrorMessage{error:string}"
+        ],
+        "semantic_fit": "If operation-ready, this machine could server-fetch an exact nonce-bearing Agent Guild URL and return its body rather than merely validate caller-supplied fields."
+      },
+      "live_state": {
+        "observed_within_artifact_interval": true,
+        "last_updated": "2026-08-26T06:46:22Z",
+        "status": "active",
+        "type": "hosted",
+        "unresponsive": true,
+        "total_interactions": 41113,
+        "recent_interactions": 7498,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_success_rate": 0.0,
+        "delta_from_0608_audit": {
+          "total_interactions": 8,
+          "recent_interactions": 8,
+          "verified_successes": 0,
+          "qualification_change": false
+        }
+      },
+      "alternate_machine": {
+        "address": "agent1qd4m8tfumt5ptzqtyjl4a9ltw7ge096f88lny3rh564tuxjmghck5wp8am6",
+        "created_at": "2024-10-31T21:40:20Z",
+        "status": "active",
+        "unresponsive": false,
+        "total_interactions": 9,
+        "recent_interactions": 0,
+        "recent_verified_interactions": 0,
+        "recent_success_verified_interactions": 0,
+        "almanac_exact_address_status": 404
+      },
+      "registry_recheck": {
+        "official_mcp_query": "https://registry.modelcontextprotocol.io/v0.1/servers?search=agentverse&version=latest&limit=100",
+        "records": 2,
+        "results": [
+          "io.github.doc2mcp/agentverse is a documentation server and requires a bearer token.",
+          "io.github.fetchai/agentverse-memory requires an X-Api-Key obtained by creating a key and provides persistent-memory semantics rather than independent AG artifact consumption."
+        ],
+        "a2a_query": "https://a2aregistry.org/api/agents?search=agentverse&limit=100",
+        "a2a_records": 0
+      },
+      "exact_first_failing_gate": "Anonymous admission fails. The hosting endpoint is a uAgent message transport whose normal response returns to a stateful cryptographic sender; it is not a senderless one-shot public execution/result API. Independently, the named machine remains unresponsive with zero verified successful interactions.",
+      "prior_evidence_reconciliation": "The prior retry predicate correctly began with unresponsive=false plus a fresh verified success. This audit decomposes the earlier gate: health recovery alone would still not satisfy the no-new-key/no-sender-lifecycle or durable-result predicates.",
+      "smallest_ready_change": "Publish a platform-authorized anonymous one-shot wrapper for this existing address that accepts the exact URL, sponsors any internal envelope without creating a caller identity, and returns a durable address-bound receipt containing final URL, nonce, fetched body digest and completed_at; require a fresh verified success before use.",
+      "decision": "REJECT_NO_ANONYMOUS_INGRESS_AND_UNRESPONSIVE"
+    },
+    {
+      "target_id": "openserv",
+      "strongest_machine": {
+        "name": "BrowserUse Agent",
+        "service_id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+        "owner_display_name": "openserv",
+        "created_at": "2026-02-12T14:08:08.653Z",
+        "catalog": "https://api.openserv.ai/x402-services",
+        "webhook": "https://api.openserv.ai/webhooks/x402/trigger/9399ad3092d94e8e9c36ee471b502bde",
+        "paywall": "https://platform.openserv.ai/workspace/paywall/9399ad3092d94e8e9c36ee471b502bde"
+      },
+      "live_state": {
+        "observed_within_artifact_interval": true,
+        "catalog_records": 467,
+        "active_records": 80,
+        "inactive_records": 387,
+        "active_records_with_numeric_price": 73,
+        "active_exact_zero": 0,
+        "minimum_active_price_usd": 0.01,
+        "browser_use_active": true,
+        "browser_use_price_usd": 0.01,
+        "browser_use_required_input": [
+          "url",
+          "instructions"
+        ],
+        "browser_use_output_schema": null
+      },
+      "exact_first_failing_gate": "No-payment admission fails: the exact URL-capable BrowserUse operation costs $0.01 and the current catalog has zero active exact-zero services.",
+      "later_independent_gate": "The BrowserUse listing publishes no output schema or durable owner-bound result identifier, so merely changing its price to zero would permit a retry but would not by itself prove a strict conversion.",
+      "prior_evidence_reconciliation": "Active service count moved 88 to 87 to 80 while total records remained 467. This is liveness churn, not enablement: active exact-zero remained zero and BrowserUse remained $0.01.",
+      "smallest_ready_change": "Change the existing BrowserUse service to an exact-zero anonymous tier and publish a JSON result envelope with service id, server result id, requested and final URL, nonce, body digest, decision and completed_at.",
+      "decision": "REJECT_PAYMENT_THEN_RESULT_CONTRACT_GATE"
+    },
+    {
+      "target_id": "naptha",
+      "live_state": {
+        "observed_within_artifact_interval": true,
+        "checks": [
+          {
+            "url": "https://node.naptha.ai/health",
+            "status": 0,
+            "result": "timeout_after_10_seconds_zero_bytes"
+          },
+          {
+            "url": "https://node.naptha.ai/openapi.json",
+            "status": 0,
+            "result": "timeout_after_10_seconds_zero_bytes"
+          },
+          {
+            "url": "https://node1.naptha.ai/health",
+            "status": 0,
+            "result": "timeout_after_10_seconds_zero_bytes"
+          },
+          {
+            "url": "https://node2.naptha.ai/health",
+            "status": 521,
+            "result": "origin_unavailable"
+          },
+          {
+            "url": "https://hub.naptha.ai/health",
+            "status": 0,
+            "result": "timeout_after_10_seconds_zero_bytes"
+          },
+          {
+            "url": "https://labs-api.naptha.ai/.well-known/agent-card.json",
+            "status": 0,
+            "result": "connection_timeout_after_10_seconds"
+          },
+          {
+            "url": "https://labs-api.naptha.ai/openapi.json",
+            "status": 0,
+            "result": "connection_timeout_after_10_seconds"
+          }
+        ]
+      },
+      "immutable_primary_sources": [
+        {
+          "repository": "https://github.com/NapthaAI/naptha-sdk",
+          "commit": "9180febd0caab3974f86dd93e2f20ff96f1fb811",
+          "commit_url": "https://github.com/NapthaAI/naptha-sdk/commit/9180febd0caab3974f86dd93e2f20ff96f1fb811",
+          "finding": "The official workflow requires installation and naptha signup, or HUB_USERNAME, HUB_PASSWORD and PRIVATE_KEY; module calls sign consumer_id with PRIVATE_KEY."
+        },
+        {
+          "repository": "https://github.com/NapthaAI/autoa2a",
+          "commit": "8245673f5c61fd04c7292dd1ffacc38fd02b78de",
+          "commit_url": "https://github.com/NapthaAI/autoa2a/commit/8245673f5c61fd04c7292dd1ffacc38fd02b78de",
+          "finding": "AutoA2A is an install/edit/serve scaffolder, not a hosted pre-existing machine."
+        },
+        {
+          "repository": "https://github.com/NapthaAI/automcp",
+          "commit": "19044443371570218ea60ff089bcd40318be1cae",
+          "commit_url": "https://github.com/NapthaAI/automcp/commit/19044443371570218ea60ff089bcd40318be1cae",
+          "finding": "AutoMCP is an install/edit/serve adapter and documents local STDIO or separately hosted SSE, not a public pre-existing member runtime."
+        }
+      ],
+      "registry_recheck": {
+        "official_mcp_query": "https://registry.modelcontextprotocol.io/v0.1/servers?search=naptha&version=latest&limit=100",
+        "records": 0,
+        "a2a_query": "https://a2aregistry.org/api/agents?search=naptha&limit=100",
+        "a2a_records": 0
+      },
+      "exact_first_failing_gate": "Public runtime discovery fails before operation semantics can be evaluated: no checked official node, hub, card or OpenAPI route returned a usable contract.",
+      "later_independent_gate": "The documented SDK path requires signup or hub credentials, a private signing key and local installation; the adapter repositories generate deployments rather than identifying an already-running machine.",
+      "prior_evidence_reconciliation": "Every live failure is unchanged from the 00:25Z and 06:08Z audits. The newer official repository review adds no hosted identity or anonymous route.",
+      "smallest_ready_change": "Publish one official HTTPS endpoint that simultaneously serves a durable Naptha machine card, no-auth read-only URL or credential operation, and public identity-bound result lookup; a health-only 200 would not be enough.",
+      "decision": "REJECT_NO_PUBLIC_RUNTIME_THEN_CREDENTIAL_INSTALL_GATE"
+    },
+    {
+      "target_id": "ag2",
+      "strongest_machine": {
+        "name": "ask_the_web",
+        "community_identity": "Official AG2 Playground Ask the Web demo",
+        "runtime": "https://playground.ag2.ai/demos/ask-the-web/",
+        "health": "https://playground.ag2.ai/demos/ask-the-web/healthz",
+        "ingress": "https://playground.ag2.ai/demos/ask-the-web/chat/",
+        "created_before_pilot": true,
+        "anonymous_public_ingress": true
+      },
+      "immutable_primary_source": {
+        "repository": "https://github.com/ag2ai/build-with-ag2",
+        "commit": "29eeac374d18003696d8725d88e76d20176034a1",
+        "commit_url": "https://github.com/ag2ai/build-with-ag2/commit/29eeac374d18003696d8725d88e76d20176034a1",
+        "backend_blob": "02136a36ed6fb6403b69bc3588ac36d6f40d1ece",
+        "backend_url": "https://github.com/ag2ai/build-with-ag2/blob/29eeac374d18003696d8725d88e76d20176034a1/beta/ask-the-web/backend.py",
+        "env_blob": "3a96ab80f95a77e1f3a7003ab602a7558751a575",
+        "source_contract": "The named AG2 Agent exposes tavily_search and fetch_url; both instantiate TavilyClient from TAVILY_API_KEY. healthz reports only ok, LLM provider and model and performs no Tavily search or extraction canary."
+      },
+      "live_state": {
+        "observed_within_artifact_interval": true,
+        "health_status": 200,
+        "health_body": {
+          "ok": true,
+          "provider": "vertexai",
+          "model": "gemini-3.6-flash"
+        },
+        "tavily_dependency_status_published": false
+      },
+      "decisive_prior_machine_result": {
+        "observed_at": "2026-08-26T04:48:57.564Z",
+        "evidence": "artifacts/community-pilot-2026-08-25/evidence/fixed30-undercontacted-new-identity-deep-audit-2026-08-26T0450Z.json",
+        "tavily_search_result": "InvalidAPIKeyError",
+        "fetch_url_result": "InvalidAPIKeyError",
+        "ag_fetch_occurred": false,
+        "server_generated_fetch_tool_call_id": "call_276969",
+        "server_generated_fetch_result_message_id": "bb773f24-facf-49a9-bd79-e27499bc89d8"
+      },
+      "registry_recheck": {
+        "official_mcp_ag2_records": 0,
+        "official_mcp_autogen_records": 1,
+        "autogen_record": "ai.smithery/DynamicEndpoints-autogen_mcp requires a Smithery bearer credential and is not current AG2 runtime provenance.",
+        "a2a_ag2_records": 0,
+        "a2a_autogen_records": 3,
+        "a2a_autogen_interpretation": "HiveGate and AAAA-Nexus describe framework bridging or portability rather than proving their hosted machine executes as an AG2 community member; FleetHelp is a support product with adjacency claims."
+      },
+      "exact_first_failing_gate": "Capability readiness is unproven. The exact web dependency failed in the prior bounded run, while the current green health response still checks only the model and cannot establish that Tavily search or extraction recovered.",
+      "prior_evidence_reconciliation": "The health body, source contract and failed dependency are unchanged. Under the no-repeat rule and this audit's no-invocation scope, transport health cannot authorize another AG request.",
+      "smallest_ready_change": "Extend healthz with a fresh Tavily extract canary containing dependency name, ok, tested_at and digest or final URL. After that independent transition, one corrected nonce-bearing AG fetch may be attempted; strict success additionally requires fetched body or digest under a server result id and matching Agent Guild telemetry.",
+      "decision": "REJECT_DEPENDENCY_READINESS_NOT_PROVEN"
+    },
+    {
+      "target_id": "langchain",
+      "strongest_first_party_machine": {
+        "name": "Chat LangChain",
+        "runtime": "https://chat.langchain.com",
+        "repository": "https://github.com/langchain-ai/chat-langchain",
+        "commit": "6f7ee9f49ac8ea75440136b3c58bba55eee56c1a",
+        "commit_url": "https://github.com/langchain-ai/chat-langchain/commit/6f7ee9f49ac8ea75440136b3c58bba55eee56c1a",
+        "commit_date": "2026-08-21T08:22:42Z",
+        "identity_source": "https://github.com/langchain-ai/chat-langchain/blob/6f7ee9f49ac8ea75440136b3c58bba55eee56c1a/identity.py",
+        "tool_source": "https://github.com/langchain-ai/chat-langchain/blob/6f7ee9f49ac8ea75440136b3c58bba55eee56c1a/src/tools/link_check_tools.py"
+      },
+      "live_discovery": {
+        "observed_within_artifact_interval": true,
+        "agent_card_status": 404,
+        "openapi_status": 404,
+        "source_declared_guest_operation": "POST /identity/guest issues a 24-hour signed guest token"
+      },
+      "source_contract": {
+        "ingress": "validated_token using Supabase access tokens or an MDA-issued guest token",
+        "guest_token_lifecycle": "24h actor-scoped token",
+        "outbound_tool": "check_links(urls, timeout)",
+        "non_langchain_url_behavior": "HEAD with GET only after HTTP 405",
+        "returned_fields": [
+          "url",
+          "valid",
+          "status_code",
+          "error",
+          "final_url"
+        ],
+        "ag_semantic_limit": "For an Agent Guild URL the tool does not read, parse, hash or verify the response body and therefore cannot use the verdict or credential in a machine decision."
+      },
+      "other_public_candidates": [
+        {
+          "name": "Authenticated MCP Agent",
+          "card": "https://authenticated-mcp-traced-agent.getvda.ai/.well-known/agent-card.json",
+          "version": "0.1.1",
+          "community_join": "Its card names langchain-core as the orchestration package.",
+          "free_contract": "The current llms.txt says all execution is Nevermined x402-metered and the only free tool is a fixed canned selftest.",
+          "decision": "NO_EXTERNAL_FREE_INPUT"
+        },
+        {
+          "name": "AAAA-Nexus",
+          "card": "https://atomadic.tech/.well-known/agent-card.json",
+          "version": "0.5.1",
+          "public_trial": "three calls per endpoint per day without credentials",
+          "community_join_limit": "LangChain appears only as a portability target in an identity-federation skill; that does not prove this machine executes in or belongs to the LangChain community.",
+          "semantic_limit": "No declared skill independently fetches and verifies an exact external AG artifact.",
+          "decision": "NO_FRAMEWORK_IDENTITY_JOIN_OR_FETCH"
+        },
+        {
+          "name": "HiveGate",
+          "card": "https://hivegate.onrender.com/.well-known/agent-card.json",
+          "version": "1.0.0",
+          "community_join_limit": "LangChain and AutoGen are bridge adapters, not hosted framework-runtime provenance.",
+          "access_gate": "x402 or API key",
+          "decision": "NO_IDENTITY_JOIN_AND_AUTH_PAYMENT_GATE"
+        }
+      ],
+      "registry_recheck": {
+        "official_mcp_query": "https://registry.modelcontextprotocol.io/v0.1/servers?search=langchain&version=latest&limit=100",
+        "records": 2,
+        "mcp_interpretation": "langchain-mcp is a stdio install-only package; doc2mcp/langchain is a token-gated documentation server.",
+        "a2a_query": "https://a2aregistry.org/api/agents?search=langchain&limit=100",
+        "records_a2a": 3
+      },
+      "exact_first_failing_gate": "No-account ingress fails for the strongest first-party runtime: every chat request requires a validated Supabase or newly issued guest token. The task explicitly forbids token creation.",
+      "later_independent_gate": "Even with a token, check_links is a liveness probe for non-LangChain domains; it cannot consume Agent Guild response content or return a body digest, credential verification or AG-based machine decision.",
+      "prior_evidence_reconciliation": "The official source commit and live 404 discovery surfaces are unchanged. The registry still contains only the same stdio/token-gated or adjacent candidates; AAAA-Nexus's credential-free trial does not repair framework identity attribution or AG semantics.",
+      "smallest_ready_change": "Expose a stateless public no-token operation on the existing first-party runtime that performs SSRF-safe GET or AGI-1 verification and returns a durable LangChain-run result with server id, final URL, nonce, body or credential digest, parsed verdict, machine decision and completed_at.",
+      "decision": "REJECT_TOKEN_THEN_PROBE_ONLY_GATE"
+    }
+  ],
+  "route_ranking_for_next_transition": [
+    {
+      "rank": 1,
+      "target_id": "ag2",
+      "reason": "Already has the strongest durable official identity plus free anonymous public machine ingress and exact arbitrary-URL tool; only dependency readiness is the first observable blocker, followed by result durability."
+    },
+    {
+      "rank": 2,
+      "target_id": "openserv",
+      "reason": "Already has durable platform-owned identity and exact URL semantics, but price and receipt contract both fail."
+    },
+    {
+      "rank": 3,
+      "target_id": "fetch_agentverse",
+      "reason": "Has a content-addressed exact fetch protocol and durable machine address, but lacks senderless ingress, current verified success and public durable result."
+    },
+    {
+      "rank": 4,
+      "target_id": "langchain",
+      "reason": "Has first-party durable runtime and outbound network capability, but admission requires token issuance and the tool is probe-only for AG."
+    },
+    {
+      "rank": 5,
+      "target_id": "naptha",
+      "reason": "No public runtime contract is reachable; the documented path also requires signup, credentials, private key and installation."
+    }
+  ],
+  "strict_result": {
+    "baseline": "5/30",
+    "qualified_transitions": 0,
+    "conversions_added": 0,
+    "after": "5/30",
+    "reason": "No target joined all ordered predicates. No operation was invoked because none crossed its independently observable first retry gate."
+  },
+  "machine_product_signal": {
+    "new_material_signal": "Each ecosystem needs an ingress-class declaration separate from protocol discovery: anonymous one-shot, token-issued guest, signed callback sender, payment-gated, install-only, or operator-hosted. AG should not promote a URL-capable machine as runnable until ingress class, dependency canary and durable result contract are independently proven.",
+    "smallest_ag_adaptation": "Add machine-readable ingress_class, requires_new_principal, dependency_canary and result_receipt fields to route evidence. These fields preserve strict identity attribution while making retry decisions mechanical for machines."
+  },
+  "safety": {
+    "messages_or_outreach": 0,
+    "useful_or_paid_operations_invoked": 0,
+    "accounts_tokens_keys_wallets_or_terms": 0,
+    "payments_or_spend": 0,
+    "installs_deployments_pushes_or_persistent_configuration": 0,
+    "external_mutations": 0,
+    "health_schema_profile_registry_and_immutable_source_reads_only": true,
+    "remote_response_bodies": "processed_in_memory_only",
+    "response_body_files": 0,
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this_evidence_json_only"
+  }
+}

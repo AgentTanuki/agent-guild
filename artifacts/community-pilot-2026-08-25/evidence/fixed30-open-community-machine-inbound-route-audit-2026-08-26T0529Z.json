@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_open_community_machine_inbound_route_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval": {
+    "start": "2026-08-26T05:20:00Z",
+    "end": "2026-08-26T05:29:07Z"
+  },
+  "mode": "public_read_only_no_send_no_invoke",
+  "requested_scope": [
+    "olas",
+    "virtuals_acp",
+    "nevermined",
+    "openserv",
+    "agentic_market",
+    "moltx",
+    "agntcy",
+    "claws_network",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "qualification_rule": "A candidate must be a durable pre-existing autonomous machine in the named fixed community and expose either a public machine-owned inbound route or a hosted free anonymous bounded operation. The route must independently fetch, verify, or substantively use the exact AG artifact and return durable evidence bound to that machine. A mailbox, fresh recipient, platform listing, probe, caller-supplied-only score, amount-zero display, acknowledgement, or framework label is insufficient.",
+  "community_guard": {
+    "ledger": "artifacts/community-pilot-2026-08-25/outreach-ledger.json",
+    "ledger_updated_at": "2026-08-26T05:06:26Z",
+    "canonical_script": "artifacts/community-pilot-2026-08-25/scripts/check_outreach_eligibility.mjs",
+    "canonical_script_execution": "node_runtime_unavailable",
+    "fallback": "Applied the script's exact fixed-community closed-record and converted-state predicates directly against outreach-ledger.json and targets.json.",
+    "results": [
+      {"community":"olas","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"virtuals_acp","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"nevermined","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"openserv","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"agentic_market","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"moltx","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"agntcy","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"claws_network","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"reddit_ai_agents","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"},
+      {"community":"reddit_agents_of_ai","decision":"OPEN_FOR_FURTHER_AUDIT_NOT_SEND_AUTHORITY"}
+    ],
+    "interpretation": "All ten were eligible for read-only audit only. No result is send authority, and this turn prohibited all outbound communication and candidate operations regardless."
+  },
+  "alias_and_recipient_history": {
+    "method": "Case-insensitive exact alias, machine name, address, domain and target-id search across targets, README, outreach ledger and all pilot JSON/Markdown evidence; canonical AgentMail recipient ledger compared separately.",
+    "known_campaign_recipients": [
+      "brainkid@agentmail.to",
+      "bro-agent@agentmail.to",
+      "k2so@ascii.dev",
+      "scienceclaw@agentmail.to"
+    ],
+    "communities": [
+      {"id":"olas","aliases":["Olas","Autonolas","Mech"],"project_artifacts_with_alias_matches":24,"known_recipient_match":false},
+      {"id":"virtuals_acp","aliases":["Virtuals ACP","x402guard","q91f2hf7ppvjjwqe6wtk943v"],"project_artifacts_with_alias_matches":13,"known_recipient_match":false},
+      {"id":"nevermined","aliases":["Nevermined","Revettr","did:web:revettr.com"],"project_artifacts_with_alias_matches":19,"known_recipient_match":false},
+      {"id":"openserv","aliases":["OpenServ","BrowserUse Agent","fea4d45e-eefb-4579-8516-38588f2cf4cf"],"project_artifacts_with_alias_matches":17,"known_recipient_match":false},
+      {"id":"agentic_market","aliases":["Agentic Market","MAKO","mako.pollinateresearch.com"],"project_artifacts_with_alias_matches":34,"known_recipient_match":false},
+      {"id":"moltx","aliases":["MoltX","moltx.io"],"project_artifacts_with_alias_matches":22,"known_recipient_match":false},
+      {"id":"agntcy","aliases":["AGNTCY","Todd O'Rourke","toddmorourke","okf_convert"],"project_artifacts_with_alias_matches":19,"known_recipient_match":false},
+      {"id":"claws_network","aliases":["Claws Network","claws.network"],"project_artifacts_with_alias_matches":13,"known_recipient_match":false},
+      {"id":"reddit_ai_agents","aliases":["r/AI_Agents","Acrid","Most-Agent-7566"],"project_artifacts_with_alias_matches":17,"known_recipient_match":false},
+      {"id":"reddit_agents_of_ai","aliases":["r/AgentsOfAI","NexAgora","DualExtreme02536"],"project_artifacts_with_alias_matches":15,"known_recipient_match":false}
+    ],
+    "published_agentmail_discovery": {
+      "search_scope": "Current public results for each strongest identity and the ten requested community names paired with agentmail.to/AgentMail.",
+      "qualified_machine_mailboxes_found": 0,
+      "irrelevant_results": "Only generic AgentMail documentation and unrelated Browser Use package integration references appeared; none binds a mailbox to a named machine in the requested fixed community."
+    },
+    "recipient_freshness_conclusion": "No screened identity matches a known campaign recipient, but this adds no authority and repairs no capability, payment, identity, health, terms, or result-evidence gate."
+  },
+  "qualifying_candidates": [],
+  "strongest_screened_candidates": [
+    {
+      "rank": 1,
+      "community": "nevermined",
+      "machine": "Revettr",
+      "durable_identity": {
+        "provider_did": "did:web:revettr.com",
+        "nevermined_membership": "https://github.com/nevermined-io/payments/issues/286",
+        "machine_home": "https://revettr.com/",
+        "discovery": "https://revettr.com/.well-known/risk-check.json",
+        "openapi": "https://revettr.com/openapi.json"
+      },
+      "current_public_state": {
+        "health_http_status": 200,
+        "health": {"status":"ok","version":"0.1.0","payments":"operational","scoring":"operational"},
+        "risk_discovery_http_status": 200,
+        "risk_discovery_version": "0.2.0",
+        "published_x402_price_usdc": "0.01",
+        "published_network": "eip155:8453"
+      },
+      "public_machine_contract": {
+        "score": "POST /v1/score accepts caller-supplied domain, IP, wallet, company or Stellar wallet identifiers and gathers counterparty signals.",
+        "attest": "POST /v1/attest returns a compact ES256 JWS compliance-risk attestation over the same caller-supplied subject identifiers.",
+        "iss_verdict": "POST /v1/iss-verdict accepts an already validated issuer and issuer kind; its discovery assigns issuer validation to the caller.",
+        "session_verify": "GET /v1/session/verify verifies only Revettr session tokens created by its own scored-session path."
+      },
+      "why_close": "This is a durable Nevermined participant with hosted signed trust output, but no declared operation accepts an AG URL, server-fetches an AG passport/preflight, resolves an AG issuer key, or verifies an AG credential. Current discovery additionally publishes $0.01 x402 pricing, so a free/no-payment claim is not cleanly established from the live contract.",
+      "exact_blocker": "caller_supplied_subject_only_plus_current_x402_price",
+      "first_ready_gate": "Publish one explicit anonymous free fetch_and_attest_credential({credential_url}) operation that SSRF-safely retrieves the exact AG URL, binds final_url and body_sha256, resolves and verifies the issuer/signature/expiry, and returns a Revettr-signed envelope with caller_supplied=false and source=server_fetched."
+    },
+    {
+      "rank": 2,
+      "community": "agentic_market",
+      "machine": "MAKO",
+      "durable_identity": {
+        "market_profile": "https://agentic.market/services/mako-pollinateresearch-com",
+        "market_api_record": "https://api.agentic.market/v1/services/mako-pollinateresearch-com",
+        "machine_home": "https://mako.pollinateresearch.com/",
+        "openapi": "https://mako.pollinateresearch.com/openapi.json"
+      },
+      "current_public_state": {
+        "market_record_http_status": 200,
+        "provider": "mako.pollinateresearch.com",
+        "market_endpoints": [
+          {"path":"/api/agent-commerce/verify","price_usdc":"0.25","semantics":"agent-commerce trust preflight"},
+          {"path":"/api/governance/weekly-brief","price_usdc":"1","semantics":"governance brief"},
+          {"path":"/api/pulse/score","price_usdc":"0.02","semantics":"endpoint reliability score"}
+        ],
+        "free_machine_route": {
+          "path": "/api/asterpay/reliability",
+          "published_description": "Free, rate-limited signed reliability envelope for AsterPay's 402 builder.",
+          "input": "optional caller-supplied endpoint URL",
+          "agentic_market_listed": false
+        }
+      },
+      "why_close": "MAKO has the strongest free signed output in the set, but its free route scores its own accumulated endpoint-probe history from a caller-supplied endpoint. It does not independently fetch or consume the nonce-bearing AG trust/passport/preflight artifact, and the free route is not itself present in the Agentic Market record. The exact Agentic Market trust operation costs $0.25.",
+      "exact_blocker": "free_signed_probe_aggregate_not_exact_ag_artifact_use_and_not_market_listed",
+      "first_ready_gate": "List an exact-zero MAKO operation under the existing Agentic Market principal that server-fetches the exact AG URL, returns the consumed AG observation or credential fields plus final_url/body_sha256/completed_at, and signs the result under the same MAKO identity."
+    },
+    {
+      "rank": 3,
+      "community": "openserv",
+      "machine": "BrowserUse Agent",
+      "durable_identity": {
+        "catalog": "https://api.openserv.ai/x402-services",
+        "service_id": "fea4d45e-eefb-4579-8516-38588f2cf4cf",
+        "owner_display_name": "openserv",
+        "created_at": "2026-02-12T14:08:08.653Z"
+      },
+      "current_public_state": {
+        "catalog_http_status": 200,
+        "catalog_records": 467,
+        "active": true,
+        "price_usd": "0.01",
+        "input_schema": {
+          "required": ["url","instructions"],
+          "url_type": "string",
+          "instructions_type": "string"
+        },
+        "paywall_url": "https://platform.openserv.ai/workspace/paywall/9399ad3092d94e8e9c36ee471b502bde",
+        "webhook_url": "https://api.openserv.ai/webhooks/x402/trigger/9399ad3092d94e8e9c36ee471b502bde",
+        "output_schema": null
+      },
+      "why_close": "The operation has the exact arbitrary-URL plus instruction semantics that could consume AG, but it is explicitly a $0.01 x402 operation, not free. The catalog also exposes no output schema or public owner-bound result identifier. A listing and webhook address do not prove anonymous zero-price execution or durable result evidence.",
+      "exact_blocker": "payment_required_plus_missing_public_identity_bound_result_contract",
+      "first_ready_gate": "Publish an active exact-zero anonymous BrowserUse operation with the same input shape and a public durable result containing OpenServ service id, exact requested AG URL, fetched AG fields or digest, completion timestamp and result hash."
+    }
+  ],
+  "other_scope_rejections": [
+    {"community":"olas","strongest_identity":"pre-existing Olas Mechs","reason":"Official requests require signer authority plus per-request payment, prepaid balance or paid subscription; no free senderless operation exists."},
+    {"community":"virtuals_acp","strongest_identity":"x402guard q91f2hf7ppvjjwqe6wtk943v","reason":"All AG-relevant scan jobs cost $0.01, the free resource accepts only a fixed category, and the required skillUrl schema remains internally contradictory."},
+    {"community":"moltx","strongest_identity":"durable MoltX cross-surface member","reason":"Primary MoltX machine surfaces remain DNS-unreachable; the static identity artifact is not callable and prior delivery is through paid unavailable messaging."},
+    {"community":"agntcy","strongest_identity":"Todd O'Rourke SEO Tools on For You","reason":"Todd has a useful anonymous AG-consuming operation but no signed/imported AGNTCY federation identity. A completed action by an adjacent machine is not AGNTCY membership."},
+    {"community":"claws_network","strongest_identity":"registered Claws principals in public explorer","reason":"Explorer records bind accounts and transactions only. The published lifecycle requires install, wallet, persistent files, recurring heartbeat and operator-authority inversion; no safe hosted member operation exists."},
+    {"community":"reddit_ai_agents","strongest_identity":"Acrid / u/Most-Agent-7566","reason":"The free server-side roast requires email and triggers a parallel marketing subscription; it returns visibility critique, not parsed or verified AG evidence."},
+    {"community":"reddit_agents_of_ai","strongest_identity":"NexAgora @DualExtreme02536 adjacent to operator post","reason":"No durable r/AgentsOfAI machine-principal join exists, and every documented NexAgora call requires handler account, bearer key and binding terms."}
+  ],
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "candidate_operations_invoked": 0,
+    "outbound_messages_or_reactions": 0,
+    "conclusion": "No requested open fixed community currently exposes the complete durable-identity plus free-anonymous exact-AG-use plus identity-bound-result route."
+  },
+  "machine_design_signal": {
+    "new_attributable_feedback": false,
+    "reinforced_observation": "Machine discovery should expose subject provenance, caller_supplied versus server_fetched, exact price normalization, output schema and durable result identity as separate fields. Revettr and MAKO show why a signed result does not prove independent source retrieval; OpenServ shows why the right input shape does not overcome payment and result-contract gates."
+  },
+  "safety": {
+    "external_messages_replies_reactions_or_posts": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_keys_wallets_or_terms": 0,
+    "payments_or_spend": 0,
+    "installs_or_persistent_config": 0,
+    "external_mutations": 0,
+    "public_reads": 6,
+    "network_bodies": "processed_in_memory_only",
+    "response_body_files": 0,
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

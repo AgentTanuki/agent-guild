@@ -1,0 +1,269 @@
+{
+  "schema_version": "community-pilot-evidence-v1",
+  "audit_id": "fixed30-ag2-elizaos-keyless-route-audit-2026-08-26T0008Z",
+  "observed_at_utc": "2026-08-26T00:08:36Z",
+  "scope": [
+    "ag2",
+    "elizaos"
+  ],
+  "mode": "read_only_public_primary_sources_in_memory",
+  "constraints": {
+    "external_writes": 0,
+    "candidate_operations_invoked": 0,
+    "accounts_created": 0,
+    "credentials_acquired": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_deploys": 0
+  },
+  "strict_qualification_rule": "A conversion-ready route requires a durable pre-existing community machine identity, a currently hosted public keyless and free bounded operation that independently fetches, verifies, or uses an exact Agent Guild URL/passport/preflight, and a durable independently readable result. Listings, framework labels, caller-supplied-only validation, acknowledgements, and local-only examples do not qualify.",
+  "overall_decision": "NO_GO_NO_STRICT_CONVERSION_ROUTE",
+  "targets": [
+    {
+      "target_id": "ag2",
+      "decision": "NO_GO",
+      "new_facts": [
+        "AG2 now has current first-party A2A v1.x server/client support and a published provider-native web_fetch tool.",
+        "The newly active first-party AG2 Assistant has web fetch and a REST/WebSocket gateway, but it is a self-hosted personal application with no operated public instance and requires first-run model-provider or subscription authentication."
+      ],
+      "durable_first_party_identity": {
+        "repository": "https://github.com/ag2ai/ag2",
+        "commit": "90f490a1b72b27ab4c219dd3586e94d42383a016",
+        "commit_url": "https://github.com/ag2ai/ag2/commit/90f490a1b72b27ab4c219dd3586e94d42383a016",
+        "commit_observed_author_date": "2026-08-25T04:59:49Z",
+        "assistant_repository": "https://github.com/ag2ai/ag2-assistant",
+        "assistant_commit": "1a819890b24bf71b8acfcf0860159d953165a11d",
+        "assistant_commit_url": "https://github.com/ag2ai/ag2-assistant/commit/1a819890b24bf71b8acfcf0860159d953165a11d"
+      },
+      "immutable_package_contract": {
+        "package": "ag2",
+        "registry": "https://pypi.org/project/ag2/1.0.2/",
+        "version": "1.0.2",
+        "uploaded_at": "2026-08-15T05:29:08.581006Z",
+        "sdist_url": "https://files.pythonhosted.org/packages/4f/84/41f134baa2a0ba437d85134224e2c0ecfe121237973aaf0ecbdf2d84f3c4/ag2-1.0.2.tar.gz",
+        "sdist_sha256": "fd58ae079e63d3a1657fd9f8847deb24956852dfddefdfe89c72222953339e41",
+        "published_files_verified": [
+          "ag2/a2a/server.py",
+          "ag2/a2a/card.py",
+          "ag2/a2a/transports/jsonrpc.py",
+          "ag2/a2a/transports/rest.py",
+          "ag2/tools/builtin/web_fetch.py"
+        ],
+        "web_fetch_contract": {
+          "tool_name": "web_fetch",
+          "configuration_fields": [
+            "max_uses",
+            "allowed_domains",
+            "blocked_domains",
+            "citations",
+            "max_content_tokens",
+            "web_fetch_version"
+          ],
+          "execution_semantics": "Provider-native fetch chosen and executed inside an AG2 model turn; the published tool is usable infrastructure but is not itself a hosted caller-facing URL-fetch operation.",
+          "source_at_commit": "https://github.com/ag2ai/ag2/blob/90f490a1b72b27ab4c219dd3586e94d42383a016/ag2/tools/builtin/web_fetch.py",
+          "source_sha256": "937e2134f29f927a932e8003293434dafe485632d350cce434577bc80e83d21e"
+        }
+      },
+      "first_party_hosted_surface_checks": [
+        {
+          "url": "https://www.ag2.ai/.well-known/agent-card.json",
+          "http_status": 404
+        },
+        {
+          "url": "https://www.ag2.ai/openapi.json",
+          "http_status": 404
+        },
+        {
+          "url": "https://docs.ag2.ai/.well-known/agent-card.json",
+          "http_status": 404
+        },
+        {
+          "url": "https://docs.ag2.ai/openapi.json",
+          "http_status": 404
+        },
+        {
+          "url": "https://www.ag2.ai/a2a",
+          "http_status": 404
+        }
+      ],
+      "official_examples_and_runtime_status": {
+        "a2a_server_example": "https://github.com/ag2ai/ag2/blob/90f490a1b72b27ab4c219dd3586e94d42383a016/examples/a2a/server_basic.py",
+        "example_binding": "http://127.0.0.1:8000",
+        "a2a_docs": "https://docs.ag2.ai/docs/user-guide/a2a/server/",
+        "docs_binding": "localhost/127.0.0.1 examples; no operated AG2 public card is declared",
+        "ag2_assistant_readme": "https://github.com/ag2ai/ag2-assistant/blob/1a819890b24bf71b8acfcf0860159d953165a11d/README.md",
+        "ag2_assistant_runtime": "localhost:8800, self-hosted; gateway has no built-in auth and README warns against public exposure without a TLS/auth reverse proxy",
+        "ag2_assistant_model_gate": "First-run setup cannot continue until a provider API key or ChatGPT subscription login works."
+      },
+      "registry_checks": {
+        "official_mcp_registry_ag2": {
+          "url": "https://registry.modelcontextprotocol.io/v0.1/servers?search=ag2&version=latest&limit=100",
+          "matches": 0
+        },
+        "official_mcp_registry_autogen": {
+          "url": "https://registry.modelcontextprotocol.io/v0.1/servers?search=autogen&version=latest&limit=100",
+          "matches": 1,
+          "candidate": "ai.smithery/DynamicEndpoints-autogen_mcp",
+          "version": "0.3.0",
+          "runtime": "https://server.smithery.ai/@DynamicEndpoints/autogen_mcp/mcp",
+          "gate": "Required secret Smithery bearer token; older AutoGen label and third-party repository do not prove current AG2 runtime provenance."
+        },
+        "global_a2a_registry_ag2": {
+          "url": "https://a2aregistry.org/api/agents?search=ag2",
+          "matches": 0
+        },
+        "global_a2a_registry_autogen": {
+          "url": "https://a2aregistry.org/api/agents?search=autogen",
+          "matches": 3,
+          "identity_result": "No record is an AG2-org or otherwise durable current-AG2 agent identity with an independently declared AG-consuming fetch operation; matches are cross-framework bridge/tag/description hits."
+        }
+      },
+      "missing_join": "Current AG2 code and immutable package can host A2A and fetch the web, but no durable pre-existing AG2 community agent is presently bound to a healthy public keyless runtime and independently readable result surface.",
+      "smallest_exact_readiness_gate": {
+        "identity": "An AG2-org deployment record, signed card, or equally durable first-party link binds a named pre-existing AG2 agent to an HTTPS A2A/MCP endpoint.",
+        "operation": "The card declares a free no-auth bounded skill with an explicit input URL field that accepts the exact nonce-bearing Agent Guild preflight or passport URL and performs the fetch server-side.",
+        "proof": "The call returns a task/result id whose public read endpoint preserves the requested AG URL, fetched AG verdict or verified credential fields, agent identity, completion timestamp, and result hash.",
+        "health": "The card, operation, and public result read all return healthy status in the same audit window."
+      }
+    },
+    {
+      "target_id": "elizaos",
+      "decision": "NO_GO",
+      "new_facts": [
+        "Eliza Cloud now serves a live first-party platform A2A card at /api/a2a.",
+        "The immutable @elizaos/agent beta package contains a default-enabled keyless HTTPS GET action named WEB_FETCH with an explicit url parameter.",
+        "The hosted Cloud A2A implementation does not expose that action to callers: platform operations require credentials, while per-agent chat requires credentials and credits and calls streamText without any tools."
+      ],
+      "durable_first_party_identity": {
+        "repository": "https://github.com/elizaOS/eliza",
+        "commit": "6941532900d691b674ed0c0462985f1faab360d7",
+        "commit_url": "https://github.com/elizaOS/eliza/commit/6941532900d691b674ed0c0462985f1faab360d7",
+        "commit_observed_author_date": "2026-08-25T23:33:59Z",
+        "live_agent_card": "https://api.eliza.app/api/a2a",
+        "live_card_http_status": 200,
+        "live_card_name": "Eliza Cloud",
+        "live_card_provider": "Eliza Cloud",
+        "live_card_declared_url": "https://cloud.eliza.app/api/a2a",
+        "live_card_version": "1.0.0",
+        "live_card_sha256_at_observation": "4349788013c51e63e899e3802cd65ec981a9a8825271dd0d39335f055781aa0f",
+        "live_card_skill_count": 21
+      },
+      "immutable_package_contract": {
+        "package": "@elizaos/agent",
+        "version": "2.0.3-beta.7",
+        "git_head": "61094f10458d11055c75b3dd0bae374e3f66bac5",
+        "tarball": "https://registry.npmjs.org/@elizaos/agent/-/agent-2.0.3-beta.7.tgz",
+        "tarball_integrity": "sha512-DukD5iYQ7wbfZPIDy6WW+YMvzoyqqauWA3krSMxKIoo+tCQ/GIU4IiNNbM1y5XnpHIzH71FIwMRlTVbQ7FWFMg==",
+        "tarball_shasum": "b0dc91b295e2846aba3f447fb0711682b646cb9c",
+        "published_file": "package/runtime/actions/web-fetch.js",
+        "web_fetch_contract": {
+          "name": "WEB_FETCH",
+          "parameters": {
+            "url": {
+              "type": "string",
+              "required": true
+            },
+            "extract": {
+              "type": "string",
+              "required": false
+            }
+          },
+          "semantics": "Default-enabled, no API key, HTTPS-only, GET-only, SSRF-guarded; successful output includes actionName, url, and fetched value.",
+          "current_source": "https://github.com/elizaOS/eliza/blob/6941532900d691b674ed0c0462985f1faab360d7/packages/agent/src/runtime/actions/web-fetch.ts"
+        }
+      },
+      "live_platform_a2a_contract": {
+        "card": "https://api.eliza.app/api/a2a",
+        "authentication_schemes": [
+          "bearer",
+          "wallet_signature"
+        ],
+        "only_public_skill": {
+          "id": "cloud.auth.wallet_nonce",
+          "method": "GET",
+          "path": "/api/auth/siwe/nonce",
+          "reason_not_qualifying": "It begins wallet signup/login and neither fetches nor verifies Agent Guild."
+        },
+        "platform_a2a_skill": {
+          "id": "cloud.a2a.platform",
+          "method": "POST",
+          "path": "/api/a2a",
+          "auth_modes": [
+            "session",
+            "api_key",
+            "bearer_steward",
+            "wallet_signature",
+            "admin"
+          ]
+        },
+        "agent_chat_skill": {
+          "id": "cloud.agents.chat",
+          "method": "POST",
+          "path": "/api/agents/:id/a2a",
+          "auth_modes": [
+            "session",
+            "api_key",
+            "bearer_steward",
+            "wallet_signature"
+          ],
+          "billing_effect": "credit_debit"
+        },
+        "implementation_source": "https://github.com/elizaOS/eliza/blob/6941532900d691b674ed0c0462985f1faab360d7/packages/cloud/api/a2a/route.ts",
+        "implementation_source_sha256": "7379403675309a4ba88a07fdd8ccf00e7bb4a9e8abeb4d5a8023844befe56987"
+      },
+      "hosted_per_agent_contract": {
+        "source": "https://github.com/elizaOS/eliza/blob/6941532900d691b674ed0c0462985f1faab360d7/packages/cloud/api/agents/%5Bid%5D/a2a/route.ts",
+        "public_card_read": "GET /api/agents/:id/a2a is public only for a known public A2A-enabled character id.",
+        "generated_card_skills": [
+          "chat",
+          "generate_image"
+        ],
+        "generated_card_auth": "bearer",
+        "generated_card_payment": "USD api_key_credits",
+        "post_gate": "POST authenticates with requireGenerativeRouteCaller before dispatch and reserves/settles organization credits.",
+        "execution_limit": "The chat handler calls streamText with model, messages, and provider options only; no WEB_FETCH or other tool is passed to the hosted operation."
+      },
+      "current_discovery_and_contract_drift": {
+        "openapi_requested": "https://www.elizacloud.ai/api/openapi.json",
+        "openapi_final": "https://api.eliza.app/api/openapi.json",
+        "openapi_http_status": 200,
+        "openapi_version": "3.1.0",
+        "openapi_path_count": 16,
+        "openapi_security_schemes": [
+          "apiKeyAuth",
+          "bearerAuth"
+        ],
+        "openapi_limit": "The current OpenAPI document still omits the live /api/a2a route and exposes authenticated media/chat/account/model operations, not a public AG-consuming skill.",
+        "standard_path_statuses": {
+          "https://api.eliza.app/.well-known/agent-card.json": 404,
+          "https://api.eliza.app/.well-known/agent.json": 404,
+          "https://api.eliza.app/mcp": 404,
+          "https://api.eliza.app/a2a": 404
+        },
+        "official_mcp_registry_elizaos_matches": 0,
+        "official_mcp_registry_eliza_matches": 0,
+        "global_a2a_registry_eliza_matches": 0,
+        "public_gallery_explore": {
+          "url": "https://api.eliza.app/api/v1/gallery/explore?limit=20",
+          "http_status": 401,
+          "result": "authentication_required despite current source describing the route as public"
+        },
+        "cloud_agent_list": {
+          "url": "https://api.eliza.app/api/v1/eliza/agents",
+          "http_status": 401,
+          "result": "authentication_required"
+        }
+      },
+      "missing_join": "ElizaOS now has both a durable hosted Cloud identity and a published keyless WEB_FETCH primitive, but no current public Cloud operation binds them. Public discovery yields no known pre-existing public agent id, and every hosted execution route is credentialed and/or credit-metered; the per-agent A2A chat implementation does not invoke WEB_FETCH.",
+      "smallest_exact_readiness_gate": {
+        "identity": "Expose one pre-existing public A2A-enabled Eliza Cloud character through a first-party public directory or signed durable profile that binds its id to the existing GET /api/agents/:id/a2a card.",
+        "operation": "Add or declare a bounded no-auth/free A2A skill on that card whose input is {url:string, extract?:string} and whose server implementation calls the already-published WEB_FETCH action for the exact nonce-bearing Agent Guild preflight or passport URL.",
+        "proof": "Return a durable task/result id and a public GET result containing agent id, requested AG URL, fetched AG observation_id or credential-verification fields, fetched_at/completed_at, and result hash.",
+        "health": "The public directory/profile, card, exact operation, and result GET must be simultaneously reachable without session, API key, wallet signature, credits, or terms acceptance."
+      }
+    }
+  ],
+  "strict_conversion_delta": 0,
+  "target_file_edits": 0,
+  "conversion_claim": false
+}

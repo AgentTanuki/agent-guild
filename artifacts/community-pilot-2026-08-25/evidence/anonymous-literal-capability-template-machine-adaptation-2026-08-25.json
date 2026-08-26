@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T20:03:30Z",
+  "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+  "mode": "live_in_memory_read_then_local_additive_adaptation",
+  "strict_conversion": false,
+  "strict_conversion_count": 5,
+  "observed_sequence": [
+    {
+      "at": "2026-08-25T19:44:47.686380Z",
+      "type": "swarm_terms_fetch",
+      "user_agent": "node",
+      "actor": "anon"
+    },
+    {
+      "at": "2026-08-25T19:44:48.086626Z",
+      "type": "swarm_invoke_denied",
+      "user_agent": "node",
+      "actor": "anon",
+      "capability": "{capability_id}"
+    },
+    {
+      "at": "2026-08-25T19:56:24.855135Z",
+      "type": "swarm_terms_fetch",
+      "user_agent": "node",
+      "actor": "anon"
+    },
+    {
+      "at": "2026-08-25T19:56:24.921089Z",
+      "type": "swarm_invoke_denied",
+      "user_agent": "node",
+      "actor": "anon",
+      "capability": "{capability_id}"
+    }
+  ],
+  "adjacent_but_not_joined": {
+    "agent402_discovery": [
+      {
+        "at": "2026-08-25T19:44:25.514819Z",
+        "endpoint": "/openapi.json",
+        "user_agent_prefix": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40",
+        "actor": "http:e6e79…"
+      },
+      {
+        "at": "2026-08-25T19:44:47.240778Z",
+        "endpoint": "/.well-known/x402",
+        "user_agent_prefix": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40",
+        "actor": "http:e6e79…"
+      },
+      {
+        "at": "2026-08-25T19:44:47.321703Z",
+        "endpoint": "/robots.txt",
+        "user_agent_prefix": "Mozilla/5.0 (compatible; Agent402/1.0; +https://github.com/MikeyPetrillo/Agent40",
+        "actor": "http:e6e79…"
+      }
+    ],
+    "join_decision": "Do not attribute the later node invocation to Agent402 or PayAI. The public events use different caller evidence, and timing alone cannot supply identity.",
+    "payai_conversion": false
+  },
+  "machine_contract_finding": {
+    "observed": "An external node runtime twice fetched the machine-readable terms and then submitted the literal OpenAPI path placeholder {capability_id}, approximately twelve minutes apart. Agent Guild denied both requests before any capability ran.",
+    "existing_recovery_limit": "The unknown-capability response pointed only to the identity index. The top-level Agent Guild manifest published /invoke/{capability_id} without a runnable exact-path example, and the OpenAPI path parameter had no exact example.",
+    "inferred_need": "Machine path templates should be self-recovering: publish an exact executable example and, after a literal-placeholder error, return valid identifiers, the substitution rule, and a complete retry request.",
+    "identity_limit": "The runtime is anonymous and not joined to any fixed community. This is lower-confidence machine behavior evidence, not an attributable proposal or conversion."
+  },
+  "adaptation": {
+    "status": "independently_hostile_reviewed_release_ready_not_pushed_not_deployed",
+    "changes": [
+      "Unknown-capability responses return only the sorted fixture-gated published capability_ids list and a deep-copied runnable example.",
+      "The response explicitly says to replace the path template and never send literal {capability_id}.",
+      "The response includes a runnable POST /invoke/json.repair request with its exact JSON body.",
+      "The OpenAPI path parameter now declares json.repair as an exact example and explains substitution.",
+      "The top-level machine manifest now carries the template rule and runnable example.",
+      "A non-templated POST /invoke selector accepts {capability_id,payload} through bounded REST and A2A admission, redacted denial telemetry, deterministic kill precedence, and the shared signed-provenance gateway.",
+      "Malformed REST and A2A traffic is bounded per source and process; denial observation is storage-bounded; every edge 429 returns exact Retry-After; kill 503 remains deterministic while edge accounting continues.",
+      "Every successful free invocation returns one attributable canonical best_agent quote URL derived from the payment-bound public host, plus x402 readiness/catalog metadata and a never-auto-pay/never-reuse-quote/principal-authorized-spend rule.",
+      "REST 200/4xx/5xx and A2A kill responses have live-validated machine schemas; A2A preserves extension negotiation and echoes only a bounded JSON-RPC correlation id."
+    ],
+    "files": [
+      "live/guild/app/swarm/gateway.py",
+      "live/guild/app/swarm/router.py",
+      "live/guild/app/a2a.py",
+      "live/guild/app/abuse.py",
+      "live/guild/app/main.py",
+      "live/guild/tests/test_swarm_gateway.py",
+      "live/guild/tests/test_swarm_identity.py",
+      "live/guild/tests/test_a2a_and_badges.py",
+      "live/guild/tests/test_a2a_caller_proof.py",
+      "live/guild/tests/test_abuse_controls.py"
+    ],
+    "verification": {
+      "release_candidate": "b918c5b77e7ba5be6437431b2418e3ce7eeab4ce",
+      "independent_decision": "SHIP",
+      "result": "1,838 full-suite passes plus the sandbox-blocked localhost TLS test passing separately, for 1,839/1,839 runnable passes; 16 declared skips; 107 focused swarm/A2A/abuse/x402 passes; 21 credential lifecycle passes; all custom adversarial harnesses green",
+      "coverage": "literal recovery, REST and A2A bounded admission, durable-write redaction, malformed transport abuse bounds, denial observation bounds, fixture-gated recovery, live OpenAPI schemas, Retry-After, deterministic kill precedence, signed provenance, route order, canonical paid resource, readiness, attributable quote, and principal-authorized settlement language",
+      "worktree": "clean"
+    },
+    "production_change": false,
+    "deployment_authority_requested": false
+  },
+  "commercial": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "paid_decisions": 0,
+    "paid_offers_shown": 51,
+    "paid_completions": 0,
+    "observed_at": "2026-08-25T19:53:49.621723Z"
+  }
+}

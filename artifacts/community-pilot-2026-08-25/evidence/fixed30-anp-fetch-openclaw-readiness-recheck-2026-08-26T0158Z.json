@@ -1,0 +1,250 @@
+{
+  "schema": "agent-guild.community-pilot.anp-fetch-openclaw-readiness-recheck.v1",
+  "artifact_status": "validated",
+  "campaign": "community-pilot-2026-08-25",
+  "observed_interval": {
+    "start": "2026-08-26T01:56:39.392722Z",
+    "end": "2026-08-26T01:57:43Z"
+  },
+  "mode": "bounded_public_read_only_in_memory_no_operation",
+  "scope": [
+    "Agent Network Protocol",
+    "Fetch.ai / ASI Agentverse",
+    "OpenClaw"
+  ],
+  "baseline": "artifacts/community-pilot-2026-08-25/evidence/fixed30-anp-fetch-naptha-openclaw-retry-gate-audit-2026-08-26T0025Z.json",
+  "qualification_rule": "A strict conversion requires a durable pre-existing machine identity in the named fixed community plus a healthy, bounded, free, anonymous operation that independently retrieves an exact nonce-bearing Agent Guild preflight, passport, trust, or verification result and returns a substantive durable identity-bound result. Directory listings, liveness, schema reads, acknowledgements, caller-supplied-only validation, self-claims, or unsigned/private responses do not qualify.",
+  "decision": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "strict_delta": 0,
+    "operations_invoked": 0,
+    "result": "NO_NEW_READY_ROUTE"
+  },
+  "targets": [
+    {
+      "target_id": "anp",
+      "candidate": "Official ANP Network Explorer",
+      "durable_community_source": {
+        "repository": "https://github.com/agent-network-protocol/anp-examples",
+        "official_demo_documentation": "https://github.com/agent-network-protocol/AgentNetworkProtocol/blob/main/docs/chinese/ANP%E7%A4%BA%E4%BE%8B%E7%A8%8B%E5%BA%8F.md",
+        "advertised_runtime": "https://service.agent-network-protocol.com/anp-demo/",
+        "declared_behavior": "Accept an agent-description URL and question, crawl the agent network server-side, and display the crawl process and result."
+      },
+      "current_gate_checks": [
+        {
+          "source": "https://service.agent-network-protocol.com/anp-demo/api/health",
+          "status": 0,
+          "result": "TLS certificate verification failed because the certificate hostname does not match service.agent-network-protocol.com."
+        },
+        {
+          "source": "https://service.agent-network-protocol.com/anp-demo/openapi.json",
+          "status": 0,
+          "result": "TLS certificate verification failed because the certificate hostname does not match service.agent-network-protocol.com."
+        },
+        {
+          "source": "https://agent-network-protocol.com/.well-known/agent-descriptions",
+          "status": 200,
+          "content_type": "text/html",
+          "sha256": "5997bd470221472422db20587a71928b773842a98e5d8d47455f3148e5702585",
+          "result": "The route serves the ANP documentation HTML fallback, not a machine-readable Agent Description."
+        },
+        {
+          "source": "https://agent-network-protocol.com/.well-known/did.json",
+          "status": 200,
+          "content_type": "text/html",
+          "sha256": "5997bd470221472422db20587a71928b773842a98e5d8d47455f3148e5702585",
+          "result": "The route serves the same documentation HTML fallback, not a DID document."
+        }
+      ],
+      "new_ready_condition_satisfied": false,
+      "operation_invoked": false,
+      "decision": "NOT_READY",
+      "reason": "The transport cannot be authenticated with normal hostname validation, and neither official well-known route binds the explorer runtime or any result signer to an ANP machine identity. Even a returned crawl result would therefore lack the required durable identity/result join.",
+      "exact_ready_gate": "Repair hostname-valid TLS; serve JSON health and OpenAPI; publish an official ANP Agent Description and DID that bind the explorer endpoint and result signer; and provide a signed or publicly readable receipt for one exact nonce-bearing Agent Guild URL."
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "candidate": "Website Scraper Agent",
+      "durable_identity": {
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "name": "Website Scraper Agent",
+        "type": "hosted",
+        "featured": true,
+        "created_at": "2025-06-25T14:06:46Z",
+        "search_record": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "search_record_http_status": 200,
+        "search_record_sha256": "544259423322a60b1025f0b0d32c217dd4d89e5a081c3f1991ad74c212b5f5c6",
+        "last_updated": "2026-08-26T01:52:50Z"
+      },
+      "current_execution_telemetry": {
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "recent_interactions": 7443,
+        "total_interactions": 41058,
+        "delta_from_2026_08_26T00_25Z_baseline": {
+          "recent_interactions": 18,
+          "total_interactions": 18,
+          "verified_successes": 0,
+          "readiness_change": false
+        }
+      },
+      "current_contract": {
+        "almanac_record": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "almanac_http_status": 200,
+        "almanac_sha256": "de6bddda2c837787b83c64b510f16ceadac3c4ce3ad52792b5b16a6250af87be",
+        "almanac_status": "active",
+        "almanac_expiry": "2026-09-19T09:36:26.157873Z",
+        "transport": "https://agentverse.ai/v1/hosting/submit",
+        "official_transport_documentation": "https://docs.agentverse.ai/v-1/api-reference/hosting-v-1/submit-message-envelope",
+        "transport_request_requires": [
+          "sender",
+          "target",
+          "session UUID",
+          "schema digest",
+          "uAgent envelope context"
+        ],
+        "result_access_limit": "A useful response requires a sender/mailbox lifecycle; the public submit response does not provide a durable public result receipt bound to the target agent.",
+        "manifest": "https://agentverse.ai/v1/almanac/manifests/protocols/a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+        "manifest_http_status": 200,
+        "manifest_sha256": "29140488183d29f91a9e4c8456b39930f53c32f6c9325557d3d6371fb978afe8",
+        "protocol": "website-scraping-protocol/0.1.0",
+        "input_schema": {
+          "title": "WebsiteScraperRequest",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": "string"
+          }
+        },
+        "output_schemas": [
+          "WebsiteScraperResponse {text:string}",
+          "ErrorMessage {error:string}"
+        ]
+      },
+      "bounded_alternate_directory_search": {
+        "source": "POST https://agentverse.ai/v1/search/agents",
+        "semantics": "Read-only public directory search",
+        "queries": [
+          "website scraper",
+          "credential verifier",
+          "URL verification"
+        ],
+        "results_reviewed": 30,
+        "active_results": 0,
+        "results_with_protocols": 0,
+        "results_with_verified_success": 0,
+        "new_alternate_candidate": false,
+        "interpretation": "All returned alternatives were inactive, exposed no protocols, and had no interaction evidence. Directory name matches were not treated as capabilities."
+      },
+      "new_ready_condition_satisfied": false,
+      "operation_invoked": false,
+      "decision": "NOT_READY",
+      "reason": "The strongest durable address still has exact arbitrary-URL semantics, but it remains unresponsive with zero verified success. Execution requires a sender/mailbox lifecycle not already authorized, and no signed or publicly readable result receipt exists. The bounded alternate search produced no active semantic candidate.",
+      "exact_ready_gate": "The same address or another durable pre-existing Fetch agent must be active, responsive, show a fresh verified successful interaction, accept an exact nonce-bearing Agent Guild URL through an already-keyless anonymous route, and publish a response or receipt binding the URL and returned content to the durable agent address."
+    },
+    {
+      "target_id": "openclaw",
+      "candidate": "Dokki",
+      "durable_identity": {
+        "a2a_registry_query": "https://a2aregistry.org/api/agents?search=openclaw",
+        "a2a_registry_http_status": 200,
+        "a2a_registry_sha256": "5886d73d82b5e4d86a080769e1f5f099dde9c71b075eab385f2b594123763a63",
+        "registry_records_returned": 2,
+        "registry_id": "58d7daa3-379c-4c3d-a334-b50b1752813e",
+        "registry_created_at": "2026-06-17T09:13:51.294103Z",
+        "registry_updated_at": "2026-08-10T23:57:07.897775Z",
+        "card": "https://openagora.cc/agents/a9e94bd1-8cc1-41b0-8083-ecb0b938f2b0/agent-card.json",
+        "card_http_status": 200,
+        "card_sha256": "a98a29ba505150d0b713fac9e4d39aaeca93c0a95515aca454d5847454839635",
+        "card_claim": "Personal assistant built with OpenClaw",
+        "declared_authentication": "none",
+        "declared_research_skill": "Web search and information synthesis"
+      },
+      "current_runtime": {
+        "advertised_url": "https://dokki.one/a2a",
+        "redirect_status": 307,
+        "final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+        "final_status": 200,
+        "final_content_type": "text/html; charset=utf-8",
+        "body_sha256": "245ed75ac399e667b5ef6fbdbfaf48522ec4132d3092fb0604000b018f204eb8",
+        "registry_uptime_percentage": 0.0,
+        "registry_task_conformance": {
+          "passed": false,
+          "category": "405",
+          "checked_at": "2026-08-10T23:30:53.328417Z"
+        }
+      },
+      "alternate_records": [
+        {
+          "name": "FleetHelp Support Agent",
+          "registry_id": "130dd175-0724-41a3-a1f9-a4b80129c558",
+          "card": "https://fleethelp.ai/.well-known/agent.json",
+          "card_http_status": 200,
+          "card_sha256": "df73cf8c701318e0a66225691246030ff69bcbb305abe5733f65f3261746f25d",
+          "openclaw_membership": "Support expertise for OpenClaw and several other frameworks; no durable claim that the agent itself runs OpenClaw.",
+          "access_gate": "The card directs clients to subscribe for access; prior first-party pricing is 99 USD per organization per month.",
+          "registry_uptime_percentage": 0.0,
+          "registry_task_conformance_passed": false,
+          "decision": "ADJACENT_PAID_NONCONFORMANT"
+        },
+        {
+          "name": "AIP verification-agent",
+          "did": "did:aip:d03a3cdea2b94275d75437111ff888eb",
+          "resolution": "https://aip-service.fly.dev/resolve/did:aip:d03a3cdea2b94275d75437111ff888eb",
+          "profile": "https://aip-service.fly.dev/agent/did:aip:d03a3cdea2b94275d75437111ff888eb/profile",
+          "platform_claim": "openclaw",
+          "platform_verified": false,
+          "proof_post_id": null,
+          "last_active": null,
+          "profile_fields_present": false,
+          "hosted_agent_guild_consuming_operation": false,
+          "decision": "UNVERIFIED_PLATFORM_CLAIM_NO_RUNTIME"
+        }
+      ],
+      "new_ready_condition_satisfied": false,
+      "operation_invoked": false,
+      "decision": "NOT_READY",
+      "reason": "Dokki remains the only strong pre-existing OpenClaw identity/runtime join, but its advertised anonymous A2A endpoint still redirects to login and registry conformance remains failed. FleetHelp is paid and only OpenClaw-adjacent; the AIP candidate remains an unverified platform claim without activity, profile, or hosted operation.",
+      "exact_ready_gate": "Dokki must stop redirecting to login, accept current A2A message/send anonymously, and expose a signed or publicly readable identity-bound result. Alternatively, another durable machine must prove actual OpenClaw runtime membership and publish a healthy free bounded Agent Guild URL/passport operation with durable result readback."
+    }
+  ],
+  "machine_authored_design_signals": [],
+  "design_signal_policy": "No machine-authored product signal was included. Current registry health, cards, redirects, and telemetry are machine contract/state evidence, not grounded feedback authored by an independently operating durable machine identity.",
+  "ranked_first_ready_gates": [
+    {
+      "rank": 1,
+      "target": "Fetch Agentverse",
+      "gate": "A responsive durable scraper with fresh verified success plus an anonymous sender/result rail."
+    },
+    {
+      "rank": 2,
+      "target": "OpenClaw / Dokki",
+      "gate": "Remove the login redirect and serve anonymous message/send with durable result readback."
+    },
+    {
+      "rank": 3,
+      "target": "ANP Explorer",
+      "gate": "Repair TLS and bind runtime/result signer through official machine-readable AD and DID."
+    }
+  ],
+  "safety": {
+    "candidate_operations_invoked": 0,
+    "outreach_messages_or_repeated_contact": 0,
+    "accounts_keys_authentication_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_writes": 0,
+    "pushes_deployments_or_canonical_edits": 0,
+    "production_response_bodies": "processed_in_memory_only",
+    "local_writes": 1,
+    "local_write_scope": "this evidence artifact only"
+  }
+}

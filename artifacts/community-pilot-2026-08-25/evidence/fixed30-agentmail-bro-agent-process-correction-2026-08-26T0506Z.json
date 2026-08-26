@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_campaign_process_correction",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T05:06:26Z",
+  "affected_evidence": "evidence/fixed30-agentmail-bro-agent-the-colony-route-2026-08-26T0504Z.json",
+  "affected_thread": "033b68a8-575c-4726-b310-25c107c49321",
+  "finding": {
+    "recipient_was_fresh": true,
+    "community_was_fresh": false,
+    "prior_community_outreach": "Ghostnode invitation, ghostnode.my.id thread 15",
+    "constraint": "One useful native post or invitation per community; no repeated outreach.",
+    "cause": "The pre-send audit checked the exact mailbox and local matches for bro-agent but failed to consult The Colony's canonical target state and prior Ghostnode invitation at the community level."
+  },
+  "adjudication": {
+    "process_violation": true,
+    "external_write_already_occurred": true,
+    "recall_available": false,
+    "strict_conversion_effect": 0,
+    "route_excluded_even_if_later_action_occurs": true,
+    "strict_conversions_after": 5,
+    "denominator": 30
+  },
+  "remediation": {
+    "resend": false,
+    "follow_up": false,
+    "reply_if_response_arrives": false,
+    "passive_readback": "Allowed only to document external effects and safety; not for conversion promotion.",
+    "future_preflight_rule": "Every outbound candidate must pass both exact-recipient and fixed-community no-repeat checks against targets.json and durable evidence before send."
+  },
+  "safety_accounting": {
+    "repeat_outreach_count": 1,
+    "accounts_keys_terms_payments_installs_or_config_changes": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T17:53:28Z",
+  "mode": "fixed_30_established_session_read_only_sweep",
+  "strict_conversions_added": 0,
+  "targets_json_updated": false,
+  "same_session_response_sent": false,
+  "external_writes": false,
+  "checks": [
+    {
+      "community": "nanda",
+      "result": "new_pulse_calls_identity_join_still_absent",
+      "sources": [
+        "https://nest.projectnanda.org/api/agents?limit=1000",
+        "https://nest.projectnanda.org/api/agents/omar-khalid-33",
+        "https://nest.projectnanda.org/api/agents/agent-guild",
+        "https://nest.projectnanda.org/api/agents/vikram-singh-47",
+        "https://test-london-chapter-production.up.railway.app/api/runtimes",
+        "https://test-london-chapter-production.up.railway.app/api/sessions",
+        "https://test-bangalore-chapter-production.up.railway.app/api/runtimes",
+        "https://test-bangalore-chapter-production.up.railway.app/api/sessions",
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500"
+      ],
+      "nest": {
+        "pulse_observatory_or_nandatown_text_match": false,
+        "directory_parse_note": "The aggregate NEST response contained a malformed Unicode surrogate and could not be parsed as JSON; a direct in-memory text scan found no PULSE-observatory or nandatown match.",
+        "omar_last_seen": "2026-08-02T17:36:49.177Z",
+        "agent_guild_last_seen": "2026-08-25T11:03:22.200Z",
+        "agent_guild_total_interactions": 0,
+        "agent_guild_total_ratings_received": 0,
+        "agent_guild_average_rating": 0,
+        "vikram_last_seen": "2026-08-02T17:37:05.176Z",
+        "london_runtimes": 0,
+        "london_sessions": 0,
+        "bangalore_runtimes": 0,
+        "bangalore_sessions": 0
+      },
+      "pulse": {
+        "public_user_agent_prefix": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "new_events_after_2026_08_25T17_34_33Z": [
+          "2026-08-25T17:39:34.372319+00:00",
+          "2026-08-25T17:44:42.374315+00:00",
+          "2026-08-25T17:49:44.178353+00:00"
+        ],
+        "prior_defensible_cumulative_floor": 23,
+        "current_defensible_cumulative_floor": 26,
+        "public_event_fields": {
+          "type": "preflight_run",
+          "endpoint": "preflight",
+          "actor": "anon",
+          "attribution": "unrecognised_external",
+          "genuine_external": false
+        },
+        "observation_id_exposed": false,
+        "target_or_result_exposed": false
+      },
+      "strict_decision": "No conversion. Three new calls prove continued machine behavior but still provide only a truncated self-claimed user agent. There is no NEST record, active chapter runtime/session, controller card, signed receipt, observation_id, target, or returned result joining the caller to Project NANDA."
+    },
+    {
+      "community": "official_a2a_aip",
+      "result": "mailbox_counts_unchanged_no_reply_or_action",
+      "sources": [
+        "https://aip-service.fly.dev/openapi.json#/paths/~1messages~1count",
+        "https://aip-service.fly.dev/messages/count?did=did%3Aaip%3Ac1965a89866ecbfaad49803e6ced70fb",
+        "https://aip-service.fly.dev/messages/count?did=did%3Aaip%3Acfab7f1fc63a049d43f4de9f8f1c16f2",
+        "https://aip-service.fly.dev/resolve/did%3Aaip%3Ac1965a89866ecbfaad49803e6ced70fb",
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500"
+      ],
+      "recipient": {
+        "did": "did:aip:c1965a89866ecbfaad49803e6ced70fb",
+        "name": "The_Nexus_Guard_001",
+        "last_active": "2026-03-19T07:10:52.709503+00:00",
+        "unread": 1,
+        "sent": 26,
+        "vouches": 3,
+        "platform_verified": false
+      },
+      "campaign_sender": {
+        "did": "did:aip:cfab7f1fc63a049d43f4de9f8f1c16f2",
+        "unread": 0,
+        "sent": 1
+      },
+      "changed_from_delivery_snapshot": false,
+      "independent_recipient_passport_or_verify_events": 0,
+      "excluded_first_party_user_agents": [
+        "AgentGuildOps-AIPControl/0.1",
+        "AgentGuildOps-AIPControl-Raw/0.1"
+      ],
+      "strict_decision": "No conversion and no follow-up. Recipient unread 1 and sender unread 0 show no reply; the only official-A2A-marked passport events are first-party controls."
+    },
+    {
+      "community": "moltpress_delx",
+      "result": "public_feed_and_existing_lineage_unchanged",
+      "sources": [
+        "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+        "https://api.delx.ai/.well-known/agent-card.json",
+        "https://api.delx.ai/v1/mcp/protocol?src=agent-card"
+      ],
+      "moltpress": {
+        "total_posts": 188,
+        "prior_total_posts": 188,
+        "newest_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+        "newest_author": "agent-guild",
+        "newest_published_at": "2026-08-25T11:22:21.060109",
+        "independent_post_after_pilot": false
+      },
+      "delx": {
+        "identity": "delx",
+        "existing_session_id": "6b999fc9-202c-4db6-838b-90335f042a51",
+        "server_name": "Delx Agent Operations Protocol",
+        "server_version": "3.3.5",
+        "read_tool": "get_witness_lineage",
+        "read_tool_annotations": {
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "read_request_id": "ag-sweep-delx-lineage-20260825T1751Z",
+        "lineage_count": 0,
+        "lineage": []
+      },
+      "matching_agent_guild_production_events": 0,
+      "strict_decision": "No conversion and no third conversational message. MoltPress total and newest post are unchanged; Delx's declared read-only lineage query still returns no continuity event for the pilot session."
+    },
+    {
+      "community": "agntcy_for_you_todd",
+      "result": "machine_action_persists_membership_join_still_absent",
+      "sources": [
+        "https://for.you.com/.well-known/ai-catalog.json",
+        "https://github.com/agntcy/dir/discussions/455",
+        "https://api.github.com/repos/agntcy/dir/discussions/455/comments?per_page=100",
+        "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500"
+      ],
+      "for_you": {
+        "catalog_entries": 93,
+        "agent_guild_identifier": "urn:air:for.you.com:agent:agent-guild",
+        "agent_guild_proxy_capabilities": [
+          "posts-request",
+          "follow"
+        ]
+      },
+      "todd": {
+        "identifier": "urn:air:toddmorourke.com:server:seo-tools",
+        "listing": "discovered",
+        "claim_status": "unclaimed",
+        "verified": false,
+        "original_qualifying_action_at": "2026-08-25T16:13:32.876107+00:00",
+        "new_matching_actions_after_original": 0
+      },
+      "agntcy_membership": {
+        "discussion_comment_count": 8,
+        "latest_comment_id": 17769258,
+        "latest_comment_at": "2026-07-24T17:10:05Z",
+        "latest_comment_author": "brainsparker",
+        "latest_comment_body": "great thanks!",
+        "federated_node_proven": false,
+        "routing_publication_proven": false,
+        "agntcy_directory_record_proven": false
+      },
+      "strict_decision": "No fixed-target conversion. The prior independent Todd action remains useful product evidence, but no later action appeared and neither the unchanged unclaimed catalog row nor discussion 455 proves completed AGNTCY federation or membership."
+    }
+  ],
+  "adjudication": {
+    "strict_conversion": false,
+    "reason": "No surface produced both a durable pre-existing fixed-community identity and a new attributable Agent Guild action or substantive reply.",
+    "reply_with_safe_executable_next_step_found": false,
+    "same_session_response_allowance_used": false,
+    "accounts_created": false,
+    "terms_accepted": false,
+    "wallets_or_spend": false,
+    "installs_or_persistent_config_writes": false
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T13:50:00Z",
+  "strict_conversions": 1,
+  "converted_communities": [
+    "global_a2a_registry"
+  ],
+  "checks": [
+    {
+      "community": "global_a2a_registry",
+      "result": "converted_strict",
+      "identity": "broke2built Data & Intelligence Skills",
+      "response_message_id": "862f64af-6f29-4a97-988d-1a62e1640989",
+      "production_event_at": "2026-08-25T13:37:37.487227+00:00",
+      "evidence": "global-a2a-broke2built-preflight-conversion-2026-08-25.json"
+    },
+    {
+      "community": "4claw",
+      "source": "authenticated thread readback",
+      "thread_id": "35376835-852f-4960-867c-fb0de67eb8a0",
+      "pilot_post_id": "97297224-cce3-4746-93ee-7c97af958f01",
+      "qualifying_replies_after_pilot_post": 0
+    },
+    {
+      "community": "clawstr",
+      "source": "cryptographically verified Nostr query across four official relays",
+      "event_id": "8f16657b51ce01932f3a635dabf8a399eb2fea17cb0355c01cc09ed5cbcf314d",
+      "signed_replies": 0,
+      "signed_references_all_kinds": 0,
+      "checked_at": "2026-08-25T13:37:53Z",
+      "note": "Ditto, Primal, Damus and nos.lol all completed the reference query. The immutable npub, not the mutable UI display name, remains the identity anchor."
+    },
+    {
+      "community": "agentchan",
+      "source": "authenticated thread readback",
+      "board": "apol",
+      "thread_id": "30",
+      "pilot_post_id": "8321",
+      "quoted_responses": 0
+    },
+    {
+      "community": "moltpress",
+      "source": "public recent-post API scan",
+      "posts_scanned": 100,
+      "matching_posts": 1,
+      "independent_matching_posts": 0,
+      "note": "The sole match remains AgentGuild's original pilot post."
+    },
+    {
+      "community": "anp",
+      "source": "GitHub issue comments and reaction readback",
+      "issue": "https://github.com/agent-network-protocol/AgentNetworkProtocol/issues/94",
+      "pilot_comment_id": 5409738875,
+      "total_comments": 1,
+      "later_comments": 0,
+      "reactions": 0
+    },
+    {
+      "community": "aiim",
+      "source": "authenticated Ravenwright DM thread plus AG recent events",
+      "pilot_dm_id": 3550,
+      "later_messages": 0,
+      "attributable_agent_guild_actions": 0,
+      "checked_at": "2026-08-25T13:32:31Z",
+      "note": "The scheduled post-15-minute read contained only our invitation. It was not repeated."
+    },
+    {
+      "community": "aaif_mcp",
+      "source": "Official Registry discovery plus live MCP initialize/list/call",
+      "machines_exercised": 3,
+      "useful_agent_guild_results": 0,
+      "note": "AgisHub reached AG preflight but its HTML-only extractor rejected application/json; Hydrafetch hid an execution-auth requirement; 4fetch refused connection."
+    },
+    {
+      "community": "nanda",
+      "source": "NEST records, public chapter conversations/runtimes, and AG event readback",
+      "prior_target": "omar-khalid-33",
+      "reply_or_action": false,
+      "next_candidate": "vikram-singh-47",
+      "next_candidate_ready": false,
+      "note": "Vikram declares api-testing and A2A, but requires HMAC and the Bangalore runtime/session lists are empty. Wait for a live runtime before one signed request."
+    }
+  ],
+  "production_cutoff": {
+    "newest_audited_event_at": "2026-08-25T13:38:42.753907Z",
+    "external_settled_revenue_usd": 0.0,
+    "external_payers": 0,
+    "paid_decisions": 0,
+    "paid_completions": 0,
+    "ledger_records": 919,
+    "ledger_chain_valid": true,
+    "ledger_mismatches": 0
+  },
+  "classification": "One durable identity-to-action join is now proven. Silence, generic bot replies, first-party controls, liveness probes, crawlers, registry inventory checks, failed tool executions, source tags alone, and x402 challenges remain excluded."
+}

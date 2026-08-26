@@ -1,0 +1,220 @@
+{
+  "schema_version": "community-pilot-evidence-v1",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "mode": "public_read_only_discovery",
+  "observed_interval": {
+    "start": "2026-08-26T04:22:00Z",
+    "end": "2026-08-26T04:30:00Z"
+  },
+  "scope": [
+    "moltx",
+    "agent_commune",
+    "olas",
+    "virtuals_acp",
+    "fetch_agentverse",
+    "nevermined",
+    "openserv",
+    "naptha",
+    "openclaw",
+    "elizaos",
+    "ag2",
+    "langchain",
+    "claws_network",
+    "agentic_market",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "strict_success_rule": "A conversion requires a pre-existing durable identity in the named community plus an anonymous, exact-zero, side-effect-free machine operation that independently fetches, verifies, or uses an exact Agent Guild artifact and returns an identity-bound durable substantive result. Listings, discovery probes, caller-supplied-only checks, schema validation, acknowledgements, stale health flags, and human-authored posts are excluded.",
+  "prior_routes_excluded": [
+    "MoltX b0tresch",
+    "Agent Commune EloPhanto",
+    "Olas sampled HOL/Mech identities",
+    "Virtuals x402guard",
+    "Fetch canonical Website Scraper Agent agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+    "Nevermined/Revettr",
+    "OpenServ BrowserUse",
+    "OpenClaw Dokki, FleetHelp and AIP verification-agent",
+    "LangChain Authenticated MCP Agent and Chat LangChain",
+    "Agentic Market MAKO",
+    "Reddit Acrid and Nexagora/DualExtreme02536"
+  ],
+  "strongest_genuinely_new_route": {
+    "target_id": "fetch_agentverse",
+    "decision": "NOT_READY_NO_INVOCATION",
+    "identity": {
+      "name": "website-scraper-agent",
+      "address": "agent1qd4m8tfumt5ptzqtyjl4a9ltw7ge096f88lny3rh564tuxjmghck5wp8am6",
+      "profile": "https://agentverse.ai/v1/search/agents/agent1qd4m8tfumt5ptzqtyjl4a9ltw7ge096f88lny3rh564tuxjmghck5wp8am6",
+      "created_at": "2024-10-31T21:40:20Z",
+      "last_updated": "2024-10-31T21:45:50Z",
+      "type": "hosted",
+      "status": "active",
+      "unresponsive": false,
+      "total_interactions": 9,
+      "recent_interactions": 0,
+      "recent_verified_interactions": 0,
+      "recent_success_verified_interactions": 0
+    },
+    "published_contract": {
+      "protocol": "website-scraping-protocol",
+      "version": "0.1.0",
+      "digest": "proto:a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+      "request": {
+        "model": "WebsiteScraperRequest",
+        "fields": {
+          "url": "string"
+        }
+      },
+      "response": {
+        "model": "WebsiteScraperResponse",
+        "fields": {
+          "text": "string"
+        }
+      },
+      "semantic_fit": "The server-side scraper could consume an exact nonce-bearing Agent Guild preflight/passport URL and return its body text. This is not caller-supplied-only validation."
+    },
+    "cluster_evidence": {
+      "search_endpoint": "POST https://agentverse.ai/v1/search/agents",
+      "request": {
+        "search_text": "website scraper",
+        "limit": 30
+      },
+      "directory_total": 3039,
+      "returned": 30,
+      "exact_protocol_records_returned": 12,
+      "records_beyond_the_prior_canonical_identity": 11,
+      "marked_active_and_not_unresponsive": 10,
+      "with_recent_interactions": 1,
+      "with_verified_success": 0,
+      "interpretation": "The ten old records marked responsive are not current liveness proof: their last updates are from 2024, recent_interactions is zero, and none has a verified success."
+    },
+    "blocking_contract": [
+      "The published usage example says to create a new Agentverse Blank agent, or install uagents and run a local sender. Both require a new identity/lifecycle or installation, which this pilot forbids.",
+      "The uAgent request must be emitted by a sender identity and the response is delivered to that sender handler; the public profile publishes no anonymous HTTP operation and no durable public result identifier.",
+      "No returned alternate has a recent verified successful interaction, so the directory's active/unresponsive flags do not establish current execution health."
+    ],
+    "exact_ready_condition": "One of these pre-existing addresses records a fresh verified success and publishes an already-authorized anonymous submission route that accepts the exact AG URL without creating a sender/account/key or installing uagents, then returns a machine-address-bound public result ID containing the fetched body or body hash.",
+    "operation_invoked": false
+  },
+  "other_new_identity_checks": [
+    {
+      "target_id": "openclaw",
+      "candidate": "io.github.baronsengir007/openclaw-agent-tools v1.0.1",
+      "identity_source": "https://registry.modelcontextprotocol.io/v0.1/servers?search=openclaw&version=latest&limit=100",
+      "declared_remote": "https://venice-components-track-determination.trycloudflare.com/mcp",
+      "declared_semantics": "Weather, code search, currency and Solana trust scoring; free with no API key.",
+      "current_result": "The remote hostname did not resolve. The registry-linked GitHub repository also returned 404, and the declared tools do not include arbitrary URL fetch or W3C credential verification.",
+      "decision": "NO_GO"
+    },
+    {
+      "target_id": "ag2_langchain",
+      "candidate": "HiveGate",
+      "identity_source": "https://a2aregistry.org/api/agents?search=autogen",
+      "card": "https://hivegate.onrender.com/.well-known/agent-card.json",
+      "current_result": "The card advertises a framework bridge covering AutoGen and LangChain, but authentication is x402/API-key. Its public OpenAPI prices onboarding at $1.00, admission/tier verification at $0.10, guest registration at $4.99, and the card describes a 0.5% trust-bridge fee.",
+      "community_join_limit": "An adapter/bridge claim is not proof that the hosted machine itself is an AG2 or LangChain participant.",
+      "decision": "NO_GO"
+    },
+    {
+      "target_id": "ag2_langchain",
+      "candidate": "AAAA-Nexus",
+      "card": "https://atomadic.tech/.well-known/agent-card.json",
+      "current_result": "The card offers three credential-free trial calls per endpoint and identity/behavioral verification skills, but mentions AutoGen and LangChain only as portability targets. That is not a durable framework-membership join, and no declared skill independently fetches an exact AG artifact.",
+      "decision": "NO_GO"
+    },
+    {
+      "target_id": "reddit_agents_of_ai",
+      "candidate": "CoArena post",
+      "source": "https://www.reddit.com/r/AgentsOfAI/new.rss?limit=25",
+      "observed_updated_at": "2026-08-26T00:49:48Z",
+      "current_result": "The post advertises a free computer-use product, but the RSS evidence is a human-authored product post and does not bind a pre-existing autonomous Reddit machine identity to a public native API contract.",
+      "decision": "NO_GO"
+    }
+  ],
+  "registry_summary": {
+    "a2a_registry": {
+      "endpoint": "https://a2aregistry.org/api/agents?search=<term>",
+      "exact_counts": {
+        "moltx": 0,
+        "agent commune": 0,
+        "eliza": 0,
+        "openclaw": 2,
+        "autogen": 3,
+        "ag2": 0,
+        "langchain": 3,
+        "naptha": 0,
+        "nevermined": 0,
+        "openserv": 0,
+        "olas": 0,
+        "virtuals": 0,
+        "agentverse": 0,
+        "claws": 0,
+        "reddit ai agents": 0,
+        "agents of ai": 0,
+        "agentic market": 0
+      },
+      "interpretation": "All non-zero results were either prior exclusions or the HiveGate/AAAA-Nexus bridge candidates rejected above."
+    },
+    "official_mcp_registry": {
+      "endpoint": "https://registry.modelcontextprotocol.io/v0.1/servers?search=<term>&version=latest&limit=100",
+      "material_counts": {
+        "openclaw": 17,
+        "autogen": 1,
+        "ag2": 0,
+        "langchain": 2,
+        "naptha": 0,
+        "nevermined": 0,
+        "openserv": 0,
+        "virtuals": 1,
+        "agentverse": 2,
+        "claws": 4
+      },
+      "interpretation": "The only new no-key OpenClaw-labelled remote was dead and semantically unsuitable. Other matches were packages requiring install, API keys/tokens, paid services, documentation servers, or unrelated string matches."
+    }
+  },
+  "unchanged_targets": {
+    "moltx": "No new exact registry identity; prior public runtime remains unavailable.",
+    "agent_commune": "No new exact registry identity; prior public service remains gated/suspended.",
+    "olas": "No different free signerless Mech operation surfaced.",
+    "virtuals_acp": "No different effective-zero AG-semantic job surfaced beyond the already complete catalog audit.",
+    "nevermined": "No different free server-fetching AG credential operation surfaced.",
+    "openserv": "No different active exact-zero service surfaced beyond the already complete catalog audit.",
+    "naptha": "No new hosted registry identity or healthy anonymous runtime surfaced.",
+    "elizaos": "No official A2A/MCP registry identity surfaced.",
+    "claws_network": "No safe hosted Claws Network member operation surfaced; generic MCP name matches were unrelated.",
+    "agentic_market": "No different exact-zero AG-semantic service surfaced beyond the prior complete catalog audit.",
+    "reddit_ai_agents": "The public RSS endpoint returned no parseable entries during this bounded read; no claim is made from absence."
+  },
+  "strict_result": {
+    "before": "5/30",
+    "conversions_added": 0,
+    "after": "5/30",
+    "reason": "The only genuinely new semantically exact route requires a newly created/installed sender lifecycle, lacks current verified execution evidence, and cannot return an anonymous durable public result."
+  },
+  "commercial_context": {
+    "observed_at": "2026-08-26T04:29:46Z",
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "paid_completions": 0
+  },
+  "machine_design_signal": {
+    "evidence": "Agentverse's strongest exact-fetch candidates expose a clean semantic schema but require a stateful sender agent and deliver results only to that sender handler.",
+    "conservative_recommendation": "Do not weaken strict attribution. For machine ecosystems with callback-only transports, AG should publish a compact correlation contract that a third-party response can echo: exact artifact URL digest, nonce, target machine identity, completed_at, and response body digest. This improves proof joins but does not remove the sender/admission gate."
+  },
+  "safety": {
+    "external_operations_invoked": 0,
+    "messages_or_outreach": 0,
+    "accounts_keys_wallets_or_terms": 0,
+    "payments_or_spend": 0,
+    "installs_or_persistent_config": 0,
+    "production_mutations": 0,
+    "response_files": 0,
+    "notes": "All public response bodies were processed in memory. Only registry, card, profile, RSS, and commercial reads were performed."
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T19:40:00Z",
+  "scope": [
+    "agntcy",
+    "nevermined",
+    "openclaw",
+    "elizaos",
+    "crewai",
+    "ag2_autogen",
+    "langchain",
+    "naptha",
+    "olas",
+    "virtuals_acp",
+    "payai",
+    "openserv",
+    "claws_network",
+    "agentic_market"
+  ],
+  "method": "Read-only, in-memory inspection of current public machine-readable registries, cards, contracts and marketplace catalogs. No operation was invoked, no account or credential was created, no terms were accepted, no wallet or payment was used, and no persistent configuration was changed.",
+  "strict_conversions_added": 0,
+  "target_state_changes": 0,
+  "targets_json_updated": false,
+  "strongest_new_evidence": {
+    "community": "agntcy",
+    "public_catalog": "https://ai-catalog.outshift.io/.well-known/ai-catalog.json",
+    "records_endpoint": "https://ai-catalog.outshift.io/v1/agents",
+    "current_total_count": 3228,
+    "qualification": "The catalog is a live AGNTCY Directory machine surface containing signed/imported records with Sigstore trust attestations.",
+    "published_import_workflow": "https://github.com/agntcy/dir/blob/main/.github/workflows/import-records.yaml",
+    "published_import_config": "https://github.com/agntcy/dir/blob/main/.github/workflows/scripts/import-records.json",
+    "identity_join_result": "The published official-MCP namespace allowlist excludes dev.fetchgate/fetchgate and the Todd/For You identity. Therefore neither earlier machine action can be cross-counted as an AGNTCY conversion.",
+    "actionability_result": "Current hosted records in the published imported namespaces were documentation-only, package-validation-only, or required account, tenant, token, OAuth, API key, private-instance context, or payment. No anonymous free arbitrary-URL fetch, W3C credential verification, or Agent Guild trust operation was found.",
+    "strict_decision": "REJECT"
+  },
+  "marketplace_checks": [
+    {
+      "community": "payai",
+      "catalog_total": 26650,
+      "zero_price_routes": 87,
+      "zero_price_hosts": 18,
+      "semantically_relevant_zero_price_routes": 15,
+      "result": "The only exact arbitrary-URL candidate remains Aster Vale, whose published zrok host was already proven unavailable. The one-record catalog increase was nonzero-price and did not create a qualifying route.",
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "openserv",
+      "catalog": "https://api.openserv.ai/x402-services",
+      "catalog_total": 467,
+      "active_services": 88,
+      "active_free_services": 0,
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "virtuals_acp",
+      "catalog": "https://acpx.virtuals.io/api/agents",
+      "catalog_total": 44051,
+      "recently_updated_agents_checked": 104,
+      "effective_zero_price_jobs": 0,
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "olas",
+      "catalog": "https://hol.org/registry/api/v1/search?q=Olas&online=true&metadata.isFree=true&limit=10&includeAggregations=false",
+      "free_online_results": 0,
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "agentic_market",
+      "result": "The exact MAKO verification and endpoint-scoring operations remain paid. Its free reliability route reads MAKO's stored AsterPay state and does not fetch Agent Guild or verify an Agent Guild artifact.",
+      "strict_decision": "REJECT"
+    }
+  ],
+  "framework_checks": [
+    {
+      "community": "langchain",
+      "registry_identity": "d80326d1-8724-4e92-a502-ef8241befcb0",
+      "name": "Authenticated MCP Agent",
+      "agent_card": "https://authenticated-mcp-traced-agent.getvda.ai/.well-known/agent-card.json",
+      "a2a_endpoint": "https://authenticated-mcp-traced-agent.getvda.ai/a2a/",
+      "framework_evidence": "The signed card declares orchestration provided by langchain-core.",
+      "result": "Its anonymous free behavior is fixed self-test and verification of its own protocol/auth envelope. Actual work is metered and it exposes no arbitrary-URL fetch or Agent Guild credential/trust action.",
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "openclaw",
+      "registry_identity": "io.github.yedanyagamiai-cmd/openclaw-mcp-servers",
+      "version": "1.0.1",
+      "result": "Nine hosted Workers expose fixed utility semantics such as JSON, regex, color, timestamp, prompt enhancement, OpenClaw intelligence, fortune, Moltbook publishing and AgentForge comparison. None can consume an Agent Guild URL or trust artifact.",
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "nevermined",
+      "result": "Revettr's free endpoints score caller-supplied identifiers; the useful endpoint-scoring operation remains paid and export remains administrative. No Agent Guild-consuming free route exists.",
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "crewai",
+      "result": "The durable Agentverse CrewAI candidates remain inactive or unresponsive and expose no qualifying anonymous hosted operation.",
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "ag2_autogen",
+      "result": "Current official registry matches are wrappers or require bearer authentication; no attributable anonymous hosted framework machine can consume Agent Guild.",
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "elizaos",
+      "result": "The current hosted OpenAPI remains product APIs behind authentication, not an anonymous Agent Guild-consuming machine action.",
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "naptha",
+      "result": "Public node surfaces remained unavailable or timed out; no live declared anonymous operation was proven.",
+      "strict_decision": "REJECT"
+    },
+    {
+      "community": "claws_network",
+      "result": "The current published route requires wallet use plus persistent soul, task, heartbeat and auto-update configuration. It is outside pilot authorization and the free anonymous standard.",
+      "strict_decision": "REJECT"
+    }
+  ],
+  "adjudication": {
+    "strict_conversion": false,
+    "reason": "No checked target supplied both a durable pre-existing identity in the named community and a live free anonymous operation that independently consumed an exact Agent Guild endpoint or trust artifact and returned a substantive result.",
+    "operation_invoked": false,
+    "external_writes": false,
+    "accounts_created": false,
+    "terms_accepted": false,
+    "wallets_or_spend": false,
+    "installs_or_config_writes": false
+  },
+  "machine_product_feedback": [
+    "Machine-only output is fully sufficient; no human-readable rendering is required for conversion.",
+    "Agent Guild should return a privacy-safe server-issued correlation receipt, or echo a bounded caller correlation token, so autonomous machines can prove exact cross-surface action without relying on human interpretation of timing.",
+    "For eventual settled revenue, preserve a bounded free trust/preflight action as the machine-verifiable first-use proof, then expose paid deeper verification or settlement as an explicit next machine action."
+  ]
+}

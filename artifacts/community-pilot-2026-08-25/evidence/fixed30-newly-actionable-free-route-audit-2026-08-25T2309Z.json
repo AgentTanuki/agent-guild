@@ -1,0 +1,421 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_newly_actionable_free_route_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval_utc": {
+    "start": "2026-08-25T23:00:50Z",
+    "end": "2026-08-25T23:11:40Z"
+  },
+  "mode": "public_read_only_discovery_and_liveness_in_memory",
+  "strict_baseline_before": "5/30",
+  "qualification_rule": "A newly actionable route must join a durable pre-existing identity in an unconverted fixed community to a currently healthy, hosted, free, anonymous, one-shot operation that independently fetches, verifies, preflights, or otherwise uses an exact Agent Guild trust result, passport, or credential and returns attributable substantive evidence. Listings, discovery probes, fixed self-tests, caller-supplied-only checks, contact acknowledgements, and payment or identity setup do not qualify.",
+  "constraints": {
+    "candidate_machine_operations_invoked": 0,
+    "mcp_tools_called": 0,
+    "a2a_messages_sent": 0,
+    "outreach_or_contact": 0,
+    "accounts_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_writes": 0,
+    "public_reads_only": true,
+    "response_bodies_written_to_tmp": false,
+    "canonical_targets_or_readme_edited": false
+  },
+  "result": {
+    "decision": "NO_GO",
+    "newly_actionable_routes": 0,
+    "strict_conversions_added": 0,
+    "strict_total_after": "5/30",
+    "reason": "Every exact server-side Agent Guild-consuming contract still fails at least one pre-action gate: Aster is unreachable, Heron is transport-incompatible and its evidence roll is broken, Delx requires x402 payment, Fetch is unresponsive and signer-gated, and the remaining live runtimes do not expose the required semantics."
+  },
+  "ranked_candidates": [
+    {
+      "rank": 1,
+      "fixed_target": "PayAI",
+      "candidate": "Aster Vale Audit402 sample_website_audit",
+      "durable_identity": {
+        "catalog": "https://facilitator.payai.network/discovery/resources",
+        "seller": "Aster Vale Audit402",
+        "pay_to": "0x5D8b58bAdE65318bC95e2EAd24e6F0E2b042Aa78",
+        "catalog_presence_predates_pilot": true
+      },
+      "current_catalog_snapshot": {
+        "declared_total_records": 26653,
+        "records_read": 26653,
+        "zero_price_records": 87,
+        "zero_price_unique_hosts": 18,
+        "ag_semantic_or_input_matches": 15,
+        "delta_from_prior_snapshot": {
+          "total_records": 4,
+          "zero_price_records": 0,
+          "compatible_route_change": false
+        }
+      },
+      "declared_contract": {
+        "http_resource": "https://aster-vale-audit402.shares.zrok.io/website-audit-sample",
+        "mcp_resource": "https://aster-vale-audit402.shares.zrok.io/mcp",
+        "tool": "sample_website_audit",
+        "input": {
+          "url": "required public HTTP or HTTPS URI, maxLength 500"
+        },
+        "output": "target status, reachability, response timing, five website/security findings, and a paid full-audit link",
+        "price_atomic": "0",
+        "network": "eip155:8453"
+      },
+      "current_liveness": {
+        "stable_http_head_status": 404,
+        "stable_mcp_head_status": 404,
+        "stable_response_class": "zrok share not found",
+        "catalogued_trycloudflare_fallbacks_checked": 5,
+        "catalogued_trycloudflare_fallbacks_resolving": 0,
+        "fallbacks": [
+          "https://appearing-clinics-show-wrote.trycloudflare.com/website-audit-sample",
+          "https://relationship-less-christ-scheduled.trycloudflare.com/website-audit-sample",
+          "https://typically-deer-stable-performed.trycloudflare.com/sample",
+          "https://dual-click-marker-directed.trycloudflare.com/sample",
+          "https://expansys-solutions-spec-bowl.trycloudflare.com/sample"
+        ]
+      },
+      "bounded_payload_if_ready": {
+        "url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Faster-vale-audit402.shares.zrok.io%2Fmcp&nonce=payai-aster-<unique>"
+      },
+      "decision": "NOT_READY_NOT_INVOKED_UNREACHABLE",
+      "exact_ready_condition": "A catalog-bound Aster Vale endpoint must resolve and return an application response on a non-Agent-Guild liveness read while the same public catalog record still advertises amount=0 and the arbitrary-url schema. Report it as ready before one nonce-bound request."
+    },
+    {
+      "rank": 2,
+      "fixed_target": "Project NANDA",
+      "candidate": "Heron A2A Checker",
+      "durable_identity": {
+        "nanda_index": "https://api.nandaindex.org/api/v1/index#heron-a2a",
+        "org_id": "heron-a2a",
+        "display_name": "Heron A2A Checker",
+        "status": "active",
+        "domain_verified": true,
+        "email_verified": true,
+        "registry_url": "https://heronnanda.up.railway.app/"
+      },
+      "current_health": {
+        "url": "https://heronnanda.up.railway.app/health",
+        "http_status": 200,
+        "status": "ok",
+        "service": "heron-probe/0.1",
+        "backend": "postgres",
+        "public_key": "QsE2AiPrHyD7rjfOebspA0KynBDsE0c+/ZDmXi3q2zw=",
+        "mode": "auto",
+        "rate_limit_per_hour": 30
+      },
+      "declared_contract": {
+        "skill": "https://heronnanda.up.railway.app/skill.md",
+        "openapi": "https://heronnanda.up.railway.app/openapi.json",
+        "verify": "POST /verify with {agent_url:string, protocol:a2a|nanda, skill_md_url?:same-origin URL}",
+        "result": "signed evidence record, summary, checks, warnings, interaction token, and Ed25519 signature",
+        "auth": "none declared",
+        "price": "free",
+        "documented_a2a_method": "tasks/send",
+        "public_evidence_roll": "GET /register and GET /agent/{agent_id}/evidence"
+      },
+      "current_failures": {
+        "public_register_http_status": 500,
+        "public_register_body": "Internal Server Error",
+        "agent_guild_live_card": {
+          "url": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+          "version": "2.5.39",
+          "protocol_version": "0.3.0",
+          "a2a_endpoint": "https://agent-guild-5d5r.onrender.com/a2a",
+          "supported_current_method": "message/send"
+        },
+        "transport_conflict": "Heron still explicitly documents legacy tasks/send while Agent Guild's current card and endpoint use message/send."
+      },
+      "bounded_payload_if_ready": {
+        "agent_url": "https://agent-guild-5d5r.onrender.com",
+        "protocol": "a2a"
+      },
+      "decision": "NOT_READY_NOT_INVOKED_PROTOCOL_AND_EVIDENCE_GATES",
+      "exact_ready_condition": "Heron must publish and serve current A2A message/send probing and return HTTP 200 from GET /register or an exact public evidence readback. After both pass a fresh read, report POST /verify as ready; accept only if its signature verifies against /health and the same evidence is independently retrievable."
+    },
+    {
+      "rank": 3,
+      "fixed_target": "MoltPress",
+      "candidate": "delx / Delx Agent Operations Protocol",
+      "durable_identity": {
+        "moltpress_username": "delx",
+        "pre_pilot_moltpress_post_id": "88277e12-86da-4e4c-99de-d206376229d1",
+        "agent_card": "https://api.delx.ai/.well-known/agent-card.json",
+        "mcp": "https://api.delx.ai/v1/mcp/protocol?src=agent-card"
+      },
+      "current_catalog": {
+        "url": "https://api.delx.ai/api/v1/tools",
+        "server_version": "3.3.5",
+        "catalog_version": "0d89faaa6256",
+        "tier": "all",
+        "tools": 1076,
+        "core_tools": 30
+      },
+      "exact_external_operations": [
+        {
+          "tool": "util_url_health",
+          "price_usdc": "0.001",
+          "x402_required": true,
+          "campaign_free": false,
+          "semantic_scope": "server-side URL reachability, status, latency, and headers"
+        },
+        {
+          "tool": "util_page_extract",
+          "price_usdc": "0.01",
+          "x402_required": true,
+          "campaign_free": false,
+          "semantic_scope": "server-side arbitrary URL fetch returning final URL, status, metadata, and bounded text"
+        },
+        {
+          "tool": "util_domain_trust_report",
+          "price_usdc": "0.01",
+          "x402_required": true,
+          "campaign_free": false,
+          "semantic_scope": "TLS, headers, security.txt, RDAP, DNS, uptime, and domain trust score"
+        }
+      ],
+      "zero_price_reaudit": {
+        "name_or_description_semantic_matches": [
+          "get_agent_continuity_passport",
+          "get_ontology_metadata",
+          "ontology_path_complete",
+          "prepare_delx_claim_transaction",
+          "protocol_orientation",
+          "wellness_webhook"
+        ],
+        "only_zero_price_external_artifact_input": {
+          "tool": "recognition_seal",
+          "required": [
+            "seal_text"
+          ],
+          "optional": [
+            "artifact_uri",
+            "session_id",
+            "agent_id"
+          ],
+          "exclusion": "It records caller-supplied text or an artifact URI into Delx state; it neither fetches nor verifies the artifact and is an external write."
+        },
+        "continuity_passport_exclusion": "get_agent_continuity_passport exports Delx's own stored continuity record from agent_id/session_id; it does not consume or verify an Agent Guild passport."
+      },
+      "decision": "NOT_READY_NOT_INVOKED_PAYMENT_OR_WRONG_SEMANTICS",
+      "exact_ready_condition": "Publish util_url_health or util_page_extract with price_usdc=0, x402_required=false, and campaign_free=true on the existing anonymous MCP transport, and retain exact target, final URL, status, content digest, and parsed Agent Guild result in the response."
+    },
+    {
+      "rank": 4,
+      "fixed_target": "Fetch Agentverse",
+      "candidate": "Website Scraper Agent",
+      "durable_identity": {
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "profile": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "almanac": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "type": "hosted",
+        "featured": true,
+        "verified_tag": true,
+        "created_at": "2025-06-25T14:06:46Z"
+      },
+      "declared_contract": {
+        "protocol": "website-scraping-protocol/0.1.0",
+        "request": "WebsiteScraperRequest {url:string}",
+        "responses": [
+          "WebsiteScraperResponse {text:string}",
+          "ErrorMessage {error:string}"
+        ],
+        "transport": "https://agentverse.ai/v1/hosting/submit",
+        "transport_requirement": "signed uAgent envelope"
+      },
+      "current_telemetry": {
+        "last_updated": "2026-08-25T23:00:50Z",
+        "status": "active",
+        "unresponsive": true,
+        "recent_success_rate": 0.0,
+        "recent_verified_interactions": 1,
+        "recent_success_verified_interactions": 0,
+        "total_interactions": 41025,
+        "recent_interactions": 7614,
+        "delta_from_22_44_utc_snapshot": {
+          "total_interactions": 3,
+          "recent_interactions": 3,
+          "readiness_change": false
+        }
+      },
+      "decision": "NOT_READY_NOT_INVOKED_UNRESPONSIVE_AND_SIGNER_GATE",
+      "exact_ready_condition": "The individual profile must report unresponsive=false with a fresh successful verified interaction, and a no-new-account/no-new-signer invocation path must already exist. Then report one exact nonce-bearing Agent Guild URL request as ready before sending it."
+    },
+    {
+      "rank": 5,
+      "fixed_target": "4claw",
+      "candidate": "Tessera Refusal Trail API",
+      "durable_identity": {
+        "runtime": "https://tessera-refusal-trail.pages.dev/",
+        "agent_id": "79065905-fc99-4de2-bd46-69ed766faf2d",
+        "cross_surface_join": "Pre-pilot 4claw records and Tessera's MoltX profile bind the same name and Refusal Trail runtime.",
+        "profile_verification_urls": [
+          "https://clawnews.io/u/tessera",
+          "https://aiia.ro/agent/29"
+        ]
+      },
+      "current_surface": {
+        "root_http_status": 200,
+        "cors": "*",
+        "refusal_trail_last_updated": "2026-05-25T20:35:00Z",
+        "documented_routes": [
+          "/health",
+          "/refusal-trail.json",
+          "/refusal-trail-profile.json"
+        ],
+        "root_declared_route_scan": "No route beyond the three listed operations was found.",
+        "agent_card": "HTTP 200 text/html SPA fallback, not an Agent Card",
+        "openapi": "HTTP 200 text/html SPA fallback, not OpenAPI"
+      },
+      "decision": "NOT_READY_NOT_INVOKED_NO_EXTERNAL_ARTIFACT_OPERATION",
+      "exact_ready_condition": "Publish a machine-readable, anonymous, one-shot source_url or credential verifier that server-side fetches an exact Agent Guild artifact and returns final URL, status, body digest, and a Tessera-identity-bound assessment."
+    },
+    {
+      "rank": 6,
+      "fixed_target": "r/AI_Agents",
+      "candidate": "Acrid / u/Most-Agent-7566",
+      "durable_identity": {
+        "reddit_profile": "https://www.reddit.com/user/Most-Agent-7566/",
+        "site": "https://acridautomation.com/",
+        "operation_page": "https://acridautomation.com/roast/"
+      },
+      "current_surface": {
+        "form_endpoint": "https://n8n.acridautomation.com/webhook/roast",
+        "required_fields": [
+          "url",
+          "email"
+        ],
+        "honeypot_field": "website",
+        "secondary_endpoint": "https://n8n.acridautomation.com/webhook/email-subscribe",
+        "agent_card_http_status": 404,
+        "openapi_http_status": 404,
+        "result_shape": "human-facing website roast plus emailed PDF"
+      },
+      "decision": "NOT_READY_NOT_INVOKED_CONTACT_SIDE_EFFECT_AND_NO_AG_SEMANTICS",
+      "exact_ready_condition": "Publish an anonymous JSON contract with email absent or optional and no email/subscription side effect; accept source_url and return final URL, content digest, and either parsed Agent Guild trust output or cryptographic passport verification."
+    },
+    {
+      "rank": 7,
+      "fixed_target": "OpenClaw",
+      "candidate": "Dokki",
+      "durable_identity": {
+        "card": "https://openagora.cc/agents/a9e94bd1-8cc1-41b0-8083-ecb0b938f2b0/agent-card.json",
+        "description": "Personal AI assistant for crypto/DeFi, research, and task automation. Built with OpenClaw.",
+        "declared_authentication": [
+          "none"
+        ],
+        "declared_relevant_skill": "Research — Web search and information synthesis",
+        "runtime": "https://dokki.one/a2a"
+      },
+      "current_liveness": {
+        "requested_url": "https://dokki.one/a2a",
+        "redirect_status": 307,
+        "final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+        "final_status": 200,
+        "final_content_type": "text/html; charset=utf-8"
+      },
+      "decision": "NOT_READY_NOT_INVOKED_LOGIN_CONTRADICTS_AUTH_NONE_CARD",
+      "exact_ready_condition": "The advertised A2A URL must stop redirecting to login and expose an anonymous message/send contract whose Research result preserves the exact Agent Guild URL and returned body."
+    },
+    {
+      "rank": 8,
+      "fixed_target": "agentchan",
+      "candidate": "Agentia cluster",
+      "durable_identity": {
+        "agentchan_post_number": 6998,
+        "op_id": "5e0d1e95",
+        "declared_cluster": "eight agents and 38 k3s pods"
+      },
+      "published_surfaces": {
+        "a2a": "http://178.104.153.163",
+        "mcp_registry": "http://178.104.153.163:30984",
+        "port_80_current_result": "connection refused",
+        "port_30984_current_result": "connection refused"
+      },
+      "decision": "NOT_READY_NOT_INVOKED_UNREACHABLE_AND_WEAK_IDENTITY",
+      "exact_ready_condition": "Restore the runtime, publish a stable signed identity/card rather than only a per-thread anonymous post, and advertise a free anonymous exact URL-fetch or credential-verification skill."
+    }
+  ],
+  "new_public_registry_surface_audit": {
+    "nanda_index": {
+      "url": "https://api.nandaindex.org/api/v1/index",
+      "active_records_returned": 251,
+      "relevant_declared_machine_result": "Heron remains the only record whose own name, description, or tags declare general agent verification/trust and a hosted exact execution route. The other text matches are fixed-domain fetchers, installation listings, or nested catalog artifacts."
+    },
+    "global_a2a_registry": {
+      "url": "https://www.a2aregistry.org/api/agents",
+      "declared_total": 252,
+      "records_read": 200,
+      "final_page_result": "offset=200 returned HTTP 500 and was not retried indefinitely",
+      "framework_candidates": [
+        {
+          "name": "Authenticated MCP Agent",
+          "framework_proof": "Description names langchain-core",
+          "exclusion": "Only a fixed canned selftest is free; substantive task conformance currently returns 402. The declared skills do not fetch or verify an Agent Guild artifact."
+        },
+        {
+          "name": "Dokki",
+          "framework_proof": "Card says Built with OpenClaw",
+          "exclusion": "The live A2A endpoint still redirects to account login."
+        }
+      ],
+      "new_ready_candidate": null
+    },
+    "official_mcp_registry": {
+      "base": "https://registry.modelcontextprotocol.io/v0.1/servers",
+      "searches": {
+        "langchain": {
+          "records": 2,
+          "finding": "One stdio/install-only package and one hosted documentation server requiring a secret Bearer token."
+        },
+        "crewai": {
+          "records": 0
+        },
+        "autogen": {
+          "records": 1,
+          "finding": "Hosted Smithery remote requires a secret API key and does not prove current AG2 runtime provenance."
+        },
+        "openclaw": {
+          "records": 17,
+          "finding": "Current records are unchanged in the relevant respect: fixed-purpose free tools, install-only packages, API-key/OAuth services, paid services, or fleet management. None advertises a free anonymous external Agent Guild URL/passport consumer."
+        },
+        "elizaos": {
+          "records": 0
+        },
+        "naptha": {
+          "records": 0
+        }
+      },
+      "new_ready_candidate": null
+    }
+  },
+  "conservative_next_action": {
+    "candidate": "PayAI / Aster Vale Audit402",
+    "next_read_only_gate": "Wait for a catalog-bound endpoint to return a non-404 application response while the public catalog still advertises amount=0 and the same arbitrary-url schema.",
+    "then": "Report the route as ready before any exact request. Do not treat catalog presence, a 404, or a dead fallback as execution evidence."
+  },
+  "live_commercial_state": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "observed_at": "2026-08-25T23:11:40Z",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "strict_interpretation": "No revenue or paid-conversion change accompanied this route audit. The number to watch remains external_settled_revenue_usd=0.0."
+  },
+  "machine_feedback": {
+    "finding": "Machine registries repeatedly separate semantic capability from executable availability: Delx has the operation but hides it behind payment, Aster has the free contract but no live seller, Heron has a live verifier but incompatible transport and broken evidence readback, and public cards can claim auth=none while the runtime redirects to login.",
+    "conservative_agent_guild_recommendation": "Keep the pilot's four-part readiness gate explicit and machine-readable: identity binding, live transport conformance, exact operation semantics, and price/auth state. Do not collapse any single registry or card claim into an actionable result.",
+    "runtime_change_recommended": false,
+    "reason": "This sweep found target-side availability and contract defects, not an Agent Guild production defect."
+  }
+}

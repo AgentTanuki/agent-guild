@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_open_seven_cross_surface_deep_audit",
+  "artifact_status": "validated_no_qualified_candidate",
+  "observed_at": "2026-08-26T06:11:27Z",
+  "mode": "public_read_only_no_send_no_invoke",
+  "scope": [
+    "elizaos",
+    "ag2",
+    "langchain",
+    "claws_network",
+    "agentic_market",
+    "reddit_ai_agents",
+    "reddit_agents_of_ai"
+  ],
+  "qualification_rule": "A route qualifies only when primary evidence joins one durable pre-existing machine to the named community, a machine-owned autonomous ingress, an anonymous free operation that independently fetches or cryptographically verifies an exact Agent Guild check, preflight or passport artifact for that machine's own decision, and an identity-bound durable result. Human/operator contact, a directory listing, text echo, caller-supplied-only validation, a probe, or an unpersisted acknowledgement does not qualify.",
+  "fully_qualified_candidates": [],
+  "strongest_new_identity_route": {
+    "community": "elizaos",
+    "machine": "eliZERO",
+    "decision": "NO_GO_HANDLER_CANNOT_CONSUME_AG",
+    "identity_join": {
+      "catalog_repository": "https://github.com/Solizardking/agents",
+      "machine_readme": "https://github.com/Solizardking/agents/blob/main/agents/elizero/README.md",
+      "machine_identity": "https://github.com/Solizardking/agents/blob/main/agents/elizero/IDENTITY.md",
+      "registry_record": "https://github.com/Solizardking/agents/blob/main/public/api/agents/registry/elizero.json",
+      "catalog_record": "https://github.com/Solizardking/agents/blob/main/public/api/agents/catalog/elizero.json",
+      "evidence": "The pre-existing active registry record names eliZERO, owner OpenClawd, tags eliza and elizero, and web/A2A/catalog/registry services. Its identity and README explicitly describe Clawd DNA running as an eliza character and an elizaOS Zero agent."
+    },
+    "published_ingress": {
+      "source_implementation": "https://github.com/Solizardking/agents/blob/main/robinhood-src/a2a.js",
+      "declared_base": "https://cheshireterminal.ai/a2a/elizero",
+      "declared_card": "https://cheshireterminal.ai/a2a/elizero/.well-known/agent-card.json",
+      "declared_send": "https://cheshireterminal.ai/a2a/elizero/v1/message:send",
+      "live_get_state": "The declared card URL returned the Cheshire Terminal SPA HTML rather than an Agent Card JSON document at the observation time; no POST was made."
+    },
+    "exact_execution_semantics": {
+      "published_skills": [
+        "identity",
+        "clawd-power",
+        "tigris-handoff",
+        "acp-discovery",
+        "agent-coordination"
+      ],
+      "handler_behavior": "The public source routes message text by fixed regular expressions to canned identity, CLAWD, DNA, Tigris, ACP, coordination or help replies. Other text is echoed as 'eliZERO heard: ...'. It exposes no arbitrary URL fetch, W3C credential verification or AG trust-decision tool.",
+      "result_persistence": "Completed tasks are stored only in a process-local Map in the published handler, not a durable signed result store.",
+      "why_ag_url_fails": "An exact nonce-bearing AG URL would be text data to classify or echo; it would not be fetched, parsed, verified or used for eliZERO's own decision."
+    },
+    "first_ready_gate": "Publish a no-auth free read-only Agent Card skill with an explicit URL/nonce schema; server-fetch the exact HTTPS AG artifact under an SSRF policy; parse or verify it and use the verdict or passport in an eliZERO proceed/decline decision; then return a durable identity-bound result containing final URL, nonce, fetched_at, body SHA-256, AG observation/verdict fields, eliZERO identity/version, result id and a failure contract."
+  },
+  "other_target_gates": [
+    {
+      "community": "ag2",
+      "closest_route": "Ask the Web",
+      "primary_url": "https://playground.ag2.ai/demos/ask-the-web/",
+      "contract": "The current first-party page is public and anonymous and identifies an AG2 Agent with tavily_search and fetch_url(url:string), posting AG-UI requests to /demos/ask-the-web/chat/.",
+      "current_gate": "The last bounded pilot run failed before the AG fetch with Tavily InvalidAPIKeyError. This audit did not invoke it. A neutral successful fetch proving dependency recovery is the first retry predicate; only then can one corrected nonce-bearing AG URL be attempted and joined to a completed source/result record.",
+      "decision": "NO_GO_DEPENDENCY_READINESS_NOT_PROVEN"
+    },
+    {
+      "community": "langchain",
+      "primary_urls": [
+        "https://a2aregistry.org/api/agents?search=langchain",
+        "https://registry.modelcontextprotocol.io/v0.1/servers?search=langchain&version=latest&limit=100"
+      ],
+      "current_gate": "The only public hosted LangChain-specific routes found were an Authenticated MCP Agent whose free input is a canned selftest while useful prompts are payment-gated, and a documentation MCP server requiring bearer auth. The remaining exact MCP package is stdio/install-only. No public identity-bound fetch/verify result route exists.",
+      "decision": "NO_GO_AUTH_PAYMENT_OR_INSTALL"
+    },
+    {
+      "community": "claws_network",
+      "primary_urls": [
+        "https://registry.modelcontextprotocol.io/v0.1/servers?search=claws&version=latest&limit=100",
+        "https://claws.network/"
+      ],
+      "current_gate": "No registry record could be joined to a durable Claws Network member and a hosted no-auth operation. The official lifecycle still requires installation, persistent agent configuration, a wallet/on-chain registration and recurring heartbeat/recruitment behavior.",
+      "decision": "NO_GO_NO_HOSTED_MEMBER_RUNTIME"
+    },
+    {
+      "community": "agentic_market",
+      "primary_urls": [
+        "https://api.agentic.market/v1/services",
+        "https://api.agentic.market/v1/services/mako-pollinateresearch-com",
+        "https://mako.pollinateresearch.com/openapi.json"
+      ],
+      "current_gate": "The current catalog had 50 services and 1335 endpoints. Its only strict exact-zero endpoint was Messari's network list, which cannot consume AG. MAKO's useful verification operation remains paid; its free reliability query takes a caller-supplied endpoint and does not fetch or verify the exact AG artifact as an Agentic Market operation.",
+      "decision": "NO_GO_NO_USEFUL_EXACT_ZERO_OPERATION"
+    },
+    {
+      "community": "reddit_ai_agents",
+      "primary_url": "https://www.reddit.com/r/AI_Agents/new/.rss",
+      "current_gate": "Current public posts and prior cross-surface leads resolve to human/operator product channels or account/install-gated software. Acrid is a durable machine identity join, but its published email is an organization/operator mailbox and the public roast route forces a marketing subscription; neither is a declared autonomous machine ingress for a bounded AG decision.",
+      "decision": "NO_GO_HUMAN_OPERATOR_OR_SIDE_EFFECT_GATE"
+    },
+    {
+      "community": "reddit_agents_of_ai",
+      "primary_url": "https://www.reddit.com/r/AgentsOfAI/new/.rss?limit=15",
+      "current_gate": "The current newest public entries were human/operator discussions and product announcements. No Reddit principal was joined to a separately proven autonomous inbox/A2A/MCP/API route with an independent AG-consuming decision pipeline.",
+      "decision": "NO_GO_NO_MACHINE_PRINCIPAL_RUNTIME_JOIN"
+    }
+  ],
+  "generic_inbox_rejection": {
+    "primary_urls": [
+      "https://www.agentmail.to/docs/knowledge-base/creating-first-inbox",
+      "https://www.agentmail.to/docs/quickstart"
+    ],
+    "finding": "AgentMail proves that autonomous inboxes can exist, but no public address found in this pass was joined by a primary community record and machine-owned action pipeline to one of the seven targets. Recipient freshness or a human contact email is not authority."
+  },
+  "strict_result": {
+    "strict_conversions_before": 5,
+    "strict_conversions_added": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "best_retry_predicate": "AG2 Ask the Web must first complete a neutral fetch after its Tavily dependency recovers; eliZERO is the strongest identity/ingress join but requires a newly published fetch-or-verify skill and durable result contract before any invocation would be truthful."
+  },
+  "safety": {
+    "messages_or_outreach": 0,
+    "operations_invoked": 0,
+    "payments_accounts_keys_wallets_terms_or_installs": 0,
+    "external_mutations": 0,
+    "response_bodies": "processed_in_memory_only",
+    "canonical_files_modified": 0,
+    "local_files_written": 1,
+    "local_write_scope": "this evidence JSON only"
+  }
+}

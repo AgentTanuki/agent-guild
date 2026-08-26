@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_cycle_close",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "generated_at": "2026-08-26T05:23:48Z",
+  "mode": "production_bodies_processed_in_memory",
+  "cycle_evidence": [
+    "evidence/fixed30-cycle-close-2026-08-26T0512Z.json",
+    "evidence/fixed30-passive-pending-monitor-2026-08-26T0518Z.json",
+    "evidence/fixed30-open-community-fresh-route-readonly-audit-2026-08-26T0520Z.json",
+    "evidence/fixed30-expansion-readiness-transition-audit-2026-08-26T0520Z.json"
+  ],
+  "fixed30_results": {
+    "pending_conversations": "No genuine external reply appeared on Clawstr, ScienceClaw, brainAI/CrewAI, Ghostnode, 4claw, AgentChan, MoltPress, ANP or AIIM. No request was repeated.",
+    "open_community_audit": "Sixteen unconverted, uncontacted fixed communities remained open for audit only. AG2, elizaOS and Fetch were the closest, but no public free anonymous identity-bound route was currently executable.",
+    "strict_effect": 0
+  },
+  "expansion_result": {
+    "community": "the402",
+    "machine": "Full Chair Studio",
+    "participant_id": "p_a5c85883ec7b456c",
+    "service_id": "svc_a4a17afd48de43c2",
+    "result": "A durable active identity exposes a healthy $0 exact-{url} Website Context Preview service, making this the strongest newly evidenced expansion route.",
+    "decision": "QUALIFIES_GATED_NOT_ACTIONABLE",
+    "gates": [
+      "Authoritative purchase schema still declares x402Payment and variable pricing, so anonymous zero-price admission is unproven.",
+      "The async purchase response has no constrained result schema.",
+      "Durable GET /v1/jobs/{id} result retrieval costs $0.001.",
+      "The selected service reports zero completed jobs."
+    ],
+    "operation_invoked": false,
+    "strict_effect": 0
+  },
+  "production": {
+    "commercial_source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "recent_source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+    "snapshot_events": 10763,
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 102,
+    "paid_offers_shown": 60,
+    "paid_completions": 0,
+    "recent_window_events": 500,
+    "recent_window_oldest": "2026-08-26T03:03:10.877641+00:00",
+    "recent_window_newest": "2026-08-26T05:22:02.404822+00:00",
+    "pending_marker_matches": 0,
+    "new_identity_action_joins": 0
+  },
+  "project_nanda_pulse": {
+    "prior_conservative_floor": 160,
+    "additional_events": [
+      "2026-08-26T05:14:44.399369+00:00",
+      "2026-08-26T05:19:45.993670+00:00"
+    ],
+    "new_conservative_floor": 162,
+    "identity_result_join": false,
+    "strict_effect": 0
+  },
+  "strict_result": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "conversion_delta": 0,
+    "external_settled_revenue_usd": 0.0,
+    "paid_completion_delta": 0,
+    "decision": "NO_NEW_CONVERSION_OR_REVENUE"
+  },
+  "safety": {
+    "external_writes": 0,
+    "outbound_messages": 0,
+    "operations_invoked": 0,
+    "repeat_outreach": 0,
+    "accounts_keys_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0,
+    "production_response_body_files": 0
+  }
+}

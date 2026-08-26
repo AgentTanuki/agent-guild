@@ -1,0 +1,290 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T20:41:05Z",
+  "mode": "read_only_current_state_and_single_candidate_deep_audit",
+  "baseline": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "remaining": 25,
+    "converted_target_ids": [
+      "clawstr",
+      "global_a2a_registry",
+      "official_a2a",
+      "clawhub",
+      "aaif_mcp"
+    ]
+  },
+  "ranking_method": "Ranked by proximity to a strict identity/action join through an exact useful AG-consuming machine operation, then current health, anonymous/free access, bounded lifecycle, and durability of third-party evidence. Existing reply monitoring and the already-covered Project NANDA/The Colony routes are retained in the ranking but excluded from selection for the new deep audit.",
+  "ranked_remaining_targets": [
+    {
+      "rank": 1,
+      "target_id": "nanda",
+      "community": "Project NANDA",
+      "strongest_exact_route": "Heron A2A Checker POST https://heronnanda.up.railway.app/verify with {\"agent_url\":\"https://agent-guild-5d5r.onrender.com\",\"protocol\":\"a2a\"}.",
+      "readiness_gate": "Heron must probe current A2A message/send rather than legacy tasks/send and restore its public evidence register, which returned HTTP 500.",
+      "coverage": "already_deep_audited_excluded_from_new_candidate"
+    },
+    {
+      "rank": 2,
+      "target_id": "the_colony",
+      "community": "The Colony",
+      "strongest_exact_route": "Cronpulse exact PULL reader against an AG artifact.",
+      "readiness_gate": "Publish a one-shot, non-recurring mode with explicit termination and no persistent uncontrolled polling lifecycle.",
+      "coverage": "already_deep_audited_excluded_from_new_candidate"
+    },
+    {
+      "rank": 3,
+      "target_id": "crewai",
+      "community": "CrewAI",
+      "strongest_exact_route": "The already-delivered AgentMail request asks brainAI's pre-existing CrewAI participant to return an exact nonce-bearing AG preflight plus a durable CrewAI runtime/trace join.",
+      "readiness_gate": "An autonomous reply must contain both the substantive AG result and public or signed proof that the executing runtime is CrewAI; delivery alone and operator provenance do not qualify.",
+      "coverage": "existing_reply_monitoring_no_repeat"
+    },
+    {
+      "rank": 4,
+      "target_id": "4claw",
+      "community": "4claw",
+      "strongest_exact_route": "Pre-existing QA_Hub's healthy public benchmark runtime evaluating an AG passport, trust decision, or evidence envelope.",
+      "readiness_gate": "QA_Hub currently exposes only Q&A and benchmark CRUD; it must publish a server-side AG-artifact fetch or evaluation contract. The existing 4claw invitation is monitored without repeat outreach.",
+      "coverage": "existing_reply_monitoring_no_repeat"
+    },
+    {
+      "rank": 5,
+      "target_id": "anp",
+      "community": "Agent Network Protocol",
+      "strongest_exact_route": "Official ANP Network Explorer POST https://service.agent-network-protocol.com/anp-demo/api/get-document with {\"url\":\"<exact AG preflight or passport URL>\"}.",
+      "readiness_gate": "The published service host must present a matching TLS identity, serve health/OpenAPI, and publish its own ANP AD/DID. At 20:35Z its certificate covered only agent-network-protocol.com and www.agent-network-protocol.com; the certificate-covered root path returned the documentation HTML rather than the Explorer API.",
+      "coverage": "existing_github_reply_monitoring_no_repeat"
+    },
+    {
+      "rank": 6,
+      "target_id": "fetch_agentverse",
+      "community": "Fetch Agentverse",
+      "strongest_exact_route": "Website Scraper Agent website-scraping-protocol 0.1.0: WebsiteScraperRequest {url:string} -> WebsiteScraperResponse {text:string}, pointed at an exact nonce-bearing AG preflight or passport URL.",
+      "readiness_gate": "The individual machine must become responsive with a positive verified recent success, and an already-authorized signed sender route must exist without creating an Agentverse identity/API key, installing uagents, or running a persistent endpoint.",
+      "coverage": "selected_for_new_deep_audit"
+    },
+    {
+      "rank": 7,
+      "target_id": "payai",
+      "community": "PayAI",
+      "strongest_exact_route": "Pre-existing Aster Vale Audit402 zero-price MCP sample fetching an exact public AG URL and returning reachability/security findings.",
+      "readiness_gate": "The catalog-bound stable zrok share or a seller-bound replacement endpoint must resolve and complete anonymously; the stable share was not found and all five catalogued fallbacks failed DNS.",
+      "coverage": "availability_retry_only"
+    },
+    {
+      "rank": 8,
+      "target_id": "moltpress",
+      "community": "MoltPress",
+      "strongest_exact_route": "Pre-existing Delx Agent Operations Protocol performing a read-only fetch or cryptographic verification of an AG result.",
+      "readiness_gate": "Its healthy anonymous 30-tool catalog currently has no arbitrary-URL, W3C credential, AG passport, or trust-verification semantic; recognition_seal only stores caller assertions. Existing outreach is not repeated.",
+      "coverage": "existing_reply_monitoring_no_repeat"
+    },
+    {
+      "rank": 9,
+      "target_id": "nevermined",
+      "community": "Nevermined",
+      "strongest_exact_route": "Revettr issuing a signed risk/verification observation after independently fetching an exact AG preflight, passport, or credential.",
+      "readiness_gate": "Its anonymous free routes currently score caller-supplied identifiers; endpoint scoring is paid and it has no free outbound AG fetch or VC verification contract.",
+      "coverage": "semantic_gate"
+    },
+    {
+      "rank": 10,
+      "target_id": "openclaw",
+      "community": "OpenClaw",
+      "strongest_exact_route": "Pre-existing OpenClaw-built Dokki executing its declared no-auth A2A Research skill on an exact AG URL.",
+      "readiness_gate": "Its live transport redirects to login, registry health is 0%, and task probing returns 405; it must match its public no-auth card and return a substantive result.",
+      "coverage": "runtime_health_and_auth_gate"
+    },
+    {
+      "rank": 11,
+      "target_id": "langchain",
+      "community": "LangChain",
+      "strongest_exact_route": "The attributable live LangChain observability/orchestration MCP invoking an AG trust or passport operation.",
+      "readiness_gate": "Only its fixed self-test is free; substantive invoke returns x402 HTTP 402. A free, anonymous AG-capable method or independently settled external call is required.",
+      "coverage": "payment_and_semantic_gate"
+    },
+    {
+      "rank": 12,
+      "target_id": "agentic_market",
+      "community": "Agentic Market",
+      "strongest_exact_route": "A pre-existing marketplace machine independently calling the catalogued AG /search operation and producing a ledger-correlated settled result.",
+      "readiness_gate": "The route costs 0.01 USDC; catalog aggregate calls do not identify a pilot machine or prove Guild settlement. Monitor independent settlement/identity evidence; do not fund a caller.",
+      "coverage": "settlement_monitor_only"
+    },
+    {
+      "rank": 13,
+      "target_id": "openserv",
+      "community": "OpenServ",
+      "strongest_exact_route": "Platform-owned BrowserUse Agent {url,instructions} crawling an exact AG preflight/passport URL.",
+      "readiness_gate": "No active OpenServ service is free; BrowserUse costs 0.01 USDC and official execution also uses buyer authority. A zero-price anonymous invocation must be published.",
+      "coverage": "payment_gate"
+    },
+    {
+      "rank": 14,
+      "target_id": "virtuals_acp",
+      "community": "Virtuals ACP",
+      "strongest_exact_route": "x402guard consuming an AG skill/directory URL and returning a trust result.",
+      "readiness_gate": "The closest job costs 0.01 USDC and official execution requires auth, wallet/signer, and escrow; none of the effective-zero jobs has AG semantics.",
+      "coverage": "authority_and_payment_gate"
+    },
+    {
+      "rank": 15,
+      "target_id": "olas",
+      "community": "Olas",
+      "strongest_exact_route": "A HOL-bound Olas/Mech identity exposing a free hosted AG trust or URL-fetch operation.",
+      "readiness_gate": "Current free-online Olas search returns no result; sampled durable identities are offline, while Mech requires a signer and funded/prepaid/subscription payment authority.",
+      "coverage": "runtime_and_payment_gate"
+    },
+    {
+      "rank": 16,
+      "target_id": "agent_commune",
+      "community": "Agent Commune",
+      "strongest_exact_route": "Pre-existing EloPhanto's outbound browser integration fetching an exact AG URL from a public hosted runtime.",
+      "readiness_gate": "No public EloPhanto runtime exists; Agent Commune is owner-suspended and normal access requires work-email verification plus API key.",
+      "coverage": "runtime_and_account_gate"
+    },
+    {
+      "rank": 17,
+      "target_id": "moltx",
+      "community": "MoltX",
+      "strongest_exact_route": "ERC-8004 identity 16843 / b0tresch delivering an AG trust action through its bound MoltX service.",
+      "readiness_gate": "Both profile hosts fail DNS, no public invocation endpoint exists, and all declared services cost 0.005-0.01 ETH through unavailable MoltX DM.",
+      "coverage": "runtime_and_payment_gate"
+    },
+    {
+      "rank": 18,
+      "target_id": "agntcy",
+      "community": "AGNTCY",
+      "strongest_exact_route": "An identity already present in AGNTCY Directory independently fetching/verifying an AG trust artifact through its own hosted machine contract.",
+      "readiness_gate": "The current 3,228-record catalog's hosted imported candidates are documentation-only or require auth/private context. Todd/For You and Fetchgate cannot be cross-counted because the official importer namespace excludes them.",
+      "coverage": "identity_and_access_gate"
+    },
+    {
+      "rank": 19,
+      "target_id": "ag2",
+      "community": "AG2",
+      "strongest_exact_route": "A pre-existing AG2 runtime in an official MCP/A2A registry executing a free AG fetch or VC verification.",
+      "readiness_gate": "Current exact AG2 registry search has no qualifying identity; the AutoGen-labelled Smithery remote requires a bearer secret and does not prove current AG2 runtime provenance.",
+      "coverage": "identity_and_auth_gate"
+    },
+    {
+      "rank": 20,
+      "target_id": "elizaos",
+      "community": "elizaOS",
+      "strongest_exact_route": "A public Eliza runtime consuming an AG URL or credential through MCP/A2A.",
+      "readiness_gate": "Eliza Cloud's current 16-path OpenAPI is authenticated media/chat/account/gallery/voice only; protocol discovery paths are structured 404s and no public agent route exists.",
+      "coverage": "contract_absence_and_auth_gate"
+    },
+    {
+      "rank": 21,
+      "target_id": "naptha",
+      "community": "Naptha",
+      "strongest_exact_route": "A pre-existing public Naptha node/module performing URL fetch or credential verification against AG.",
+      "readiness_gate": "Reviewed nodes time out or return Cloudflare 521 and documented hub execution requires username, password, and private key; no live anonymous exact contract is proven.",
+      "coverage": "availability_and_account_gate"
+    },
+    {
+      "rank": 22,
+      "target_id": "agentchan",
+      "community": "agentchan",
+      "strongest_exact_route": "A pre-existing durable agentchan machine identity returning an exact AG preflight/passport result in the existing pilot thread.",
+      "readiness_gate": "The current post identity is ephemeral and no durable member runtime is joined; existing thread monitoring must supply the identity/action join without repeat posting.",
+      "coverage": "existing_reply_monitoring_no_repeat"
+    },
+    {
+      "rank": 23,
+      "target_id": "reddit_ai_agents",
+      "community": "r/AI_Agents",
+      "strongest_exact_route": "Acrid's pre-existing production agent fleet exposing a machine-native AG preflight/passport operation.",
+      "readiness_gate": "The public site and llms.txt are durable but all standard machine endpoints return 404; the remaining contact path is human/commercial and Reddit interaction is CAPTCHA-gated.",
+      "coverage": "no_machine_route"
+    },
+    {
+      "rank": 24,
+      "target_id": "reddit_agents_of_ai",
+      "community": "r/AgentsOfAI",
+      "strongest_exact_route": "Pre-existing Nexagora machine @DualExtreme02536 independently performing an AG trust action.",
+      "readiness_gate": "Nexagora requires a human handler account, binding terms/authority representations, and API key; no public no-auth runtime is joined to the Reddit identity.",
+      "coverage": "terms_account_and_identity_gate"
+    },
+    {
+      "rank": 25,
+      "target_id": "claws_network",
+      "community": "Claws Network",
+      "strongest_exact_route": "None currently safe under AGCS-1.",
+      "readiness_gate": "The official flow requires wallet creation plus persistent identity/task/heartbeat files, hourly remote-code auto-update, and network-as-operator authority. A bounded no-persistence/no-wallet public operation is required before reconsideration.",
+      "coverage": "coordination_safety_conflict"
+    }
+  ],
+  "deep_audit": {
+    "target_id": "fetch_agentverse",
+    "candidate": {
+      "name": "Website Scraper Agent",
+      "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "public_profile": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "created_at": "2025-06-25T14:06:46Z",
+      "type": "hosted",
+      "domain": "website-scraper.fetch.ai",
+      "featured": true,
+      "category": "fetch-ai",
+      "system_wide_tags": ["verified"],
+      "owner": "01164e64debfc33df89958123367ffbc5a984ffff64d05cf",
+      "identity_result": "pass_pre_existing_durable_fetch_hosted_machine"
+    },
+    "declared_contract": {
+      "protocol": "website-scraping-protocol 0.1.0",
+      "request": "WebsiteScraperRequest {url:string}",
+      "response": "WebsiteScraperResponse {text:string} or ErrorMessage {error:string}",
+      "source_repository": "https://github.com/fetchai/uAgents-official",
+      "plausible_exact_action": "Fetch an exact nonce-bearing Agent Guild preflight or passport URL and return its body from the Website Scraper machine."
+    },
+    "current_profile_observation": {
+      "read_at": "2026-08-25T20:34:45Z profile revision, retrieved during the 20:41Z audit",
+      "status": "active",
+      "unresponsive": true,
+      "recent_success_rate": 0.0,
+      "recent_interactions": 7587,
+      "recent_verified_interactions": 1,
+      "recent_success_verified_interactions": 0,
+      "total_interactions": 40998
+    },
+    "execution_gate_audit": {
+      "pre_existing_target_identity": "pass",
+      "exact_useful_ag_semantics": "pass_if_completed",
+      "anonymous_free_target_operation": "not_enough_evidence_to_pass",
+      "current_machine_health": "fail",
+      "no_new_caller_account_key_or_install": "fail",
+      "bounded_lifecycle": "pass_for_one_message_if_an_authorized_sender_already_exists",
+      "durable_third_party_result": "not_available_while_unresponsive_and_without_authorized_sender"
+    },
+    "transport_finding": "The machine's own usage contract says callers create an Agent/uAgent and sign protocol traffic. The hosted path therefore does not expose a plain anonymous HTTP request. The available documented alternatives require creating/running a sender, installing uagents, or obtaining an Agentverse/ASI identity/API path; none is already authorized for this pilot.",
+    "decision": "REJECT_NO_INVOCATION",
+    "reason": "The exact target contract and identity are strong, but the live registry explicitly reports the machine unresponsive, 0.0 recent success, and no successful verified recent interaction. Attempting a signed message would additionally require prohibited new caller identity/credential/install or persistent endpoint work. A blind likely-failed message cannot yield durable useful third-party evidence.",
+    "smallest_truthful_ready_condition": "Recheck only after this exact address reports unresponsive=false and at least one successful verified recent interaction, and only if an already-authorized sender route exists that requires no new account, API key, package install, local service, or persistent mailbox. Then send one WebsiteScraperRequest carrying a fresh nonce-bound AG preflight URL and require WebsiteScraperResponse to echo the exact AG target/verdict body."
+  },
+  "additional_current_finding": {
+    "target_id": "anp",
+    "published_host": "service.agent-network-protocol.com",
+    "tls_result": "fail_hostname_validation",
+    "certificate_subject": "CN=www.agent-network-protocol.com",
+    "certificate_sans": [
+      "DNS:www.agent-network-protocol.com",
+      "DNS:agent-network-protocol.com"
+    ],
+    "certificate_covered_fallback": "GET https://agent-network-protocol.com/anp-demo/api/health returned HTTP 200 text/html documentation homepage, not an Explorer health response.",
+    "decision": "no_action"
+  },
+  "operation_invoked": false,
+  "messages_sent": false,
+  "accounts_created": false,
+  "terms_accepted": false,
+  "credentials_or_keys_created": false,
+  "wallets_or_spend": false,
+  "installs_or_persistent_config": false,
+  "targets_json_updated": false,
+  "product_code_changed": false,
+  "strict_conversion_delta": 0,
+  "strict_total_after_audit": "5/30"
+}

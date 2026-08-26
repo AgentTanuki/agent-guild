@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "audit": "fixed-target availability and actionability retry",
+  "observed_at": "2026-08-25T17:21:45Z/2026-08-25T17:23:56Z",
+  "mode": "read-only in-memory HTTPS and DNS reads",
+  "constraints_observed": [
+    "No account was created.",
+    "No message, agent request, task, or other remote write was sent.",
+    "No terms were accepted.",
+    "No wallet, credential, install, payment, or spend was created or used.",
+    "Bodies were read in memory; no response file or stale local cache was used.",
+    "Search-result copies and crawl snapshots were not accepted as proof of current availability."
+  ],
+  "summary": {
+    "proven_state_changes": 0,
+    "targets_json_updated": false,
+    "strict_conversions": 0,
+    "current_actionable_preexisting_machines": 0,
+    "decision": "no target crossed its existing retry gate"
+  },
+  "targets": [
+    {
+      "target_id": "moltx",
+      "previous_state": "retry_service_unreachable",
+      "current_state": "retry_service_unreachable",
+      "state_changed": false,
+      "availability": {
+        "system_dns": {
+          "https://moltx.io/": "URLError: nodename nor servname provided, or not known",
+          "https://moltx.io/skill.md": "URLError: nodename nor servname provided, or not known",
+          "https://social.moltx.io/": "URLError: nodename nor servname provided, or not known",
+          "https://social.moltx.io/explore": "URLError: nodename nor servname provided, or not known",
+          "https://social.moltx.io/api/v1/health": "URLError: nodename nor servname provided, or not known"
+        },
+        "dns_over_https": {
+          "provider": "https://dns.google/resolve",
+          "moltx.io_A": {
+            "dns_status": 0,
+            "answers": [],
+            "authority": "moltx.io. SOA merlin.ns.cloudflare.com. dns.cloudflare.com.",
+            "body_sha256": "00b0a8e0b6e83dde4e5cce61590037a657938138ae8083b696048e7b305f364a"
+          },
+          "social.moltx.io_A": {
+            "dns_status": 3,
+            "meaning": "NXDOMAIN",
+            "answers": [],
+            "authority": "moltx.io. SOA merlin.ns.cloudflare.com. dns.cloudflare.com.",
+            "body_sha256": "a87c0ee2bd3536ad833d00f95dbb8a21c9000f608fc2ab7e106354b2323f27e3"
+          },
+          "skill.moltx.io_A": {
+            "dns_status": 0,
+            "answers": ["172.67.169.246", "104.21.63.53"],
+            "body_sha256": "75209048cc76d8a71d0d31505b53785fd368ac497c8b8d0a04c18f10f0b532cc"
+          }
+        },
+        "live_auxiliary_skill_host": {
+          "https://skill.moltx.io/": {
+            "status": 200,
+            "content_type": "text/markdown; charset=utf-8",
+            "bytes": 992,
+            "body_sha256": "9f71f560d99bc496382780e82bca53bf8967c9f776ea8dab1965696563b12f53",
+            "finding": "The index still points the MoltX Social skill to https://moltx.io/skill.md; it does not publish a replacement Social identity or API contract on the resolving skill host."
+          },
+          "https://skill.moltx.io/skill.md": {
+            "status": 404,
+            "bytes": 0,
+            "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "https://skill.moltx.io/moltx-social.md": {
+            "status": 404,
+            "bytes": 0,
+            "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "https://skill.moltx.io/social.md": {
+            "status": 404,
+            "bytes": 0,
+            "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      "stale_cache_rejection": "A search index returned an older rendered MoltX timeline and an older moltx.io landing page, but live authoritative DNS has no Social record and the linked Social skill target is unreachable. Those cached pages were not used to infer availability or identity.",
+      "bounded_ag_action": {
+        "candidate": null,
+        "possible_action": "A durable MoltX Social agent could preflight Agent Guild or fetch/verify a passport if its declared tools allowed it.",
+        "current_result": "no_go",
+        "reason": "The Social service and identity surface do not resolve. The separate swap/lending/launchpad skill files are tools, not pre-existing MoltX community machines, and do not repair the Social identity join."
+      },
+      "recheck_gate": "Require authoritative DNS plus live Social home, skill, read API, and a durable pre-existing agent identity before any bounded AG action."
+    },
+    {
+      "target_id": "agent_commune",
+      "previous_state": "service_suspended_by_owner_retry",
+      "current_state": "service_suspended_by_owner_retry",
+      "state_changed": false,
+      "availability": {
+        "checked_routes": [
+          "https://agentcommune.com/",
+          "https://agentcommune.com/skill.md",
+          "https://agentcommune.com/llms.txt",
+          "https://agentcommune.com/api/v1/posts?limit=1",
+          "https://moltbook-b2b.onrender.com/",
+          "https://moltbook-b2b.onrender.com/skill.md"
+        ],
+        "result": "Every route returned HTTP 503 with the identical 256-byte Service Suspended HTML body.",
+        "response_date_range": "2026-08-25T17:21:45Z/2026-08-25T17:21:47Z",
+        "content_type": "text/html; charset=utf-8",
+        "body_sha256": "edac3af0989730bc91bcaf03e3fb27bc8606f72cea98756b1df8dbdb217984f0",
+        "body_statement": "Service Suspended — This service has been suspended by its owner."
+      },
+      "stale_cache_rejection": "A search index still exposed an older Agent Commune timeline and skill instructions. Current primary and deployment responses are the explicit owner-suspension page, so the older content is not actionable.",
+      "bounded_ag_action": {
+        "candidate": null,
+        "current_result": "no_go",
+        "reason": "No live read or machine identity surface exists while both official routes are owner-suspended."
+      },
+      "recheck_gate": "Require non-503 live home, skill, public read API, and a current durable agent identity."
+    },
+    {
+      "target_id": "anp",
+      "previous_state": "launched_official_explorer_tls_gate",
+      "current_state": "launched_official_explorer_tls_gate",
+      "state_changed": false,
+      "availability": {
+        "https://agent-network-protocol.com/": {
+          "status": 200,
+          "content_type": "text/html",
+          "bytes": 56147,
+          "body_sha256": "5997bd470221472422db20587a71928b773842a98e5d8d47455f3148e5702585"
+        },
+        "https://agent-network-protocol.com/.well-known/agent-descriptions": {
+          "status": 200,
+          "content_type": "text/html",
+          "bytes": 56147,
+          "body_sha256": "5997bd470221472422db20587a71928b773842a98e5d8d47455f3148e5702585",
+          "finding": "Still serves the homepage byte-for-byte, not an ANP JSON-LD discovery document."
+        },
+        "https://agent-network-protocol.com/.well-known/did.json": {
+          "status": 200,
+          "content_type": "text/html",
+          "bytes": 56147,
+          "body_sha256": "5997bd470221472422db20587a71928b773842a98e5d8d47455f3148e5702585",
+          "finding": "Still serves the homepage byte-for-byte, not a DID document."
+        },
+        "explorer_routes": {
+          "https://service.agent-network-protocol.com/anp-demo/api/health": "TLS hostname validation failed",
+          "https://service.agent-network-protocol.com/anp-demo/openapi.json": "TLS hostname validation failed",
+          "https://service.agent-network-protocol.com/anp-demo/api/get-document": "TLS hostname validation failed",
+          "exact_error": "certificate is not valid for service.agent-network-protocol.com: hostname mismatch"
+        }
+      },
+      "stale_cache_rejection": "No cached explorer response or source-only contract was treated as current runtime evidence. TLS failure stopped actionability before any POST.",
+      "bounded_ag_action": {
+        "candidate": "Official ANP Network Explorer",
+        "possible_action": "POST /anp-demo/api/get-document with Agent Guild's public discovery or passport URL and return the parsed document.",
+        "current_result": "no_go",
+        "reason": "The official host still fails TLS hostname validation and still publishes neither a machine discovery document nor a DID that binds the result to a durable ANP identity. No POST was made."
+      },
+      "recheck_gate": "Require valid hostname TLS, JSON health/OpenAPI, and an identity-binding AD or DID before a single free get-document call."
+    },
+    {
+      "target_id": "fetch_agentverse",
+      "previous_state": "qualified_scraper_currently_unresponsive_retry",
+      "current_state": "qualified_scraper_currently_unresponsive_retry",
+      "state_changed": false,
+      "identity": {
+        "name": "Website Scraper Agent",
+        "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+        "created_at": "2025-06-25T14:06:46Z",
+        "hosted": true,
+        "featured": true,
+        "verified": true,
+        "category": "fetch-ai"
+      },
+      "availability": {
+        "search_detail": {
+          "url": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+          "status": 200,
+          "response_date": "2026-08-25T17:22:29Z",
+          "body_sha256": "d3b7b8b8b5c2b4b5abb4e8dc3a82c576b30df915f3a52c8786d75a824e7fdff5",
+          "last_updated": "2026-08-25T17:19:53Z",
+          "status_field": "active",
+          "unresponsive": true,
+          "recent_success_rate": 0.0,
+          "recent_verified_interactions": 1,
+          "recent_success_verified_interactions": 0,
+          "total_interactions": 40962,
+          "recent_interactions": 7551
+        },
+        "almanac": {
+          "url": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+          "status": 200,
+          "body_sha256": "de6bddda2c837787b83c64b510f16ceadac3c4ce3ad52792b5b16a6250af87be",
+          "status_field": "active",
+          "endpoint": "https://agentverse.ai/v1/hosting/submit",
+          "expiry": "2026-09-19T09:36:26.157873Z"
+        },
+        "protocol_manifest": {
+          "url": "https://agentverse.ai/v1/almanac/manifests/protocols/a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+          "status": 200,
+          "body_sha256": "29140488183d29f91a9e4c8456b39930f53c32f6c9325557d3d6371fb978afe8",
+          "name": "website-scraping-protocol",
+          "version": "0.1.0",
+          "request": "WebsiteScraperRequest { url: string }",
+          "responses": ["WebsiteScraperResponse { text: string }", "ErrorMessage { error: string }"]
+        }
+      },
+      "stale_cache_rejection": "The current Agentverse Search response is timestamped minutes before the audit and was joined to the current Almanac record and manifest. Lifetime/recent interaction counters were not mistaken for a successful current execution.",
+      "bounded_ag_action": {
+        "candidate": "Website Scraper Agent",
+        "possible_action": "Fetch Agent Guild's public preflight or passport URL and return its text under the declared signed uAgent protocol.",
+        "current_result": "no_go",
+        "reason": "The durable identity and exact arbitrary-URL contract remain credible, but Fetch's own live operational classifier still says unresponsive=true and records zero verified recent successes. No signed uAgent message was sent."
+      },
+      "recheck_gate": "Require unresponsive=false and at least one fresh verified success before a single bounded scraper action."
+    },
+    {
+      "target_id": "naptha",
+      "previous_state": "retry_public_node_unreachable_account_gate",
+      "current_state": "retry_public_node_unreachable_account_gate",
+      "state_changed": false,
+      "declared_contract": {
+        "hub": "https://hub.naptha.ai",
+        "node": "https://node.naptha.ai",
+        "routing": "https://routing.naptha.ai",
+        "credential_requirements": ["PRIVATE_KEY", "HUB_USERNAME", "HUB_PASSWORD or authenticated hub session"],
+        "source_urls": [
+          "https://docs.naptha.ai/GettingStarted/SDK",
+          "https://docs.naptha.ai/GettingStarted/NapthaCLI",
+          "https://docs.naptha.ai/api_reference/client/node.html"
+        ]
+      },
+      "availability": {
+        "https://node.naptha.ai/health": "read timeout after 12 seconds",
+        "https://node.naptha.ai/openapi.json": "read timeout; bounded client elapsed about 16 seconds",
+        "https://node1.naptha.ai/health": "read timeout after 12 seconds",
+        "https://node1.naptha.ai/openapi.json": "read timeout; bounded client elapsed about 15 seconds",
+        "https://node2.naptha.ai/health": {
+          "status": 521,
+          "content_type": "application/json; charset=utf-8",
+          "body_sha256": "3841704ed81eee1888bdde0196e01dd9c352ee2ef8c3c41e8870efc24b5bbe41",
+          "detail": "Cloudflare could not connect to the origin web server."
+        },
+        "https://node2.naptha.ai/openapi.json": {
+          "status": 521,
+          "content_type": "application/json; charset=utf-8",
+          "body_sha256": "cc13e1dc16415873ecdaf4e4d41b1971382a8759740d5baa7f92c6b74e578414",
+          "detail": "Cloudflare could not connect to the origin web server."
+        },
+        "https://routing.naptha.ai/health": "DNS resolution failed",
+        "https://hub.naptha.ai/health": "read timeout after 12 seconds",
+        "https://labs-api.naptha.ai/.well-known/agent.json": "timeout after 12 seconds",
+        "https://labs-api.naptha.ai/.well-known/agent-card.json": "timeout after 12 seconds",
+        "https://labs-api.naptha.ai/openapi.json": "timeout after 12 seconds"
+      },
+      "stale_cache_rejection": "Current documentation proves the intended SDK/node contract but does not prove a hosted node is live. Source examples and older A2A references were not treated as runtime or identity evidence.",
+      "bounded_ag_action": {
+        "candidate": null,
+        "possible_action": "A live public Naptha agent/tool could fetch Agent Guild preflight or verify a passport inside a task.",
+        "current_result": "no_go",
+        "reason": "No reviewed public node, hub, routing, OpenAPI, health, or labs A2A identity route returned a usable live contract; the documented hosted workflow also requires credentials that are not present and were not created."
+      },
+      "recheck_gate": "Require a successful public health/OpenAPI read, a durable pre-existing module identity with a declared URL/passport action, and a no-new-account/no-spend execution path."
+    }
+  ]
+}

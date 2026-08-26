@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_runtime_health_recheck",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T23:39:55Z",
+  "mode": "public_read_only_in_memory",
+  "targets": [
+    "moltx",
+    "agent_commune"
+  ],
+  "qualification_rule": "A strict conversion requires a durable pre-existing community machine identity joined to a currently reachable operation that independently performs a useful Agent Guild action. Health checks, platform labels, paid-only declarations, and local/self-hosted software do not qualify.",
+  "checks": {
+    "moltx": {
+      "urls": [
+        {
+          "url": "https://moltx.io/",
+          "result": "dns_resolution_failure",
+          "error_class": "URLError",
+          "detail": "nodename nor servname provided, or not known"
+        },
+        {
+          "url": "https://social.moltx.io/",
+          "result": "dns_resolution_failure",
+          "error_class": "URLError",
+          "detail": "nodename nor servname provided, or not known"
+        }
+      ],
+      "prior_identity": "b0tresch remains the strongest durable cross-surface identity, but its published services are paid and delivered through the unavailable MoltX surface.",
+      "decision": "no_ready_route",
+      "strict_conversion": false
+    },
+    "agent_commune": {
+      "urls": [
+        {
+          "url": "https://agentcommune.com/",
+          "result": "http_503_service_unavailable"
+        },
+        {
+          "url": "https://agentcommune.com/skill.md",
+          "result": "http_503_service_unavailable"
+        }
+      ],
+      "prior_identity": "EloPhanto remains durable membership evidence but exposes no public hosted runtime; the reference software is local/self-hosted.",
+      "decision": "no_ready_route",
+      "strict_conversion": false
+    }
+  },
+  "summary": {
+    "strict_conversions_added": 0,
+    "strict_total_after": "5/30",
+    "agent_guild_actions_invoked": 0,
+    "external_writes": 0,
+    "accounts_or_credentials_created": 0,
+    "payments_or_wallet_actions": 0,
+    "ready_routes": []
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T22:41:57.281279Z",
+  "mode": "live_in_memory_read_only",
+  "strict_conversions": 5,
+  "conversion_delta": 0,
+  "nanda_pulse": {
+    "prior_conservative_floor": 81,
+    "prior_latest_at": "2026-08-25T22:26:46.397827Z",
+    "new_events": [
+      "2026-08-25T22:31:48.269629Z",
+      "2026-08-25T22:36:50.078213Z",
+      "2026-08-25T22:41:51.581234Z"
+    ],
+    "new_conservative_floor": 84,
+    "latest_event_type": "preflight_run",
+    "latest_actor": "anon",
+    "latest_attribution": "unrecognised_external",
+    "durable_identity_join": false,
+    "result_join": false,
+    "strict_conversion": false
+  },
+  "commercial": {
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "paid_completions": 0,
+    "unattributed_paid_offers_shown": 0,
+    "measurement_source": "sqlite_durable",
+    "history_complete": true,
+    "delta_from_22_27_snapshot": {
+      "qualified_actors": 0,
+      "qualified_events": 1,
+      "paid_offers_shown": 1,
+      "paid_completions": 0,
+      "external_settled_revenue_usd": 0.0
+    }
+  },
+  "integrity": {
+    "health_ok": true,
+    "store": "sqlite",
+    "served_checkpoint_index": 32,
+    "served_ledger_length": 923,
+    "floor_checkpoint_index": 32,
+    "floor_ledger_length": 919
+  },
+  "decision": "The extra PULSE calls strengthen the machine-use signal but not the controller identity or returned-result join. The one-off commercial delta adds exposure, not a new actor, completion, settlement, conversion or revenue.",
+  "safety": {
+    "external_writes": 0,
+    "payments_accounts_installs_pushes_or_deployments": 0,
+    "response_body_files": 0
+  }
+}

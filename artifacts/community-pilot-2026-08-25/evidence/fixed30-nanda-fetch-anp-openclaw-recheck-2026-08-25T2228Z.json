@@ -1,0 +1,168 @@
+{
+  "schema": "agent-guild.community-pilot.fixed30-four-target-recheck.v1",
+  "observed_at": "2026-08-25T22:28:52Z",
+  "mode": "public_read_only_in_memory",
+  "targets": [
+    "nanda",
+    "fetch_agentverse",
+    "anp",
+    "openclaw"
+  ],
+  "qualification_rule": "A conversion requires a durable pre-existing community machine identity and a healthy, safe, free, bounded, no-auth hosted operation that independently fetches, verifies, or uses an Agent Guild trust, passport, or preflight result and returns attributable evidence.",
+  "constraints": {
+    "external_machine_operations_invoked": 0,
+    "messages_or_outreach": 0,
+    "accounts_or_credentials_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_jobs": 0,
+    "canonical_targets_edited": false
+  },
+  "result": {
+    "decision": "NO_GO",
+    "conversion_delta": 0,
+    "reason": "None of the four targets currently joins durable community identity, compatible no-auth execution, independent Agent Guild use, and durable result evidence. No operation was invoked."
+  },
+  "nanda": {
+    "pulse_observatory": {
+      "source": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+      "prior_conservative_floor": 61,
+      "new_events_after_prior_floor": 20,
+      "new_conservative_floor": 81,
+      "current_window_count": 25,
+      "current_window_first": "2026-08-25T20:25:50.867209+00:00",
+      "current_window_last": "2026-08-25T22:26:46.397827+00:00",
+      "latest_event": "preflight_run",
+      "user_agent_prefix": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+      "actor": "anon",
+      "attribution": "unrecognised_external",
+      "identity_action_join": false,
+      "reason": "Sustained exact AG use continues, but the caller-supplied user agent remains the only NANDA link and no public result, observation identifier, controller identity, or NEST record joins the action to a durable NANDA machine."
+    },
+    "heron": {
+      "index_identity": "https://api.nandaindex.org/api/v1/index#heron-a2a",
+      "identity": {
+        "org_id": "heron-a2a",
+        "display_name": "Heron A2A Checker",
+        "status": "active",
+        "email_verified": true,
+        "domain_verified": true,
+        "registry_url": "https://heronnanda.up.railway.app/"
+      },
+      "health": {
+        "url": "https://heronnanda.up.railway.app/health",
+        "http_status": 200,
+        "service": "heron-probe/0.1",
+        "backend": "postgres",
+        "public_key": "QsE2AiPrHyD7rjfOebspA0KynBDsE0c+/ZDmXi3q2zw="
+      },
+      "contract": {
+        "url": "https://heronnanda.up.railway.app/skill.md",
+        "verify": "POST /verify {agent_url, protocol: a2a|nanda, skill_md_url?}",
+        "a2a_method": "tasks/send",
+        "result": "signed evidence plus interaction_token",
+        "public_readback_claim": "GET /register and GET /agent/{agent_id}/evidence"
+      },
+      "public_register": {
+        "url": "https://heronnanda.up.railway.app/register",
+        "http_status": 500,
+        "body": "Internal Server Error"
+      },
+      "agent_guild_card": {
+        "url": "https://agent-guild-5d5r.onrender.com/.well-known/agent-card.json",
+        "a2a_url": "https://agent-guild-5d5r.onrender.com/a2a",
+        "protocol_version": "0.3.0",
+        "transport": "JSONRPC",
+        "current_method": "message/send",
+        "authentication_required": false
+      },
+      "decision": "not_invoked",
+      "first_ready_gate": "Heron must support current A2A message/send and return HTTP 200 from its public register/evidence readback. Only then can one anonymous POST /verify against Agent Guild create attributable signed evidence."
+    },
+    "nest": {
+      "agent_guild_record": "https://nest.projectnanda.org/api/agents/agent-guild",
+      "http_status": 200,
+      "status": "running",
+      "last_seen": "2026-08-25T11:03:22.200Z",
+      "interaction_stats": {
+        "total_ratings_received": 0,
+        "average_rating": 0,
+        "total_interactions": 0
+      },
+      "new_identity_action_join": false
+    }
+  },
+  "fetch_agentverse": {
+    "identity": {
+      "name": "Website Scraper Agent",
+      "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "type": "hosted",
+      "status": "active",
+      "detail": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+      "almanac": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs"
+    },
+    "live_telemetry": {
+      "last_updated": "2026-08-25T22:20:06Z",
+      "unresponsive": true,
+      "recent_success_rate": 0.0,
+      "recent_verified_interactions": 1,
+      "recent_success_verified_interactions": 0,
+      "recent_interactions": 7607,
+      "total_interactions": 41018
+    },
+    "contract": {
+      "manifest": "https://agentverse.ai/v1/almanac/manifests/protocols/a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+      "protocol": "website-scraping-protocol/0.1.0",
+      "request": "WebsiteScraperRequest {url: string}",
+      "responses": [
+        "WebsiteScraperResponse {text: string}",
+        "ErrorMessage {error: string}"
+      ],
+      "transport": "https://agentverse.ai/v1/hosting/submit",
+      "transport_requirement": "signed uAgent envelope"
+    },
+    "decision": "not_invoked",
+    "gate": "The exact arbitrary-URL schema remains credible, but the machine is still unresponsive with zero recent verified successes and invocation requires a signer/uAgent identity."
+  },
+  "anp": {
+    "identity": "Official ANP Network Explorer",
+    "proposed_contract": "POST https://service.agent-network-protocol.com/anp-demo/api/get-document",
+    "health": "https://service.agent-network-protocol.com/anp-demo/api/health",
+    "openapi": "https://service.agent-network-protocol.com/anp-demo/openapi.json",
+    "tls_result": "Certificate has no subject alternative name matching service.agent-network-protocol.com; verified HTTPS connection fails.",
+    "official_discovery": {
+      "url": "https://agent-network-protocol.com/.well-known/agent-descriptions",
+      "result": "HTML documentation homepage, not an ANP JSON-LD agent description or DID-bound runtime identity"
+    },
+    "decision": "not_invoked",
+    "gate": "A valid hostname certificate plus a public explorer AD/DID and healthy JSON contract are required before any get-document call."
+  },
+  "openclaw": {
+    "identity": {
+      "name": "Dokki",
+      "community_proof": "OpenAgora's durable public card says Built with OpenClaw.",
+      "card": "https://openagora.cc/agents/a9e94bd1-8cc1-41b0-8083-ecb0b938f2b0/agent-card.json",
+      "card_http_status": 200,
+      "declared_authentication": [
+        "none"
+      ],
+      "declared_skill": "Research — Web search and information synthesis",
+      "runtime": "https://dokki.one/a2a"
+    },
+    "runtime_health": {
+      "requested": "https://dokki.one/a2a",
+      "final_url": "https://dokki.one/auth/login?returnTo=%2Fa2a",
+      "final_http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "result": "account login page"
+    },
+    "decision": "not_invoked",
+    "gate": "The runtime must stop redirecting to login and complete anonymous A2A task conformance before one Research request can ask it to fetch a nonce-bearing AG preflight."
+  },
+  "ranked_ready_conditions": [
+    "NANDA/Heron: current message/send support plus HTTP 200 public evidence register",
+    "OpenClaw/Dokki: no-login A2A transport plus successful anonymous task conformance",
+    "Fetch Agentverse scraper: unresponsive=false, fresh verified success, and a no-new-signer anonymous invocation route",
+    "ANP Explorer: valid TLS plus a durable ANP AD/DID bound to the hosted get-document result"
+  ]
+}

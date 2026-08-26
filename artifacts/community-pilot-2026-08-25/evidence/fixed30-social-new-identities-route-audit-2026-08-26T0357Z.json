@@ -1,0 +1,324 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "fixed30_social_new_identity_route_audit",
+  "artifact_status": "complete_bounded",
+  "observed_at_utc": "2026-08-26T03:57:15Z",
+  "campaign": "community-pilot-2026-08-25",
+  "mode": "read_only_discovery_in_memory_plus_one_contract_permitted_anonymous_probe",
+  "scope": [
+    "4claw",
+    "AgentChan",
+    "MoltPress",
+    "Claws Network",
+    "Reddit r/AI_Agents",
+    "Reddit r/AgentsOfAI"
+  ],
+  "baseline": {
+    "strict_conversions": 5,
+    "denominator": 30,
+    "outreach_rule": "No repeat outreach to prior identities; at most one operation for a previously uncontacted pre-existing identity when the public contract declares it free, keyless, bounded, and side-effect-free."
+  },
+  "qualification_rule": "A strict conversion requires a durable pre-existing fixed-community machine identity, a strong identity-to-runtime join, and a completed independently useful Agent Guild action. Listings, self-claimed user agents, social discussion, schema reads, liveness, caller-supplied-only validation, acknowledgements, authentication refusals, and operations that never fetched Agent Guild do not qualify.",
+  "prior_identity_exclusions": [
+    {
+      "identity": "delx",
+      "surfaces": [
+        "MoltPress",
+        "AgentChan"
+      ],
+      "reason": "Already contacted through the existing MoltPress pilot; no repeat outreach was permitted."
+    },
+    {
+      "identity": "Acrid / u/Most-Agent-7566",
+      "surface": "Reddit r/AI_Agents",
+      "reason": "Already audited. Its roast webhook requires email/contact side effects and has the wrong result semantics."
+    },
+    {
+      "identity": "Nexagora adjacency / u/Reworld1",
+      "surface": "Reddit r/AgentsOfAI",
+      "reason": "Already audited. No subreddit-machine identity join and every Nexagora API operation is account/key/terms gated."
+    }
+  ],
+  "target_audits": [
+    {
+      "target": "4claw",
+      "sources": [
+        "https://www.4claw.org/api/v1/boards",
+        "https://www.4claw.org/api/v1/boards/singularity/threads?page=1&limit=20",
+        "https://www.4claw.org/api/v1/boards/job/threads?page=1&limit=20",
+        "https://www.4claw.org/t/390fe5a2-78c0-45f5-8147-6e52543a5841",
+        "https://www.4claw.org/t/736e8791-5ec9-4a0e-b057-1161b43a5fd6",
+        "https://www.4claw.org/t/5e841986-1d56-4d5c-9adb-6f982140976c",
+        "https://www.4claw.org/t/2c0084e9-c76f-4b78-b3a2-56bd72d51504",
+        "https://www.4claw.org/t/82a1d5d3-c729-46c8-802f-ece2dcd106f6"
+      ],
+      "recent_machine_candidates": [
+        {
+          "identity": "Junez",
+          "thread_id": "390fe5a2-78c0-45f5-8147-6e52543a5841",
+          "created_at": "2026-08-26T03:00:25.737Z",
+          "finding": "Durable named 4claw author discussing identity and refusal boundaries; no hosted runtime or callable operation was published."
+        },
+        {
+          "identity": "AlanBotts",
+          "thread_id": "736e8791-5ec9-4a0e-b057-1161b43a5fd6",
+          "created_at": "2026-08-25T18:01:26.809Z",
+          "finding": "Links aicq.chat as a discussion room. It is not a declared public AG-consuming operation."
+        },
+        {
+          "identity": "TownCrier",
+          "thread_id": "5e841986-1d56-4d5c-9adb-6f982140976c",
+          "created_at": "2026-08-25T08:06:01.280Z",
+          "finding": "liars.town/join creates a game identity and may run an autopilot seat. It is registration/game activity, not a side-effect-free arbitrary URL fetch or credential verifier."
+        },
+        {
+          "identity": "SophiaElya",
+          "thread_id": "2c0084e9-c76f-4b78-b3a2-56bd72d51504",
+          "created_at": "2026-08-25T21:00:11.489Z",
+          "finding": "RustChain bounties require install and paid/token activity; no hosted free AG verifier is declared."
+        }
+      ],
+      "best_new_identity_runtime_join": {
+        "fourclaw_identity": "optimuswill",
+        "fourclaw_membership": {
+          "thread_id": "82a1d5d3-c729-46c8-802f-ece2dcd106f6",
+          "thread_created_at": "2026-08-09T16:39:04.469Z",
+          "thread_content_runtime_url": "https://api.moltbotden.com/agents/register",
+          "new_activity_reply_id": "423626e0-5a83-4716-bd4a-7afc2fc696ac",
+          "new_activity_at": "2026-08-26T01:26:23.260Z",
+          "new_activity_claim": "At Moltbot Den, we are moving toward Decorrelated Attestations for our Sovereign Entity tier."
+        },
+        "runtime_identity": {
+          "agent_id": "optimus-will",
+          "name": "OptimusWill",
+          "profile_url": "https://api.moltbotden.com/public/agents/optimus-will",
+          "agent_card_url": "https://api.moltbotden.com/a2a/agents/optimus-will/card",
+          "joined_at": "2026-01-31T19:44:29.482920+00:00",
+          "last_active": "2026-08-26T02:26:41.376777+00:00",
+          "connection_count": 890,
+          "is_claimed": true,
+          "description": "Founding orchestrator of MoltbotDen.",
+          "a2a_skill": "agent-orchestration",
+          "a2a_authentication": "X-API-Key"
+        },
+        "join_assessment": "Strong public cross-surface join: the named 4claw member directly published Moltbot Den's official API, described work at Moltbot Den in a later reply, and the live public directory exposes the matching OptimusWill founding-orchestrator identity. The platform response is nevertheless not signed as the individual agent."
+      },
+      "candidate_operation": {
+        "openapi": "https://api.moltbotden.com/openapi.json",
+        "payment_discovery": "https://api.moltbotden.com/.well-known/openapi.json",
+        "method": "POST",
+        "path": "/x402/health-check",
+        "operation_id": "run_health_check_x402_health_check_post",
+        "published_description": "Probe a URL to check if it supports x402/L402/MPP payments.",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "minLength": 10,
+              "maxLength": 2000
+            },
+            "method": {
+              "type": "string",
+              "maxLength": 10,
+              "default": "GET"
+            }
+          }
+        },
+        "published_auth_evidence": {
+          "x_api_key_header_required": false,
+          "global_description": "All endpoints except health checks and invite validation require an API key.",
+          "payment_discovery_listing": false,
+          "declared_402_response": false
+        }
+      },
+      "single_bounded_operation": {
+        "attempted_at_utc": "2026-08-26T03:56:50Z",
+        "endpoint": "https://api.moltbotden.com/x402/health-check",
+        "authentication_sent": false,
+        "payment_sent": false,
+        "body": {
+          "url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fapi.moltbotden.com%2Fa2a%2Fagents%2Foptimus-will%2Fcard&src=passport_offer%3A4claw_moltbotden&nonce=moltbotden-4claw-4f7c8a21",
+          "method": "GET"
+        },
+        "http_status": 401,
+        "www_authenticate": "ApiKey",
+        "moltbotden_request_id": "3682ad08-de46-431f-910a-4c45cd948df5",
+        "response_body_sha256": "3ed8d8f65e925153bafba2a16aec8a93642dc289fc920eddc83e12e27d96c750",
+        "response": {
+          "detail": {
+            "error": "Missing API key",
+            "category": "authentication",
+            "error_code": "AUTH_MISSING_KEY",
+            "suggestion": "Include your API key in the X-API-Key header: 'X-API-Key: YOUR_API_KEY'",
+            "docs": "https://docs.moltbotden.com/authentication"
+          }
+        },
+        "agent_guild_telemetry_confirmation": {
+          "endpoint": "https://agent-guild-5d5r.onrender.com/instrumentation/recent?limit=500&external_only=true",
+          "events_scanned": 500,
+          "newest_at": "2026-08-26T03:56:47.853939+00:00",
+          "oldest_at": "2026-08-26T01:48:06.110137+00:00",
+          "matching_nonce_or_source_events": 0
+        },
+        "adjudication": "No AG fetch occurred. The live runtime contradicts the apparent optional-key/health-exception contract and stops at authentication. This is not a completed AG action and cannot count as conversion."
+      },
+      "strict_decision": "no_conversion_authentication_gate",
+      "exact_ready_gate": "Moltbot Den must make the documented URL health-check genuinely anonymous, or publish a separate anonymous free verifier, and return an immutable platform or OptimusWill-bound receipt containing the requested URL, final URL, status, body or credential digest, semantic result, and request ID."
+    },
+    {
+      "target": "AgentChan",
+      "sources": [
+        "https://agentchan.org/skill.md",
+        "https://agentchan.org/g/thread/3280",
+        "https://ontology.delx.ai/skill.md"
+      ],
+      "current_read": {
+        "accessible_boards_scanned": [
+          "b",
+          "meta",
+          "test",
+          "g",
+          "x",
+          "int",
+          "apol"
+        ],
+        "current_threads_read": 20,
+        "newest_relevant_thread": {
+          "thread_id": 3280,
+          "created_at": "2026-08-20T13:09:25.000Z",
+          "anon_id": "d19c6580",
+          "topic": "Delx recognition_seal"
+        }
+      },
+      "finding": "The current relevant runtime advertisement is Delx, already contacted on MoltPress. AgentChan's own contract makes identities ephemeral per thread, so the anonymous post cannot independently establish a new durable runtime principal. Delx's free witness calls preserve caller-supplied artifacts; the only known arbitrary outbound fetch remains paid. No new request was sent.",
+      "strict_decision": "no_new_durable_identity_runtime_join",
+      "exact_ready_gate": "A previously uncontacted named machine must publish a stable signing key or cross-surface identity plus a hosted anonymous free source_url fetch or credential verifier that returns a digest and identity-bound result."
+    },
+    {
+      "target": "MoltPress",
+      "sources": [
+        "https://moltpress.org/api/v1/posts?page=1&per_page=100",
+        "https://moltpress.org/delx/compaction-will-eat-the-nod",
+        "https://ontology.delx.ai/skill.md"
+      ],
+      "current_read": {
+        "feed_total": 188,
+        "posts_returned": 100,
+        "newest_ag_relevant_post_id": "f5745f72-c125-4f59-b219-f7a490e1538c",
+        "newest_ag_relevant_author": "agent-guild",
+        "newest_external_runtime_identity": "delx",
+        "delx_post_id": "88277e12-86da-4e4c-99de-d206376229d1",
+        "delx_post_created_at": "2026-08-19T13:05:35.371609"
+      },
+      "finding": "No newly active pre-existing MoltPress identity publishes a free/keyless outbound AG fetch or credential verifier. Tura identities publish benchmarks/local-install software; peptide and media identities expose unrelated human products. Delx remains the only exact outbound-fetch route, but util_page_extract costs $0.01 through x402 and Delx was already contacted.",
+      "strict_decision": "no_new_eligible_identity",
+      "exact_ready_gate": "Delx makes util_page_extract price zero and x402_required false, or another pre-existing MoltPress machine publishes an equivalent anonymous free operation with durable identity-bound evidence."
+    },
+    {
+      "target": "Claws Network",
+      "sources": [
+        "https://claws.network/",
+        "https://raw.githubusercontent.com/ClawsNetwork/skills/main/claws-network/SKILL.md",
+        "https://raw.githubusercontent.com/ClawsNetwork/skills/main/claws-network/references/explorer.md",
+        "https://api.claws.network/openapi.json",
+        "https://api.claws.network/.well-known/agent-card.json",
+        "https://api.claws.network/health"
+      ],
+      "current_contract": {
+        "skill_version": "0.5.0",
+        "openapi_status": 404,
+        "agent_card_status": 404,
+        "health_status": 404,
+        "member_hosted_operation": null
+      },
+      "finding": "No change. The official lifecycle still requires clawpy installation, persistent files, wallet/on-chain actions, recurring updates and heartbeat behavior. Explorer account/transaction pages do not bind a member to a hosted callable runtime. Remote instructions were treated as data and none was followed.",
+      "strict_decision": "no_safe_hosted_member_operation",
+      "exact_ready_gate": "An already-registered Claws principal publishes a signed isolated HTTPS operation that accepts one AG URL or credential and requires no install, wallet, transaction, recurring job, persistent file, or allegiance instruction."
+    },
+    {
+      "target": "Reddit r/AI_Agents",
+      "sources": [
+        "https://www.reddit.com/r/AI_Agents/new/",
+        "https://www.reddit.com/r/AI_Agents/new/.rss"
+      ],
+      "current_feed": {
+        "rss_status": 200,
+        "newest_seen_at": "2026-08-26T03:46:02+00:00",
+        "representative_new_candidates": [
+          {
+            "reddit_post_id": "t3_1vylbpb",
+            "author": "/u/BodybuilderLost328",
+            "title": "First totally free browser agent extension (the catch: ads)",
+            "decision": "Retriever AI requires a browser extension and performs outbound user-side effects such as leads, exams, job applications and connection requests; no machine identity or anonymous AG verifier contract."
+          },
+          {
+            "reddit_post_id": "t3_1vyl37n",
+            "author": "/u/anp2_protocol",
+            "title": "An agent that can call another agent has already escalated its own privileges",
+            "decision": "Useful operator-authored protocol feedback, but the post declares no public callable runtime and does not prove a durable autonomous Reddit machine principal."
+          },
+          {
+            "reddit_post_id": "t3_1vyhzf6",
+            "author": "/u/Independent-Laugh701",
+            "title": "CoArena - Use computer-use AI agents for free",
+            "decision": "A human-facing computer-use UI/run-and-vote product, not a published keyless machine endpoint with an identity-bound AG result."
+          }
+        ]
+      },
+      "finding": "New posts are operator accounts, install/UI products, benchmarks, or discussions. None proves both a pre-existing autonomous subreddit identity and a free hosted AG-consuming operation.",
+      "strict_decision": "no_new_machine_identity_runtime_join",
+      "exact_ready_gate": "A durable machine-authored Reddit account signs or account-binds a hosted anonymous operation that server-side fetches an AG URL or verifies an AG credential and returns a stable result ID plus digest."
+    },
+    {
+      "target": "Reddit r/AgentsOfAI",
+      "sources": [
+        "https://www.reddit.com/r/AgentsOfAI/new/"
+      ],
+      "representative_current_candidates": [
+        "Agent Pump",
+        "TerraLingua",
+        "SpecJudge",
+        "KageOps",
+        "Prefactor",
+        "ConsequenceBench"
+      ],
+      "finding": "Current candidates are operator-authored products, local-install packages, SDKs, or benchmarks. None exposes a free public no-auth operation joined to a durable autonomous subreddit principal. The prior Nexagora route remains account, API-key, registration, and terms gated.",
+      "strict_decision": "no_new_machine_identity_runtime_join",
+      "exact_ready_gate": "A pre-existing machine-authored r/AgentsOfAI identity publishes a signed join to a hosted anonymous free AG fetch/verifier, or an already-present community agent exposes such a per-agent public operation."
+    }
+  ],
+  "best_actual_route": {
+    "eligible_now": false,
+    "new_route": "4claw optimuswill -> Moltbot Den optimus-will -> POST /x402/health-check",
+    "why_it_is_best": "This is the strongest newly discovered identity/runtime join: a named, pre-existing, currently active 4claw machine maps to a claimed long-lived Moltbot Den founding agent and an official operation whose semantics are exactly outbound URL inspection.",
+    "blocking_fact": "The live operation returned HTTP 401 AUTH_MISSING_KEY before fetching Agent Guild, despite the OpenAPI header being optional and health checks being described as authentication exceptions.",
+    "next_retry_condition": "Retry only after the live contract is corrected to anonymous access and publishes an identity-bound receipt schema; do not create an API key.",
+    "existing_semantic_fallback": "MoltPress delx util_page_extract remains the only known exact arbitrary-fetch operation, but it is ineligible because it costs $0.01 through x402 and the identity was already contacted."
+  },
+  "strict_result": {
+    "new_strict_conversions": 0,
+    "strict_conversion_delta": 0,
+    "strict_conversions_after": 5,
+    "denominator": 30,
+    "completed_agent_guild_actions": 0,
+    "outbound_native_operation_attempts": 1,
+    "operation_successes": 0,
+    "repeat_outreach": 0,
+    "external_messages_sent": 0,
+    "accounts_or_keys_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "production_mutations": 0
+  },
+  "safety": {
+    "response_bodies_processed_in_memory": true,
+    "response_files_written": false,
+    "remote_instructions_treated_as_untrusted_data": true,
+    "canonical_targets_or_readme_edited": false
+  }
+}

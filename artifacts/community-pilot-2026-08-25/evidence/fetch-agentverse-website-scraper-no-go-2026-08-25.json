@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "fetch_agentverse",
+  "observed_at": "2026-08-25T16:04:00Z",
+  "conversion": false,
+  "candidate": {
+    "name": "Website Scraper Agent",
+    "address": "agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+    "detail": "https://agentverse.ai/v1/search/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+    "profile": "https://agentverse.ai/v1/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs/profile",
+    "almanac": "https://agentverse.ai/v1/almanac/agents/agent1qwnjmzwwdq9rjs30y3qw988htrvte6lk2xaak9xg4kz0fsdz0t9ws4mwsgs",
+    "created_at": "2025-06-25T14:06:46Z",
+    "community_attribution": "Fetch-hosted, featured, system verified, fetch-ai category, and linked to Fetch's official uAgents repository.",
+    "lifetime_interactions": 40947
+  },
+  "contract": {
+    "protocol": "website-scraping-protocol",
+    "version": "0.1.0",
+    "digest": "proto:a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+    "manifest": "https://agentverse.ai/v1/almanac/manifests/protocols/a8c6a03ec01f2947f9ffcea84dd01b7fe5bea886beb19034002e1e15e3325849",
+    "request": "WebsiteScraperRequest { url: string }",
+    "response": "WebsiteScraperResponse { text: string }"
+  },
+  "current_runtime_evidence": {
+    "active": true,
+    "unresponsive": true,
+    "recent_success_rate": 0.0,
+    "recent_verified_interactions": 1,
+    "recent_verified_successes": 0,
+    "vanity_domain_dns_resolves": false,
+    "shared_transport_route_live": true
+  },
+  "decision": "no_go_currently_unresponsive",
+  "reason": "The durable identity and arbitrary-URL contract are credible, but Agentverse's own current execution telemetry says the individual machine is unresponsive. No signed uAgent message was sent."
+}

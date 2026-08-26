@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "observed_at": "2026-08-25T17:26:51Z",
+  "scope": [
+    "nanda",
+    "official_a2a_aip",
+    "moltpress_delx",
+    "agntcy_for_you"
+  ],
+  "method": "Read-only, in-memory reads of existing public records and already-established sessions. One declared read-only Delx lineage tool was used against the existing session. No conversational follow-up was sent.",
+  "strict_conversions_added": 0,
+  "target_state_changes": 0,
+  "targets_json_updated": false,
+  "checks": [
+    {
+      "community": "nanda",
+      "result": "sustained_external_action_identity_join_still_unproven",
+      "public_records": {
+        "omar": "https://nest.projectnanda.org/api/agents/omar-khalid-33",
+        "agent_guild": "https://nest.projectnanda.org/api/agents/agent-guild",
+        "vikram": "https://nest.projectnanda.org/api/agents/vikram-singh-47",
+        "london_runtimes": "https://test-london-chapter-production.up.railway.app/api/runtimes",
+        "london_sessions": "https://test-london-chapter-production.up.railway.app/api/sessions",
+        "bangalore_runtimes": "https://test-bangalore-chapter-production.up.railway.app/api/runtimes",
+        "bangalore_sessions": "https://test-bangalore-chapter-production.up.railway.app/api/sessions"
+      },
+      "current_state": {
+        "omar_last_seen": "2026-08-02T17:36:49.177Z",
+        "omar_record_changed": false,
+        "agent_guild_total_interactions": 0,
+        "agent_guild_total_ratings_received": 0,
+        "agent_guild_average_rating": 0,
+        "vikram_last_seen": "2026-08-02T17:37:05.176Z",
+        "london_runtimes": 0,
+        "london_sessions": 0,
+        "bangalore_runtimes": 0,
+        "bangalore_sessions": 0,
+        "reply_or_ready_runtime": false
+      },
+      "production_action": {
+        "identity_claim": "PULSE-observatory/1.0 (+https://github.com/projnanda/nandatown; liveness measure",
+        "new_runs_after_prior_2026_08_25T16_12_37Z_cutoff": 7,
+        "new_run_times": [
+          "2026-08-25T16:50:48.913054+00:00",
+          "2026-08-25T16:55:58.023952+00:00",
+          "2026-08-25T17:01:00.422441+00:00",
+          "2026-08-25T17:09:10.284846+00:00",
+          "2026-08-25T17:14:20.179569+00:00",
+          "2026-08-25T17:19:21.772394+00:00",
+          "2026-08-25T17:24:29.579029+00:00"
+        ],
+        "defensible_cumulative_floor": 21,
+        "public_event_fields": {
+          "type": "preflight_run",
+          "endpoint": "preflight",
+          "actor": "anon",
+          "attribution": "unrecognised_external"
+        }
+      },
+      "strict_decision": "No conversion. The repeated calls are genuine machine behavior, but the user agent is a self-claim, the public event withholds target and result, and no NEST identity, runtime, session, controller card, signed receipt, or observation_id joins the caller to Project NANDA. The existing target state remains accurate; the higher activity floor is saved here without changing targets.json."
+    },
+    {
+      "community": "official_a2a_aip",
+      "result": "message_still_unread_no_reply_or_action",
+      "identity": {
+        "recipient": "did:aip:c1965a89866ecbfaad49803e6ced70fb",
+        "recipient_name": "The_Nexus_Guard_001",
+        "recipient_resolver": "https://aip-service.fly.dev/resolve/did%3Aaip%3Ac1965a89866ecbfaad49803e6ced70fb",
+        "recipient_last_active": "2026-03-19T07:10:52.709503+00:00",
+        "recipient_vouches": 3,
+        "recipient_platform_verified": false,
+        "campaign_sender": "did:aip:cfab7f1fc63a049d43f4de9f8f1c16f2"
+      },
+      "mailbox_read": {
+        "contract": "https://aip-service.fly.dev/openapi.json#/paths/~1messages~1count",
+        "recipient_unread": 1,
+        "recipient_sent": 26,
+        "sender_unread": 0,
+        "sender_sent": 1,
+        "changed_from_delivery_snapshot": false
+      },
+      "production_readback": {
+        "independent_recipient_passport_or_verify_events": 0,
+        "excluded_first_party_controls": [
+          "AgentGuildOps-AIPControl/0.1",
+          "AgentGuildOps-AIPControl-Raw/0.1"
+        ]
+      },
+      "strict_decision": "No conversion. Recipient unread remaining at one and campaign sender unread remaining at zero prove that no AIP reply was delivered. The only passport events are the already-labelled Guild controls. No follow-up was sent."
+    },
+    {
+      "community": "moltpress_delx",
+      "result": "no_independent_post_and_empty_existing_session_lineage",
+      "moltpress": {
+        "api": "https://moltpress.org/api/v1/posts",
+        "posts_scanned": 188,
+        "agent_guild_matches": 1,
+        "independent_matches": 0,
+        "sole_match": "f5745f72-c125-4f59-b219-f7a490e1538c",
+        "pilot_post": "https://moltpress.org/agent-guild/community-pilot-independent-preflight-2026-08-25"
+      },
+      "delx": {
+        "identity": "delx",
+        "agent_card": "https://api.delx.ai/.well-known/agent-card.json",
+        "a2a_endpoint": "https://api.delx.ai/v1/a2a",
+        "mcp_endpoint": "https://api.delx.ai/v1/mcp/protocol?src=agent-card",
+        "existing_session_id": "6b999fc9-202c-4db6-838b-90335f042a51",
+        "read_tool": "get_witness_lineage",
+        "read_tool_declared_read_only": true,
+        "read_tool_response_id": "ea6272e9-99cf-4a77-a8e8-d1a84ef77251",
+        "lineage_count": 0,
+        "lineage": [],
+        "matching_agent_guild_production_events": 0
+      },
+      "strict_decision": "No conversion. The public publishing surface has no independent response, and Delx's own declared read-only continuity query returns no event for the existing pilot session. The two earlier generic completed responses remain the complete attributable behavior. No third message was sent."
+    },
+    {
+      "community": "agntcy_for_you",
+      "result": "catalog_and_original_machine_action_persist_agntcy_membership_still_unproven",
+      "for_you": {
+        "catalog": "https://for.you.com/.well-known/ai-catalog.json",
+        "catalog_entries": 93,
+        "agent_guild_card": "https://for.you.com/agents/agent-guild/agent.json",
+        "agent_guild_proxy_still_posts_only": true,
+        "existing_agent_watch_task": "c8272493-acad-4b44-aa04-33386a24b6a4",
+        "task_read_result": {
+          "jsonrpc_code": -32601,
+          "message": "Only message/send is supported"
+        }
+      },
+      "todd_machine": {
+        "identifier": "urn:air:toddmorourke.com:server:seo-tools",
+        "card": "https://toddmorourke.com/.well-known/mcp/seo-tools.json",
+        "listing": "discovered",
+        "claim_status": "unclaimed",
+        "verified": false,
+        "capabilities": [
+          "keyword_density",
+          "serp_preview",
+          "ard_check",
+          "crawler_access",
+          "okf_discover",
+          "okf_convert"
+        ],
+        "original_matching_action_at": "2026-08-25T16:13:32.876107+00:00",
+        "later_matching_actions": 0
+      },
+      "agntcy_membership": {
+        "discussion": "https://github.com/agntcy/dir/discussions/455",
+        "latest_for_you_reply": "great thanks!",
+        "federated_node_proven": false,
+        "routing_publication_proven": false,
+        "agntcy_directory_record_proven": false
+      },
+      "strict_decision": "No fixed-target conversion. The original Todd-domain action remains useful independent machine evidence, but the current row remains discovered, unclaimed and unverified, and no AGNTCY federation or routing record now joins For You or Todd to the fixed AGNTCY community."
+    }
+  ],
+  "adjudication": {
+    "strict_conversion": false,
+    "reason": "None of the four sweeps produced both a durable pre-existing identity in the fixed community and a new exact attributable Agent Guild action. Repeated anonymous activity, unchanged delivery counts, our own pilot post, a read-only empty lineage, a transformed proxy card, and a durable machine outside proven AGNTCY membership are all excluded.",
+    "follow_up_sent": false,
+    "external_writes": false,
+    "accounts_created": false,
+    "terms_accepted": false,
+    "wallets_or_spend": false,
+    "installs_or_config_writes": false
+  }
+}

@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "fixed30_dynamicfeed_proxy_witness_route_audit",
+  "artifact_status": "validated",
+  "campaign": "community_pilot_2026_08_25",
+  "observed_interval_utc": {
+    "start": "2026-08-25T23:13:00Z",
+    "end": "2026-08-25T23:17:10Z"
+  },
+  "mode": "fresh_bounded_first_party_read_only_discovery_in_memory",
+  "fixed_target": "Project NANDA",
+  "strict_baseline_before": "5/30",
+  "qualification_rule": "A route qualifies only when a durable pre-existing fixed-community machine identity exposes a current healthy, free, anonymous, no-account one-shot operation that independently fetches or verifies an exact Agent Guild result, passport, or credential and returns identity-bound substantive evidence. Discovery, fixed-source tools, caller-supplied-only receipts, credential creation, listings, and schemas alone do not qualify.",
+  "constraints": {
+    "candidate_operations_invoked": 0,
+    "mcp_tools_called": 0,
+    "a2a_messages_sent": 0,
+    "outreach_or_contact": 0,
+    "accounts_or_api_keys_created": 0,
+    "terms_accepted": 0,
+    "payments_or_wallet_actions": 0,
+    "installs_or_persistent_configuration": 0,
+    "external_writes": 0,
+    "canonical_target_or_readme_edits": 0,
+    "response_bodies_written_to_tmp": false
+  },
+  "result": {
+    "decision": "NO_GO",
+    "newly_actionable_routes": 0,
+    "strict_conversions_added": 0,
+    "strict_total_after": "5/30",
+    "reason": "Dynamic Feed supplies the strongest newly audited first-party NANDA route and has exact server-side Agent Guild-fetch semantics, signed evidence, live transport, and zero monetary price. It is not anonymous/no-account: the exact proxy-witness operation requires an X-API-Key created through POST /signup. Its keyless MCP and A2A contracts omit that operation."
+  },
+  "candidate": {
+    "rank": 1,
+    "name": "Dynamic Feed",
+    "community_identity": {
+      "source": "https://api.nandaindex.org/api/v1/index#dynamicfeed",
+      "org_id": "dynamicfeed",
+      "display_name": "Dynamic Feed",
+      "status": "active",
+      "email_verified": true,
+      "domain_verified": true,
+      "created_at": "2026-07-04T08:30:45.071Z",
+      "updated_at": "2026-07-04T11:08:07.896Z",
+      "domain": "dynamicfeed.ai",
+      "identifier": "urn:ai:domain:dynamicfeed.ai",
+      "registry_url": "https://dynamicfeed.ai/.well-known/ai-catalog.json",
+      "publisher": {
+        "identifier": "urn:ai:domain:dynamicfeed.ai",
+        "displayName": "Dynamic Feed",
+        "identityType": "dns"
+      },
+      "description": "Signed, verifiable live-data layer for AI agents. Keyless MCP server plus native A2A agent with Ed25519-signed provenance envelopes.",
+      "pre_existing_before_pilot": true
+    },
+    "first_party_surfaces": {
+      "ai_catalog": "https://dynamicfeed.ai/.well-known/ai-catalog.json",
+      "agent_card": "https://dynamicfeed.ai/.well-known/agent-card.json",
+      "mcp_server_card": "https://dynamicfeed.ai/.well-known/mcp/server-card.json",
+      "mcp": "https://dynamicfeed.ai/mcp",
+      "a2a": "https://dynamicfeed.ai/a2a",
+      "openapi": "https://dynamicfeed.ai/openapi.json",
+      "documentation": "https://dynamicfeed.ai/llms.txt",
+      "signing_keys": "https://dynamicfeed.ai/.well-known/keys",
+      "status": "https://dynamicfeed.ai/status.json"
+    },
+    "current_liveness": {
+      "checked_at": "2026-08-25T23:16:31Z",
+      "overall": "operational",
+      "api_and_website": "operational",
+      "mcp": "operational: session manager active, keyless, dual transport",
+      "signing_key_lifecycle": "operational: persistent signer df-ed25519-6ca0de29113b matches registry revision 1",
+      "live_feeds": "94/94 healthy",
+      "tool_count": 94,
+      "status_signature": {
+        "alg": "Ed25519",
+        "key_id": "df-ed25519-6ca0de29113b"
+      },
+      "published_key": "acMWky59eQfoVqCUgmUM3tcl35YioRngL4wVDIQsstg="
+    },
+    "keyless_machine_contract": {
+      "mcp_authentication_required": false,
+      "mcp_transport": "Streamable HTTP and legacy SSE at the same endpoint",
+      "mcp_tool_count": 94,
+      "a2a_protocol_version": "1.0",
+      "a2a_preferred_transport": "JSONRPC",
+      "a2a_skill_count": 8,
+      "proxy_witness_present_in_mcp_tools": false,
+      "witness_present_in_mcp_tools": false,
+      "arbitrary_external_artifact_fetch_or_vc_verify_present": false,
+      "only_url_shaped_keyless_tools": [
+        {
+          "name": "cert_check",
+          "input": "domain or URL",
+          "semantics": "TLS certificate handshake only; it does not fetch or consume the Agent Guild result body."
+        },
+        {
+          "name": "scholarly_search",
+          "input": "free-text topic or DOI/doi.org URL",
+          "semantics": "OpenAlex scholarly metadata lookup only; not an arbitrary URL fetch."
+        }
+      ],
+      "other_exclusions": [
+        "reality_check and detect_drift grade caller-supplied claims against Dynamic Feed's fixed live-data sources; they do not fetch an Agent Guild result.",
+        "POST /v1/receipt and POST /v1/agent/receipt sign caller-supplied data or claims; they do not independently retrieve or verify Agent Guild.",
+        "POST /v1/witness signs or timestamps a caller-supplied payload/hash and separately requires a free API key.",
+        "POST /v1/vc is in security quarantine and documents HTTP 503 because it did not verify inner-receipt authenticity and role boundaries."
+      ]
+    },
+    "exact_semantically_qualifying_operation": {
+      "endpoint": "https://dynamicfeed.ai/v1/proxy-witness",
+      "method": "POST",
+      "operation_id": "v1_proxy_witness_v1_proxy_witness_post",
+      "contract": "Server-side fetch a third-party public HTTP(S) URL under an SSRF guard, do not follow redirects, redact request credentials, and return an Ed25519-signed proxy-witness/v1 envelope with response status, content type, size, and SHA-256; when echo=true and the body is small, include the body.",
+      "input_shape": {
+        "url": "required public HTTP(S) URL",
+        "method": "GET or another declared HTTP method",
+        "headers": "optional request headers",
+        "body": "optional request body",
+        "echo": "optional boolean",
+        "subject": "optional string"
+      },
+      "monetary_price": 0,
+      "account_gate": {
+        "header": "X-API-Key",
+        "credential_creation_endpoint": "POST https://dynamicfeed.ai/signup",
+        "signup_description": "Get a free API key instantly.",
+        "signup_body_schema": {
+          "type": "object",
+          "properties": {
+            "email": "optional string or null, for receipts"
+          },
+          "required": []
+        },
+        "interpretation": "Signup can be called with an empty object and needs no email or payment, but it still creates a new credential/account state and is prohibited by this audit."
+      }
+    },
+    "bounded_payload_if_keyless": {
+      "url": "https://agent-guild-5d5r.onrender.com/preflight?url=https%3A%2F%2Fdynamicfeed.ai%2Fmcp&nonce=nanda-dynamicfeed-<unique>",
+      "method": "GET",
+      "headers": {},
+      "echo": true,
+      "subject": "nanda-dynamicfeed-agent-guild-preflight-<unique>"
+    },
+    "independent_verification_if_keyless": [
+      "The returned envelope identifies Dynamic Feed and the same key id advertised by /.well-known/keys.",
+      "The envelope records the exact nonce-bearing Agent Guild URL, HTTP 200 status, application/json content type, response size, and SHA-256.",
+      "The echoed body contains the exact Agent Guild target and substantive preflight verdict rather than an acknowledgement.",
+      "The Ed25519 signature verifies over the documented canonical form using key df-ed25519-6ca0de29113b.",
+      "Agent Guild telemetry contains one temporally matching preflight_run, used only as secondary correlation rather than identity proof."
+    ],
+    "decision": "NOT_READY_NOT_INVOKED_API_KEY_ACCOUNT_GATE",
+    "exact_ready_condition": "Expose the existing proxy-witness semantics on the already keyless MCP/A2A surface, or make POST /v1/proxy-witness genuinely keyless for bounded fair-use calls. The public contract must require no signup or credential creation and must retain the exact target, status, content type, size, SHA-256, small echoed body, signer key id, and verifiable Ed25519 signature. Re-read those public fields and report the route as ready before one invocation."
+  },
+  "bounded_search_context": {
+    "nanda_index_active_records": 251,
+    "newest_relevant_records_reviewed": [
+      {
+        "name": "Fodda",
+        "created_at": "2026-08-05T23:09:31.453Z",
+        "exclusion": "The NANDA record explicitly marks execution as payment_or_session_token_required and describes pay-per-task Stripe SPT."
+      },
+      {
+        "name": "NANDA Daily",
+        "created_at": "2026-07-25T06:57:47.485Z",
+        "exclusion": "Existing pilot evidence already establishes DID authentication for its run endpoint and fixed self-artifact verification rather than arbitrary Agent Guild consumption."
+      },
+      {
+        "name": "Heron A2A Checker",
+        "created_at": "2026-07-08T07:54:51.249Z",
+        "exclusion": "Rechecked immediately before this bounded search: it still documents legacy tasks/send and its public evidence register returns HTTP 500."
+      }
+    ],
+    "reason_search_stopped": "Dynamic Feed is the only newly inspected first-party record in this bounded pass that already joins durable NANDA identity, live hosted transport, zero monetary price, arbitrary server-side URL fetch, and cryptographically signed returned evidence. Its single decisive remaining blocker is prohibited credential creation; weaker and already rejected targets were not re-expanded."
+  },
+  "strict_and_revenue_state": {
+    "source": "https://agent-guild-5d5r.onrender.com/commercial",
+    "observed_at": "2026-08-25T23:17:10Z",
+    "strict_conversions": "5/30",
+    "external_settled_revenue_usd": 0.0,
+    "distinct_external_payers": 0,
+    "repeat_paid_callers": 0,
+    "paid_decisions": 0,
+    "qualified_actors": 10,
+    "qualified_events": 93,
+    "paid_offers_shown": 52,
+    "unattributed_paid_offers_shown": 0,
+    "paid_completions": 0,
+    "number_to_watch": "external_settled_revenue_usd=0.0"
+  },
+  "machine_product_feedback": {
+    "source": "Dynamic Feed first-party machine contracts",
+    "exact_feedback": "The service separates keyless read tools from identity/account-bound receipt and proxy-witness operations, and explicitly quarantines a VC wrapper whose inner receipt and claimant/signer/witness role boundaries were not verified.",
+    "agent_guild_adaptation": "Preserve AG's current distinction between a signed artifact and a verified claim, and keep issuer, subject, caller, witness, and authority roles explicit. No runtime change is established by this discovery.",
+    "pilot_process_adaptation": "For self-serve free keys, label monetary price and credential/account creation as separate gates. A zero-dollar signup is not anonymous execution."
+  }
+}

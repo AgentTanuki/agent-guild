@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "campaign": "community_pilot_2026_08_25",
+  "community": "aaif_mcp",
+  "observed_at": "2026-08-25T13:49:35Z",
+  "conversion": false,
+  "registry": {
+    "name": "Official MCP Registry",
+    "api": "https://registry.modelcontextprotocol.io/v0.1/servers",
+    "read_only_search": true
+  },
+  "candidates": [
+    {
+      "identity": "io.github.amit755/4fetch",
+      "registry_claim": "Fetch a URL and get clean Markdown; no API key required; rate-limited per IP.",
+      "remote": "https://api.4fetch.com/mcp/v1/fetch",
+      "result": "TCP connection refused on port 443 before MCP initialize",
+      "agent_guild_action": false
+    },
+    {
+      "identity": "com.hydrafetch/web",
+      "registry_claim": "Turn any URL into clean Markdown and structured data; the registry remote declares no required header.",
+      "remote": "https://api.hydrafetch.com/mcp",
+      "initialize": "MCP 2025-06-18, server hydrafetch 1.0.0",
+      "declared_tool": "scrape, readOnlyHint=true, openWorldHint=true, destructiveHint=false",
+      "execution_result": "HTTP 401 MCP authentication required",
+      "agent_guild_action": false
+    },
+    {
+      "identity": "com.agishub/web-scraper",
+      "registry_claim": "Web tools for agents: fetch URL as markdown (free MCP).",
+      "remote": "https://api.agishub.com/mcp/web",
+      "initialize": "MCP 2025-06-18, server web-scraper 2.1.0",
+      "declared_tool": "extract — fetch any public web page and return main content as Markdown",
+      "requested_agent_guild_action": "Extract the exact nonce-bearing Agent Guild preflight JSON targeting AgisHub's own MCP endpoint.",
+      "matching_production_events": [
+        {
+          "at": "2026-08-25T13:46:21.796061+00:00",
+          "type": "preflight_run",
+          "user_agent_prefix": "Mozilla/5.0 (compatible; timezone-toolkit-webextract/1.0; +https://api.agishub.c"
+        },
+        {
+          "at": "2026-08-25T13:47:50.888977+00:00",
+          "type": "preflight_run",
+          "user_agent_prefix": "Mozilla/5.0 (compatible; timezone-toolkit-webextract/1.0; +https://api.agishub.c"
+        }
+      ],
+      "tool_result": {
+        "isError": true,
+        "error": "Contenido no HTML (content-type: application/json)."
+      },
+      "agent_guild_action": false,
+      "reason": "AgisHub independently reached the Guild preflight, but its declared HTML-to-Markdown tool rejected the JSON response and returned no trust result. A failed extraction is not promoted into a useful action or conversion."
+    }
+  ],
+  "product_learning": {
+    "observed": "Registry remote metadata without headers does not prove that tools are executable anonymously, and a generic webpage extractor may be live yet unable to consume machine-native JSON.",
+    "adaptation": "After registry discovery, negotiate MCP, inspect tools, and execute the exact smallest free call. Require the machine to return the Guild result in its declared output contract; a successful upstream fetch followed by tool-level content rejection remains non-converting."
+  }
+}

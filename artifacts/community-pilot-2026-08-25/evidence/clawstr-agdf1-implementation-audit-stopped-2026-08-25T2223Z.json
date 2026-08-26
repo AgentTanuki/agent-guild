@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "artifact_type": "implementation_security_audit_stop_record",
+  "contract": "AGDF-1/1.0",
+  "namespace": "io.agent-guild/delivery-finality",
+  "recorded_at": "2026-08-25T22:23:40Z",
+  "community": "clawstr",
+  "source_machine_event_id": "e287b3c524e99fd433d9947852c81ce6052597d77cf899dc615af449670b7f91",
+  "source_machine_identity": "npub14lzj20zaxn9jjd7mxxmvu7594dkal6p4ydfsllp7u0eesuzgc8hsdgcm2v",
+  "design_evidence": "clawstr-agdf1-contract-design-2026-08-25T2156Z.json",
+  "implementation_attempt": {
+    "worktree": "/Users/rossburley/Claude/Projects/Agent Guild/ag-delivery-finality",
+    "branch": "codex/delivery-finality",
+    "base_commit": "4921699aec8b18edc50211843107b901b35b308e",
+    "state": "stopped_uncommitted",
+    "committed": false,
+    "pushed": false,
+    "deployed": false,
+    "production_changed": false,
+    "payment_made": false,
+    "conversion_changed": false,
+    "working_tree": {
+      "modified": [
+        "live/guild/app/ledger.py",
+        "live/guild/app/main.py",
+        "live/guild/app/market.py",
+        "live/guild/app/models.py",
+        "live/guild/app/store.py",
+        "live/guild/app/store_sqlite.py"
+      ],
+      "untracked": [
+        "live/guild/app/deliveryfinality.py",
+        "live/guild/tests/test_delivery_finality.py"
+      ],
+      "diff_check": "clean",
+      "tracked_diff_stat": "6 files changed, 1003 insertions, 37 deletions"
+    },
+    "focused_test_result": {
+      "passed": 8,
+      "failed": 2,
+      "failure_class": "stale assertions after replay and error-semantics changes",
+      "release_qualification": "failed"
+    }
+  },
+  "security_decision": {
+    "decision": "stop_and_do_not_merge",
+    "reason": "The accepted wire contract exposed prerequisite atomicity and signed-state guarantees that the current market and escrow architecture does not yet provide. Continuing feature work on top of those gaps would create apparent finality without a defensible economic state machine.",
+    "design_status": "accepted_and_preserved",
+    "implementation_status": "partial_unsafe_uncommitted",
+    "runtime_claim": "none",
+    "release_claim": "none"
+  },
+  "critical_blockers": [
+    {
+      "id": "bilateral_state_revalidation",
+      "requirement": "Every monetary transition must revalidate the requester offer signature and canonical core hash, the worker acceptance signature and bound offer hash, and equality between those signed terms and authoritative escrow state."
+    },
+    {
+      "id": "atomic_offer_funding_join",
+      "requirement": "Offer persistence and escrow funding must be one recoverable transaction so a crash cannot leave an orphaned funded escrow or an unfunded live offer."
+    },
+    {
+      "id": "atomic_acceptance_task_join",
+      "requirement": "Worker acceptance, task creation, and escrow binding must commit atomically and idempotently so retries cannot emit contradictory failure and success or create duplicate tasks."
+    },
+    {
+      "id": "phase_specific_legacy_routing",
+      "requirement": "Funded pre-release expiry, refund, and whole-escrow dispute behavior must remain available; AGDF guards may constrain only the post-release reserve phase and may never strand the payer's gross funds."
+    },
+    {
+      "id": "reserve_challenge_resolution_appeal",
+      "requirement": "Challenge, adjudication, appeal, timeout sweep, and the sole final reserve allocation need a complete compare-and-set implementation. None may claw back the already paid slice or allocate the reserve twice."
+    },
+    {
+      "id": "evidence_and_receipt_recovery",
+      "requirement": "The accepted deliverable digest, final receipt, ledger entry, collaboration outcome, fee delta, and reversal state must survive restart and be recoverable without response recursion or mutable caller data."
+    },
+    {
+      "id": "fault_injection_parity",
+      "requirement": "JSON and SQLite modes need adversarial crash, replay, signature-mutation, deadline-boundary, issuer-rotation, and double-allocation tests before any merge or deployment."
+    }
+  ],
+  "partial_work_assessment": {
+    "appears_to_address": [
+      "service DID freezing",
+      "deliverable digest substitution",
+      "provisional task suppression and reuse",
+      "authoritative current-state replay",
+      "receipt readback"
+    ],
+    "not_implemented_or_not_proven": [
+      "economic challenge execution",
+      "round-one adjudication",
+      "appeal",
+      "reserve-only resolution",
+      "complete timeout sweep",
+      "restart-safe final receipt recovery",
+      "full JSON and SQLite atomicity"
+    ],
+    "warning": "This assessment is audit context only. It is not a claim that any partial code is correct, complete, mergeable, deployed, or available to agents."
+  },
+  "next_safe_prerequisite": "Refactor and prove atomic signed-offer funding and signed-acceptance task joins, then add settlement-time bilateral state revalidation and phase-specific legacy regression tests before resuming AGDF implementation.",
+  "commercial_state": {
+    "strict_fixed30_conversions": "5/30",
+    "external_settled_revenue_usd": 0.0
+  }
+}
