@@ -16,6 +16,7 @@ import base64
 import html
 import json
 import os
+import re
 import uuid
 import contextvars
 from urllib.parse import quote
@@ -4960,7 +4961,12 @@ def llms_txt():
 
 @app.get("/preflight")
 def delegation_preflight(request: Request, url: str = Query(
-        ..., description="The agent endpoint you are about to delegate to")):
+        ..., description="The agent endpoint you are about to delegate to"),
+        request_id: Optional[str] = Query(
+            None, description=(
+                "Optional caller-generated correlation token, echoed in the "
+                "result and telemetry. It proves only request/result linkage, "
+                "never caller identity or community attribution."))):
     """PREFLIGHT — run this in the moment before you delegate or pay.
 
     Separates what an endpoint CLAIMS from what it just PROVED, live, at
@@ -4976,15 +4982,42 @@ def delegation_preflight(request: Request, url: str = Query(
     at publication time — a server can change its tool descriptions after any
     one-off review. `unknowns` are reported, never averaged into the verdict.
     """
+    if request_id is not None and not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", request_id):
+        raise HTTPException(422, {
+            "error": "invalid_request_id",
+            "detail": ("request_id must be 1-128 characters: ASCII letters, "
+                       "digits, dot, underscore, colon or hyphen; the first "
+                       "character must be alphanumeric"),
+            "billing": "NOT CHARGED",
+        })
     out = preflight.run(url, store=store)
+    if request_id is not None:
+        # This is deliberately a correlation receipt, not an attribution
+        # claim.  A community reply can echo it to bind that reply to the
+        # exact server result, while telemetry and commercial metrics still
+        # refuse to infer identity from caller-controlled text.
+        out = {
+            **out,
+            "request_id": request_id,
+            "request_id_semantics": (
+                "caller_supplied_correlation_only_not_identity_or_attribution"),
+        }
     # Demand instrumentation: WHO is asking, and do they come back? This is
     # the only honest way to learn whether the check is wanted, and it is
     # recorded as a query, never as adoption of anything.
-    store.record_event(None, "preflight_run", ua=_ua.get(),
-                       endpoint="preflight", target=url,
-                       verdict=out["verdict"],
-                       failed_count=len(out["failed"]),
-                       unknown_count=len(out["unknowns"]))
+    event_fields = {
+        "endpoint": "preflight",
+        "target": url,
+        "verdict": out["verdict"],
+        "failed_count": len(out["failed"]),
+        "unknown_count": len(out["unknowns"]),
+    }
+    if request_id is not None:
+        event_fields["caller_request_id"] = request_id
+        event_fields["caller_request_id_semantics"] = (
+            "correlation_only_not_identity_or_attribution")
+    store.record_event(None, "preflight_run", ua=_ua.get(), **event_fields)
     return out
 
 
