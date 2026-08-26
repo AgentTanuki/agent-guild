@@ -110,7 +110,10 @@ W_DISPUTED = 0.5    # multiplier if the receipt's outcome was disputed
 # store's internal flows (worker-authenticated receipts, escrow settlement,
 # Guild-observed invocations). Stripped from any client-supplied metadata so a
 # requester can never elevate its own record's provenance (prov-v2 invariant).
-TRUSTED_TASK_META_KEYS = ("receipt_auth", "settlement", "guild_observed_invocation")
+TRUSTED_TASK_META_KEYS = (
+    "receipt_auth", "settlement", "guild_observed_invocation",
+    "guild_observed_at",
+)
 
 
 class CanonicalWriteRefused(RuntimeError):
@@ -1841,7 +1844,12 @@ class Store:
             if receipt_ref and receipt_ref in self.tasks:
                 t = self.tasks[receipt_ref]
                 if t.get("worker_agent_id") == inv["agent_id"]:
-                    t.setdefault("metadata", {})["guild_observed_invocation"] = invocation_id
+                    t.setdefault("metadata", {})[
+                        "guild_observed_invocation"] = invocation_id
+                    # Bind liveness to the immutable Guild observation time,
+                    # not the task's mutable delivered_at. A later worker-only
+                    # receipt may update delivery, but cannot renew this clock.
+                    t["metadata"]["guild_observed_at"] = inv["completed_at"]
                     if self.backend is not None:
                         self._persist_task(t)
             self.record_event(self.account_for_agent(inv["agent_id"]),
@@ -4918,6 +4926,340 @@ class Store:
         return {"most_recent_at": latest, "age_days": age_days, "label": label}
 
     @staticmethod
+    def _freshness_clock(stamps: list[str], *,
+                         as_of: Optional[datetime] = None) -> dict[str, Any]:
+        """Summarise one evidence-class clock without inventing an expiry.
+
+        The signed Clawstr machine review that motivated this contract asked
+        whether renewal *cadence*, not just renewal evidence, is source-
+        separated.  It is: callers receive age and observation time for each
+        class, while the threshold remains their policy.  Bad timestamps are
+        retained as unknown evidence rather than silently treated as fresh.
+        """
+        as_of = as_of or datetime.now(timezone.utc)
+        if as_of.tzinfo is None:
+            as_of = as_of.replace(tzinfo=timezone.utc)
+        else:
+            as_of = as_of.astimezone(timezone.utc)
+        valid: list[tuple[datetime, str]] = []
+        invalid = 0
+        for stamp in stamps:
+            if not stamp:
+                continue
+            try:
+                parsed = datetime.fromisoformat(stamp)
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                valid.append((parsed.astimezone(timezone.utc), stamp))
+            except (ValueError, TypeError):
+                invalid += 1
+        if not valid:
+            return {
+                "evidence_count": len(stamps),
+                "invalid_timestamp_count": invalid,
+                "latest_observed_at": None,
+                "age_seconds": None,
+                "freshness_state": ("unknown_timestamp" if invalid
+                                    else "no_evidence"),
+                "expiry_seconds": None,
+            }
+        latest_dt, latest_raw = max(valid, key=lambda item: item[0])
+        raw_age_seconds = (as_of - latest_dt).total_seconds()
+        if raw_age_seconds < -300:
+            return {
+                "evidence_count": len(stamps),
+                "invalid_timestamp_count": invalid,
+                "latest_observed_at": latest_raw,
+                "age_seconds": None,
+                "freshness_state": "future_timestamp",
+                "expiry_seconds": None,
+            }
+        age_seconds = max(0.0, raw_age_seconds)
+        return {
+            "evidence_count": len(stamps),
+            "invalid_timestamp_count": invalid,
+            "latest_observed_at": latest_raw,
+            # Whole seconds keep repeated transport views stable while still
+            # supporting sub-minute caller policy.  The exact observation time
+            # remains available for callers that need finer arithmetic.
+            "age_seconds": round(age_seconds),
+            "freshness_state": "consumer_policy_required",
+            # No universal TTL was inferred from one machine conversation.
+            "expiry_seconds": None,
+        }
+
+    @staticmethod
+    def _freshness_scope(value: Any) -> str:
+        """Bound an untrusted capability label embedded in a signed response."""
+        raw = str(value or "unspecified")
+        if len(raw) <= 128:
+            return raw
+        digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+        return raw[:96] + "#sha256:" + digest
+
+    def evidence_freshness(self, agent_id: str,
+                           committed_ledger_length: Optional[int] = None
+                           ) -> dict[str, Any]:
+        """Source-separated evidence clocks for autonomous routing policy.
+
+        A liveness probe must never make old task outcomes look current; a new
+        attestation must never refresh endpoint readiness; behavioral activity
+        must never refresh identity; and an upheld fraud finding does not age
+        away.  This additive AGD-1 field exposes those clocks independently and
+        leaves numeric cadence/expiry policy to the caller.
+        """
+        agent = self.agents.get(agent_id) or {}
+        # Whole-second reference time keeps repeated views stable and matches
+        # the whole-second age contract while still giving every nested clock
+        # one exact shared boundary.
+        as_of = datetime.now(timezone.utc).replace(microsecond=0)
+
+        if committed_ledger_length is None:
+            checkpoint = self.latest_checkpoint(publish_if_empty=False)
+            committed_ledger_length = int(
+                checkpoint.get("ledger_length", 0)) if checkpoint else 0
+        committed_ledger_length = max(
+            0, min(int(committed_ledger_length), len(self.ledger_records)))
+        committed_ledger = self.ledger_records[:committed_ledger_length]
+
+        competence: list[tuple[str, str, str]] = []
+        capability_liveness: list[tuple[str, str]] = []
+        for task in self.tasks.values():
+            if task.get("worker_agent_id") != agent_id:
+                continue
+            meta = task.get("metadata") or {}
+            receipt_auth = meta.get("receipt_auth")
+            if receipt_auth == "guild_observed":
+                stamp = task.get("delivered_at")
+            elif (meta.get("guild_observed_invocation")
+                  and meta.get("guild_observed_at")):
+                stamp = meta.get("guild_observed_at")
+            else:
+                stamp = None
+            if (stamp and task.get("deliverable_hash")
+                    and task.get("outcome") in (
+                        "delivered", "accepted", "disputed", "rejected")):
+                capability_liveness.append(
+                    (self._freshness_scope(task.get("task_type")), stamp))
+
+        # Competence is narrower than a terminal receipt: it requires a
+        # completed, accepted VCR with TWO-PARTY cryptographic participation.
+        # Settlement, a Guild invocation, or one authenticated worker receipt
+        # may prove other useful facts, but cannot silently become bilateral
+        # competence renewal.
+        reclassified: dict[str, str] = {}
+        for record in committed_ledger:
+            if record.get("type") == "reclassification":
+                body = record.get("body") or record
+                if body.get("target_id"):
+                    reclassified[str(body["target_id"])] = str(body.get("to") or "")
+        for record in committed_ledger:
+            if record.get("worker_id") != agent_id or record.get("type"):
+                continue
+            provenance = (reclassified.get(str(record.get("id") or ""))
+                          or str(record.get("provenance") or ""))
+            evidence = record.get("evidence") or {}
+            signers = set(record.get("signers") or [])
+            bilateral = bool(record.get("requester_did") in signers
+                             and record.get("worker_did") in signers)
+            stamp = record.get("created_at")
+            if (stamp and record.get("outcome") == "accepted"
+                    and record.get("challenge_status", "none")
+                        in ("none", "rejected")
+                    and provenance == "guild_mediated" and bilateral
+                    and evidence.get("basis") == "two_party_crypto"):
+                competence.append((
+                    self._freshness_scope(record.get("capability")),
+                    stamp, "two_party_crypto"))
+
+        verified_atts = [
+            (self._freshness_scope(a.get("capability")), a.get("created_at"))
+            for a in self.attestations
+            if (a.get("subject_id") == agent_id and a.get("verified")
+                and a.get("issuer_id") != agent_id
+                and a.get("created_at"))
+        ]
+
+        def _by_capability(rows: list[tuple[str, str]]) -> tuple[dict[str, Any], int]:
+            grouped: dict[str, list[str]] = {}
+            omitted = 0
+            for capability, stamp in rows:
+                if capability not in grouped and len(grouped) >= 100:
+                    omitted += 1
+                    continue
+                grouped.setdefault(capability, []).append(stamp)
+            # Bound a machine response even if a hostile actor manufactures an
+            # extreme number of capability labels.  Counts disclose truncation.
+            names = sorted(grouped)
+            return ({name: self._freshness_clock(
+                        grouped[name], as_of=as_of) for name in names},
+                    omitted)
+
+        competence_by_cap, competence_omitted = _by_capability(
+            [(cap, stamp) for cap, stamp, _ in competence])
+        attestation_by_cap, attestation_omitted = _by_capability(verified_atts)
+        competence_clock = self._freshness_clock(
+            [stamp for _, stamp, _ in competence], as_of=as_of)
+        competence_clock.update({
+            "renewed_at": competence_clock.get("latest_observed_at"),
+            "renewal_scope": "per_capability",
+            "qualifying_sources": dict(Counter(
+                source for _, _, source in competence)),
+            "by_capability": competence_by_cap,
+            "capability_scopes_omitted": competence_omitted,
+            "renews": ["task_scoped_competence"],
+            "does_not_renew": ["identity", "capability_liveness",
+                               "endpoint_reachability",
+                               "reputation_attestations"],
+        })
+
+        attestation_clock = self._freshness_clock(
+            [stamp for _, stamp in verified_atts], as_of=as_of)
+        attestation_clock.update({
+            "renewed_at": attestation_clock.get("latest_observed_at"),
+            "renewal_scope": "per_capability",
+            "by_capability": attestation_by_cap,
+            "capability_scopes_omitted": attestation_omitted,
+            "renews": ["advisory_reputation_signal"],
+            "does_not_renew": ["identity", "task_scoped_competence",
+                               "capability_liveness",
+                               "endpoint_reachability"],
+        })
+
+        capability_by_cap, capability_omitted = _by_capability(
+            capability_liveness)
+        capability_clock = self._freshness_clock(
+            [stamp for _, stamp in capability_liveness], as_of=as_of)
+        capability_clock.update({
+            "renewed_at": capability_clock.get("latest_observed_at"),
+            "renewal_scope": "per_capability",
+            "by_capability": capability_by_cap,
+            "capability_scopes_omitted": capability_omitted,
+            "renews": ["capability_liveness"],
+            "does_not_renew": ["identity", "task_scoped_competence",
+                               "endpoint_reachability",
+                               "reputation_attestations"],
+        })
+
+        reach = agent.get("reachability") or {}
+        reach_status = str(reach.get("status") or "no_evidence")
+        terminal_reach = reach_status not in (
+            "no_evidence", "declared_unverified", "verification_inconclusive")
+        reach_clock = self._freshness_clock(
+            [reach.get("checked_at")] if terminal_reach
+            and reach.get("checked_at") else [], as_of=as_of)
+        reach_clock.update({
+            "renewed_at": (reach_clock.get("latest_observed_at")
+                           if reach_status in ("recently_reachable",
+                                               "invocation_verified") else None),
+            "latest_outcome": reach_status,
+            "endpoint_fingerprint": reach.get("endpoint_fingerprint"),
+            "renewal_scope": "endpoint_and_protocol",
+            "by_capability": {},
+            "renews": ["endpoint_reachability"],
+            "does_not_renew": ["identity", "task_scoped_competence",
+                               "capability_liveness",
+                               "reputation_attestations"],
+        })
+
+        settled = [e for e in self.escrows.values()
+                   if e.get("worker_id") == agent_id
+                   and e.get("status") == "released" and e.get("settled_at")]
+        settlement_clock = self._freshness_clock(
+            [e["settled_at"] for e in settled], as_of=as_of)
+        settlement_clock.update({
+            "renewed_at": settlement_clock.get("latest_observed_at"),
+            "renewal_scope": "settlement_fact",
+            "by_capability": {},
+            "decays_with_time": False,
+            "renews": ["settlement_finality"],
+            "does_not_renew": ["identity", "capability_liveness",
+                               "endpoint_reachability",
+                               "general_competence"],
+        })
+        if settled:
+            settlement_clock["freshness_state"] = "persistent"
+
+        upheld = [d for d in committed_ledger
+                  if d.get("worker_id") == agent_id
+                  and d.get("challenge_status") == "upheld"
+                  and d.get("created_at")]
+        fraud_clock = self._freshness_clock(
+            [d["created_at"] for d in upheld], as_of=as_of)
+        fraud_clock.update({
+            "renewed_at": None,
+            "decays_with_time": False,
+            "adjudicated_at": None,
+            "timestamp_semantics": ("latest_observed_at is the committed VCR "
+                                    "evidence time; the current ledger has no "
+                                    "append-only adjudication timestamp"),
+            "supersession_rule": "explicit_superseding_adjudication_only",
+            "renewal_scope": "persistent_fraud_finding",
+            "by_capability": {},
+            "renews": [],
+            "does_not_renew": ["identity", "capability_liveness",
+                               "endpoint_reachability",
+                               "task_scoped_competence"],
+        })
+        if upheld:
+            fraud_clock["freshness_state"] = "persistent"
+
+        proof = agent.get("proof_of_conduct") or {}
+        identity_clock = self._freshness_clock(
+            [proof.get("verified_at")] if proof.get("verified_at") else [],
+            as_of=as_of)
+        identity_clock.update({
+            "control_proven_at": identity_clock.get("latest_observed_at"),
+            "renewed_at": None,
+            "expires_at": proof.get("liveness_expires_at"),
+            "proof_class": proof.get("proof_class"),
+            "renewal_scope": "did_control_observation_only",
+            "by_capability": {},
+            "renews": ["did_control_observation"],
+            "does_not_renew": ["identity_attributes", "principal_binding",
+                               "task_scoped_competence", "capability_liveness",
+                               "endpoint_reachability"],
+            "self_claims_renew": False,
+        })
+
+        return {
+            "contract": "AGD-1/freshness-1",
+            "as_of": as_of.isoformat(),
+            "mode": "source_separated",
+            "global_clock": None,
+            "numeric_cadence_seconds": None,
+            "policy_owner": "caller",
+            "issuer_value_at_risk_policy": {
+                "competence_max_age_seconds": 2592000,
+                "applies_to": ["medium", "high"],
+                "note": ("existing AGD-1 evidence-depth policy; not a global "
+                         "decay clock and never refreshed by other classes"),
+            },
+            "classes": {
+                "competence_outcomes": competence_clock,
+                "capability_liveness": capability_clock,
+                "endpoint_reachability": reach_clock,
+                "reputation_attestations": attestation_clock,
+                "identity_control": identity_clock,
+                "settlement_finality": settlement_clock,
+                "upheld_fraud": fraud_clock,
+            },
+            "rules": [
+                "one evidence class never refreshes another",
+                "self-claims renew nothing",
+                "upheld fraud does not decay merely with time",
+                "expiry thresholds are consumer policy until supported by "
+                "observed machine evidence",
+            ],
+            "legacy_staleness": {
+                "field": "staleness",
+                "status": "aggregate_compatibility_only",
+                "warning": ("may mix evidence classes; use freshness.classes "
+                            "for autonomous policy"),
+            },
+        }
+
+    @staticmethod
     def explain_score(s: AgentScore, staleness: Optional[dict[str, Any]] = None) -> list[str]:
         """Human/agent-readable derivation of a score — trust is never a bare
         number (white paper §10). Each line names evidence the asker can check
@@ -4957,7 +5299,9 @@ class Store:
                 "Verify recency via /agents/{id}/evidence.")
         return lines
 
-    def risk_for(self, agent_id: str) -> Optional[dict[str, Any]]:
+    def risk_for(self, agent_id: str,
+                 committed_ledger_length: Optional[int] = None
+                 ) -> Optional[dict[str, Any]]:
         """Evidence view for one agent (shared by /risk-score, the MCP tool, and
         /check). None if the agent has no computed reputation.
 
@@ -4976,6 +5320,8 @@ class Store:
             "estimate": round(s.trust / 100.0, 4),
             "confidence": round(s.confidence, 3),
             "staleness": (_stale := self.evidence_staleness(agent_id)),
+            "freshness": self.evidence_freshness(
+                agent_id, committed_ledger_length=committed_ledger_length),
             "explanation": self.explain_score(s, _stale),
             "collusion_suspicion": round(s.collusion_suspicion, 3),
             # --- deprecated v1 fields (kept so nothing breaks) ---------------
@@ -4985,7 +5331,8 @@ class Store:
             "deprecated": ["risk", "recommendation", "trust"],
         }
 
-    def provenance_summary(self, agent_id: str) -> dict[str, Any]:
+    def provenance_summary(self, agent_id: str,
+                           capability: Optional[str] = None) -> dict[str, Any]:
         """Evidence-provenance leg of the AGD-1 decision contract: counts of the
         agent's ledger-committed collaborations by EFFECTIVE provenance class
         (append-only reclassifications applied), the strongest class present,
@@ -5028,6 +5375,8 @@ class Store:
         for d in committed:
             if d.get("worker_id") != agent_id:
                 continue
+            if capability is not None and d.get("capability") != capability:
+                continue
             prov = reclass.get(d.get("id", ""), None) or d.get("provenance")
             if not prov:
                 continue
@@ -5037,7 +5386,8 @@ class Store:
                 signer_dids.add(s)
         uncommitted = sum(
             1 for d in self.ledger_records[committed_n:]
-            if d.get("worker_id") == agent_id and d.get("provenance"))
+            if (d.get("worker_id") == agent_id and d.get("provenance")
+                and (capability is None or d.get("capability") == capability)))
         strongest = None
         for p in sorted(counts, key=lambda p: -PROVENANCE_WEIGHT.get(p, 0.0)):
             strongest = p
@@ -5049,6 +5399,7 @@ class Store:
             "signer_dids": sorted(signer_dids),
             "record_ids": record_ids,
             "rules_version": "prov-v2",
+            "capability_scope": capability,
             "anchoring": "checkpoint_committed_only",
             "uncommitted_records_excluded": uncommitted,
             "inclusion_proof": "GET /ledger/inclusion/{record_id}",
@@ -5063,7 +5414,10 @@ class Store:
 
     @staticmethod
     def _value_at_risk_support(prov: dict[str, Any], confidence: float,
-                               staleness: Optional[dict[str, Any]]) -> dict[str, Any]:
+                               staleness: Optional[dict[str, Any]],
+                               freshness: Optional[dict[str, Any]] = None,
+                               capability: Optional[str] = None
+                               ) -> dict[str, Any]:
         """Which market value tiers (market.value_tier) the EVIDENCE honestly
         supports delegating at. Documented, deterministic rules — the caller
         still owns the final threshold; this is the Guild's evidence-depth
@@ -5073,7 +5427,15 @@ class Store:
         strong = (counts.get("guild_mediated", 0)
                   + counts.get("verifiable_outcome", 0))
         days = None
-        if staleness and staleness.get("age_days") is not None:
+        competence = (((freshness or {}).get("classes") or {})
+                      .get("competence_outcomes") or {})
+        if capability is not None:
+            competence = ((competence.get("by_capability") or {})
+                          .get(Store._freshness_scope(capability)) or {})
+        if competence.get("age_seconds") is not None:
+            days = float(competence["age_seconds"]) / 86400.0
+        elif freshness is None and staleness and staleness.get("age_days") is not None:
+            # Compatibility for direct legacy callers of this helper only.
             days = staleness["age_days"]
         fresh = days is not None and days <= 30
         tiers = {
@@ -5093,7 +5455,9 @@ class Store:
                       "collaborations, confidence>=0.2; medium: >=3 "
                       "guild_mediated/verifiable_outcome records, "
                       "confidence>=0.4, evidence<=30d; high: >=5 "
-                      "guild_mediated, confidence>=0.6, evidence<=30d. "
+                      "guild_mediated, confidence>=0.6, independently grounded "
+                      "competence outcome<=30d. A liveness probe or attestation "
+                      "cannot refresh this clock. "
                       "Evidence-depth statement, not permission — callers "
                       "own thresholds."),
         }
@@ -5158,7 +5522,25 @@ class Store:
                               "a demand watch (POST /demand/watch)"),
             }
             best = top_ranked  # nothing routable: evaluate the evidence-top
-        verdict = self.risk_for(best["id"]) if best else None
+        # Publish/resolve the exact checkpoint view BEFORE computing freshness.
+        # Competence clocks and provenance then derive from the same committed
+        # ledger prefix; an uncommitted record can never refresh a signed AGD-1
+        # decision that cites an older checkpoint.
+        prov: Optional[dict[str, Any]] = None
+        if best:
+            prov = self.provenance_summary(best["id"], capability=capability)
+            committed_n = int((prov.get("checkpoint") or {}).get(
+                "ledger_length") or 0)
+            # Keep the historical one-argument risk_for call seam intact for
+            # gateways/tests that wrap it, then replace the descriptive clock
+            # with the exact checkpoint-committed view before anything is
+            # served or signed.
+            verdict = self.risk_for(best["id"])
+            if verdict is not None:
+                verdict["freshness"] = self.evidence_freshness(
+                    best["id"], committed_ledger_length=committed_n)
+        else:
+            verdict = None
         # Demand telemetry: every /check is a demand signal for a capability.
         # Recording it (hit or miss) is what makes the be_first pitch honest —
         # a would-be supplier can see real, dated demand before registering.
@@ -5191,7 +5573,7 @@ class Store:
         decision: Optional[dict[str, Any]] = None
         if best and verdict:
             agent_rec = self.get_agent(best["id"]) or {}
-            prov = self.provenance_summary(best["id"])
+            assert prov is not None
             did = agent_rec.get("did", "")
             decision = {
                 # AGD-1 (2026-07-13): the STABLE machine contract for the trust
@@ -5221,8 +5603,10 @@ class Store:
                 "estimate": verdict["estimate"],
                 "confidence": verdict["confidence"],
                 "staleness": verdict["staleness"],
+                "freshness": verdict["freshness"],
                 "value_at_risk": self._value_at_risk_support(
-                    prov, verdict["confidence"], verdict["staleness"]),
+                    prov, verdict["confidence"], verdict["staleness"],
+                    verdict["freshness"], capability),
                 "evidence_provenance": prov,
                 # Policy is the CALLER's: the Guild never decides for you. A
                 # gateway/sidecar fills this slot after evaluating its owner's
@@ -7576,7 +7960,6 @@ class Store:
         s = self.reputation().get(agent_id)
         if s is None:
             return None
-        verdict = self.risk_for(agent_id) or {}
         gid = self.guild_identity()
         created = datetime.now(timezone.utc)
         until = created + timedelta(days=ttl_days)
@@ -7589,8 +7972,25 @@ class Store:
         # against the public /ledger/checkpoints feed a third party has pinned.
         # (latest_checkpoint -> publish_checkpoint -> durable_ledger also backfills
         # ledger_records, so compute the collaboration count afterwards.)
-        published = self.latest_checkpoint()
-        verifiable = sum(1 for d in self.ledger_records if d.get("worker_id") == agent_id)
+        published = self.latest_checkpoint(publish_if_empty=False)
+        if (published is None
+                or int(published.get("ledger_length", 0))
+                    < len(self.ledger_records)):
+            try:
+                published = self.publish_checkpoint()
+            except Exception:
+                # Fail closed to the last committed prefix. The passport may
+                # still be issued only if such a prefix exists; a signed
+                # Passport without any ledger anchor is not a Passport.
+                published = self.latest_checkpoint(publish_if_empty=False)
+        if published is None:
+            return None
+        committed_n = int(published.get("ledger_length", 0)) if published else 0
+        verdict = self.risk_for(
+            agent_id, committed_ledger_length=committed_n) or {}
+        verifiable = sum(
+            1 for d in self.ledger_records[:committed_n]
+            if d.get("worker_id") == agent_id and not d.get("type"))
         ledger_anchor = {
             "verifiable_collaborations": verifiable,
             "checkpoint_index": published["index"] if published else None,
@@ -7607,6 +8007,7 @@ class Store:
             "distinct_reviewers": s.distinct_reviewers,
             "attestations_received": s.attestations_received,
             "collusion_suspicion": round(s.collusion_suspicion, 3),
+            "freshness": verdict.get("freshness"),
             "recommendation": verdict.get("recommendation"),
             "risk": verdict.get("risk"),
             "ledger_anchor": ledger_anchor,
@@ -8186,4 +8587,9 @@ class Store:
              "deliverable_hash": t["deliverable_hash"], "outcome": t["outcome"]}
             for t in self.tasks_for(agent_id) if t.get("deliverable_hash")
         ]
-        return {"score": s, "attestations": atts, "receipts": receipts}
+        return {
+            "score": s,
+            "freshness": self.evidence_freshness(agent_id),
+            "attestations": atts,
+            "receipts": receipts,
+        }

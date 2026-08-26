@@ -383,6 +383,7 @@ def _trust_meta(s: dict) -> dict:
     Kept well under the registry's 4KB publisher-provided limit."""
     return {
                 "contract": "AGD-1/1.0",
+                "freshness_contract": "AGD-1/freshness-1",
                 "proof_suite": "eddsa-jcs-2022",
                 "decision_endpoint": (s["host"] + "/check?capability="
                                       "{capability}&signed=true"),
@@ -392,10 +393,8 @@ def _trust_meta(s: dict) -> dict:
                 "demand_feed": s["host"] + "/demand/feed",
                 "conformance": (s["repository"] + "/blob/main/live/"
                                 "trustplane/conformance/AGI1_CONFORMANCE.md"),
-                "note": ("Offline-verifiable Agent Passports (see the "
-                         "ai.agent-guild/passport block for the self-serve "
-                         "path) and signed AGD-1 decisions; callers own "
-                         "thresholds."),
+                "note": ("Signed AGD-1 decisions and offline-verifiable "
+                         "Passports; callers own thresholds."),
     }
 
 

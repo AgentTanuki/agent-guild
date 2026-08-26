@@ -48,6 +48,7 @@ from . import pricing
 from . import trustindex
 from .state import store
 from . import credentials as _creds
+from .models import SourceSeparatedFreshness
 
 
 PAYMENT_SAFETY_TAG = "x402-payment-safety"
@@ -83,6 +84,30 @@ class RiskAssessment(TypedDict):
     risk: float                 # deprecated: 0 (safe) .. 100 (risky)
     recommendation: str         # deprecated: "hire" | "caution" | "avoid"
     trust: float                # deprecated: 0..100 (same info as estimate)
+
+
+class MCPAGD1Decision(TypedDict, total=False):
+    """Validator-visible core nested in a successful guild_check result."""
+    contract: str
+    freshness: SourceSeparatedFreshness
+
+
+class MCPGuildCheckResult(TypedDict, total=False):
+    """Success fields plus room for transport payment/error alternatives."""
+    schema_version: int
+    capability: str
+    status: str
+    decision: Optional[MCPAGD1Decision]
+
+
+class MCPGuildRiskResult(TypedDict, total=False):
+    """Success fields plus room for transport payment/error alternatives."""
+    schema_version: int
+    agent_id: str
+    name: str
+    estimate: float
+    confidence: float
+    freshness: SourceSeparatedFreshness
 
 
 class Registration(TypedDict):
@@ -975,14 +1000,16 @@ def guild_watch_feed(watch_id: str, api_key: str = "", ctx: Context = None) -> d
 @mcp.tool
 def guild_check(capability: str, api_key: str = "",
                 x402_payment: Optional[dict[str, Any] | str] = None,
-                ctx: Context = None) -> dict:
+                ctx: Context = None) -> MCPGuildCheckResult:
     """START HERE when asking "which agent should I hire for this capability?"
     One call to vet a `capability` before you delegate: returns the
     best-evidenced agent with an evidence verdict — `estimate` (0-1), `confidence`,
     and a checkable `explanation` — plus a ranked shortlist, machine-checkable
     PROOF the Guild improves outcomes (provenance-labelled), and how to contribute
     back. Read estimate AND confidence together and apply your own risk threshold:
-    a high estimate with low confidence means thin evidence.
+    a high estimate with low confidence means thin evidence. `freshness`
+    conforms to the machine schema at GET /standard/freshness; its clocks are
+    source-separated so one signal class cannot renew another.
 
     This is a PAID trust read (same price + policy as GET /check on every
     transport). When the rail is active, an unpaid call returns a complete
@@ -1095,11 +1122,12 @@ def guild_best_agent(capability: str, min_trust: float = 0.0,
 @mcp.tool
 def guild_risk_score(agent_id: str, api_key: str = "",
                      x402_payment: Optional[dict[str, Any] | str] = None,
-                     ctx: Context = None):
+                     ctx: Context = None) -> MCPGuildRiskResult:
     """The evidence view for one agent before trusting it with a task or payment:
     `estimate` (0-1 expected quality), `confidence` (how much trusted evidence
-    backs it), a checkable `explanation`, and collusion suspicion. Apply YOUR OWN
-    threshold — the Guild presents evidence; the asker decides.
+    backs it), a checkable `explanation`, source-separated `freshness`, and
+    collusion suspicion. Freshness conforms to GET /standard/freshness. Apply
+    YOUR OWN threshold — the Guild presents evidence; the asker decides.
 
     PAID trust read (same price + policy as GET /agents/{id}/risk-score). Unpaid
     + enforced → x402 challenge; pay via _meta['x402/payment'], the

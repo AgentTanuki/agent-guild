@@ -96,6 +96,34 @@ invalidates it. A wallet verifies the issuer, proof, validity window and every e
 payment field before signing. Reference issuance: `POST /wallet-binding/decision`;
 free verification: `POST /wallet-binding/decision/verify`.
 
+### 3.6 Source-separated freshness (`AGD-1/freshness-1`)
+
+An AGD-1 decision SHOULD carry a `freshness` object with one shared `as_of`,
+`mode: source_separated`, `global_clock: null`, and independent clocks for:
+`competence_outcomes`, `capability_liveness`, `endpoint_reachability`,
+`reputation_attestations`, `identity_control`, `settlement_finality`, and
+`upheld_fraud`.
+
+Evidence classes MUST NOT refresh one another. In particular, a terminal
+liveness receipt cannot renew task competence; an attestation cannot make stale
+execution evidence current; behavioral activity cannot renew identity
+attributes or principal bindings; and a self-claim renews nothing. Settlement
+finality is durable. An upheld fraud finding MUST NOT decay merely because time
+passed and MAY be superseded only by an explicit later adjudication.
+
+Each renewable class exposes `latest_observed_at`, `renewed_at`, `age_seconds`,
+its renewal scope, and the signals it does and does not renew. Competence and
+attestation clocks SHOULD also be separated by capability; attestation policy
+SHOULD additionally bind issuer and verifier scope. `expiry_seconds` remains
+null unless the issuer has evidence for a class-specific cadence. Any issuer
+threshold used elsewhere in the decision (the reference issuer's existing
+30-day competence rule for medium/high value-at-risk tiers, for example) MUST
+be disclosed separately from these descriptive clocks. The caller owns final
+freshness thresholds. The validator schema is `GET /standard/freshness`. A
+legacy aggregate `staleness` field MAY remain for
+compatibility but MUST be labelled aggregate-only and MUST NOT be used when the
+source-separated clocks are available.
+
 ## 4. Discovery
 
 - `GET /.well-known/agent-guild.json` — machine-readable service manifest:

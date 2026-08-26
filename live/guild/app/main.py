@@ -42,6 +42,8 @@ from .models import (
     ConfigurationRequest, ConfigurationResponse,
     CapabilitiesRequest, CapabilitiesResponse,
     InboxPost, AbandonmentReport,
+    SourceSeparatedFreshness, FreshnessStandardResponse,
+    CheckResponse, SignedCheckResponse, PassportResponse,
 )
 from . import __version__
 from . import billing
@@ -2725,7 +2727,7 @@ def wallet_binding_revoke(body: dict):
 
 
 # --- portable reputation: Agent Passports (the propagation loop) -------------
-@app.get("/agents/{agent_id}/passport")
+@app.get("/agents/{agent_id}/passport", response_model=PassportResponse)
 def get_passport(agent_id: str, request: Request, response: Response):
     """Issue a portable, Guild-signed **Agent Passport** — a Verifiable Credential
     of this agent's reputation it can carry to ANY counterparty or platform. The
@@ -2887,6 +2889,7 @@ def get_reputation(agent_id: str, response: Response, x_api_key: Optional[str] =
         schema_version=2,
         estimate=round(s.trust / 100.0, 4),
         staleness=None,
+        freshness=store.evidence_freshness(agent_id),
         explanation=store.explain_score(s),
         agent_id=agent_id, did=rec["did"], trust=s.trust, rank=s.rank,
         total_agents=len(scores), eigen_trust=s.eigen_trust,
@@ -2997,6 +3000,7 @@ def get_evidence(agent_id: str, response: Response, x_api_key: Optional[str] = H
         suspicious_attestations=s.suspicious_attestations,
         backed_attestations=s.backed_attestations,
         collusion_suspicion=s.collusion_suspicion, slash_penalty=s.slash_penalty,
+        freshness=ev["freshness"],
         attestations=[EvidenceAttestation(**a) for a in ev["attestations"]],
         receipts=[EvidenceReceipt(**r) for r in ev["receipts"]],
     )
@@ -3033,6 +3037,7 @@ def get_risk_score(agent_id: str, response: Response, x_api_key: Optional[str] =
         raise HTTPException(404, "no reputation computed")
     return RiskScoreResponse(
         schema_version=2, estimate=v["estimate"], staleness=None,
+        freshness=v["freshness"],
         explanation=v["explanation"],
         agent_id=agent_id, name=rec["name"],
         risk=v["risk"], recommendation=v["recommendation"],   # deprecated v1
@@ -3107,7 +3112,15 @@ def check_discovery_quote(
     raise HTTPException(402, challenge.body, headers=headers)
 
 
-@app.get("/check")
+@app.get(
+    "/check",
+    # Publish the typed success union in OpenAPI without reserializing the
+    # response: signed=true returns cryptographic bytes whose null fields and
+    # full additive shape must remain exactly as signed, while anonymous
+    # unsigned reads intentionally lead with claim_passport.
+    response_model=None,
+    responses={200: {"model": CheckResponse | SignedCheckResponse}},
+)
 def check(
     request: Request,
     response: Response,
@@ -3121,7 +3134,8 @@ def check(
 ):
     """START HERE (no SDK). One call to vet a capability before delegating.
     Returns the AGD-1 `decision` contract (identity, capability match,
-    estimate, confidence, staleness, reachability, value-at-risk support,
+    estimate, confidence, source-separated freshness, reachability,
+    value-at-risk support,
     evidence provenance — callers own thresholds), a ranked shortlist,
     provenance-labelled PROOF the Guild improves outcomes, and how to
     contribute back. `signed=true` returns a Guild-signed, offline-verifiable
@@ -4411,6 +4425,8 @@ def get_standard():
             "AgentGuildPaymentDecision": "AGPD-1 short-lived W3C VC binding an exact "
                 "payment tuple to active wallet identity, risk evidence, explicit policy "
                 "thresholds and an allow/block decision before signing.",
+            "SourceSeparatedFreshness": "AGD-1/freshness-1 evidence-class clocks; "
+                "validator schema at /standard/freshness. No global renewal clock.",
             "Challenge": "Append-only dispute that downweights its target pending resolution.",
         },
         "provenance_tiers": ["guild_mediated", "verifiable_outcome",
@@ -4422,6 +4438,7 @@ def get_standard():
                            "`signers` lists only DIDs that actually signed.",
         "operations": {
             "check": "GET /check?capability= (one-call vet) · MCP guild_check",
+            "freshness_schema": "GET /standard/freshness (AGD-1/freshness-1 JSON Schema)",
             "search": "GET /search · MCP guild_search",
             "risk": "GET /agents/{id}/risk-score · MCP guild_risk_score",
             "record": "POST /collaborations · MCP guild_record",
@@ -4465,6 +4482,29 @@ def get_standard():
                          "— no account, no lock-in. Fetch + verify offline + decide.",
         "invitation": "Competing and partial implementations welcome — a standard with "
                       "one implementation is just an app.",
+    }
+
+
+@app.get("/standard/freshness", response_model=FreshnessStandardResponse)
+def get_freshness_standard():
+    """Machine-enforced JSON Schema for AGD-1 source-separated freshness."""
+    return {
+        "contract": "AGD-1/freshness-1",
+        "json_schema": SourceSeparatedFreshness.model_json_schema(),
+        "served_in": [
+            "GET /check decision.freshness",
+            "GET /agents/{id}/risk-score freshness",
+            "GET /agents/{id}/reputation freshness",
+            "GET /agents/{id}/evidence freshness",
+            "GET /agents/{id}/passport credentialSubject.freshness",
+            "MCP guild_check decision.freshness",
+            "MCP guild_risk_score freshness",
+        ],
+        "policy": (
+            "Each evidence class renews independently. Callers set expiry "
+            "thresholds; the issuer's existing value-at-risk competence age "
+            "rule is disclosed inside every freshness object."
+        ),
     }
 
 

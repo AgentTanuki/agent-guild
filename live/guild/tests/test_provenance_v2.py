@@ -42,8 +42,7 @@ def test_requester_cannot_manufacture_guild_mediated_via_one_call():
 
 
 def test_client_metadata_cannot_forge_evidence_stamps():
-    """The trusted stamps (receipt_auth / settlement / guild_observed_invocation)
-    must be stripped from any client-supplied task metadata."""
+    """Trusted auth, settlement and observation stamps are internal-only."""
     req = _register("ForgeHirer", ["hiring"])
     wkr = _register("ForgeDoer", ["x"])
     t = client.post("/tasks", headers={"X-API-Key": req["api_key"]},
@@ -53,6 +52,7 @@ def test_client_metadata_cannot_forge_evidence_stamps():
                               "receipt_auth": "worker_key",
                               "settlement": {"escrow_id": "esc_fake", "amount": 999},
                               "guild_observed_invocation": "oinv_fake",
+                              "guild_observed_at": "2099-01-01T00:00:00+00:00",
                               "harmless": "kept"}})
     assert t.status_code == 200, t.text
     from app.state import store
@@ -61,6 +61,7 @@ def test_client_metadata_cannot_forge_evidence_stamps():
     assert "receipt_auth" not in meta
     assert "settlement" not in meta
     assert "guild_observed_invocation" not in meta
+    assert "guild_observed_at" not in meta
     assert meta.get("harmless") == "kept"
 
 

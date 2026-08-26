@@ -3,7 +3,14 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.39"  # PATCH exact registry-scanner census correction
+__version__ = "2.5.40"  # PATCH source-separated evidence freshness clocks
+                        # (2026-08-26): publishes the validator-visible
+                        # AGD-1/freshness-1 contract across HTTP, MCP and signed
+                        # decisions. Competence, capability liveness, endpoint
+                        # reachability, attestations, DID control, settlement
+                        # and upheld fraud renew independently; one signal can
+                        # never launder the age of another. History of 2.5.39:
+                        # PATCH exact registry-scanner census correction
                         # (2026-08-16): demotes three privacy-safe actor aliases
                         # produced by the skills.sh reindex/audit burst. The
                         # correction is actor-scoped, so unrelated autonomous

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RegisterRequest(BaseModel):
@@ -262,6 +262,132 @@ class AttestationResponse(BaseModel):
     guild_next: Optional[dict[str, Any]] = None
 
 
+class FreshnessClock(BaseModel):
+    """Common, validator-visible fields for every evidence-class clock.
+
+    Class-specific facts (for example ``by_capability`` or
+    ``endpoint_fingerprint``) remain additive, but cannot replace this stable
+    base shape.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    evidence_count: int
+    invalid_timestamp_count: int
+    latest_observed_at: Optional[str]
+    age_seconds: Optional[int]
+    freshness_state: Literal[
+        "no_evidence", "unknown_timestamp", "future_timestamp",
+        "consumer_policy_required", "persistent",
+    ]
+    expiry_seconds: Optional[int]
+    renewed_at: Optional[str]
+    renewal_scope: str
+    renews: list[str]
+    does_not_renew: list[str]
+    by_capability: dict[str, "FreshnessObservationClock"]
+
+
+class FreshnessObservationClock(BaseModel):
+    """One capability-scoped observation nested under a class clock."""
+
+    evidence_count: int
+    invalid_timestamp_count: int
+    latest_observed_at: Optional[str]
+    age_seconds: Optional[int]
+    freshness_state: Literal[
+        "no_evidence", "unknown_timestamp", "future_timestamp",
+        "consumer_policy_required", "persistent",
+    ]
+    expiry_seconds: Optional[int]
+
+
+class FreshnessClasses(BaseModel):
+    competence_outcomes: FreshnessClock
+    capability_liveness: FreshnessClock
+    endpoint_reachability: FreshnessClock
+    reputation_attestations: FreshnessClock
+    identity_control: FreshnessClock
+    settlement_finality: FreshnessClock
+    upheld_fraud: FreshnessClock
+
+
+class IssuerValueAtRiskFreshnessPolicy(BaseModel):
+    competence_max_age_seconds: int
+    applies_to: list[Literal["medium", "high"]]
+    note: str
+
+
+class SourceSeparatedFreshness(BaseModel):
+    """AGD-1 freshness-1: independent clocks, never one blended renewal."""
+
+    contract: Literal["AGD-1/freshness-1"]
+    as_of: str
+    mode: Literal["source_separated"]
+    global_clock: None
+    numeric_cadence_seconds: None
+    policy_owner: Literal["caller"]
+    issuer_value_at_risk_policy: IssuerValueAtRiskFreshnessPolicy
+    classes: FreshnessClasses
+    rules: list[str]
+    legacy_staleness: dict[str, Any]
+
+
+class AGD1DecisionResponse(BaseModel):
+    """Typed core shared by unsigned and signed AGD-1 decision responses."""
+
+    model_config = ConfigDict(extra="allow")
+
+    contract: Literal["AGD-1/1.0"]
+    freshness: SourceSeparatedFreshness
+
+
+class CheckResponse(BaseModel):
+    """Unsigned GET /check success shape; additive fields are preserved."""
+
+    model_config = ConfigDict(extra="allow")
+
+    # Anonymous first contact intentionally leads with this offer. Declaring
+    # it first preserves the wire-order contract under FastAPI serialization.
+    claim_passport: Optional[dict[str, Any]] = None
+    schema_version: int
+    capability: str
+    status: Literal["supply", "no_supply_yet"]
+    decision: Optional[AGD1DecisionResponse]
+
+
+class SignedCheckResponse(BaseModel):
+    """Signed GET /check? signed=true envelope."""
+
+    model_config = ConfigDict(extra="allow")
+
+    type: Literal["AgentGuildDecision"]
+    contract: Literal["AGD-1/1.0"]
+    decision: Optional[AGD1DecisionResponse]
+
+
+class PassportCredentialSubject(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    freshness: SourceSeparatedFreshness
+
+
+class PassportResponse(BaseModel):
+    """Typed minimum of the signed Agent Passport VC; extras remain signed."""
+
+    model_config = ConfigDict(extra="allow")
+
+    credentialSubject: PassportCredentialSubject
+
+
+class FreshnessStandardResponse(BaseModel):
+    contract: Literal["AGD-1/freshness-1"]
+    json_schema: dict[str, Any]
+    served_in: list[str]
+    policy: str
+
+
 class ReputationResponse(BaseModel):
     # --- schema v2: trust is never a bare scalar (white paper §6.1) ---------
     # `estimate` (0..1) + `confidence` + `staleness` + `explanation` are the
@@ -270,6 +396,9 @@ class ReputationResponse(BaseModel):
     schema_version: int = 2
     estimate: float = 0.0                 # posterior point estimate, 0..1
     staleness: Optional[float] = None     # null until time-decay ships (stage 2)
+    # Additive source-separated clocks.  Unlike legacy `staleness`, a fresh
+    # liveness check can never make old competence evidence look current.
+    freshness: SourceSeparatedFreshness
     explanation: list[str] = Field(default_factory=list)
     agent_id: str
     did: str
@@ -322,6 +451,7 @@ class EvidenceResponse(BaseModel):
     backed_attestations: int
     collusion_suspicion: float
     slash_penalty: float
+    freshness: SourceSeparatedFreshness
     attestations: list[EvidenceAttestation]
     receipts: list[EvidenceReceipt]
 
@@ -368,6 +498,7 @@ class RiskScoreResponse(BaseModel):
     schema_version: int = 2
     estimate: float = 0.0
     staleness: Optional[float] = None
+    freshness: SourceSeparatedFreshness
     explanation: list[str] = Field(default_factory=list)
     agent_id: str
     name: str
