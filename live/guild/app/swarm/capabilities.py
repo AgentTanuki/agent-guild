@@ -20,6 +20,7 @@ import re
 import statistics
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any, Callable, Optional
 
@@ -1135,11 +1136,26 @@ def _subset_matches(expected: Any, actual: Any) -> bool:
 def run_fixtures(cap: Capability) -> dict:
     """Run one capability's fixture suite. This is the PUBLISH GATE: an identity
     document is only generated for capabilities whose suite passes fully."""
-    passed, failures, latencies = 0, [], []
+    passed, failures, latencies, terminal_results = 0, [], [], []
     for i, fx in enumerate(cap.fixtures):
         try:
             out, ms = run_capability(cap.id, fx["input"])
             latencies.append(ms)
+            try:
+                jsonschema.validate(out, cap.output_schema)
+            except jsonschema.ValidationError as e:
+                terminal_results.append({
+                    "fixture": i, "outcome": "output_schema_error",
+                    "error_class": type(e).__name__,
+                })
+                failures.append({
+                    "fixture": i,
+                    "reason": f"output schema: {e.message}"[:200],
+                })
+                continue
+            terminal_results.append({
+                "fixture": i, "outcome": "completed", "output": out,
+            })
             if fx.get("expect_error"):
                 failures.append({"fixture": i, "reason": "expected error, got success"})
             elif _subset_matches(fx.get("expect_subset", {}), out):
@@ -1147,21 +1163,46 @@ def run_fixtures(cap: Capability) -> dict:
             else:
                 failures.append({"fixture": i, "reason": "output mismatch"})
         except (CapabilityError, jsonschema.ValidationError) as e:
+            terminal_results.append({
+                "fixture": i,
+                "outcome": "expected_error" if fx.get("expect_error") else "error",
+                "error_class": type(e).__name__,
+            })
             if fx.get("expect_error"):
                 passed += 1
             else:
                 failures.append({"fixture": i, "reason": str(e)[:200]})
         except Exception as e:  # noqa: BLE001 — a crash is a failed gate, never a crash upstream
+            terminal_results.append({
+                "fixture": i, "outcome": "crash",
+                "error_class": type(e).__name__,
+            })
             failures.append({"fixture": i, "reason": f"crash: {e}"[:200]})
     if any(fx.get("expect_error") for fx in cap.fixtures):
         passed_total = passed
     else:
         passed_total = passed
+    has_terminal_canary = bool(cap.fixtures)
+    if not has_terminal_canary:
+        failures.append({"fixture": None, "reason": "no terminal fixtures declared"})
+    terminal_digest = "sha256:" + sha256(canonicalize_jcs({
+        "capability": cap.id,
+        "version": cap.version,
+        "fixtures": terminal_results,
+    }).encode("utf-8")).hexdigest()
+    output_schema_passed = not any(
+        item.get("outcome") == "output_schema_error"
+        for item in terminal_results
+    )
     return {"capability": cap.id, "version": cap.version,
             "total": len(cap.fixtures), "passed": passed_total,
             "failed": len(cap.fixtures) - passed_total,
-            "ok": passed_total == len(cap.fixtures),
+            "ok": has_terminal_canary and passed_total == len(cap.fixtures),
+            "terminal_canary_present": has_terminal_canary,
+            "terminal_observed_at": datetime.now(timezone.utc).isoformat(),
             "avg_latency_ms": round(sum(latencies) / len(latencies), 3) if latencies else None,
+            "terminal_result_digest": terminal_digest,
+            "output_schema_passed": output_schema_passed,
             "failures": failures}
 
 

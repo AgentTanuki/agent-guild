@@ -39,6 +39,12 @@ def _iter_routes(routes):
         if methods:
             yield r
         sub = getattr(r, "routes", None)
+        # FastAPI 0.128+ keeps included APIRouters as dynamic wrappers rather
+        # than copying their routes into app.routes. Traverse the source
+        # router so the canonical contract still enumerates every live route.
+        if not sub:
+            original = getattr(r, "original_router", None)
+            sub = getattr(original, "routes", None)
         if sub:
             yield from _iter_routes(sub)
 

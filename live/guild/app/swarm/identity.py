@@ -89,6 +89,9 @@ def build_identity(cap: Capability, benchmark: dict, base: str,
         "provenance": {"envelope": "every completion returns a signed provenance "
                                    "envelope — see any invocation response",
                        "terms": f"{base}/terms.json"},
+        "readiness_evidence": (
+            f"{base}/capabilities/{cap.id}/readiness"
+        ),
         "created_at": _now(),
         "updated_at": _now(),
         "health": "passing" if benchmark["ok"] else "failing",
@@ -161,6 +164,9 @@ class IdentityRegistry:
                 "guest_cost_credits": ident["pricing"]["guest_cost_credits"],
                 "expected_latency_ms": ident["expected_latency_ms"],
                 "health": ident["health"],
+                "readiness_evidence": (
+                    f"{base}/capabilities/{ident['capability']['id']}/readiness"
+                ),
             })
         return {
             "schema_version": "ag-identity-index/1",

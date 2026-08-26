@@ -25,11 +25,15 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 
 - `GET /`
 - `GET /.well-known/402index-verify.txt`
+- `GET /.well-known/ag-capability-readiness.json`
+- `GET /.well-known/ag-identities/index.json`
 - `GET /.well-known/agent`
+- `GET /.well-known/agent-card.json`
 - `GET /.well-known/agent-guild-did.json`
 - `GET /.well-known/agent-guild.json`
 - `GET /.well-known/agent-skills/agent-guild/SKILL.md`
 - `GET /.well-known/agent-skills/index.json`
+- `GET /.well-known/agent.json`
 - `GET /.well-known/ai-catalog.json`
 - `GET /.well-known/ai-plugin.json`
 - `GET /.well-known/did.json`
@@ -39,6 +43,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /.well-known/mcp/payment-safety-server-card.json`
 - `GET /.well-known/mcp/server-card.json`
 - `GET /.well-known/x402`
+- `POST /a2a`
 - `POST /adjudicators/enroll`
 - `POST /admin/agents/{agent_id}/first-party`
 - `POST /admin/index/cycle`
@@ -48,6 +53,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /agents/register`
 - `GET /agents/{agent_id}`
 - `GET /agents/{agent_id}/attestations`
+- `GET /agents/{agent_id}/badge.svg`
 - `POST /agents/{agent_id}/capabilities`
 - `POST /agents/{agent_id}/configuration`
 - `POST /agents/{agent_id}/endpoint`
@@ -65,6 +71,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /agents/{agent_id}/reputation`
 - `GET /agents/{agent_id}/risk-score`
 - `POST /attestations`
+- `GET /badge.svg`
 - `GET | POST /billing/account`
 - `GET /billing/revenue`
 - `POST /billing/topup`
@@ -72,6 +79,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /billing/webhook`
 - `GET /caller-proof`
 - `GET /capabilities`
+- `GET /capabilities/{capability_id}/readiness`
 - `GET /check`
 - `POST /check/decision`
 - `GET /citizenship`
@@ -80,6 +88,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /commercial`
 - `GET /coordination-policy`
 - `POST /credentials/verify`
+- `GET /dashboard`
 - `GET /demand/feed`
 - `POST /demand/watch`
 - `GET /diagnostics/state`
@@ -110,12 +119,14 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /funnel/passports`
 - `GET /funnel/spend-mandates`
 - `GET /health`
+- `GET /identities/{ag_id}`
 - `GET /index`
 - `GET /index/search`
 - `GET /index/{endpoint_id}`
 - `GET /index/{endpoint_id}/evidence`
 - `GET /instrumentation`
 - `GET /instrumentation/recent`
+- `POST /invoke/{capability_id}`
 - `GET /ledger/checkpoint`
 - `POST /ledger/checkpoint/publish`
 - `GET /ledger/checkpoints`
@@ -157,9 +168,20 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /self-eval/run`
 - `GET /standard`
 - `GET /standard.md`
+- `GET /swarm/agents`
+- `POST /swarm/agents/run`
+- `GET /swarm/capabilities`
+- `GET /swarm/ecosystems`
+- `GET /swarm/graph`
+- `POST /swarm/kill`
+- `GET /swarm/match`
+- `POST /swarm/revive`
+- `GET /swarm/stats`
+- `GET /swarm/status`
 - `POST /tasks`
 - `GET /tasks/{task_id}`
 - `POST /tasks/{task_id}/receipt`
+- `GET /terms.json`
 - `POST /wallet-binding/challenge`
 - `POST /wallet-binding/decision`
 - `POST /wallet-binding/decision/verify`

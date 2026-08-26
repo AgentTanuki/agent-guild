@@ -286,7 +286,15 @@ _ABUSE_BUCKETS = {
     # own bounded pre-signing surface instead of the paid-read gateway.
     ("POST", "/mandates/authorize"): "spend_authorize",
 }
-_PRICED_READ_PREFIXES = ("/search", "/check", "/evaluation", "/ledger/", "/agents/")
+_PRICED_READ_PREFIXES = (
+    "/search", "/check", "/evaluation", "/ledger/", "/agents/",
+)
+
+
+def _is_readiness_path(path: str) -> bool:
+    return (path == "/.well-known/ag-capability-readiness.json"
+            or (path.startswith("/capabilities/")
+                and path.endswith("/readiness")))
 
 
 @app.middleware("http")
@@ -376,8 +384,9 @@ async def _capture_ua(request: Request, call_next):
                 and method in ("GET", "POST")):
             bucket = "spend_state"
         if (bucket is None and method == "GET"
-                and not request.headers.get("x-api-key")
-                and path.startswith(_PRICED_READ_PREFIXES)):
+                and (_is_readiness_path(path)
+                     or (not request.headers.get("x-api-key")
+                         and path.startswith(_PRICED_READ_PREFIXES)))):
             bucket = "read_burst"
         if bucket:
             try:
@@ -3889,6 +3898,8 @@ def _manifest() -> dict:
                     "agent can invoke as a GUEST — free, no registration, signed "
                     "provenance on every completion.",
             "index": "/.well-known/ag-identities/index.json",
+            "readiness": "/.well-known/ag-capability-readiness.json",
+            "capability_readiness": "/capabilities/{capability_id}/readiness",
             "terms_first": "/terms.json — inspect terms BEFORE invoking",
             "invoke": {"method": "POST", "path": "/invoke/{capability_id}",
                        "body": "the capability's input_schema object"},
@@ -4908,6 +4919,7 @@ def llms_txt():
         "## Discovery\n"
         "- Manifest: /.well-known/agent-guild.json\n"
         "- OpenAPI: /openapi.json\n"
+        "- Signed capability readiness: /.well-known/ag-capability-readiness.json\n"
         "- Coordination-safety policy: /coordination-policy\n"
         "- Instrumentation: /instrumentation\n\n"
         # The paid catalog goes LAST, deliberately. llms.txt must lead with the

@@ -2,6 +2,8 @@
 
 Endpoints (all machine-first):
   GET  /.well-known/ag-identities/index.json   identity index (L1)
+  GET  /.well-known/ag-capability-readiness.json signed terminal canaries
+  GET  /capabilities/{id}/readiness             one signed terminal canary
   GET  /identities/{ag_id}                     signed identity document (L1)
   GET  /terms.json                             terms BEFORE invocation (L5)
   POST /invoke/{capability_id}                 guest/member invocation (L5)
@@ -21,13 +23,13 @@ import html
 import os
 from typing import Any, Optional
 
-from fastapi import APIRouter, Body, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Header, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from ..state import store
 from .. import journey as journey_engine
 from . import agents as swarm_agents
-from . import gateway, graph, mapper, utility
+from . import gateway, graph, mapper, readiness, utility
 from .capabilities import CAPABILITIES
 from .identity import registry, SWARM_TAG
 
@@ -94,6 +96,7 @@ def ensure_built() -> None:
             first_party=True)
         owner_ids[cap_id] = rec["id"]
     registry.build(BASE, gi, owner_ids)
+    readiness.prime_cache(registry.gate_results())
 
 
 # --------------------------------------------------------------------------
@@ -125,6 +128,40 @@ def identity_document(ag_id: str, request: Request,
                            capability=doc["identity"]["capability"]["id"])
         _stamp_fp(request)
     return doc
+
+
+def _readiness_response(request: Request,
+                        capability_id: Optional[str] = None) -> dict:
+    ensure_built()
+    if capability_id is not None and capability_id not in CAPABILITIES:
+        raise HTTPException(404, {
+            "error": "unknown capability",
+            "index": f"{BASE}/.well-known/ag-identities/index.json",
+        })
+    with store.lock:
+        global_gate_open = not gateway.swarm_killed(store)
+        guild_identity = store.guild_identity()
+    return readiness.readiness_document(
+        guild_identity,
+        capability_id=capability_id,
+        global_gate_open=global_gate_open,
+    )
+
+
+@router.get("/.well-known/ag-capability-readiness.json")
+def capability_readiness_index(request: Request, response: Response,
+                               x_guild_source: Optional[str] = Header(None)):
+    """Fresh, signed, capability-level terminal-canary evidence."""
+    response.headers["Cache-Control"] = "public, max-age=30, s-maxage=30"
+    return _readiness_response(request)
+
+
+@router.get("/capabilities/{capability_id}/readiness")
+def capability_readiness(capability_id: str, request: Request, response: Response,
+                         x_guild_source: Optional[str] = Header(None)):
+    """Fresh, signed readiness evidence for one exact capability id."""
+    response.headers["Cache-Control"] = "public, max-age=30, s-maxage=30"
+    return _readiness_response(request, capability_id)
 
 
 @router.get("/terms.json")

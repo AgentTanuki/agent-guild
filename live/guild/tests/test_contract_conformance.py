@@ -75,8 +75,11 @@ def test_rest_contract_paths_are_served():
             ms = getattr(r, "methods", None)
             if ms:
                 served.setdefault(r.path, set()).update(ms - {"HEAD", "OPTIONS"})
-            if getattr(r, "routes", None):
-                walk(r.routes)
+            sub = getattr(r, "routes", None)
+            if not sub:
+                sub = getattr(getattr(r, "original_router", None), "routes", None)
+            if sub:
+                walk(sub)
     walk(app.routes)
     for entry in committed["rest"]:
         assert entry["path"] in served, f"contract path not served: {entry['path']}"

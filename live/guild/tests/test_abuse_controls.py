@@ -54,6 +54,25 @@ def test_unfunded_read_bursts_are_bounded(monkeypatch):
     assert 429 not in codes
 
 
+def test_public_capability_readiness_is_rate_limited(monkeypatch):
+    monkeypatch.setenv("GUILD_RL_READ_BURST", "1")
+    first = client.get("/.well-known/ag-capability-readiness.json")
+    second = client.get("/.well-known/ag-capability-readiness.json",
+                        headers={"X-API-Key": "sk_bogus_cannot_bypass"})
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["detail"]["bucket"] == "read_burst"
+
+    abuse.reset()
+    capability = "json.repair"
+    first = client.get(f"/capabilities/{capability}/readiness",
+                       headers={"X-API-Key": "sk_bogus_cannot_bypass"})
+    second = client.get(f"/capabilities/{capability}/readiness",
+                        headers={"X-API-Key": "sk_bogus_cannot_bypass"})
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
 def test_oversized_bodies_are_rejected():
     r = client.post("/collaborations",
                     content=b"x" * 10,
