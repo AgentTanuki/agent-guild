@@ -1657,10 +1657,18 @@ def submit_receipt(task_id: str, req: ReceiptRequest, x_api_key: Optional[str] =
 # --- attestations -----------------------------------------------------------
 @app.get("/agents/{agent_id}/attestations")
 def get_attestations(agent_id: str):
+    """Return signed claims without implying that every task id is ours.
+
+    ``task_reference`` states whether the id resolves to a Guild task, whether
+    the issuer/subject and capability match that task, and whether a delivered
+    receipt is linked to it.  ``included_in_score`` and the raw/effective
+    weights make signature validity's scoring effect explicit.  These derived
+    fields are additive; the credential is returned unchanged.
+    """
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
-    return store.attestations_for(agent_id)
+    return store.public_attestations_for(agent_id)
 
 
 @app.post("/attestations", response_model=AttestationResponse)

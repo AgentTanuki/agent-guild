@@ -8135,6 +8135,56 @@ class Store:
     def attestations_for(self, subject_id: str) -> list[dict[str, Any]]:
         return [a for a in self.attestations if a["subject_id"] == subject_id]
 
+    def public_attestations_for(self, subject_id: str) -> list[dict[str, Any]]:
+        """Attestations with an explicit, machine-readable backing relation.
+
+        ``task_id`` is allowed to name either a Guild task or a counterparty's
+        external task.  A cryptographically valid attestation therefore must
+        not imply that ``GET /tasks/{task_id}`` resolves or that a Guild receipt
+        validates its capability claim.  Keep the signed credential untouched
+        and add a derived relation beside it for autonomous consumers.
+        """
+        out: list[dict[str, Any]] = []
+        for att in self.attestations_for(subject_id):
+            task_id = att.get("task_id")
+            task = self.tasks.get(task_id or "")
+            parties_match = bool(
+                task
+                and task.get("requester_agent_id") == att["issuer_id"]
+                and task.get("worker_agent_id") == att["subject_id"]
+            )
+            capability_match = (
+                task.get("task_type") == att.get("capability")
+                if task is not None else None
+            )
+            receipt_linked = bool(
+                parties_match and task and task.get("deliverable_hash")
+            )
+            if task is None:
+                status = "external_or_unresolved"
+            elif not parties_match:
+                status = "guild_task_party_mismatch"
+            elif not receipt_linked:
+                status = "guild_task_without_receipt"
+            else:
+                status = "guild_receipt_linked"
+            view = dict(att)
+            view["task_reference"] = {
+                "id": task_id,
+                "status": status,
+                "guild_task_resolves": task is not None,
+                "parties_match": parties_match,
+                "capability_match": capability_match,
+                "receipt_linked": receipt_linked,
+            }
+            raw_weight = round(self._evidence_weight(att), 3)
+            included_in_score = bool(att.get("verified"))
+            view["included_in_score"] = included_in_score
+            view["raw_evidence_weight"] = raw_weight
+            view["evidence_weight"] = raw_weight if included_in_score else 0.0
+            out.append(view)
+        return out
+
     def count_issued(self, issuer_id: str) -> int:
         return sum(1 for a in self.attestations if a["issuer_id"] == issuer_id)
 

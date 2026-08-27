@@ -4,6 +4,7 @@ staking/slashing, and the evidence/flags endpoints.
 Scoring properties are tested against the engine directly (deterministic, no
 global state); the new HTTP surface is tested via FastAPI's TestClient.
 """
+import copy
 import os
 os.environ["GUILD_DATA"] = ""  # in-memory only
 
@@ -145,6 +146,35 @@ def test_task_receipt_lifecycle_and_evidence_weight():
     weights = [a["evidence_weight"] for a in ev["attestations"] if a["task_id"] == task["id"]]
     assert weights and weights[0] > 0.8   # receipt + payment + stake
 
+    # The free raw-attestation surface makes the same backing relation
+    # explicit, so a machine never has to infer it from a task-shaped string.
+    raw = client.get(f"/agents/{worker['id']}/attestations").json()
+    linked = [a for a in raw if a["task_id"] == task["id"]][0]
+    assert linked["task_reference"] == {
+        "id": task["id"],
+        "status": "guild_receipt_linked",
+        "guild_task_resolves": True,
+        "parties_match": True,
+        "capability_match": True,
+        "receipt_linked": True,
+    }
+    assert linked["included_in_score"] is True
+    assert linked["raw_evidence_weight"] == weights[0]
+    assert linked["evidence_weight"] == weights[0]
+
+    # A receipt is linked to these parties, but it does not by itself prove a
+    # differently labelled capability.  Expose both facts without conflation.
+    r = client.post("/attestations", headers={"X-API-Key": requester["api_key"]},
+                    json={"issuer_id": requester["id"], "subject_id": worker["id"],
+                          "capability": "translation", "rating": 0.9,
+                          "task_id": task["id"]})
+    assert r.status_code == 200, r.text
+    raw = client.get(f"/agents/{worker['id']}/attestations").json()
+    mismatch = [a for a in raw if a["id"] == r.json()["id"]][0]
+    assert mismatch["task_reference"]["status"] == "guild_receipt_linked"
+    assert mismatch["task_reference"]["receipt_linked"] is True
+    assert mismatch["task_reference"]["capability_match"] is False
+
 
 def test_unbacked_attestation_is_low_weight():
     issuer = _register("Asserter", ["research"])
@@ -154,6 +184,80 @@ def test_unbacked_attestation_is_low_weight():
                       "capability": "fact-check", "rating": 1.0})  # no task_id
     ev = client.get(f"/agents/{subject['id']}/evidence").json()
     assert all(a["evidence_weight"] < 0.3 for a in ev["attestations"])
+
+    raw = client.get(f"/agents/{subject['id']}/attestations").json()
+    relation = raw[-1]["task_reference"]
+    assert relation == {
+        "id": "n/a",
+        "status": "external_or_unresolved",
+        "guild_task_resolves": False,
+        "parties_match": False,
+        "capability_match": None,
+        "receipt_linked": False,
+    }
+    assert raw[-1]["included_in_score"] is True
+    assert raw[-1]["raw_evidence_weight"] == raw[-1]["evidence_weight"]
+    assert raw[-1]["evidence_weight"] < 0.3
+
+
+def test_raw_attestations_distinguish_open_tasks_from_party_mismatches():
+    issuer = _register("RelationHirer", ["research"])
+    worker = _register("RelationWorker", ["fact-check"])
+    other = _register("RelationOther", ["fact-check"])
+    task = client.post("/tasks", headers={"X-API-Key": issuer["api_key"]}, json={
+        "requester_id": issuer["id"], "worker_id": worker["id"],
+        "task_type": "fact-check", "payment": 0.0,
+    }).json()
+
+    for subject in (worker, other):
+        r = client.post("/attestations", headers={"X-API-Key": issuer["api_key"]},
+                        json={"issuer_id": issuer["id"],
+                              "subject_id": subject["id"],
+                              "capability": "fact-check", "rating": 0.8,
+                              "task_id": task["id"]})
+        assert r.status_code == 200, r.text
+
+    worker_relation = client.get(
+        f"/agents/{worker['id']}/attestations").json()[-1]["task_reference"]
+    assert worker_relation["status"] == "guild_task_without_receipt"
+    assert worker_relation["guild_task_resolves"] is True
+    assert worker_relation["parties_match"] is True
+    assert worker_relation["capability_match"] is True
+    assert worker_relation["receipt_linked"] is False
+
+    other_relation = client.get(
+        f"/agents/{other['id']}/attestations").json()[-1]["task_reference"]
+    assert other_relation["status"] == "guild_task_party_mismatch"
+    assert other_relation["guild_task_resolves"] is True
+    assert other_relation["parties_match"] is False
+    assert other_relation["capability_match"] is True
+    assert other_relation["receipt_linked"] is False
+
+
+def test_invalid_signed_attestation_exposes_zero_effective_weight():
+    issuer = _register("InvalidWeightIssuer", ["research"])
+    subject = _register("InvalidWeightSubject", ["fact-check"])
+    valid = client.post(
+        "/attestations", headers={"X-API-Key": issuer["api_key"]},
+        json={"issuer_id": issuer["id"], "subject_id": subject["id"],
+              "capability": "fact-check", "rating": 0.8},
+    ).json()["credential"]
+    invalid = copy.deepcopy(valid)
+    invalid["credentialSubject"]["comment"] = "changed after signing"
+
+    r = client.post("/attestations", json={
+        "subject_id": subject["id"], "capability": "fact-check", "rating": 0.8,
+        "credential": invalid,
+    })
+    assert r.status_code == 200, r.text
+    assert r.json()["verified"] is False
+
+    raw = client.get(f"/agents/{subject['id']}/attestations").json()
+    stored = [a for a in raw if a["id"] == r.json()["id"]][0]
+    assert stored["verified"] is False
+    assert stored["included_in_score"] is False
+    assert stored["raw_evidence_weight"] > 0.0
+    assert stored["evidence_weight"] == 0.0
 
 
 def test_flags_endpoint_lists_collusion():
