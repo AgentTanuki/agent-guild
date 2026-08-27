@@ -300,9 +300,13 @@ CALLER_CLASSES = (
 )
 
 # Registry / search-engine / uptime crawlers: they index manifests, they do
-# not perform tasks. Matched anywhere in the UA, case-insensitive.
+# not perform tasks. GolemreachTrustBot's public contract is unusually explicit:
+# one card GET plus MCP initialize/tools-list, and it never calls tools. Match its
+# exact product token rather than the generic Golemreach domain so real game agents
+# remain eligible. Matched anywhere in the UA, case-insensitive.
 CRAWLER_UA_RE = re.compile(
-    r"(glama|smithery|modelcontextprotocol|a2aregistry|crawler|spider|"
+    r"(glama|smithery|modelcontextprotocol|a2aregistry|golemreachtrustbot|"
+    r"crawler|spider|"
     r"bingbot|googlebot|gptbot|claudebot|ccbot|censys|shodan|"
     r"uptime|pingdom|statuscake|betteruptime|render/|kube-probe)", re.I)
 

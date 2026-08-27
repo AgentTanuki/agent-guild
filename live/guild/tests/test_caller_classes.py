@@ -45,7 +45,9 @@ def test_known_first_party_incident_is_ag_test():
 
 def test_registry_crawlers_are_never_external():
     for ua in ("Glama-Crawler/1.0", "Smithery/scan", "UptimeRobot/2.0",
-               "Mozilla/5.0 (compatible; bingbot/2.0)", "kube-probe/1.27"):
+               "Mozilla/5.0 (compatible; bingbot/2.0)", "kube-probe/1.27",
+               "GolemreachTrustBot/0.1 (+https://golemreach.com/trust/bot)",
+               "a2a:GolemreachTrustBot/0.1 (+https://golemreach.com/trust/bot)"):
         cls = caller_class(_e(ua=ua))
         assert cls == "REGISTRY_CRAWLER", ua
         assert not may_count_as_external_growth(cls)
@@ -97,7 +99,8 @@ def test_ag_test_and_crawler_uas_are_never_genuine_external():
     UA rules. The two classifiers must agree at the growth gate."""
     from app.attribution import attribution_class
     for ua in ("mcp:pilot-a-audit/1", "ColdDiscoveryHarness/1.0",
-               "Glama-Crawler/1.0", "UptimeRobot/2.0"):
+               "Glama-Crawler/1.0", "UptimeRobot/2.0",
+               "GolemreachTrustBot/0.1 (+https://golemreach.com/trust/bot)"):
         e = _e(ua=ua)
         assert not is_genuine_external(e), ua
         assert attribution_class(e) in ("ag_test", "registry_crawler"), (
