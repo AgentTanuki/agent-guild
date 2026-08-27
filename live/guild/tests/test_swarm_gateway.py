@@ -47,13 +47,19 @@ def test_terms_give_machine_a_concrete_successful_next_action():
     assert "Never send the literal {capability_id}" in invocation[
         "substitution_rule"]
     assert example["auth"] == "none"
-    assert example["side_effects"] == "none"
+    assert example["external_side_effects"].startswith("none;")
+    assert "referral token" in example["provider_side_effects"]
+    assert "never payload content" in example["provider_side_effects"]
+    assert example["data_retention"] == terms["guest_tier"]["data_retention"]
 
     path = "/" + example["url"].split("/", 3)[3]
     response = client.request(
         example["method"], path,
         json=example["body"],
-        headers={"User-Agent": "external-machine-contract-test/1.0"},
+        headers={
+            **example["headers"],
+            "User-Agent": "external-machine-contract-test/1.0",
+        },
     )
     assert response.status_code == 200, response.text
     body = response.json()

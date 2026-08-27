@@ -293,7 +293,14 @@ def terms(base: str) -> dict:
                         "parsed": {"machine": True},
                     },
                 },
-                "side_effects": "none",
+                "external_side_effects": (
+                    "none; this deterministic transform does not call "
+                    "external services or mutate caller-controlled state"),
+                "provider_side_effects": (
+                    "records attribution, aggregate payload shape, outcome, "
+                    "latency, and counters; issues and stores a referral token "
+                    "whose later use is optional; never payload content"),
+                "data_retention": provenance.RETENTION_STATEMENT,
                 "auth": "none",
                 "cost": "free within guest limits",
             },
