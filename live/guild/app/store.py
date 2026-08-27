@@ -26,6 +26,7 @@ from typing import Any, Optional
 from .crypto import (generate_keypair, did_from_public_key, canonicalize,
                      sign_jcs)
 from . import coordination
+from . import evidence_semantics
 from . import reachability as _reach
 from .reachability import reachability_fields, url_policy_check
 from . import credentials as creds
@@ -110,7 +111,12 @@ W_DISPUTED = 0.5    # multiplier if the receipt's outcome was disputed
 # store's internal flows (worker-authenticated receipts, escrow settlement,
 # Guild-observed invocations). Stripped from any client-supplied metadata so a
 # requester can never elevate its own record's provenance (prov-v2 invariant).
-TRUSTED_TASK_META_KEYS = ("receipt_auth", "settlement", "guild_observed_invocation")
+TRUSTED_TASK_META_KEYS = (
+    "receipt_auth", "settlement", "guild_observed_invocation",
+    "independent_outcome_verification", "outcome_claimant_role",
+    "outcome_phase", "outcome_reason_code", "outcome_signature_contract",
+    "worker_receipt_auth", "worker_receipt_hash", "grade_auth",
+)
 
 
 class CanonicalWriteRefused(RuntimeError):
@@ -1959,7 +1965,8 @@ class Store:
         real-use signals that gate a referral reward."""
         accepted = sum(1 for t in self.tasks.values()
                        if t.get("worker_agent_id") == agent_id
-                       and t.get("outcome") == "accepted")
+                       and t.get("outcome") == "accepted"
+                       and evidence_semantics.task_outcome_is_scoreable(t))
         key = self.account_for_agent(agent_id)
         paid_reads = 0
         if key:
@@ -3808,7 +3815,7 @@ class Store:
         tasks (back-compatible)."""
         scores = self.reputation()
         graded = [t for t in self.tasks.values()
-                  if t.get("outcome") in ("accepted", "disputed", "rejected")]
+                  if evidence_semantics.task_outcome_is_scoreable(t)]
         boot = [t for t in graded if self._is_bootstrap_task(t)]
         prod = [t for t in graded if not self._is_bootstrap_task(t)]
 
@@ -5623,6 +5630,7 @@ class Store:
             "outcome": outcome,
             "ledger_record": vcr,
             "provenance": (vcr or {}).get("provenance"),
+            "evidence_semantics": evidence_semantics.for_record(vcr),
         }
 
     def ledger_record_for_task(self, task_id: str) -> Optional[dict[str, Any]]:
@@ -5646,7 +5654,7 @@ class Store:
                 self.ledger_records = self.backend.all_ledger()
             have = {d.get("task_id") for d in self.ledger_records if d.get("task_id")}
             graded = [t for t in self.tasks.values()
-                      if t.get("outcome") in ("accepted", "disputed", "rejected", "delivered")
+                      if t.get("outcome") in evidence_semantics.LEDGER_TASK_OUTCOMES
                       and t.get("deliverable_hash") and t["id"] not in have]
             graded.sort(key=lambda t: t.get("delivered_at") or t.get("created_at") or "")
             for t in graded:
@@ -6833,9 +6841,10 @@ class Store:
         if outcome.get("type") != "AgentGuildOutcome" or \
            outcome.get("contract") != "AGO-1/1.0":
             raise ValueError("type must be AgentGuildOutcome, contract AGO-1/1.0")
-        if outcome["outcome"] not in ("accepted", "rejected", "disputed",
-                                      "blocked"):
-            raise ValueError("outcome must be accepted|rejected|disputed|blocked")
+        if outcome["outcome"] not in evidence_semantics.SIGNED_OUTCOMES:
+            raise ValueError(
+                "outcome must be accepted|rejected|disputed|declined|infeasible|"
+                "blocked|cannot_verify")
         core = {k: v for k, v in outcome.items() if k != "proof"}
         requester = next((a for a in self.agents.values()
                           if a.get("did") == outcome["requester_did"]), None)
@@ -6886,6 +6895,7 @@ class Store:
                                "attestation_id":
                                    collaboration.get("attestation_id")}
                               if collaboration else None),
+            "evidence_semantics": evidence_semantics.for_record(entry),
             "readback": f"/ledger/record/{entry['id']}",
         }
 
@@ -6959,8 +6969,7 @@ class Store:
             have_collab = {d.get("task_id") for d in self.ledger_records
                            if d.get("task_id") and "type" not in d}
             graded = [t for t in self.tasks.values()
-                      if t.get("outcome") in ("accepted", "disputed", "rejected",
-                                              "delivered")
+                      if t.get("outcome") in evidence_semantics.LEDGER_TASK_OUTCOMES
                       and t.get("deliverable_hash")]
             for t in graded:
                 if t["id"] not in have_collab:
@@ -7918,10 +7927,12 @@ class Store:
     def submit_receipt(
         self,
         task_id: str,
-        deliverable_hash: str,
+        deliverable_hash: Optional[str],
         deliverable_url: Optional[str] = None,
         outcome: str = "delivered",
         receipt_auth: str = "unauthenticated",
+        reason_code: Optional[str] = None,
+        signature_contract: Optional[str] = None,
     ) -> dict[str, Any]:
         """Record a task receipt. `receipt_auth` is the trusted evidence stamp of
         WHO cryptographically stood behind this receipt — decided by the caller
@@ -7930,20 +7941,96 @@ class Store:
           worker_signature  — a signature verified against the worker's DID
           requester         — the requester recorded it on the worker's behalf
           unauthenticated   — nobody proved anything (classifies lowest)"""
-        if receipt_auth not in ("worker_key", "worker_signature",
-                                "requester", "guild_observed", "unauthenticated"):
+        if outcome not in evidence_semantics.RECEIPT_OUTCOMES:
+            raise ValueError("invalid task outcome")
+        if (outcome not in evidence_semantics.HONEST_STOP_OUTCOMES
+                and not deliverable_hash):
+            raise ValueError(
+                "deliverable_hash is required for delivered or graded receipts")
+        if reason_code and outcome not in evidence_semantics.HONEST_STOP_OUTCOMES:
+            raise ValueError("reason_code is only valid for neutral stop outcomes")
+        if receipt_auth not in ("worker_key", "worker_signature", "requester",
+                                "requester_signature", "guild_observed",
+                                "unauthenticated"):
             raise ValueError("invalid receipt_auth")
+        if (outcome in evidence_semantics.HONEST_STOP_OUTCOMES
+                and receipt_auth == "worker_signature"
+                and signature_contract != "AGTR-1/1.0"):
+            raise ValueError(
+                "self-sovereign neutral outcomes require an AGTR-1/1.0 "
+                "signature binding reason_code")
+        if (signature_contract
+                and receipt_auth not in ("worker_signature", "requester_signature")):
+            raise ValueError(
+                "signature_contract requires a verified receipt signature")
         with self.lock, self._txn():
             self._sync_task_from_db(task_id)       # authoritative current task
             task = self.tasks.get(task_id)
             if not task:
                 raise ValueError("task not found")
+            prior_outcome = str(task.get("outcome") or "open")
+            prior_hash = task.get("deliverable_hash")
+            sealed = self.ledger_record_for_task(task_id)
+            same_state = (prior_outcome == outcome
+                          and prior_hash == deliverable_hash
+                          and task.get("deliverable_url") == deliverable_url)
+            if same_state:
+                return task
+            if sealed is not None:
+                raise ValueError("sealed task outcome is immutable")
+            if prior_outcome in (evidence_semantics.POSITIVE_OUTCOMES
+                                 | evidence_semantics.NEGATIVE_OUTCOMES):
+                raise ValueError(
+                    f"graded task outcome {prior_outcome!r} is terminal and cannot be overwritten")
+            if prior_hash and deliverable_hash and prior_hash != deliverable_hash:
+                raise ValueError("task deliverable_hash is immutable once recorded")
+            if (outcome in evidence_semantics.HONEST_STOP_OUTCOMES
+                    and receipt_auth not in ("worker_key", "worker_signature",
+                                             "guild_observed")):
+                raise ValueError("neutral stop outcomes require authenticated worker participation")
+            claimant_role = ("requester" if receipt_auth in (
+                                "requester", "requester_signature")
+                             else "guild" if receipt_auth == "guild_observed"
+                             else "worker")
+            phase = ("delivery" if outcome == "delivered"
+                     else "grade" if outcome in (evidence_semantics.POSITIVE_OUTCOMES
+                                                  | evidence_semantics.NEGATIVE_OUTCOMES)
+                     else "pre_delivery_stop" if not prior_hash
+                     else "diagnostic_stop")
+            metadata = task.setdefault("metadata", {})
+            legacy_auth = metadata.get("receipt_auth")
+            if (prior_outcome == "delivered" and prior_hash
+                    and legacy_auth in ("worker_key", "worker_signature")
+                    and "worker_receipt_auth" not in metadata):
+                # 2.5.40 and earlier bound worker auth to the task's existing
+                # delivery hash only through `receipt_auth`. Preserve that
+                # exact authenticated delivery before a requester grade
+                # replaces the current actor marker.
+                metadata["worker_receipt_auth"] = legacy_auth
+                metadata["worker_receipt_hash"] = prior_hash
             task["deliverable_hash"] = deliverable_hash
             task["deliverable_url"] = deliverable_url
             task["outcome"] = outcome
             task["delivered_at"] = _now()
-            task.setdefault("metadata", {})["receipt_auth"] = receipt_auth
-            if outcome != "rejected":
+            task["metadata"]["receipt_auth"] = receipt_auth
+            if receipt_auth in ("worker_key", "worker_signature"):
+                task["metadata"]["worker_receipt_auth"] = receipt_auth
+                task["metadata"]["worker_receipt_hash"] = deliverable_hash
+            if receipt_auth in ("requester", "requester_signature"):
+                task["metadata"]["grade_auth"] = receipt_auth
+            task["metadata"]["outcome_claimant_role"] = claimant_role
+            task["metadata"]["outcome_phase"] = phase
+            if signature_contract:
+                task["metadata"]["outcome_signature_contract"] = signature_contract
+            else:
+                task["metadata"].pop("outcome_signature_contract", None)
+            if reason_code:
+                task["metadata"]["outcome_reason_code"] = reason_code
+            else:
+                task["metadata"].pop("outcome_reason_code", None)
+            if (deliverable_hash
+                    and outcome not in evidence_semantics.HONEST_STOP_OUTCOMES
+                    and outcome != "rejected"):
                 # First delivered work = first-time activation (worker side).
                 self.record_milestone(task["worker_agent_id"], "first_receipt",
                                       task_id=task_id)
@@ -7960,6 +8047,11 @@ class Store:
             # record, this does NOT freeze a provenance class — a later attestation
             # entry can still upgrade the interpretation (append-only composition).
             worker = self.agents.get(task["worker_agent_id"]) or {}
+            requester = self.agents.get(task["requester_agent_id"]) or {}
+            actor = requester if claimant_role == "requester" else worker
+            # Reuse the established `receipt` event type even when an honest
+            # stop has no content hash. Older releases already understand this
+            # type, preserving rollback/mixed-version ledger readability.
             self.append_ledger_event("receipt", {
                 "task_id": task_id,
                 "requester_id": task["requester_agent_id"],
@@ -7969,12 +8061,25 @@ class Store:
                 "deliverable_hash": deliverable_hash,
                 "payment": float(task.get("payment", 0.0) or 0.0),
                 "receipt_auth": receipt_auth,
+                "outcome_claimant_role": claimant_role,
+                "outcome_phase": phase,
+                "outcome_reason_code": reason_code,
+                "outcome_signature_contract": signature_contract,
+                "worker_receipt_auth": task["metadata"].get("worker_receipt_auth"),
+                "worker_receipt_hash": task["metadata"].get("worker_receipt_hash"),
+                "grade_auth": task["metadata"].get("grade_auth"),
+                "guild_observed_invocation": task["metadata"].get(
+                    "guild_observed_invocation"),
+                "settlement": task["metadata"].get("settlement"),
                 "worker_config_hash": task.get("worker_config_hash"),
                 "requester_config_hash": task.get("requester_config_hash"),
-            }, actor_did=worker.get("did", ""))
+            }, actor_did=actor.get("did", ""))
             # Delivering real work is an activation event for the worker — if it
             # was referred, the referrer earns its reward now.
-            self.activate_referral(task["worker_agent_id"])
+            if (deliverable_hash
+                    and outcome not in evidence_semantics.HONEST_STOP_OUTCOMES
+                    and outcome != "rejected"):
+                self.activate_referral(task["worker_agent_id"])
             return task
 
     def get_task(self, task_id: str) -> Optional[dict[str, Any]]:
@@ -7987,7 +8092,8 @@ class Store:
         """Per-agent count of delivered, non-rejected task receipts (as worker)."""
         counts: dict[str, int] = {}
         for t in self.tasks.values():
-            if t.get("deliverable_hash") and t.get("outcome") != "rejected":
+            if (t.get("deliverable_hash")
+                    and t.get("outcome") in ("delivered", "accepted", "disputed")):
                 w = t["worker_agent_id"]
                 counts[w] = counts.get(w, 0) + 1
         return counts
@@ -8009,6 +8115,10 @@ class Store:
             # nothing, since stake is only evidence when there is a real task it
             # can be slashed against.
             return W_UNBACKED
+        if task.get("outcome") in evidence_semantics.HONEST_STOP_OUTCOMES:
+            # A receipt-backed comment about an honest stop may remain on the
+            # ledger, but it must not move the worker's reputation.
+            return 0.0
         w = W_RECEIPT
         if float(task.get("payment", 0.0) or 0.0) > 0:
             w += W_PAYMENT_BONUS
@@ -8178,7 +8288,7 @@ class Store:
                 "receipt_linked": receipt_linked,
             }
             raw_weight = round(self._evidence_weight(att), 3)
-            included_in_score = bool(att.get("verified"))
+            included_in_score = bool(att.get("verified")) and raw_weight > 0.0
             view["included_in_score"] = included_in_score
             view["raw_evidence_weight"] = raw_weight
             view["evidence_weight"] = raw_weight if included_in_score else 0.0

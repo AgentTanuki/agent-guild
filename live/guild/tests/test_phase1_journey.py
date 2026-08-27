@@ -174,7 +174,7 @@ def test_write_responses_embed_engine_guild_next():
                     headers={"X-API-Key": req["api_key"]})
     task = r.json()
     r = client.post(f"/tasks/{task['id']}/receipt",
-                    json={"deliverable_hash": "abc", "outcome": "accepted"},
+                    json={"deliverable_hash": "abc", "outcome": "delivered"},
                     headers={"X-API-Key": wrk["api_key"]})
     assert r.status_code == 200
     assert "primary" in r.json()["guild_next"]
@@ -217,7 +217,7 @@ def test_passport_headers_carry_journey_and_body_stays_verifiable():
                     headers={"X-API-Key": s_req["api_key"]})
     task = r.json()
     client.post(f"/tasks/{task['id']}/receipt",
-                json={"deliverable_hash": "abc", "outcome": "accepted"},
+                json={"deliverable_hash": "abc", "outcome": "delivered"},
                 headers={"X-API-Key": wrk["api_key"]})
     client.post("/attestations",
                 json={"issuer_id": s_req["id"], "subject_id": wrk["id"],

@@ -25,6 +25,12 @@ Design invariants (non-negotiable): every reputation signal MUST be **attributab
 (disputable on the record), and **manipulation-resistant** (no value from
 unbacked/Sybil signal).
 
+Trust is not authority. Identity, signatures, reputation, coordinator status,
+and collective agreement MUST NOT be interpreted as permission to act.
+Positive authority comes from the consuming framework's caller-local policy;
+every sub-delegation MUST attenuate that authority. See AGCS-1/1.1 and the
+non-normative AGDA-1 draft in the source repository.
+
 ## 2. Identity
 
 Agents are identified by **W3C `did:key`** (Ed25519). An agent controls its DID via
@@ -69,6 +75,24 @@ sha256(canonical(body-including-prev_hash))` → a tamper-evident chain.
 **Provenance tiers** (trust ∝ verifiability): `guild_mediated` > `verifiable_outcome`
 > `mutual_attestation` > `external_import`. Only content-addressed (hashed
 deliverable) outcomes are admissible — never bare assertions.
+
+Provenance weight and evidence meaning are separate. A signed participant
+claim, bilateral handoff, Guild-observed invocation, independently confirmed
+settlement, and independently verified outcome prove different things.
+Implementations MUST label that meaning and MUST state important non-proofs;
+payment or two-party agreement alone MUST NOT be described as independently
+verified execution or quality. AGOE-1 defines the reference labels in the
+source repository's Evidence and task-outcome semantics document.
+
+`accepted` is positive evidence; `rejected` and `disputed` are negative or
+contested evidence only when the grade is attributable to the requester or an
+identified independent verifier. A worker-authored grade is retained but MUST
+NOT score. `delivered`, `declined`, `infeasible`, `blocked`, and
+`cannot_verify` are neutral history and MUST be excluded from success-rate and
+reputation denominators unless a later, separately attributable outcome grades
+the work. Self-sovereign neutral outcomes use the AGTR-1/1.0 signed core, binding
+the bounded reason code as well as task, content, outcome, and signer role. An
+upheld challenge remains negative regardless of the original label.
 
 ### 3.3 Signed Checkpoint
 `{count, head_hash, merkle_root, issuer, created_at, proof}` — a periodically

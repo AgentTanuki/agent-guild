@@ -131,6 +131,7 @@ def seed_bootstrap_evaluation(
                     store.submit_receipt(
                         task["id"], _hash(worker["id"], emp["id"], j),
                         deliverable_url=None, outcome=outcome,
+                        receipt_auth="requester",
                     )
                     graded += 1
                     # Honest, receipt-backed quality attestation: rating tracks

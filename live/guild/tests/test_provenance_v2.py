@@ -53,6 +53,8 @@ def test_client_metadata_cannot_forge_evidence_stamps():
                               "receipt_auth": "worker_key",
                               "settlement": {"escrow_id": "esc_fake", "amount": 999},
                               "guild_observed_invocation": "oinv_fake",
+                              "independent_outcome_verification": {
+                                  "verifier": "did:key:fake"},
                               "harmless": "kept"}})
     assert t.status_code == 200, t.text
     from app.state import store
@@ -61,6 +63,7 @@ def test_client_metadata_cannot_forge_evidence_stamps():
     assert "receipt_auth" not in meta
     assert "settlement" not in meta
     assert "guild_observed_invocation" not in meta
+    assert "independent_outcome_verification" not in meta
     assert meta.get("harmless") == "kept"
 
 
@@ -95,7 +98,7 @@ def test_two_party_crypto_reaches_guild_mediated_custodial():
     r = client.post(f"/tasks/{t['id']}/receipt",
                     headers={"X-API-Key": wkr["api_key"]},
                     json={"deliverable_hash": "0x" + "cd" * 32,
-                          "outcome": "accepted"})
+                          "outcome": "delivered"})
     assert r.status_code == 200, r.text
     a = client.post("/attestations", headers={"X-API-Key": req["api_key"]},
                     json={"issuer_id": req["id"], "subject_id": wkr["id"],
@@ -118,11 +121,11 @@ def test_self_sovereign_worker_countersignature_reaches_guild_mediated():
                     json={"requester_id": req["id"], "worker_id": wkr["id"],
                           "task_type": "x"}).json()
     body = {"task_id": t["id"], "deliverable_hash": "0x" + "ef" * 32,
-            "outcome": "accepted"}
+            "outcome": "delivered"}
     sig = sign_jcs(body, priv)
     r = client.post(f"/tasks/{t['id']}/receipt",
                     json={"deliverable_hash": body["deliverable_hash"],
-                          "outcome": "accepted", "receipt_signature": sig})
+                          "outcome": "delivered", "receipt_signature": sig})
     assert r.status_code == 200, r.text
     a = client.post("/attestations", headers={"X-API-Key": req["api_key"]},
                     json={"issuer_id": req["id"], "subject_id": wkr["id"],
@@ -138,7 +141,7 @@ def test_self_sovereign_worker_countersignature_reaches_guild_mediated():
                            "task_type": "x"}).json()
     bad = client.post(f"/tasks/{t2['id']}/receipt",
                       json={"deliverable_hash": "0x" + "00" * 32,
-                            "outcome": "accepted", "receipt_signature": "de" * 64})
+                            "outcome": "delivered", "receipt_signature": "de" * 64})
     assert bad.status_code == 400
 
 

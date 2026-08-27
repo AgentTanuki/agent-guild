@@ -39,6 +39,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Any, Optional
 
 from .crypto import (canonicalize, sign_jcs, verify_jcs, public_key_from_did)
+from . import evidence_semantics as evidence_labels
 
 GENESIS = "0" * 64
 
@@ -86,7 +87,7 @@ class CollaborationRecord:
     worker_id: str
     capability: str
     task_id: str
-    outcome: str                      # accepted | disputed | rejected | delivered
+    outcome: str                      # see evidence_semantics.RECEIPT_OUTCOMES
     deliverable_hash: Optional[str]
     payment: float
     stake: float
@@ -114,13 +115,26 @@ class CollaborationRecord:
     def recompute_hash(self) -> str:
         return _sha(canonicalize(self._body()))
 
-    def success(self) -> int:
+    def success(self) -> Optional[int]:
         # An upheld challenge converts the record into negative evidence: it
         # counts as a failure at full provenance weight, whatever the original
         # outcome claimed. Adjudicated fault must never be erasable (§6.4).
         if self.challenge_status == "upheld":
             return 0
-        return 1 if self.outcome == "accepted" else 0
+        effect = evidence_labels.outcome_effect(self.outcome)
+        claimant_role = self.evidence.get("outcome_claimant_role")
+        if (effect in ("positive", "negative")
+                and claimant_role is not None
+                and claimant_role not in evidence_labels.GRADE_CLAIMANT_ROLES):
+            return None
+        if effect == "positive":
+            return 1
+        if effect == "negative":
+            return 0
+        # Delivery awaiting acceptance, honest inability, and blocked work are
+        # retained as history but are deliberately neutral. Treating them as a
+        # failure would reward fabrication over stopping safely.
+        return None
 
     def weight(self) -> float:
         return (PROVENANCE_WEIGHT.get(self.provenance, 0.0)
@@ -419,13 +433,16 @@ class Ledger:
             w = self.effective_weight(r, reclass)
             if w <= 0:
                 continue
+            success = r.success()
+            if success is None:
+                continue
             prov = self.effective_provenance(r, reclass)
             a = agg.setdefault(r.worker_id, {
                 "worker_id": r.worker_id, "worker_did": r.worker_did,
                 "weighted_success": 0.0, "weighted_total": 0.0,
                 "records": 0, "by_provenance": {},
             })
-            a["weighted_success"] += w * r.success()
+            a["weighted_success"] += w * success
             a["weighted_total"] += w
             a["records"] += 1
             a["by_provenance"][prov] = a["by_provenance"].get(prov, 0) + 1
@@ -488,7 +505,7 @@ class Ledger:
         for a in store.attestations:
             att_by_task.setdefault(a.get("task_id") or "", []).append(a)
         graded = [t for t in store.tasks.values()
-                  if t.get("outcome") in ("accepted", "disputed", "rejected", "delivered")
+                  if t.get("outcome") in evidence_labels.LEDGER_TASK_OUTCOMES
                   and t.get("deliverable_hash")]
         graded.sort(key=lambda t: t.get("delivered_at") or t.get("created_at") or "")
         for t in graded:
@@ -510,6 +527,8 @@ def build_record_for_task(store: Any, t: dict[str, Any],
                  and a.get("subject_id") == t["worker_agent_id"]
                  and a.get("verified") for a in atts)
     provenance, signers, evidence = _classify(t, req, wrk, backed, atts, meta)
+    evidence["semantics"] = evidence_labels.for_record_evidence(
+        evidence, str(t.get("outcome", "delivered")), provenance)
     return CollaborationRecord(
         seq=0,
         requester_did=req.get("did", ""), worker_did=wrk.get("did", ""),
@@ -545,23 +564,44 @@ def _classify(task, req, wrk, backed, atts, meta):
     content_addressed = bool(task.get("deliverable_hash"))
     # Trusted, internally-stamped evidence (store strips these keys from any
     # client-supplied metadata — see Store.create_task):
-    worker_participated = meta.get("receipt_auth") in ("worker_key", "worker_signature")
+    worker_auth = meta.get("worker_receipt_auth") or meta.get("receipt_auth")
+    grade_auth = meta.get("grade_auth") or meta.get("receipt_auth")
+    if "worker_receipt_hash" in meta:
+        worker_participated = (
+            worker_auth in ("worker_key", "worker_signature")
+            and bool(meta.get("worker_receipt_hash"))
+            and meta.get("worker_receipt_hash") == task.get("deliverable_hash")
+        )
+    else:
+        # Historical records predate hash-bound auth metadata; preserve their
+        # original interpretation without granting that fallback to new writes.
+        worker_participated = worker_auth in ("worker_key", "worker_signature")
+    requester_participated = grade_auth in ("requester", "requester_signature")
     guild_observed = bool(meta.get("guild_observed_invocation"))
     settlement = meta.get("settlement") if isinstance(meta.get("settlement"), dict) else None
+    claimant_evidence = {
+        key: meta[key]
+        for key in ("outcome_claimant_role", "outcome_phase",
+                    "outcome_reason_code", "outcome_signature_contract",
+                    "worker_receipt_auth", "worker_receipt_hash", "grade_auth")
+        if meta.get(key)
+    }
 
     if meta.get("imported") or meta.get("external_import"):
-        return "external_import", [], {"import_source": meta.get("import_source")}
+        return "external_import", [], {
+            "import_source": meta.get("import_source"), **claimant_evidence}
 
     # Guild-seeded demonstration data is labelled at the lowest rung, always.
     if meta.get("bootstrap_eval") or meta.get("seed_supply"):
         return "first_party_bootstrap", [], {
             "receipt": task.get("deliverable_hash"),
             "note": "guild-seeded demonstration cohort; not external evidence",
+            **claimant_evidence,
         }
 
     # Signers = parties with actual cryptographic participation, never asserted.
     signers: list[str] = []
-    if backed and req.get("did"):
+    if (backed or requester_participated) and req.get("did"):
         signers.append(req["did"])            # verified attestation = requester signed
     if worker_participated and wrk.get("did"):
         signers.append(wrk["did"])            # authenticated/signed receipt = worker signed
@@ -571,12 +611,16 @@ def _classify(task, req, wrk, backed, atts, meta):
         evidence["attestation_ids"] = [a["id"] for a in atts if a.get("verified")]
     if meta.get("receipt_auth"):
         evidence["receipt_auth"] = meta["receipt_auth"]
+    evidence.update(claimant_evidence)
     if guild_observed:
         evidence["invocation_id"] = meta.get("guild_observed_invocation")
     if settlement:
         evidence["settlement"] = settlement
 
     if both_registered and content_addressed:
+        if requester_participated and worker_participated:
+            evidence["basis"] = "two_party_crypto"
+            return "guild_mediated", signers, evidence
         if backed and worker_participated:
             evidence["basis"] = "two_party_crypto"
             return "guild_mediated", signers, evidence

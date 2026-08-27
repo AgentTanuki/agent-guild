@@ -65,6 +65,7 @@ from .store import CanonicalWriteRefused
 from .reachability import url_policy_check
 from . import abuse
 from . import coordination
+from . import evidence_semantics
 from . import crypto
 from . import callerproof
 from . import demand
@@ -636,10 +637,12 @@ def _profile(rec: dict) -> AgentProfile:
 
 
 def _task_response(t: dict) -> TaskResponse:
-    return TaskResponse(**{k: t[k] for k in (
+    body = {k: t[k] for k in (
         "id", "requester_agent_id", "worker_agent_id", "task_type", "payment",
         "deliverable_hash", "deliverable_url", "outcome", "created_at", "delivered_at",
-    )})
+    )}
+    body["evidence_semantics"] = evidence_semantics.for_task(t)
+    return TaskResponse(**body)
 
 
 def _require_key(agent: dict, x_api_key: Optional[str], role: str) -> None:
@@ -1624,33 +1627,81 @@ def submit_receipt(task_id: str, req: ReceiptRequest, x_api_key: Optional[str] =
     if not t:
         raise HTTPException(404, "task not found")
     worker = store.get_agent(t["worker_agent_id"])
-    if worker:
-        _require_key(worker, x_api_key, "worker")
-    if req.outcome not in ("delivered", "accepted", "disputed", "rejected"):
+    requester = store.get_agent(t["requester_agent_id"])
+    if req.outcome not in evidence_semantics.RECEIPT_OUTCOMES:
         raise HTTPException(400, "invalid outcome")
-    # Evidence stamp (prov-v2): record HOW the worker stood behind this receipt.
-    # Custodial workers just authenticated with their own key above; self-
-    # sovereign workers may countersign with an ed25519 signature over the JCS
-    # form of {task_id, deliverable_hash, outcome}, verified against their DID.
+    if (req.outcome not in evidence_semantics.HONEST_STOP_OUTCOMES
+            and not req.deliverable_hash):
+        raise HTTPException(
+            400, "deliverable_hash is required for delivered or graded receipts")
+    if req.reason_code and req.outcome not in evidence_semantics.HONEST_STOP_OUTCOMES:
+        raise HTTPException(400, "reason_code is only valid for neutral stop outcomes")
+    graded = req.outcome in (
+        evidence_semantics.POSITIVE_OUTCOMES | evidence_semantics.NEGATIVE_OUTCOMES)
+    actor = requester if graded else worker
+    actor_role = "requester" if graded else "worker"
+    if actor:
+        _require_key(actor, x_api_key, actor_role)
+    # Evidence stamp (prov-v2): worker delivery/stops and requester grades are
+    # distinct acts. Custodial actors authenticate with their own API key;
+    # self-sovereign actors sign the versioned AGTR core against their DID.
     receipt_auth = "unauthenticated"
-    if worker and worker.get("custodial"):
-        receipt_auth = "worker_key"   # _require_key verified the worker's credential
-    elif worker and req.receipt_signature:
-        signed_body = {"task_id": task_id, "deliverable_hash": req.deliverable_hash,
-                       "outcome": req.outcome}
+    verified_signature_contract = None
+    if (req.receipt_signature_contract
+            and (not req.receipt_signature or (actor and actor.get("custodial")))):
+        raise HTTPException(
+            400, "receipt_signature_contract requires a matching self-sovereign signature")
+    if actor and actor.get("custodial"):
+        receipt_auth = "requester" if graded else "worker_key"
+    elif actor and req.receipt_signature:
+        if req.receipt_signature_contract == "AGTR-1/1.0":
+            signed_body = {
+                "contract": "AGTR-1/1.0",
+                "task_id": task_id,
+                "deliverable_hash": req.deliverable_hash,
+                "outcome": req.outcome,
+                "reason_code": req.reason_code,
+                "signer_role": actor_role,
+            }
+        else:
+            signed_body = {"task_id": task_id,
+                           "deliverable_hash": req.deliverable_hash,
+                           "outcome": req.outcome}
         try:
-            wk_pub = crypto.public_key_from_did(worker.get("did", ""))
-            ok = crypto.verify_jcs(signed_body, req.receipt_signature, wk_pub)
+            actor_pub = crypto.public_key_from_did(actor.get("did", ""))
+            ok = crypto.verify_jcs(signed_body, req.receipt_signature, actor_pub)
         except (ValueError, TypeError):
             ok = False
         if not ok:
-            raise HTTPException(400, "receipt_signature does not verify against the worker's DID")
-        receipt_auth = "worker_signature"
-    t = store.submit_receipt(task_id, req.deliverable_hash, req.deliverable_url,
-                             req.outcome, receipt_auth=receipt_auth)
+            raise HTTPException(
+                400, f"receipt_signature does not verify against the {actor_role}'s DID")
+        receipt_auth = "requester_signature" if graded else "worker_signature"
+        verified_signature_contract = req.receipt_signature_contract
+    if graded and actor and not actor.get("custodial") and receipt_auth != "requester_signature":
+        raise HTTPException(
+            400, "self-sovereign requesters must sign graded task outcomes against their DID")
+    if (not graded and actor and not actor.get("custodial")
+            and receipt_auth != "worker_signature"):
+        raise HTTPException(
+            400,
+            "self-sovereign workers must sign delivery and neutral outcomes against their DID",
+        )
+    if (req.outcome in evidence_semantics.HONEST_STOP_OUTCOMES
+            and receipt_auth == "worker_signature"
+            and req.receipt_signature_contract != "AGTR-1/1.0"):
+        raise HTTPException(
+            400, "neutral outcome signatures must use AGTR-1/1.0 and bind reason_code")
+    try:
+        t = store.submit_receipt(
+            task_id, req.deliverable_hash, req.deliverable_url,
+            req.outcome, receipt_auth=receipt_auth,
+            reason_code=req.reason_code,
+            signature_contract=verified_signature_contract)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
     resp = _task_response(t)
-    if worker:  # the authenticated party — a receipt is their journey advancing
-        resp.guild_next = journey_engine.guild_next(store, worker)
+    if actor:
+        resp.guild_next = journey_engine.guild_next(store, actor)
     return resp
 
 
@@ -5792,7 +5843,8 @@ def ledger_record(record_id: str):
     rec = store.ledger_record(record_id)
     if rec is None:
         raise HTTPException(404, "no ledger record with that id")
-    return {"record": rec}
+    return {"record": rec,
+            "evidence_semantics": evidence_semantics.for_record(rec)}
 
 
 @app.get("/ledger/inclusion/{record_id}")

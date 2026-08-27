@@ -50,11 +50,15 @@ def test_external_provider_is_external_and_observed_delivery_is_guild_mediated()
     assert rec["provenance"] == "guild_mediated"
     assert rec["evidence"]["basis"] == "guild_observed_invocation"
 
-    # the external provider never counts as first-party in reputation views
+    # Observed delivery proves transport, not outcome correctness. An
+    # ungraded delivery alone must not create a reputation score.
     led = Ledger.from_records(s.ledger_records)
     rep = led.derive_reputation().get(prov["id"])
-    assert rep is not None
-    assert "first_party_bootstrap" not in rep["by_provenance"]
+    assert rep is None
+    semantics = rec["evidence"]["semantics"]
+    assert semantics["outcome"]["reputation_effect"] == "neutral"
+    assert any("factually correct" in claim
+               for claim in semantics["does_not_prove"])
 
 
 def test_x402_disabled_body_labels_credits_sandbox():
