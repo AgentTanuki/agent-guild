@@ -32,12 +32,14 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /.well-known/agent-skills/index.json`
 - `GET /.well-known/ai-catalog.json`
 - `GET /.well-known/ai-plugin.json`
+- `GET /.well-known/api-catalog`
 - `GET /.well-known/did.json`
 - `GET /.well-known/glama.json`
 - `GET /.well-known/integrations.json`
 - `GET /.well-known/mcp.json`
 - `GET /.well-known/mcp/payment-safety-server-card.json`
 - `GET /.well-known/mcp/server-card.json`
+- `GET /.well-known/security.txt`
 - `GET /.well-known/x402`
 - `POST /adjudicators/enroll`
 - `POST /admin/agents/{agent_id}/first-party`
@@ -45,6 +47,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `POST /admin/issuer/rotate`
 - `GET /agents`
 - `GET /agents.md`
+- `GET /agents.txt`
 - `POST /agents/register`
 - `GET /agents/{agent_id}`
 - `GET /agents/{agent_id}/attestations`
@@ -65,6 +68,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /agents/{agent_id}/reputation`
 - `GET /agents/{agent_id}/risk-score`
 - `POST /attestations`
+- `GET /auth.md`
 - `GET | POST /billing/account`
 - `GET /billing/revenue`
 - `POST /billing/topup`

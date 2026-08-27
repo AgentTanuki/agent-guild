@@ -259,6 +259,12 @@
    "methods": [
     "GET"
    ],
+   "path": "/.well-known/api-catalog"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
    "path": "/.well-known/did.json"
   },
   {
@@ -290,6 +296,12 @@
     "GET"
    ],
    "path": "/.well-known/mcp/server-card.json"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/.well-known/security.txt"
   },
   {
    "methods": [
@@ -332,6 +344,12 @@
     "GET"
    ],
    "path": "/agents.md"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/agents.txt"
   },
   {
    "methods": [
@@ -453,6 +471,12 @@
     "POST"
    ],
    "path": "/attestations"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/auth.md"
   },
   {
    "methods": [
