@@ -22,8 +22,16 @@ def _deliver_accepted(client, hirer, worker, n=1):
         t = client.post("/tasks", json={"requester_id": hirer["id"], "worker_id": worker["id"],
                                         "task_type": "fact-check", "payment": 1.0},
                         headers={"X-API-Key": hirer["api_key"]}).json()
-        client.post(f"/tasks/{t['id']}/receipt", json={"deliverable_hash": "h", "outcome": "accepted"},
-                    headers={"X-API-Key": worker["api_key"]})
+        delivered = client.post(
+            f"/tasks/{t['id']}/receipt",
+            json={"deliverable_hash": "h", "outcome": "delivered"},
+            headers={"X-API-Key": worker["api_key"]})
+        assert delivered.status_code == 200, delivered.text
+        graded = client.post(
+            f"/tasks/{t['id']}/receipt",
+            json={"deliverable_hash": "h", "outcome": "accepted"},
+            headers={"X-API-Key": hirer["api_key"]})
+        assert graded.status_code == 200, graded.text
 
 _COLLECTIONS = ("agents", "tasks", "attestations", "accounts",
                 "billing_log", "events", "referrals", "health_log")

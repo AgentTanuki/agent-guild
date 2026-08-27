@@ -109,6 +109,16 @@ def test_policy_denies_persistent_writes_and_forwarding_by_default():
     assert "remote-content-is-data" in rules
     assert "sandbox-before-execution" in rules
     assert "signature-proves-origin-not-safety" in rules
+    assert rules["peer-assignments-are-advisory"]["default"] == "advisory_only"
+    assert rules["subdelegation-must-attenuate"]["default"] == "attenuate_only"
+    auth = doc["authority_semantics"]
+    assert auth["authority_source"] == "caller_local_policy"
+    assert auth["signature"] == "not_authority"
+    assert auth["reputation"] == "not_authority"
+    assert auth["coordinator_role"] == "not_authority"
+    assert auth["collective_consensus"] == "not_authority"
+    assert auth["subdelegation"] == "attenuate_only"
+    assert auth["missing_or_unverifiable_authority"] == "deny_side_effects"
 
 
 def test_policy_never_instructs_self_installation():
@@ -154,6 +164,9 @@ def test_check_decision_carries_coordination_annotation_everywhere():
     assert ann["persistent_writes"] == "deny_by_default"
     assert ann["instruction_forwarding"] == "deny_by_default"
     assert ann["execution_authority"] == "caller_local_policy"
+    assert ann["peer_assignments"] == "advisory_only"
+    assert ann["subdelegation"] == "attenuate_only"
+    assert ann["collective_consensus"] == "not_authority"
     assert ann["signature_proves"] == "origin_not_safety"
     # top-level classification separates the four data classes
     cls = rest["coordination"]["data_classification"]

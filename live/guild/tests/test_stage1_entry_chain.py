@@ -131,7 +131,9 @@ def test_typed_events_do_not_move_ledger_reputation():
     rep = led.derive_reputation()
     # derivation sees only collabs: worker appears, register/receipt noise doesn't
     assert b["id"] in rep
-    assert rep[b["id"]]["records"] == led.stats()["collaborations"]
+    scoreable_collabs = sum(1 for record in led.collabs()
+                            if record.success() is not None)
+    assert rep[b["id"]]["records"] == scoreable_collabs
 
 
 # --- 4. no secrets on the chain -------------------------------------------------

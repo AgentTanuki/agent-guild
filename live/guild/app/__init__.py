@@ -3,7 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.40"  # PATCH consolidated machine feedback (2026-08-27):
+__version__ = "2.5.41"  # PATCH coordination and outcome hardening (2026-08-27):
+                        # makes peer authority advisory/attenuated, separates
+                        # authenticated worker delivery/stops from attributable
+                        # requester grades, binds signed stop reasons and receipt
+                        # hashes, and serves non-overclaiming evidence relations.
+                        # History of 2.5.40:
+                        # PATCH consolidated machine feedback (2026-08-27):
                         # adds concrete invocation guidance and truthful effect
                         # disclosure, standard machine discovery surfaces,
                         # exact crawler attribution, and transparent

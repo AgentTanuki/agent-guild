@@ -83,7 +83,8 @@ def test_production_task_flips_dataset_and_is_partitioned():
     emp = s.register_agent("Outside-Hirer", ["hiring"], metadata={})
     wrk = s.register_agent("Outside-Worker", ["research"], metadata={})
     task = s.create_task(emp["id"], wrk["id"], "research", payment=0.01, metadata={})
-    s.submit_receipt(task["id"], "0xdeadbeef", outcome="accepted")
+    s.submit_receipt(task["id"], "0xdeadbeef", outcome="accepted",
+                     receipt_auth="requester")
 
     ev = s.evaluation()
     assert ev["dataset"] == "mixed"

@@ -151,22 +151,54 @@ class TaskResponse(BaseModel):
     outcome: str
     created_at: str
     delivered_at: Optional[str] = None
+    evidence_semantics: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Precise statement of what the current task receipt proves and does "
+            "not prove, plus whether the outcome affects reputation."),
+    )
     # Phase 1: journey guidance for the authenticated party (worker on receipt).
     guild_next: Optional[dict[str, Any]] = None
 
 
 class ReceiptRequest(BaseModel):
-    deliverable_hash: str = Field(..., description="Hash of the delivered artifact")
+    deliverable_hash: Optional[str] = Field(
+        None,
+        description=(
+            "Hash of the delivered artifact. Required for delivered/accepted/"
+            "disputed/rejected; optional for neutral declined/infeasible/blocked/"
+            "cannot_verify outcomes."),
+    )
     deliverable_url: Optional[str] = Field(None, description="Optional pointer to the artifact")
-    outcome: str = Field("delivered", description="delivered | accepted | disputed | rejected")
+    outcome: str = Field(
+        "delivered",
+        description=(
+            "delivered | accepted | disputed | rejected | declined | infeasible | "
+            "blocked | cannot_verify. The final four are reputation-neutral."),
+    )
+    reason_code: Optional[Literal[
+        "scope_mismatch", "insufficient_authority", "insufficient_information",
+        "resource_limit", "safety_boundary", "external_dependency",
+        "cannot_reproduce", "other",
+    ]] = Field(
+        None,
+        description=(
+            "Optional bounded reason for a neutral outcome. It remains the "
+            "worker's claim and does not itself prove the reason."),
+    )
     receipt_signature: Optional[str] = Field(
         None,
         description=(
-            "Self-sovereign workers: hex ed25519 signature over the JCS "
-            "canonicalisation of {\"deliverable_hash\":…,\"outcome\":…,\"task_id\":…} "
-            "made with the key behind the worker's did:key. Proves the WORKER "
-            "stands behind this receipt — one of the ways a record reaches "
-            "two-party (guild_mediated) provenance."))
+            "Self-sovereign task actor: hex ed25519 signature over the JCS "
+            "canonicalisation of the AGTR-1/1.0 core, made with the key behind "
+            "the relevant worker or requester did:key."))
+    receipt_signature_contract: Optional[Literal["AGTR-1/1.0"]] = Field(
+        None,
+        description=(
+            "Signature contract. AGTR-1/1.0 binds contract, task_id, "
+            "deliverable_hash, outcome, reason_code, and signer_role. Required "
+            "for self-sovereign neutral outcomes; legacy three-field worker "
+            "delivery signatures remain accepted for non-neutral receipts."))
 
 
 class EscrowRequest(BaseModel):
