@@ -1657,10 +1657,18 @@ def submit_receipt(task_id: str, req: ReceiptRequest, x_api_key: Optional[str] =
 # --- attestations -----------------------------------------------------------
 @app.get("/agents/{agent_id}/attestations")
 def get_attestations(agent_id: str):
+    """Return signed claims without implying that every task id is ours.
+
+    ``task_reference`` states whether the id resolves to a Guild task, whether
+    the issuer/subject and capability match that task, and whether a delivered
+    receipt is linked to it.  ``included_in_score`` and the raw/effective
+    weights make signature validity's scoring effect explicit.  These derived
+    fields are additive; the credential is returned unchanged.
+    """
     rec = store.get_agent(agent_id)
     if not rec:
         raise HTTPException(404, "agent not found")
-    return store.attestations_for(agent_id)
+    return store.public_attestations_for(agent_id)
 
 
 @app.post("/attestations", response_model=AttestationResponse)
@@ -4306,6 +4314,57 @@ def agents_md():
     return _artifact("AGENTS.md")
 
 
+def _public_base() -> str:
+    """Return the configured public origin, never an untrusted Host header."""
+    return x402.public_host().rstrip("/")
+
+
+@app.get("/agents.txt", response_class=PlainTextResponse)
+def agents_txt():
+    """Small, vendor-neutral bootstrap for machines that look for agents.txt."""
+    base = _public_base()
+    return (
+        "# Agent Guild machine bootstrap\n"
+        f"MCP-Endpoint: {base}/mcp\n"
+        f"MCP-Server-Card: {base}/.well-known/mcp/server-card.json\n"
+        "First-Tool: guild_preflight\n"
+        "First-Arguments: {\"url\":\"<absolute counterparty endpoint URL>\"}\n"
+        f"First-HTTP-Action: GET {base}/preflight?url="
+        "<percent-encoded absolute counterparty endpoint URL>\n"
+        f"Full-Agent-Guide: {base}/agents.md\n"
+    )
+
+
+@app.get("/auth.md", response_class=PlainTextResponse)
+def auth_md():
+    """Truthful authentication and payment map for autonomous clients."""
+    base = _public_base()
+    return (
+        "# Agent Guild authentication and payment\n\n"
+        "## Anonymous, free reads\n"
+        f"No credential is required for GET {base}/agents.txt, GET {base}/index,\n"
+        f"GET {base}/capabilities, or GET\n"
+        f"{base}/preflight?url=<absolute-url>. POST {base}/credentials/verify is\n"
+        "also anonymous and free. Some other reads are metered;\n"
+        "do not infer that every GET is free.\n\n"
+        "## Self-provisioned identity credentials\n"
+        f"POST {base}/agents/register without a public_key creates a custodial\n"
+        "identity and returns its API key. Save that key as a bearer secret.\n"
+        "With a caller-supplied Ed25519 public_key, registration instead returns\n"
+        "custodial=false and api_key=null; the caller retains its private key.\n"
+        f"POST {base}/billing/trial returns a separate X-API-Key with capped trial\n"
+        "credits. It requires no human account, card, or checkout.\n\n"
+        "## Paid operations\n"
+        "Payment applies to the individual priced operation, not to discovery or\n"
+        "the transport as a whole. A priced operation can use trial/API-key credits\n"
+        "or its advertised x402 exact-payment challenge (USDC on Base, eip155:8453).\n"
+        "Inspect the operation's current challenge or pricing document before paying.\n\n"
+        "## OAuth\n"
+        "Agent Guild uses no delegated OAuth. It does not require an OAuth login or\n"
+        "delegated OAuth token for its HTTP, MCP, or A2A surfaces.\n"
+    )
+
+
 @app.get("/citizenship", response_class=PlainTextResponse)
 def citizenship():
     """From Stranger to Citizen — the policy paper describing the five-stage
@@ -4617,6 +4676,90 @@ def wellknown_integrations():
             ],
         },
         headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
+_API_CATALOG_PROFILE = "https://www.rfc-editor.org/info/rfc9727"
+_API_CATALOG_MEDIA_TYPE = (
+    f'application/linkset+json; profile="{_API_CATALOG_PROFILE}"'
+)
+
+
+@app.head("/.well-known/api-catalog", include_in_schema=False)
+@app.get("/.well-known/api-catalog")
+def wellknown_api_catalog(request: Request):
+    """RFC 9727 API catalogue in the mandatory RFC 9264 JSON Linkset form."""
+    base = _public_base()
+    catalog_url = f"{base}/.well-known/api-catalog"
+    headers = {
+        "Cache-Control": "public, max-age=300, s-maxage=300",
+        "Link": (
+            f'<{catalog_url}>; rel="api-catalog"; '
+            'type="application/linkset+json"'
+        ),
+    }
+    if request.method == "HEAD":
+        return Response(media_type=_API_CATALOG_MEDIA_TYPE, headers=headers)
+    return JSONResponse(
+        content={
+            "linkset": [
+                {
+                    "anchor": base,
+                    "item": [
+                        {"href": base},
+                        {"href": f"{base}/mcp"},
+                        {"href": f"{base}/a2a"},
+                    ],
+                    "service-desc": [
+                        {
+                            "href": f"{base}/openapi.json",
+                            "type": "application/json",
+                            "title": "Agent Guild OpenAPI description",
+                        },
+                    ],
+                    "service-meta": [
+                        {
+                            "href": (
+                                f"{base}/.well-known/mcp/server-card.json"
+                            ),
+                            "type": "application/json",
+                            "title": "Agent Guild MCP server card",
+                        },
+                        {
+                            "href": f"{base}/.well-known/agent-card.json",
+                            "type": "application/json",
+                            "title": "Agent Guild A2A agent card",
+                        },
+                        {
+                            "href": f"{base}/llms.txt",
+                            "type": "text/plain",
+                            "title": "Agent Guild LLM discovery document",
+                        },
+                        {
+                            "href": f"{base}/.well-known/agent-guild.json",
+                            "type": "application/json",
+                            "title": "Agent Guild discovery manifest",
+                        },
+                    ],
+                },
+            ],
+        },
+        media_type=_API_CATALOG_MEDIA_TYPE,
+        headers=headers,
+    )
+
+
+@app.get("/.well-known/security.txt", response_class=PlainTextResponse)
+def wellknown_security_txt():
+    """RFC 9116 vulnerability-reporting route for the served origin."""
+    base = _public_base()
+    return (
+        "Contact: https://github.com/AgentTanuki/agent-guild/security/"
+        "advisories/new\n"
+        f"Canonical: {base}/.well-known/security.txt\n"
+        "Policy: https://github.com/AgentTanuki/agent-guild/security/policy\n"
+        "Expires: 2027-05-01T00:00:00Z\n"
+        "Preferred-Languages: en\n"
     )
 
 

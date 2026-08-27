@@ -32,6 +32,41 @@ def test_terms_inspectable_before_invocation():
     assert "no_hidden_conditions" in t["guest_tier"]
 
 
+def test_terms_give_machine_a_concrete_successful_next_action():
+    """Regression for an observed external client repeatedly POSTing the
+    literal OpenAPI placeholder ``{capability_id}``.  Terms must give a
+    complete, no-auth, executable action rather than another template."""
+    terms = client.get("/terms.json").json()
+    invocation = terms["invocation"]
+    example = invocation["try_now"]
+
+    assert "json.repair" in invocation["capability_ids"]
+    assert invocation["capability_catalog"].endswith("/swarm/capabilities")
+    assert "{capability_id}" in invocation["url_template"]
+    assert "{capability_id}" not in example["url"]
+    assert "Never send the literal {capability_id}" in invocation[
+        "substitution_rule"]
+    assert example["auth"] == "none"
+    assert example["external_side_effects"].startswith("none;")
+    assert "referral token" in example["provider_side_effects"]
+    assert "never payload content" in example["provider_side_effects"]
+    assert example["data_retention"] == terms["guest_tier"]["data_retention"]
+
+    path = "/" + example["url"].split("/", 3)[3]
+    response = client.request(
+        example["method"], path,
+        json=example["body"],
+        headers={
+            **example["headers"],
+            "User-Agent": "external-machine-contract-test/1.0",
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["ok"] is True
+    assert body["result"]["parsed"] == {"machine": True}
+
+
 def test_guest_invocation_happy_path_with_signed_provenance():
     r = client.post("/invoke/json.repair", json={"text": "{'a': 1,}"},
                     headers=UA)

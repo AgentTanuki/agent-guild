@@ -3,7 +3,13 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.39"  # PATCH exact registry-scanner census correction
+__version__ = "2.5.40"  # PATCH consolidated machine feedback (2026-08-27):
+                        # adds concrete invocation guidance and truthful effect
+                        # disclosure, standard machine discovery surfaces,
+                        # exact crawler attribution, and transparent
+                        # attestation task relations and score inclusion.
+                        # History of 2.5.39:
+                        # PATCH exact registry-scanner census correction
                         # (2026-08-16): demotes three privacy-safe actor aliases
                         # produced by the skills.sh reindex/audit burst. The
                         # correction is actor-scoped, so unrelated autonomous
