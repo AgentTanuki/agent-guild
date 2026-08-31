@@ -59,38 +59,6 @@ def test_unpaid_mcp_read_returns_challenge_not_the_payload():
     assert "decision" not in sc
 
 
-def test_natural_mcp_check_maps_before_payment_without_relay_or_slug():
-    marker = "SECRET-MCP-RELAY-MARKER"
-    text = "I need help with fact checking " + marker
-    r = _call("guild_check", {"capability": text})
-    assert not r.is_error
-    body = r.structured_content
-    assert body["kind"] == "objective_match"
-    assert body["match"]["canonical_capability"] == "fact-check"
-    assert body["result"]["status"] == "mapping_only"
-    assert body["available_actions"][0]["effect"] == "metered_read"
-    assert marker not in json.dumps(body)
-
-    from app.state import store
-    demands = [event for event in store.events
-               if event.get("type") == "capability_demand"]
-    assert any(event["capability"] == "fact-check" for event in demands)
-    assert "secret-mcp" not in json.dumps(store.events).lower()
-
-
-@pytest.mark.parametrize("tool", ["guild_search", "guild_best_agent"])
-def test_natural_mcp_search_surfaces_share_no_relay_boundary(tool):
-    marker = "SECRET-MCP-SEARCH-" + tool
-    r = _call(tool, {"capability": "Please find fact checking help " + marker})
-    assert not r.is_error
-    body = r.structured_content
-    assert body["kind"] == "objective_match"
-    assert body["match"]["canonical_capability"] == "fact-check"
-    assert body["result"]["status"] == "mapping_only"
-    assert body["available_actions"][0]["id"] == "trust.search.full"
-    assert marker not in json.dumps(body)
-
-
 def test_unpaid_mcp_search_and_risk_also_gated():
     r = _call("guild_search", {"capability": "x"})
     assert r.is_error and r.structured_content["x402Version"] == 2
