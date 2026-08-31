@@ -202,6 +202,19 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
           MERGED_SHA: ${{ steps.merge.outputs.merged_sha }}
+          # r5 (2026-08-31): optional fine-grained PAT (this repo only;
+          # Contents + Workflows read/write) stored as the SHIP_RECOVERY_TOKEN
+          # actions secret. A GITHUB_TOKEN push cannot create the push-event
+          # ci runs that branch protection recognises (recursion guard), so a
+          # bot-pushed ship/revert-* branch leaves every required context stuck
+          # at "Expected" even after a GREEN dispatched ci run — observed live
+          # on PR #168, unblocked that day by a manual user-authenticated
+          # empty commit. Pushing the revert branch WITH this token makes the
+          # push a user event: ci starts on push and reports the required
+          # contexts exactly as it does for a normal ship branch. Absent the
+          # secret, the old dispatch path still runs and the stall is reported
+          # with the manual unblock instructions.
+          RECOVERY_PUSH_TOKEN: ${{ secrets.SHIP_RECOVERY_TOKEN }}
         run: |
           set -euo pipefail
           # The gate records WHY it failed. A revert is only correct when the
@@ -226,21 +239,44 @@ jobs:
           git fetch --force origin main
           git checkout -B "ship/revert-$short" origin/main
           git revert --no-edit "$MERGED_SHA"
-          git push --force origin "ship/revert-$short"
+          if [ -n "${RECOVERY_PUSH_TOKEN:-}" ]; then
+            # User-authenticated push: ci.yml (push: ship/**) starts on its
+            # own and reports the required contexts on this exact head SHA.
+            # The ship job's own ship/revert-* guard keeps the loop acyclic.
+            git push --force \
+              "https://x-access-token:${RECOVERY_PUSH_TOKEN}@github.com/$REPO.git" \
+              "ship/revert-$short"
+          else
+            git push --force origin "ship/revert-$short"
+          fi
           gh pr create --base main --head "ship/revert-$short" \
             --title "Automatic certified revert of red release $short" \
             --body "The release gate failed for $MERGED_SHA. This revert is certified, merged and re-gated by the SAME run that detected the failure. No human is required." || true
           rnumber=$(gh pr list --head "ship/revert-$short" --base main --state open \
                       --json number --jq '.[0].number')
-          before=$(gh run list --workflow=ci.yml --branch "ship/revert-$short" \
-                     --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
-          gh workflow run ci.yml --ref "ship/revert-$short" >&2
-          rid="$before"; tries=0
-          while [ "$rid" = "$before" ] && [ $tries -lt 24 ]; do
-            sleep 5; tries=$((tries+1))
-            rid=$(gh run list --workflow=ci.yml --branch "ship/revert-$short" \
-                    --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
-          done
+          if [ -n "${RECOVERY_PUSH_TOKEN:-}" ]; then
+            # Wait for the push-event ci run born from the authenticated push.
+            rid=0; tries=0
+            while [ "$rid" = "0" ] && [ $tries -lt 24 ]; do
+              sleep 5; tries=$((tries+1))
+              rid=$(gh run list --workflow=ci.yml --branch "ship/revert-$short" \
+                      --event push --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+            done
+            [ "$rid" != "0" ] || {
+              echo "push-event ci run never appeared for ship/revert-$short (is SHIP_RECOVERY_TOKEN valid?)" >&2
+              exit 1; }
+          else
+            before=$(gh run list --workflow=ci.yml --branch "ship/revert-$short" \
+                       --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+            gh workflow run ci.yml --ref "ship/revert-$short" >&2
+            rid="$before"; tries=0
+            while [ "$rid" = "$before" ] && [ $tries -lt 24 ]; do
+              sleep 5; tries=$((tries+1))
+              rid=$(gh run list --workflow=ci.yml --branch "ship/revert-$short" \
+                      --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+            done
+            [ "$rid" != "$before" ] || { echo "dispatched ci run never appeared" >&2; exit 1; }
+          fi
           gh run watch "$rid" --exit-status --interval 15
           # CI can be green a few seconds before branch-policy state converges.
           # Queue the certified revert under the policy, then wait boundedly
@@ -258,6 +294,8 @@ jobs:
             fi
           done
           [ -n "$recovery_sha" ] || {
+            gh issue create --title "RECOVERY MERGE STALLED: ship/revert-$short (PR #$rnumber)" \
+              --body "The certified revert PR did not merge within 10 minutes. Most likely cause when SHIP_RECOVERY_TOKEN is not configured: the revert branch was pushed with GITHUB_TOKEN, so branch protection never received push-event required contexts (observed on PR #168). Unblock now: from a user-authenticated checkout, \`git commit --allow-empty -m 'ci: attach protected rollback checks' && git push origin ship/revert-$short\`. Fix permanently: add a fine-grained PAT (this repo; Contents + Workflows read/write) as the SHIP_RECOVERY_TOKEN actions secret — the recovery path then pushes revert branches as a user event automatically." || true
             echo "certified recovery PR did not merge within 10 minutes"; exit 1; }
           echo "recovery merged → main @ $recovery_sha — certifying the RECOVERY"
           python live/scripts/release_gate.py \
