@@ -163,6 +163,24 @@ def test_contact_stays_off_even_when_runner_is_enabled(monkeypatch):
     assert scout.contact_enabled() is False
 
 
+def test_completed_cycle_refreshes_warm_discovery_census(monkeypatch):
+    monkeypatch.setenv("GUILD_SCOUT_AUTORUN", "1")
+    monkeypatch.setenv("GUILD_DISCOVERY_REACH_CACHE", "1")
+    calls = []
+
+    def refresh():
+        calls.append(True)
+        return {"refreshed": True, "snapshot_events": 123}
+
+    monkeypatch.setattr(store, "refresh_discovery_reach_cache", refresh)
+    out = runner.run_once(store, fetch=_no_net)
+
+    assert out["completed"] is True
+    assert calls == [True]
+    assert out["summary"]["index"]["discovery_reach_cache"] == {
+        "refreshed": True, "snapshot_events": 123}
+
+
 def test_swarm_status_endpoint_exposes_state_without_secrets(monkeypatch):
     from app.main import app
     monkeypatch.setenv("GUILD_SCOUT_AUTORUN", "1")
