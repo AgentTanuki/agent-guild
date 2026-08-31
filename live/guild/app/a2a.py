@@ -648,26 +648,9 @@ def _note_objective_followthrough(actor: str, capability: str, ua: str) -> None:
     session id, so same actor + canonical capability in the retained event tail
     is the strongest available link. A parent hash is counted once.
     """
-    parent = None
-    for event in reversed(store.events[-500:]):
-        if (event.get("key") == actor
-                and event.get("type") == "query"
-                and event.get("caller_kind") == "objective_ask"
-                and event.get("capability") == capability):
-            parent = event.get("request_sha256")
-            break
-    if not parent:
-        return
-    if any(event.get("type") == "objective_action_followed"
-           and event.get("parent_request_sha256") == parent
-           and event.get("action") == "trust.check.full"
-           for event in store.events[-500:]):
-        return
-    store.record_event(
-        actor, "objective_action_followed", ua=ua,
-        endpoint="a2a_message", capability=capability,
-        action="trust.check.full", parent_request_sha256=parent,
-        attribution="same_actor_capability_recent_tail")
+    _objective.note_followthrough(
+        store, actor, capability, ua=ua,
+        endpoint="a2a_message", transport="a2a")
 
 
 @router.post("/a2a")

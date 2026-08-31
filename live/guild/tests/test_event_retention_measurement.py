@@ -89,6 +89,40 @@ def test_funnel_experiment_and_revenue_read_durable_history(sqlite_store):
     assert revenue["attributed_external_payments"] == 1
 
 
+def test_objective_metrics_use_durable_history_not_serving_tail(sqlite_store):
+    s = sqlite_store
+    parent = "a" * 64
+    s.record_event(
+        "a2a:buyer", "query", ua="a2a:test", endpoint="a2a_message",
+        caller_kind="objective_ask", capability="fact-check",
+        request_sha256=parent, request_utf8_bytes=24)
+    s.record_event(
+        "a2a:buyer", "first_contact_response", ua="a2a:test",
+        endpoint="a2a_message", caller_kind="objective_ask",
+        capability="fact-check", request_sha256=parent,
+        response_bytes=640, response_kind="objective_match")
+    s.record_event(
+        "a2a:buyer", "objective_action_followed", ua="a2a:test",
+        action="trust.check.full", parent_request_sha256=parent,
+        capability="fact-check")
+    for i in range(8):
+        s.record_event(None, "filler", i=i)
+
+    assert s.events_omitted_by_retention > 0
+    assert not any(event.get("request_sha256") == parent
+                   for event in s.events)
+    metrics = s.objective_to_action_funnel()
+    assert metrics["objective_requests"] == 1
+    assert metrics["mapped"] == 1
+    assert metrics["response_bytes"]["observed"] == 1
+    assert metrics["full_detail_followthrough"]["followed"] == 1
+    retention = metrics["retention"]
+    assert retention["measurement_source"] == "sqlite_durable"
+    assert retention["history_complete"] is True
+    assert retention["events_omitted"] == 0
+    assert retention["in_memory_tail_omitted"] > 0
+
+
 def test_running_arm_and_price_state_survive_restart_unchanged(sqlite_store):
     s = sqlite_store
     baseline = {metric: 0 for metric in experiments.PRIMARY_METRICS}

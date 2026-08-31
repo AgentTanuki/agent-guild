@@ -19,9 +19,10 @@ import os
 import uuid
 import contextvars
 from urllib.parse import quote
-from typing import Any, Literal, Optional
+from typing import Any, Callable, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Header, Path, Query, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import http_exception_handler
 from datetime import datetime, timezone
 
@@ -71,6 +72,7 @@ from . import evidence_semantics
 from . import crypto
 from . import callerproof
 from . import demand
+from . import objective_match
 from . import market
 from . import walletbinding
 from . import paymentdecision
@@ -564,6 +566,74 @@ async def _machine_payment_required_handler(request: Request,
                         headers=headers)
 
 
+def _safe_validation_issues(
+        exc: RequestValidationError, allowed_fields: set[str]) -> list[dict]:
+    """Reduce framework validation errors to server-owned identifiers only.
+
+    FastAPI's default 422 body includes the rejected ``input`` value.  That is
+    useful for a human form and unsafe at a machine coordination boundary: it
+    can relay attacker-controlled text into the next agent context.  Locations
+    are also allowlisted because an arbitrary object key can otherwise become
+    part of ``loc``.
+    """
+    issues = []
+    for error in exc.errors():
+        location = next((str(part) for part in reversed(error.get("loc") or ())
+                         if str(part) in allowed_fields), "request")
+        issues.append({"field": location,
+                       "code": str(error.get("type") or "invalid")})
+    return issues[:16]
+
+
+@app.exception_handler(RequestValidationError)
+async def _machine_validation_handler(request: Request,
+                                      exc: RequestValidationError):
+    """Useful no-relay 422s for the two machine-first coordination surfaces."""
+    if request.url.path in ("/check", "/search"):
+        return JSONResponse(status_code=422, content={
+            "schema": "AGERR-1/1.0",
+            "kind": "capability_input_invalid",
+            "error": {
+                "code": "request_validation_error",
+                "issues": _safe_validation_issues(
+                    exc, {"capability", "signed", "ttl_seconds",
+                          "limit", "min_trust"}),
+            },
+            "accepted": {
+                "canonical_id": "fact-check",
+                "natural_objective": "I need to verify a claim",
+            },
+            "authority": {"mode": "advisory", "grants": []},
+            "available_actions": [{
+                "id": "capabilities.list", "effect": "read",
+                "requires_local_authorisation": False,
+                "call": {"method": "GET", "path": "/capabilities"},
+            }],
+        })
+    if request.url.path == "/incidents":
+        return JSONResponse(status_code=422, content={
+            "schema": "AGERR-1/1.0",
+            "kind": "incident_report_invalid",
+            "error": {
+                "code": "request_validation_error",
+                "issues": _safe_validation_issues(exc, {
+                    "category", "severity", "details", "content_sha256",
+                    "task_ref", "mandate_ref", "nonce",
+                }),
+            },
+            "authority": {"mode": "advisory", "grants": []},
+            "available_actions": [{
+                "id": "incident.schema", "effect": "read",
+                "requires_local_authorisation": False,
+                "call": {"method": "GET", "path": "/openapi.json"},
+            }],
+        })
+    # Preserve framework behavior elsewhere; this task hardens the two
+    # coordination boundaries without silently changing every API contract.
+    from fastapi.exception_handlers import request_validation_exception_handler
+    return await request_validation_exception_handler(request, exc)
+
+
 @app.exception_handler(PaymentIdConflict)
 async def _payment_id_conflict_handler(request: Request,
                                        exc: PaymentIdConflict):
@@ -927,6 +997,98 @@ def _record_http_demand(request: Request, capability: str,
             request.headers.get("x-guild-source"),
             request.headers.get("x-agent-guild-first-party")),
         caller_proof_verified=verified, caller_did=did)
+
+
+def _http_objective_first_response(
+        request: Request, capability: str, x_api_key: Optional[str], *,
+        signed: bool = False, ttl_seconds: int = 3600,
+        endpoint: str = "check",
+        action_id: str = "trust.check.full",
+        paid_request_builder: Optional[Callable[[str], PaidRequest]] = None,
+        action_path_builder: Optional[Callable[[str], str]] = None,
+        ) -> tuple[Optional[str], Optional[JSONResponse]]:
+    """Separate canonical capability ids from natural-language objectives.
+
+    Canonical ids continue to the existing demand + payment path.  Prose is
+    mapped before either side effect, and receives a compact hash-bound capsule
+    rather than being slugified, billed, or reflected into an x402 challenge.
+    """
+    if not (capability or "").strip():
+        return None, JSONResponse(status_code=422, content={
+            "schema": "AGERR-1/1.0",
+            "kind": "capability_input_invalid",
+            "error": {"code": "empty_capability"},
+            "authority": {"mode": "advisory", "grants": []},
+            "available_actions": [{
+                "id": "capabilities.list", "effect": "read",
+                "requires_local_authorisation": False,
+                "call": {"method": "GET", "path": "/capabilities"},
+            }],
+        })
+    canonical = objective_match.canonical_input(capability)
+    if canonical is not None:
+        if endpoint == "check":
+            objective_match.note_followthrough(
+                store, _http_demand_actor(request, x_api_key), canonical,
+                ua=_ua.get(), endpoint=endpoint, transport="http")
+        return canonical, None
+
+    matched = objective_match.match(
+        capability, store.capability_index().keys())
+    mapped = matched.get("kind") in (
+        "exact_canonical", "versioned_alias", "deterministic_tokens")
+    caller_kind = ("objective_ask" if mapped
+                   else "objective_ambiguous"
+                   if matched.get("kind") == "ambiguous"
+                   else "objective_no_match")
+    actor = _http_demand_actor(request, x_api_key)
+    canonical = matched.get("canonical_capability") if mapped else None
+    binding = matched["request"]
+    store.record_event(
+        actor, "query", ua=_ua.get(), endpoint=endpoint, transport="http",
+        request_sha256=binding["sha256"],
+        request_utf8_bytes=binding["utf8_bytes"],
+        caller_kind=caller_kind, capability=canonical,
+        objective_match_kind=matched.get("kind"))
+
+    if mapped:
+        # Recording demonstrated demand remains free, but records only the
+        # server-selected canonical id—not a slug made from caller prose.
+        _record_http_demand(request, canonical, x_api_key)
+        priced = billing.billing_enforced() and x402.enabled()
+        preq = (paid_request_builder(canonical)
+                if paid_request_builder is not None
+                else payments.check_request(canonical, signed, ttl_seconds))
+        if action_path_builder is not None:
+            action_path = action_path_builder(canonical)
+        else:
+            action_path = "/check?capability=" + quote(canonical, safe="")
+            if signed:
+                action_path += ("&signed=true&ttl_seconds=" + str(ttl_seconds))
+        payload = objective_match.objective_capsule(
+            matched,
+            None if priced else store.check(canonical, demand_recorded=True),
+            price_credits=(preq.cost if priced else None),
+            action_path=action_path, action_id=action_id)
+        if priced:
+            store.record_event(
+                actor, "paid_offer_shown", ua=_ua.get(),
+                endpoint="first_contact_capsule", transport="http",
+                challenged_operation=preq.operation,
+                impression="action_link", actor_distinct=True,
+                price_credits=preq.cost)
+    else:
+        payload = objective_match.unresolved_capsule(
+            matched, transport="http")
+
+    raw = json.dumps(payload, default=str, ensure_ascii=False,
+                     separators=(",", ":")).encode("utf-8")
+    store.record_event(
+        actor, "first_contact_response", ua=_ua.get(), endpoint=endpoint,
+        transport="http", caller_kind=caller_kind, capability=canonical,
+        request_sha256=binding["sha256"], response_bytes=len(raw),
+        response_kind=payload.get("kind"))
+    return None, JSONResponse(content=payload)
 
 
 def _meter_with_demand(preq: PaidRequest, x_api_key: Optional[str],
@@ -3156,6 +3318,16 @@ def check_discovery_quote(
     demand, or returns protected content.  A payment-bearing ``HEAD`` retry is
     therefore still only a quote and cannot settle funds.
     """
+    canonical = objective_match.canonical_input(capability)
+    if canonical is None:
+        raise HTTPException(422, {
+            "error": "canonical_capability_required",
+            "detail": ("HEAD is a discovery quote and accepts only a canonical "
+                       "capability id; use GET /check for objective mapping"),
+            "action": {"method": "GET", "path": "/check",
+                       "query": {"capability": "<natural objective>"}},
+        })
+    capability = canonical
     preq = payments.check_request(capability, signed, ttl_seconds)
     challenge = PaymentChallenge(preq, extra={
         "discovery_only": True,
@@ -3189,6 +3361,12 @@ def check(
     provenance-labelled PROOF the Guild improves outcomes, and how to
     contribute back. `signed=true` returns a Guild-signed, offline-verifiable
     decision for gateway caching. hire/caution/avoid is legacy presentation."""
+    capability, first_response = _http_objective_first_response(
+        request, capability, x_api_key,
+        signed=signed, ttl_seconds=ttl_seconds, endpoint="check")
+    if first_response is not None:
+        return first_response
+    assert capability is not None
     dem = _record_http_demand(request, capability, x_api_key)
     preq = payments.check_request(capability, signed, ttl_seconds)
     facts = _meter_with_demand(preq, x_api_key, response, dem)
@@ -3577,6 +3755,17 @@ def search(
             payments.search_request("discovery-only", limit, min_trust),
             x_api_key, discovery_only=True)
         raise HTTPException(422, "capability is required")
+    capability, first_response = _http_objective_first_response(
+        request, capability, x_api_key, endpoint="search",
+        action_id="trust.search.full",
+        paid_request_builder=lambda cap: payments.search_request(
+            cap, limit, min_trust),
+        action_path_builder=lambda cap: (
+            "/search?capability=" + quote(cap, safe="")
+            + "&limit=" + str(limit) + "&min_trust=" + str(min_trust)))
+    if first_response is not None:
+        return first_response
+    assert capability is not None
     dem = _record_http_demand(request, capability, x_api_key)
     preq = payments.search_request(capability, limit, min_trust)
     facts = _meter_with_demand(preq, x_api_key, response, dem)
@@ -4672,8 +4861,20 @@ def report_incident(
         return incidents.submit(
             store, **report.model_dump(), reporter_agent=reporter,
             transport="http")
-    except ValueError as exc:
-        raise HTTPException(422, str(exc))
+    except ValueError:
+        # The rejected report is private even when invalid.  Never put its
+        # content—or an exception that may contain it—back on the wire.
+        return JSONResponse(status_code=422, content={
+            "schema": "AGERR-1/1.0",
+            "kind": "incident_report_invalid",
+            "error": {"code": "incident_integrity_check_failed"},
+            "authority": {"mode": "advisory", "grants": []},
+            "available_actions": [{
+                "id": "incident.schema", "effect": "read",
+                "requires_local_authorisation": False,
+                "call": {"method": "GET", "path": "/openapi.json"},
+            }],
+        })
 
 
 @app.get("/.well-known/agent-guild.json")

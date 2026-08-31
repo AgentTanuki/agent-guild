@@ -3785,8 +3785,12 @@ class Store:
         All input is represented by SHA-256 and byte counts only. Follow-through
         is a labelled anonymous heuristic (same actor + canonical capability in
         the recent retained tail), never presented as a cryptographic session.
+        Counts come from one durable event snapshot when SQLite is active; the
+        bounded serving cache is not a measurement boundary.
         """
-        queries = [e for e in self.events
+        events, coverage = self.measurement_event_snapshot(types=(
+            "query", "first_contact_response", "objective_action_followed"))
+        queries = [e for e in events
                    if e.get("type") == "query"
                    and e.get("caller_kind") in (
                        "objective_ask", "objective_ambiguous",
@@ -3796,7 +3800,7 @@ class Store:
                      if e.get("caller_kind") == "objective_ambiguous"]
         no_match = [e for e in queries
                     if e.get("caller_kind") == "objective_no_match"]
-        responses = [e for e in self.events
+        responses = [e for e in events
                      if e.get("type") == "first_contact_response"
                      and e.get("caller_kind") in (
                          "objective_ask", "objective_ambiguous",
@@ -3805,7 +3809,7 @@ class Store:
                                if e.get("caller_kind") != "probe"]
         sizes = [int(e.get("response_bytes") or 0)
                  for e in objective_responses if e.get("response_bytes") is not None]
-        follows = [e for e in self.events
+        follows = [e for e in events
                    if e.get("type") == "objective_action_followed"
                    and e.get("action") == "trust.check.full"]
         matched_parents = {e.get("request_sha256") for e in mapped
@@ -3813,6 +3817,12 @@ class Store:
         followed_parents = {e.get("parent_request_sha256") for e in follows
                             if e.get("parent_request_sha256") in matched_parents}
         total = len(queries)
+        floor = coverage.get("history_floor") or self.event_history_floor or {}
+        if coverage.get("source") == "sqlite_durable":
+            unrecoverable = int(floor.get("omitted_before_cutover") or 0)
+        else:
+            unrecoverable = int(
+                coverage.get("events_omitted_by_retention") or 0)
         return {
             "schema": "AGFC-METRICS-1/1.0",
             "objective_requests": total,
@@ -3838,10 +3848,16 @@ class Store:
                 "attribution": "same_actor_capability_recent_tail",
             },
             "retention": {
-                "history_complete": (
-                    self.events_omitted_by_retention == 0
-                    and not bool(self.event_history_floor)),
-                "events_omitted": self.events_omitted_by_retention,
+                "history_complete": bool(coverage.get("history_complete")),
+                "measurement_source": coverage.get("source"),
+                "scope": ("complete_durable_history"
+                          if coverage.get("history_complete")
+                          else "incomplete_history"),
+                # Compatibility field now means genuinely unavailable events,
+                # not rows merely absent from the serving-memory tail.
+                "events_omitted": unrecoverable,
+                "in_memory_tail_omitted": self.events_omitted_by_retention,
+                "history_floor": floor or None,
             },
             "privacy": "request hashes and canonical capabilities only; no caller text",
         }

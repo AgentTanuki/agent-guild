@@ -19,6 +19,7 @@ import os
 import uuid
 from typing import Any, Callable, Optional
 from typing_extensions import TypedDict
+from urllib.parse import quote
 
 from fastmcp import Context, FastMCP
 from fastmcp.tools.tool import ToolResult
@@ -29,9 +30,11 @@ from x402.schemas import PaymentPayload
 
 from . import __version__
 from . import abuse
+from . import billing
 from . import callerproof
 from . import incidents
 from . import demand
+from . import objective_match
 from . import inbox as inbox_engine
 from . import journey as journey_engine
 from . import payments
@@ -452,6 +455,76 @@ def _record_mcp_demand(capability: str, ctx: "Context | None",
     return demand.record_demand(capability, transport="mcp", actor=actor,
                                 ua=ua, caller_proof_verified=verified,
                                 caller_did=(did if verified else ""))
+
+
+def _mcp_objective_first_response(
+        capability: str, ctx: "Context | None", api_key: str = "", *,
+        endpoint: str = "guild_check",
+        action_id: str = "trust.check.full",
+        paid_request_builder: Optional[Callable[[str], PaidRequest]] = None,
+        action_path_builder: Optional[Callable[[str], str]] = None,
+        ) -> tuple[Optional[str], Optional[dict[str, Any]]]:
+    """MCP twin of HTTP's no-relay objective boundary."""
+    canonical = objective_match.canonical_input(capability)
+    actor, distinct = _mcp_actor(ctx, api_key)
+    ua = _client_ua(ctx)
+    if canonical is not None:
+        if endpoint == "guild_check":
+            objective_match.note_followthrough(
+                store, actor, canonical, ua=ua,
+                endpoint=endpoint, transport="mcp")
+        return canonical, None
+
+    matched = objective_match.match(
+        capability, store.capability_index().keys())
+    mapped = matched.get("kind") in (
+        "exact_canonical", "versioned_alias", "deterministic_tokens")
+    caller_kind = ("objective_ask" if mapped
+                   else "objective_ambiguous"
+                   if matched.get("kind") == "ambiguous"
+                   else "objective_no_match")
+    canonical = matched.get("canonical_capability") if mapped else None
+    binding = matched["request"]
+    store.record_event(
+        actor, "query", ua=ua, endpoint=endpoint, transport="mcp",
+        request_sha256=binding["sha256"],
+        request_utf8_bytes=binding["utf8_bytes"],
+        caller_kind=caller_kind, capability=canonical,
+        objective_match_kind=matched.get("kind"))
+
+    if mapped:
+        _record_mcp_demand(canonical, ctx, api_key)
+        priced = billing.billing_enforced() and x402.enabled()
+        preq = (paid_request_builder(canonical)
+                if paid_request_builder is not None
+                else payments.check_request(canonical))
+        action_path = (action_path_builder(canonical)
+                       if action_path_builder is not None else None)
+        payload = objective_match.objective_capsule(
+            matched,
+            None if priced else store.check(canonical, demand_recorded=True),
+            price_credits=(preq.cost if priced else None),
+            action_path=action_path, action_id=action_id)
+        if priced:
+            store.record_event(
+                actor, "paid_offer_shown", ua=ua,
+                endpoint="first_contact_capsule", transport="mcp",
+                challenged_operation=preq.operation,
+                impression="action_link", actor_distinct=distinct,
+                price_credits=preq.cost)
+    else:
+        payload = objective_match.unresolved_capsule(
+            matched, transport="mcp")
+
+    raw = _json.dumps(payload, default=str, ensure_ascii=False,
+                      separators=(",", ":")).encode("utf-8")
+    store.record_event(
+        actor, "first_contact_response", ua=ua,
+        endpoint=endpoint, transport="mcp",
+        caller_kind=caller_kind, capability=canonical,
+        request_sha256=binding["sha256"], response_bytes=len(raw),
+        response_kind=payload.get("kind"))
+    return None, payload
 
 
 def _with_inbox(result: Any, presented_key: str) -> Any:
@@ -998,6 +1071,11 @@ def guild_check(capability: str, api_key: str = "",
     Returns {capability, best_agent, verdict, shortlist, proof, why_trust_this,
     how_to_contribute}. Use guild_search / guild_risk_score for finer control.
     """
+    capability, first_response = _mcp_objective_first_response(
+        capability, ctx, api_key)
+    if first_response is not None:
+        return first_response
+    assert capability is not None
     dem = _record_mcp_demand(capability, ctx, api_key)
     preq = payments.check_request(capability)
 
@@ -1039,6 +1117,17 @@ def guild_search(capability: str, min_trust: float = 0.0, limit: int = 10,
     Example: guild_search(capability="fact-check", min_trust=40, limit=5)
     Returns a ranked list of {id, name, trust, confidence, price_per_call, rank}.
     """
+    capability, first_response = _mcp_objective_first_response(
+        capability, ctx, api_key, endpoint="guild_search",
+        action_id="trust.search.full",
+        paid_request_builder=lambda cap: payments.search_request(
+            cap, limit, min_trust),
+        action_path_builder=lambda cap: (
+            "/search?capability=" + quote(cap, safe="")
+            + "&limit=" + str(limit) + "&min_trust=" + str(min_trust)))
+    if first_response is not None:
+        return first_response
+    assert capability is not None
     dem = _record_mcp_demand(capability, ctx, api_key)
     preq = payments.search_request(capability, limit, min_trust)
 
@@ -1075,6 +1164,17 @@ def guild_best_agent(capability: str, min_trust: float = 0.0,
     Example: guild_best_agent(capability="summarize")
     Returns one {id, name, trust, confidence, price_per_call, rank} or null.
     """
+    capability, first_response = _mcp_objective_first_response(
+        capability, ctx, api_key, endpoint="guild_best_agent",
+        action_id="trust.search.full",
+        paid_request_builder=lambda cap: payments.search_request(
+            cap, 1, min_trust),
+        action_path_builder=lambda cap: (
+            "/search?capability=" + quote(cap, safe="")
+            + "&limit=1&min_trust=" + str(min_trust)))
+    if first_response is not None:
+        return first_response
+    assert capability is not None
     dem = _record_mcp_demand(capability, ctx, api_key)
     preq = payments.search_request(capability, 1, min_trust)
 
