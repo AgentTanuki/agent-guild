@@ -18,6 +18,8 @@ from __future__ import annotations
 import json
 import pathlib
 import sys
+import time
+import urllib.error
 import urllib.request
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -27,10 +29,35 @@ HOST = CONTRACT["service"]["host"]
 FAIL: list[str] = []
 
 
-def get(url: str, timeout: float = 30.0):
+def open_request(request: urllib.request.Request, timeout: float = 30.0, *,
+                 attempts: int = 6, retry_interval: float = 2.0):
+    """Open a live request with a narrow deployment-transient retry.
+
+    Render can briefly return 502/503/504 for every path while swapping a
+    healthy deployment. Retrying only gateway/unavailability responses and
+    connection failures prevents that window from becoming a false contract
+    failure; all semantic HTTP errors still fail on the first observation.
+    """
+    attempts = max(1, attempts)
+    for attempt in range(1, attempts + 1):
+        try:
+            return urllib.request.urlopen(request, timeout=timeout)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (502, 503, 504) or attempt == attempts:
+                raise
+        except urllib.error.URLError:
+            if attempt == attempts:
+                raise
+        time.sleep(retry_interval)
+    raise AssertionError("unreachable retry state")
+
+
+def get(url: str, timeout: float = 30.0, *, attempts: int = 6,
+        retry_interval: float = 2.0):
     req = urllib.request.Request(url, headers={"X-Guild-Source": "guild-ci",
                                                "User-Agent": "guild-live-conformance"})
-    return urllib.request.urlopen(req, timeout=timeout)
+    return open_request(req, timeout, attempts=attempts,
+                        retry_interval=retry_interval)
 
 
 def check(name: str, ok: bool, detail: str = ""):

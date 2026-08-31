@@ -82,15 +82,12 @@ jobs:
           fi
 
       - name: Hard gate — exact workflow SHA is live and both MCP surfaces conform
+        # Focused on the two MCP Registry claims. The broader ship release gate
+        # has already certified the whole service; unrelated analytics reads
+        # must not block publication. MCP/card/SHA drift still fails closed.
         run: |
           set -euo pipefail
-          live_sha=$(curl -fsSL https://agent-guild-5d5r.onrender.com/release | \
-            python3 -c "import json,sys;print(json.load(sys.stdin)['git_sha'])")
-          if [ "$live_sha" != "$GITHUB_SHA" ]; then
-            echo "::error::production serves $live_sha, workflow tree is $GITHUB_SHA"
-            exit 1
-          fi
-          python3 live/scripts/live_contract_probe.py
+          python3 live/scripts/registry_live_gate.py --sha "$GITHUB_SHA"
 
       - name: Validate both generated manifests
         run: |
