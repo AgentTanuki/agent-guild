@@ -442,16 +442,6 @@ def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
             index_summary = _run_index_cycle(store)
         except Exception as exc:  # noqa: BLE001
             index_summary = {"error": type(exc).__name__}
-        if store.discovery_reach_cache_enabled():
-            try:
-                # Refresh the complete signed census on the same bounded,
-                # lease-guarded six-hour cadence. Readers continue receiving
-                # the previous immutable snapshot until this one is published.
-                index_summary["discovery_reach_cache"] = \
-                    store.refresh_discovery_reach_cache()
-            except Exception as exc:  # noqa: BLE001
-                index_summary["discovery_reach_cache"] = {
-                    "error": type(exc).__name__}
         zero_demand = not summary.get("capabilities")
         # ACK only the capabilities this cycle actually processed — demand
         # that arrived mid-run stays queued for the next cycle.
