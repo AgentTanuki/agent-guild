@@ -3938,8 +3938,11 @@ def _manifest() -> dict:
             },
             "revenue_honesty": "GET /billing/revenue — real_settlement counts "
                                "ONLY independently verifiable mainnet "
-                               "transactions; sandbox credits and testnet "
-                               "settlements are never revenue",
+                               "transactions; a confirmed settlement is "
+                               "revenue unless the payer is positively "
+                               "identified as Guild-controlled; sandbox "
+                               "credits and testnet settlements are never "
+                               "revenue",
         },
         "invocable_capabilities": {
             "what": "16 narrow, deterministic, fixture-verified utility capabilities "
@@ -5668,6 +5671,18 @@ def commercial_report(operation: Optional[str] = None):
         "number_to_watch": {
             "metric": "external_settled_revenue_usd",
             "value": snap["commercial"]["external_settled_revenue_usd"],
+            "gross_settled_revenue_usd":
+                snap["commercial"].get("gross_settled_revenue_usd"),
+            "known_first_party_settled_usd":
+                snap["commercial"].get("known_first_party_settled_usd"),
+            "successful_external_payments":
+                snap["commercial"].get("successful_external_payments"),
+            "distinct_external_payer_wallets":
+                snap["commercial"].get("distinct_external_payer_wallets"),
+            "attributed_external_payments":
+                snap["commercial"].get("attributed_external_payments"),
+            "attribution_coverage":
+                snap["commercial"].get("attribution_coverage"),
             "definition": snap["commercial"]["revenue_definition"],
         },
     }

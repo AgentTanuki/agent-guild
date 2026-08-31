@@ -455,8 +455,13 @@ class HealthSnapshot(BaseModel):
     caveat so a number cannot be quoted without it:
       * utility is the PRODUCTION-only lift, with its sample size attached; the
         seeded bootstrap figure travels under an explicitly non-production key;
-      * revenue is ONLY independently confirmed external mainnet settlement;
-        sandbox credits are an internal unit and are labelled NOT_MONEY;
+      * revenue is ONLY independently confirmed mainnet settlement; the
+        headline (2026-08-31 revenue-semantics correction) counts every
+        confirmed mainnet settlement as revenue UNLESS the payer is
+        positively identified as Guild-controlled (first-party/canary) -
+        attribution is measured (attribution_coverage), never a
+        prerequisite; sandbox credits are an internal unit and are
+        labelled NOT_MONEY;
       * growth is adoption-grade external activity, not "records lacking
         first_party".
     """
@@ -478,7 +483,18 @@ class HealthSnapshot(BaseModel):
     external_repeat_query_agents: int
     external_repeat_paid_agents: int
     # --- economic value ----------------------------------------------------
-    # Real money: independently confirmed external mainnet settlement only.
+    # Real money, HEADLINE (founder decision 2026-08-31): every
+    # independently confirmed mainnet settlement, split by positive
+    # first-party identification; "external" = not positively first-party.
+    gross_settled_revenue_usd: float = 0.0
+    known_first_party_settled_usd: float = 0.0
+    external_settled_revenue_usd: float = 0.0
+    successful_external_payments: int = 0
+    distinct_external_payer_wallets: int = 0
+    attributed_external_payments: int = 0
+    attribution_coverage: Optional[float] = None
+    # Stricter attribution subsets of the same money (identity claims,
+    # not revenue gates).
     verified_external_revenue_usd: float = 0.0
     cryptographically_bound_machine_revenue_usd: float = 0.0
     # Internal accounting units. NOT money, never summed with the above.

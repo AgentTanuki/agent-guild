@@ -51,9 +51,29 @@ DISPLAY = [
     ("external_querying_agents", "growth · external actors querying", str),
     ("external_repeat_query_agents", "retention · repeat-query", str),
     ("external_repeat_paid_agents", "retention · repeat-paid", str),
-    # ECONOMIC VALUE — independently confirmed external mainnet settlement is
-    # the ONLY revenue line. Sandbox credits print as credits, never as money.
-    ("verified_external_revenue_usd", "revenue · VERIFIED external (USD)",
+    # ECONOMIC VALUE — independently confirmed mainnet settlement is the
+    # ONLY revenue basis. HEADLINE (2026-08-31): every confirmed mainnet
+    # settlement is revenue unless the payer is positively identified as
+    # Guild-controlled; attribution is measured, never a prerequisite.
+    # Sandbox credits print as credits, never as money.
+    ("gross_settled_revenue_usd", "revenue · GROSS settled (USD)",
+     lambda v: f"${float(v):.2f}"),
+    ("known_first_party_settled_usd",
+     "revenue · known first-party/canary settled (USD)",
+     lambda v: f"${float(v):.2f}"),
+    ("external_settled_revenue_usd",
+     "revenue · EXTERNAL settled (USD, not positively first-party)",
+     lambda v: f"${float(v):.2f}"),
+    ("successful_external_payments", "revenue · external payments", str),
+    ("distinct_external_payer_wallets",
+     "revenue · distinct external payer wallets", str),
+    ("attributed_external_payments",
+     "revenue · attributed external payments", str),
+    ("attribution_coverage", "revenue · attribution coverage",
+     lambda v: (f"{float(v):.0%}" if isinstance(v, (int, float))
+                else "n/a (no external payments)")),
+    ("verified_external_revenue_usd",
+     "revenue · independently ATTESTED subset (USD)",
      lambda v: f"${float(v):.2f}"),
     ("cryptographically_bound_machine_revenue_usd",
      "revenue · bound-machine, ownership unproven (USD)",
@@ -76,17 +96,18 @@ def _get(url: str, timeout: float = 25.0):
 
 def _fallback_verdict(v: dict) -> str:
     """Same gate as the server verdict: a positive read requires BOTH an
-    adoption-grade external credential holder AND verified external mainnet
-    revenue. Sandbox credits never qualify (corrective pass 2026-07-31)."""
-    revenue = float(v.get("verified_external_revenue_usd") or 0.0)
+    adoption-grade external credential holder AND external settled mainnet
+    revenue (confirmed, payer not positively first-party — founder decision
+    2026-08-31). Sandbox credits never qualify."""
+    revenue = float(v.get("external_settled_revenue_usd") or 0.0)
     if v["external_querying_agents"] == 0:
         return "NO EXTERNAL DISCOVERY YET — no agent we don't operate has queried the trust layer."
     if v["external_repeat_query_agents"] == 0:
         return "REACH BUT NO RETENTION — queried once, none came back."
     if revenue <= 0:
-        return ("NO VERIFIED EXTERNAL REVENUE — sandbox credits and first-party "
+        return ("NO EXTERNAL SETTLED REVENUE — sandbox credits and first-party "
                 "canaries are not money; willingness-to-pay is unproven.")
-    return f"VERIFIED EXTERNAL REVENUE ${revenue:.2f} — watch the trend."
+    return f"EXTERNAL SETTLED REVENUE ${revenue:.2f} — watch the trend."
 
 
 def fallback_snapshot(base: str) -> dict:
@@ -118,6 +139,28 @@ def fallback_snapshot(base: str) -> dict:
         # Revenue can ONLY come from independently confirmed external mainnet
         # settlement. The old line multiplied sandbox paid-read counts by a
         # notional rate and printed it as USD — that was inventing money.
+        # HEADLINE revenue (2026-08-31): straight from the settlement
+        # ledger via /billing/revenue.real_settlement.
+        "gross_settled_revenue_usd": float(
+            ((rev.get("real_settlement") or {}).get(
+                "gross_settled_revenue_usd")) or 0.0),
+        "known_first_party_settled_usd": float(
+            ((rev.get("real_settlement") or {}).get(
+                "known_first_party_settled_usd")) or 0.0),
+        "external_settled_revenue_usd": float(
+            ((rev.get("real_settlement") or {}).get(
+                "external_settled_revenue_usd")) or 0.0),
+        "successful_external_payments": int(
+            ((rev.get("real_settlement") or {}).get(
+                "successful_external_payments")) or 0),
+        "distinct_external_payer_wallets": int(
+            ((rev.get("real_settlement") or {}).get(
+                "distinct_external_payer_wallets")) or 0),
+        "attributed_external_payments": int(
+            ((rev.get("real_settlement") or {}).get(
+                "attributed_external_payments")) or 0),
+        "attribution_coverage": (rev.get("real_settlement") or {}).get(
+            "attribution_coverage"),
         "verified_external_revenue_usd": float(
             ((rev.get("real_settlement") or {}).get(
                 "independently_attested_external_revenue_usd")) or 0.0),

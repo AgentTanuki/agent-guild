@@ -216,7 +216,7 @@ def test_flywheel_verdict_requires_adoption_AND_verified_revenue(store):
     base = {"agents_external": 5, "external_querying_agents": 3,
             "external_repeat_query_agents": 2, "external_paid_queries": 99,
             "adoption_grade_external_self_claims": 0,
-            "verified_external_revenue_usd": 0.0}
+            "external_settled_revenue_usd": 0.0}
 
     # sandbox paid reads alone must NOT produce a flywheel verdict
     assert "FLYWHEEL" not in Store._verdict(dict(base), {})
@@ -226,15 +226,17 @@ def test_flywheel_verdict_requires_adoption_AND_verified_revenue(store):
     assert "FLYWHEEL" not in Store._verdict(v, {})
     assert "ADOPTION WITHOUT REVENUE" in Store._verdict(v, {})
 
-    # money without adoption
-    v = dict(base, verified_external_revenue_usd=25.0)
+    # money without adoption - external settled revenue (confirmed mainnet,
+    # payer not positively first-party) is the revenue half since the
+    # 2026-08-31 revenue-semantics correction; attestation is not required
+    v = dict(base, external_settled_revenue_usd=25.0)
     assert "FLYWHEEL" not in Store._verdict(v, {})
     assert "REVENUE WITHOUT ADOPTION" in Store._verdict(v, {})
 
     # both, and moving
     v = dict(base, adoption_grade_external_self_claims=2,
-             verified_external_revenue_usd=25.0)
-    out = Store._verdict(v, {"verified_external_revenue_usd": 25.0})
+             external_settled_revenue_usd=25.0)
+    out = Store._verdict(v, {"external_settled_revenue_usd": 25.0})
     assert "FLYWHEEL TURNING" in out
 
 

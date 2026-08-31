@@ -196,7 +196,9 @@ def test_mainnet_settlement_from_an_external_caller_counts(store):
                        settlement_amount_atomic=20000,
                        payer_attribution=(
                            "independently_attested_external_machine"))
-    m = experiments.commercial_metrics(store)
+    # the GLOBAL headline reads the settlement ledger (2026-08-31); the
+    # mechanically linked EVENT carries the completion for its operation
+    m = experiments.commercial_metrics(store, "deep_preflight")
     assert m["paid_decisions"] == 1
     assert m["distinct_external_payers"] == 1
 
@@ -207,9 +209,14 @@ def test_settled_but_first_party_is_not_a_customer(store):
                        paid=True, settlement_mode="x402",
                        settlement_confirmed=True, settlement_mainnet=True,
                        first_party=True)
-    m = experiments.commercial_metrics(store)
+    m = experiments.commercial_metrics(store, "deep_preflight")
     assert m["paid_decisions"] == 0
-    assert m["settled_but_not_attributable_external"] >= 1
+    # 2026-08-31 semantics: a first-party-authenticated caller's settlement
+    # is POSITIVELY Guild-controlled - excluded as first-party money, not
+    # left dangling as "unattributable".
+    assert m["external_settled_revenue_usd"] == 0.0
+    assert m["settled_but_not_attributable_external"] == 0
+    assert experiments.commercial_metrics(store)["paid_decisions"] == 0
 
 
 def test_sandbox_volume_can_never_promote_an_experiment(store):

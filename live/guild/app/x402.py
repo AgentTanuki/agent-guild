@@ -339,7 +339,11 @@ def readiness() -> dict[str, Any]:
         },
         "revenue_policy": ("real revenue counts ONLY mainnet settlements "
                            "independently confirmed on-chain (receipt status, "
-                           "USDC contract, recipient, exact amount)"),
+                           "USDC contract, recipient, exact amount); a "
+                           "confirmed settlement is revenue unless the payer "
+                           "is positively identified as Guild-controlled "
+                           "first-party/canary - attribution is measured, "
+                           "never a prerequisite"),
     }
 
 

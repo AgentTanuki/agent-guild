@@ -166,6 +166,24 @@ PORTFOLIO_EXPOSURE_EVENTS = (
 )
 
 
+def effective_event_attribution(event: dict) -> str:
+    """Read-time payer-attribution class for a completion EVENT, through the
+    same config-aware rule as the settlement ledger (a configured canary
+    wallet or settle-time first-party flag reads as
+    verified_first_party_canary; upgrades only ever move TOWARD
+    first-party). A completion recorded from a caller that AUTHENTICATED
+    as Guild first-party (the fp/first_party event flags - release gates,
+    canaries, internal tooling) is POSITIVELY Guild-controlled spend, so it
+    reads as first-party even when the settlement itself carried no payer
+    attribution. Lazy import: payments pulls heavier deps."""
+    from . import payments as _payments
+    cls = _payments.effective_payer_attribution(event)
+    if cls == "unverified_payer" and (event.get("fp")
+                                      or event.get("first_party")):
+        return "verified_first_party_canary"
+    return cls
+
+
 def is_revenue(event: dict) -> bool:
     """Did real, confirmed, mainnet money move for this event?
 
@@ -401,6 +419,15 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
                        ) -> dict[str, Any]:
     """The primary metrics. Revenue is REAL money only.
 
+    REVENUE SEMANTICS (founder decision 2026-08-31). A successfully
+    confirmed mainnet x402 settlement IS revenue unless the payer is
+    positively identified as Guild-controlled (first-party/canary). Buyer
+    identity, caller proof, wallet binding, operation attribution and
+    inferred intent are NOT prerequisites for recognising revenue; they are
+    measured separately (attribution_coverage). "External" means "not
+    positively identified as first-party" - never "independently attested
+    external ownership".
+
     `operation` scopes every figure to ONE paid operation. Without it, an
     experiment on the deep_preflight price could be promoted by unrelated
     escrow revenue or by a watch sold for a different offer — the experiment
@@ -413,6 +440,9 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
     paid_decisions = 0
     repeat: dict[str, int] = {}
     revenue_usd = 0.0
+    first_party_settled = 0
+    first_party_usd = 0.0
+    attributed_settled = 0
     sandbox_decisions = 0
     sandbox_actors: set[str] = set()
     unattributed_settled = 0
@@ -454,16 +484,28 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
             # successful payment of nothing
             testnet_settlements += 1
             continue
-        # A framework-looking caller is evidence of demand, not proof of an
-        # independent payer.  Revenue uses the same closed, cryptographic
-        # attribution class as /billing/revenue and fails closed for legacy,
-        # merely wallet-bound, unverified and first-party settlements.
-        if e.get("payer_attribution") != \
-                "independently_attested_external_machine":
-            unattributed_settled += 1
+        # FOUNDER DECISION 2026-08-31 (revenue semantics): a confirmed
+        # mainnet settlement IS revenue unless the payer is POSITIVELY
+        # identified as Guild-controlled (verified_first_party_canary).
+        # Identity, caller proof and wallet binding are measured - see
+        # attributed/attribution_coverage - never prerequisites for
+        # recognising the money. `unverified_payer` still means the payer
+        # IDENTITY is unverified; it no longer means the confirmed money is
+        # not revenue, and it is never promoted to an independently
+        # attested external identity.
+        cls = effective_event_attribution(e)
+        if cls == "verified_first_party_canary":
+            first_party_settled += 1
+            first_party_usd += (
+                float(e.get("settlement_amount_atomic") or 0) / 1e6)
             continue
         paid_decisions += 1
         revenue_usd += float(e.get("settlement_amount_atomic") or 0) / 1e6
+        if cls in ("cryptographically_bound_machine_payer",
+                   "independently_attested_external_machine"):
+            attributed_settled += 1
+        else:
+            unattributed_settled += 1
         if key and key != "anon":
             payers.add(key)
             repeat[key] = repeat.get(key, 0) + 1
@@ -479,9 +521,18 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
     if operation and operation != "watch_cycle":
         monitored = 0       # not attributable to this experiment
 
-    return {
+    metrics: dict[str, Any] = {
         "operation_scope": operation or "all",
+        # headline (founder decision 2026-08-31) - settlement truth,
+        # first-party exclusion and attribution kept separate:
+        "gross_settled_revenue_usd": round(revenue_usd + first_party_usd, 6),
+        "known_first_party_settled_usd": round(first_party_usd, 6),
         "external_settled_revenue_usd": round(revenue_usd, 6),
+        "successful_external_payments": paid_decisions,
+        "attributed_external_payments": attributed_settled,
+        "attribution_coverage": (
+            round(attributed_settled / paid_decisions, 6)
+            if paid_decisions else None),
         "distinct_external_payers": len(payers),
         "paid_decisions": paid_decisions,
         "externally_monitored_endpoints": monitored,
@@ -489,24 +540,68 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
         "supporting_sandbox_decisions_NOT_REVENUE": sandbox_decisions,
         "supporting_sandbox_distinct_actors_NOT_PAYERS": len(sandbox_actors),
         "supporting_testnet_or_unconfirmed_NOT_REVENUE": testnet_settlements,
+        # settled, counted as revenue, but not mechanically linkable to a
+        # machine identity - an ATTRIBUTION gap inside the revenue, no
+        # longer an exclusion from it.
         "settled_but_not_attributable_external": unattributed_settled,
         "measurement_coverage": coverage,
         "settlement_rule": (
             "revenue requires ALL of: settlement_mode == 'x402', "
             "settlement_confirmed (chain receipt verified, not the "
-            "facilitator's word), settlement_mainnet (the rail defaults to "
-            "Base Sepolia, where a successful settlement is a successful "
-            "payment of nothing), AND payer_attribution == "
-            "'independently_attested_external_machine' from a separate "
-            "trusted attestor. Sandbox "
-            "credits, testnet settlements, unconfirmed settlements and "
-            "unattributable callers are reported separately and can never "
-            "promote an experiment."),
+            "facilitator's word) AND settlement_mainnet (the rail defaults "
+            "to Base Sepolia, where a successful settlement is a successful "
+            "payment of nothing). A settlement meeting all three IS revenue "
+            "unless the payer is positively identified as Guild-controlled "
+            "(verified_first_party_canary). Attribution - caller proof, "
+            "wallet binding, independent attestation - is measured and "
+            "reported (attribution_coverage), never a prerequisite for "
+            "recognising revenue, and an unverified payer is never promoted "
+            "to an independently attested external identity. Sandbox "
+            "credits, testnet and unconfirmed settlements are never "
+            "revenue. A settlement may promote a price/offer experiment "
+            "ONLY when mechanically linked to that operation, quoted price "
+            "and experiment arm (operation event + tested price + treatment "
+            "window) - buyer intent is never inferred or required."),
         "revenue_definition": (
-            "independently confirmed EXTERNAL mainnet settlement only. "
-            "Sandbox credits, first-party canaries, testnet funds and internal "
-            "transfers are excluded by construction and are not money."),
+            "all independently confirmed mainnet x402 settlements EXCEPT "
+            "those whose payer is positively identified as Guild-controlled "
+            "(configured or cryptographically verified first-party/canary "
+            "wallets). 'External' means 'not positively identified as "
+            "first-party'; it does not claim independently attested "
+            "ownership. Sandbox credits, testnet funds, unconfirmed "
+            "settlements and internal transfers are excluded by "
+            "construction and are not money."),
     }
+    if (operation is None and since is None and tested_price_credits is None
+            and hasattr(store, "settled_revenue_headline")):
+        # THE GLOBAL HEADLINE IS LEDGER TRUTH. The corrected historical
+        # totals are derived at read time from the append-only settlement
+        # ledger + the configured first-party wallet registry, so the
+        # commercial report, /billing/revenue and the health vector can
+        # never disagree about the same money. Event history remains the
+        # basis for SCOPED views only, because an event is the mechanical
+        # link (operation + quoted price + window) an experiment needs.
+        headline = store.settled_revenue_headline()
+        for k in ("gross_settled_revenue_usd",
+                  "known_first_party_settled_usd",
+                  "external_settled_revenue_usd",
+                  "successful_external_payments",
+                  "distinct_external_payer_wallets",
+                  "attributed_external_payments",
+                  "attribution_coverage"):
+            metrics[k] = headline[k]
+        metrics["paid_decisions"] = headline["successful_external_payments"]
+        metrics["settled_but_not_attributable_external"] = (
+            headline["successful_external_payments"]
+            - headline["attributed_external_payments"])
+        metrics["revenue_basis"] = headline["basis"]
+    else:
+        metrics["revenue_basis"] = (
+            "event history mechanically linked to this scope (operation "
+            "events + quoted price + treatment window) - the only basis on "
+            "which a settlement may promote an experiment; unattributed "
+            "global settlements cannot reach a scoped view")
+    return metrics
 
 
 def experiment_operation(rec: dict) -> Optional[str]:

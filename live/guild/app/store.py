@@ -4470,7 +4470,9 @@ class Store:
                  "source": "independently confirmed mainnet settlements "
                            "whose payer attribution is unknown (recorded "
                            "before settle-time first-party flagging) — "
-                           "not claimed as external revenue"},
+                           "counted as external settled REVENUE (payer not "
+                           "positively first-party); never claimed as "
+                           "independently attested external identity"},
                 # cryptographic CONSERVATIVE attribution (caller-proof +
                 # wallet binding + independent externality attestation).
                 # HONESTY: binding proves identity + wallet control, never
@@ -4490,9 +4492,11 @@ class Store:
                  "source": "confirmed mainnet settlements whose payer DID "
                            "additionally carries a currently-valid "
                            "externality attestation from a SEPARATE "
-                           "allowlisted issuer — the ONLY class that may "
-                           "be called external machine revenue; honestly "
-                           "zero until such an attestor exists"},
+                           "allowlisted issuer — the only class carrying "
+                           "independently ATTESTED externality (an identity "
+                           "claim; revenue recognition does not require "
+                           "it); honestly zero until such an attestor "
+                           "exists"},
                 {"stage": "verified_first_party_canary_settlement",
                  "count": crypto_att["verified_first_party_canary"],
                  "source": "confirmed mainnet settlements attributed to the "
@@ -4501,8 +4505,10 @@ class Store:
                 {"stage": "unverified_payer_settlement",
                  "count": crypto_att["unverified_payer"],
                  "source": "confirmed mainnet settlements with no valid "
-                           "caller proof / wallet binding — UNKNOWN payer, "
-                           "never counted as external"},
+                           "caller proof / wallet binding — payer IDENTITY "
+                           "unknown, never promoted to attested external; "
+                           "still external settled revenue unless the "
+                           "wallet is positively Guild-controlled"},
             ],
             "exclusions": ("AG-owned probes, release gates, canaries, test "
                            "harnesses and registry crawlers are excluded "
@@ -7388,6 +7394,93 @@ class Store:
     def get_escrow(self, escrow_id: str) -> Optional[dict[str, Any]]:
         return self.escrows.get(escrow_id)
 
+    # --- corrected revenue semantics (founder decision 2026-08-31) ----------
+    def x402_confirmed_mainnet_settlements(self) -> list[dict[str, Any]]:
+        """Every independently confirmed mainnet x402 settlement in the
+        billing ledger - the settlement-truth basis (chain receipt verified
+        by this service, mainnet, tx hash present). Read-only copies; the
+        append-only billing records are never rewritten."""
+        with self.lock:
+            return [dict(b) for b in self.billing_log
+                    if b.get("type") == "x402_payment"
+                    and b.get("mainnet")
+                    and b.get("status") == "settled_confirmed"
+                    and b.get("confirmed") and b.get("transaction")]
+
+    def settled_revenue_headline(self) -> dict[str, Any]:
+        """The HEADLINE revenue metrics (founder decision 2026-08-31),
+        derived at READ TIME from the settlement ledger plus the configured
+        first-party wallet registry - never by rewriting history.
+
+        Four concepts, kept separate:
+          1. SETTLEMENT TRUTH - did real value settle on mainnet?
+          2. FIRST-PARTY EXCLUSION - is the payer POSITIVELY identified as
+             Guild-controlled (configured canary wallet, token-gated
+             first-party flag, or cryptographic first-party identity)?
+          3. ATTRIBUTION - can the payment be mechanically linked to a
+             machine identity (caller proof / wallet binding / attestation)?
+             Measured and reported; NOT a prerequisite for revenue.
+          4. INTENT - never inferred, never required.
+
+        A confirmed mainnet settlement IS revenue unless the payer is
+        positively identified as first-party. "External" therefore means
+        "not positively identified as Guild-controlled"; it does NOT claim
+        independently attested ownership, and an unknown payer is never
+        promoted to an attested external identity - `unverified_payer`
+        still means exactly what it says about IDENTITY."""
+        from . import payments as _payments
+
+        def _usd(rows: list) -> float:
+            return round(sum(int(b.get("amount_atomic") or 0)
+                             for b in rows) / 1e6, 6)
+
+        mainnet = self.x402_confirmed_mainnet_settlements()
+        first_party: list[dict[str, Any]] = []
+        external: list[dict[str, Any]] = []
+        for b in mainnet:
+            if (_payments.effective_payer_attribution(b)
+                    == "verified_first_party_canary"):
+                first_party.append(b)
+            else:
+                external.append(b)
+        attributed = [
+            b for b in external
+            if _payments.effective_payer_attribution(b) in (
+                "cryptographically_bound_machine_payer",
+                "independently_attested_external_machine")]
+        gross, fp_usd = _usd(mainnet), _usd(first_party)
+        n_external = len(external)
+        return {
+            "gross_settled_revenue_usd": gross,
+            "known_first_party_settled_usd": fp_usd,
+            "external_settled_revenue_usd": round(gross - fp_usd, 6),
+            "successful_external_payments": n_external,
+            "distinct_external_payer_wallets": len({
+                str(b.get("payer") or "").lower()
+                for b in external if b.get("payer")}),
+            "attributed_external_payments": len(attributed),
+            "attribution_coverage": (
+                round(len(attributed) / n_external, 6)
+                if n_external else None),
+            "revenue_recognition_rule": (
+                "a successfully confirmed mainnet x402 settlement into the "
+                "Guild treasury IS revenue unless the payer is positively "
+                "identified as a Guild-controlled first-party/canary "
+                "wallet. Buyer identity, caller proof, wallet binding, "
+                "operation attribution and inferred intent are NOT "
+                "prerequisites for recognising revenue. 'External' means "
+                "'not positively identified as first-party', not "
+                "'independently attested external ownership'; attribution "
+                "is reported separately as attribution_coverage, and an "
+                "unknown payer is never promoted to an attested external "
+                "identity."),
+            "basis": ("derived at read time from the append-only x402 "
+                      "settlement ledger + the configured first-party "
+                      "wallet registry (GUILD_X402_FIRST_PARTY_PAYERS / "
+                      "settle-time first-party flag / cryptographic "
+                      "first-party identity)"),
+        }
+
     def escrow_summary(self) -> dict[str, Any]:
         """The economic dashboard — HONEST reporting classes (corrective pass
         2026-07-13). All escrow settlement is in SANDBOX CREDITS: sandbox
@@ -7480,9 +7573,15 @@ class Store:
             # only (a configured canary wallet stored as unverified_payer
             # reads as verified_first_party_canary; never the reverse).
             att_classes[_payments.effective_payer_attribution(b)].append(b)
+        headline = self.settled_revenue_headline()
         out["real_settlement"] = {
             # real_settlement counts ALL independently confirmed money,
-            # regardless of attribution (money is money).
+            # regardless of attribution (money is money). The headline keys
+            # (gross/known-first-party/external settled revenue, payment and
+            # wallet counts, attribution_coverage) are merged in from
+            # settled_revenue_headline() so every revenue surface derives
+            # the same figures from the same ledger at read time.
+            **headline,
             "transactions": len(x402_mainnet),
             "revenue_usd": _usd(x402_mainnet),
             "networks": sorted({b.get("network") for b in x402_mainnet}),
@@ -7508,9 +7607,13 @@ class Store:
                      "externality UNPROVEN), "
                      "independently_attested_external_machine (a SEPARATE "
                      "allowlisted issuer attests externality) and "
-                     "unverified_payer (missing proof is UNKNOWN, never "
-                     "external). Unknown ownership is never called "
-                     "verified external."
+                     "unverified_payer (missing proof is UNKNOWN identity, "
+                     "never attested external). Unknown ownership is never "
+                     "called verified external - but the MONEY is still "
+                     "revenue: a confirmed mainnet settlement counts as "
+                     "external settled revenue unless the payer is "
+                     "positively identified as Guild-controlled "
+                     "(founder decision 2026-08-31)."
                      if x402_mainnet else
                      "zero: no independently confirmed mainnet settlement "
                      "exists (testnet/sandbox/unconfirmed activity is "
@@ -7730,6 +7833,12 @@ class Store:
             real.get("independently_attested_external_revenue_usd") or 0.0)
         bound_machine_usd = float(
             real.get("cryptographically_bound_machine_revenue_usd") or 0.0)
+        # FOUNDER DECISION 2026-08-31 (revenue semantics): the HEADLINE
+        # revenue is settlement truth minus positively-identified
+        # first-party. Attribution (caller proof, wallet binding,
+        # attestation) is measured and reported as attribution_coverage -
+        # it is not a prerequisite for recognising revenue.
+        headline = self.settled_revenue_headline()
         # 3. GROWTH uses adoption-grade external actors (the central
         #    attribution rule), not "every record lacking first_party=true",
         #    which still counts our own untagged tooling and every crawler that
@@ -7746,7 +7855,23 @@ class Store:
             "mixed_bootstrap_lift_NOT_PRODUCTION": ev.get("lift"),
             "measured_lift_dataset": ev.get("dataset"),
             "recommended_success_rate": ev.get("recommended_success_rate"),
-            # honest revenue
+            # honest revenue - HEADLINE (settlement truth minus known
+            # first-party; identity/attribution measured, never a gate)
+            "gross_settled_revenue_usd": headline["gross_settled_revenue_usd"],
+            "known_first_party_settled_usd":
+                headline["known_first_party_settled_usd"],
+            "external_settled_revenue_usd":
+                headline["external_settled_revenue_usd"],
+            "successful_external_payments":
+                headline["successful_external_payments"],
+            "distinct_external_payer_wallets":
+                headline["distinct_external_payer_wallets"],
+            "attributed_external_payments":
+                headline["attributed_external_payments"],
+            "attribution_coverage": headline["attribution_coverage"],
+            # stricter attribution SUBSETS of the same money (identity
+            # claims, not revenue gates; attested is zero until an
+            # independent attestor exists)
             "verified_external_revenue_usd": verified_external_usd,
             "cryptographically_bound_machine_revenue_usd": bound_machine_usd,
             "sandbox_credits_spent_external_NOT_MONEY": credits_spent_ext,
@@ -7788,11 +7913,18 @@ class Store:
         true:
           * genuine external MOVEMENT — an adoption-grade external agent took a
             credential for itself (not a probe fetching someone else's), and
-          * real verified ECONOMIC VALUE — independently confirmed external
-            mainnet settlement, never sandbox credits and never a first-party
-            canary.
+          * real ECONOMIC VALUE — independently confirmed mainnet
+            settlement whose payer is not positively identified as
+            Guild-controlled; never sandbox credits and never a first-party
+            canary (founder decision 2026-08-31: attribution is measured,
+            not a prerequisite for revenue).
         Anything less names exactly which half is missing."""
-        verified_revenue = float(v.get("verified_external_revenue_usd") or 0.0)
+        # FOUNDER DECISION 2026-08-31: the revenue half of the claim is
+        # EXTERNAL SETTLED REVENUE - confirmed mainnet settlement whose
+        # payer is not positively identified as Guild-controlled.
+        # Attribution and attestation are reported separately; they no
+        # longer gate revenue recognition.
+        verified_revenue = float(v.get("external_settled_revenue_usd") or 0.0)
         self_claims = int(v.get("adoption_grade_external_self_claims") or 0)
 
         if v["agents_external"] == 0:
@@ -7807,26 +7939,27 @@ class Store:
                     "none came back; usefulness unproven.")
         if self_claims == 0 and verified_revenue <= 0:
             return ("REACH WITHOUT ADOPTION OR REVENUE — no external agent has "
-                    "claimed a credential for itself and verified external "
+                    "claimed a credential for itself and external settled "
                     "revenue is $0.00. Sandbox credits and first-party canaries "
                     "are NOT evidence of either.")
         if self_claims > 0 and verified_revenue <= 0:
             return (f"ADOPTION WITHOUT REVENUE — {self_claims} adoption-grade "
-                    "external agent(s) hold their own credential, but verified "
-                    "external revenue is $0.00; willingness-to-pay is unproven.")
+                    "external agent(s) hold their own credential, but external "
+                    "settled revenue is $0.00; willingness-to-pay is unproven.")
         if self_claims == 0 and verified_revenue > 0:
             return (f"REVENUE WITHOUT ADOPTION — ${verified_revenue:.2f} of "
-                    "verified external settlement, but no external agent has "
-                    "taken a credential for itself; check the payer is not a "
-                    "one-off before calling this a flywheel.")
+                    "external settled revenue (confirmed mainnet, payer not "
+                    "positively first-party), but no external agent has "
+                    "taken a credential for itself; check the payers are not "
+                    "one-offs before calling this a flywheel.")
         growing = (deltas.get("adoption_grade_external_self_claims", 0) > 0
-                   or deltas.get("verified_external_revenue_usd", 0) > 0)
+                   or deltas.get("external_settled_revenue_usd", 0) > 0)
         return (f"FLYWHEEL TURNING — {self_claims} external agent(s) hold their "
-                f"own credential AND ${verified_revenue:.2f} of verified "
-                "external settlement is on the books."
+                f"own credential AND ${verified_revenue:.2f} of external "
+                "settled revenue is on the books."
                 if growing else
                 f"PAID BUT FLAT — {self_claims} credential holder(s), "
-                f"${verified_revenue:.2f} verified external revenue, no "
+                f"${verified_revenue:.2f} external settled revenue, no "
                 "movement this period; investigate acquisition.")
 
     def compute_health(self, persist: bool = False) -> dict[str, Any]:
