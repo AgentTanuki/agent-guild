@@ -11,10 +11,6 @@ import os
 
 os.environ.setdefault("GUILD_DATA", "")          # in-memory only
 os.environ.setdefault("GUILD_BOOTSTRAP_EVAL", "0")  # no auto-seed during tests
-# Production SQLite warms the complete signed discovery census at service
-# startup. Keep ordinary tests request-local; dedicated cache tests exercise
-# the production path explicitly.
-os.environ.setdefault("GUILD_DISCOVERY_REACH_CACHE", "0")
 # Abuse controls default ON in production; the suite hammers endpoints far
 # beyond real-world burst limits, so they are exercised explicitly in
 # tests/test_abuse_controls.py and disabled everywhere else.

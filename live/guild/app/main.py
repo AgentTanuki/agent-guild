@@ -63,7 +63,7 @@ from . import experiments
 from . import ard
 from .state import store
 from . import paidcatalog
-from .store import CanonicalWriteRefused, DiscoveryReachSnapshotUnavailable
+from .store import CanonicalWriteRefused
 from .reachability import url_policy_check
 from . import abuse
 from . import coordination
@@ -154,17 +154,6 @@ async def _lifespan(app: "FastAPI"):
         swarm_ensure_built()
     except Exception as exc:
         _log.warning("swarm identity build skipped: %s", exc)
-    try:
-        # The signed discovery census reduces the COMPLETE durable event
-        # history. Build it before readiness so public reads and the release
-        # probe never rescan a six-figure SQLite table on the request path.
-        if store.discovery_reach_cache_enabled():
-            census = store.refresh_discovery_reach_cache()
-            _log.info("discovery reach snapshot: %s", census)
-    except Exception as exc:
-        # Do not make an observability derivative a boot-kill switch; the live
-        # contract gate will fail closed if the endpoint cannot serve.
-        _log.warning("discovery reach snapshot skipped: %s", exc)
     # x402 rail: FAIL CLOSED at startup. A MAINNET rail that is misconfigured
     # (unauthenticated facilitator, missing CDP credentials, wrong USDC
     # contract, invalid recipient, local resource origin, no independent
@@ -6036,19 +6025,7 @@ def discovery_reach():
     The target counter is deduplicated by privacy-safe actor and excludes
     first-party calls, tests, generic tools, registries and unlinkable traffic.
     """
-    try:
-        return store.discovery_reach(target=25_000)
-    except DiscoveryReachSnapshotUnavailable as exc:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": "discovery_snapshot_unavailable",
-                "available_snapshot_events": (
-                    exc.available_snapshot_events),
-                "retryable": True,
-            },
-            headers={"Retry-After": "5"},
-        ) from exc
+    return store.discovery_reach(target=25_000)
 
 
 @app.get("/discovery/reach/evidence")
@@ -6057,26 +6034,9 @@ def discovery_reach_evidence(
         limit: int = Query(500, ge=1, le=2_000),
         snapshot_events: Optional[int] = Query(None, ge=0)):
     """Replayable, double-pseudonymised actor rows committed by the proof."""
-    try:
-        report = store.discovery_reach(
-            target=25_000, include_actor_evidence=True,
-            snapshot_events=snapshot_events)
-    except DiscoveryReachSnapshotUnavailable as exc:
-        # Evidence rows are committed to one exact signed snapshot. Tell the
-        # caller only which numeric snapshot is currently replayable; never
-        # fall back to a request-time historical scan.
-        raise HTTPException(
-            status_code=(409 if exc.available_snapshot_events is not None
-                         else 503),
-            detail={
-                "error": "discovery_snapshot_unavailable",
-                "available_snapshot_events": (
-                    exc.available_snapshot_events),
-                "retryable": exc.available_snapshot_events is None,
-            },
-            headers=({"Retry-After": "5"}
-                     if exc.available_snapshot_events is None else None),
-        ) from exc
+    report = store.discovery_reach(
+        target=25_000, include_actor_evidence=True,
+        snapshot_events=snapshot_events)
     rows = report.pop("actor_evidence")
     page = rows[offset:offset + limit]
     return {
