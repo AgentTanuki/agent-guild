@@ -3,12 +3,7 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.6.2"   # PATCH release recovery (2026-08-31): retries a
-                        # boot-time persisted scout lease without consuming
-                        # the six-hour interval, and waits boundedly for
-                        # GitHub branch-policy convergence before merging a
-                        # fully certified automatic revert. History of 2.6.1:
-                        # PATCH no-relay transport parity (2026-08-31):
+__version__ = "2.6.1"   # PATCH no-relay transport parity (2026-08-31):
                         # maps natural objectives before HTTP/MCP demand and
                         # payment handling; makes /check and /incidents 422s
                         # machine-useful without rejected-input echo; counts

@@ -79,58 +79,6 @@ def test_expired_lease_is_recoverable_after_restart(monkeypatch):
     assert out["completed"] is True
 
 
-def test_lease_retry_delay_is_short_bounded_and_expiry_aware(monkeypatch):
-    monkeypatch.setattr(runner, "_now", lambda: 1000.0)
-    store.swarm_state[runner.RUNNER_STATE_KEY] = {
-        "lease": {"owner": "old-process", "expires": 1120.0}}
-    assert runner.lease_retry_delay_s(store) == 5.0
-
-    store.swarm_state[runner.RUNNER_STATE_KEY]["lease"]["expires"] = 1001.0
-    assert runner.lease_retry_delay_s(store) == pytest.approx(1.05)
-
-    store.swarm_state[runner.RUNNER_STATE_KEY]["lease"]["expires"] = 999.0
-    assert runner.lease_retry_delay_s(store) == 0.05
-
-
-def test_loop_retries_live_lease_without_consuming_interval(monkeypatch):
-    """A deploy overlap must retry the same due cycle, not wait six hours."""
-    calls = []
-
-    class FakeStop:
-        stopped = False
-
-        def __init__(self):
-            self.waits = []
-
-        def wait(self, delay):
-            self.waits.append(delay)
-            return False
-
-        def is_set(self):
-            return self.stopped
-
-    stop = FakeStop()
-
-    def fake_run_once(store_, *, trigger):
-        calls.append(trigger)
-        if len(calls) == 1:
-            return {"completed": False,
-                    "reason": "lease_held_by_other_runner"}
-        stop.stopped = True
-        return {"completed": True}
-
-    monkeypatch.setattr(runner, "_stop", stop)
-    monkeypatch.setattr(runner, "_now", lambda: 1000.0)
-    monkeypatch.setattr(runner, "initial_delay_s", lambda: 0.0)
-    monkeypatch.setattr(runner, "lease_retry_delay_s", lambda store_: 2.5)
-    monkeypatch.setattr(runner, "run_once", fake_run_once)
-
-    runner._loop(store)
-
-    assert calls == ["interval", "interval"]
-    assert stop.waits == [0.0, 2.5]
-
-
 def test_runner_records_errors_and_backs_off(monkeypatch):
     monkeypatch.setenv("GUILD_SCOUT_AUTORUN", "1")
 

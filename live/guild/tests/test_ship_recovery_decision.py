@@ -95,12 +95,3 @@ def test_only_a_failed_release_gate_can_trigger_a_revert():
     assert ("if: failure() && steps.release_gate.outcome == 'failure'"
             in src)
     assert "if: failure() && steps.merge.outputs.merged == 'true'" not in src
-
-
-def test_certified_recovery_waits_for_branch_policy_without_bypass():
-    """Green CI may precede GitHub's mergeability update by a few seconds."""
-    src = _SHIP.read_text()
-    assert 'gh pr merge "$rnumber" --squash --delete-branch --auto' in src
-    assert 'while [ -z "$recovery_sha" ] && [ $tries -lt 120 ]' in src
-    assert 'certified recovery PR did not merge within 10 minutes' in src
-    assert 'gh pr merge "$rnumber" --admin' not in src

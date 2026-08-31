@@ -242,23 +242,8 @@ jobs:
                     --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
           done
           gh run watch "$rid" --exit-status --interval 15
-          # CI can be green a few seconds before branch-policy state converges.
-          # Queue the certified revert under the policy, then wait boundedly
-          # for GitHub to perform the merge.  Never use --admin or bypass the
-          # protections that the normal ship path just proved.
-          gh pr merge "$rnumber" --squash --delete-branch --auto
-          recovery_sha=""; recovery_state="OPEN"; tries=0
-          while [ -z "$recovery_sha" ] && [ $tries -lt 120 ]; do
-            sleep 5; tries=$((tries+1))
-            recovery_state=$(gh pr view "$rnumber" --json state --jq .state)
-            recovery_sha=$(gh pr view "$rnumber" --json mergeCommit \
-                             --jq '.mergeCommit.oid // empty')
-            if [ "$recovery_state" = "CLOSED" ] && [ -z "$recovery_sha" ]; then
-              echo "certified recovery PR closed without merging"; exit 1
-            fi
-          done
-          [ -n "$recovery_sha" ] || {
-            echo "certified recovery PR did not merge within 10 minutes"; exit 1; }
+          gh pr merge "$rnumber" --squash --delete-branch
+          recovery_sha=$(gh pr view "$rnumber" --json mergeCommit --jq .mergeCommit.oid)
           echo "recovery merged → main @ $recovery_sha — certifying the RECOVERY"
           python live/scripts/release_gate.py \
             --sha "$recovery_sha" --timeout 1800 --interval 20 \

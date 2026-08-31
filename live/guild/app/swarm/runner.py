@@ -109,25 +109,6 @@ def next_delay_s(failures: int = 0) -> float:
     return interval_s() * random.uniform(0.8, 1.2)
 
 
-def lease_retry_delay_s(store: Any) -> float:
-    """Short, bounded retry delay after another process owns the lease.
-
-    A deploy can restart the service while the previous process still has a
-    valid persisted lease.  That is expected process overlap, not a completed
-    interval cycle: advancing the normal six-hour schedule here would strand
-    the new process (and its release gate) until the next interval.  Retry no
-    faster than 50ms and no slower than five seconds until the lease expires.
-    """
-    now = _now()
-    try:
-        with store.lock:
-            lease = _state(store).get("lease") or {}
-            remaining = float(lease.get("expires") or now) - now
-    except (TypeError, ValueError):
-        remaining = 0.0
-    return max(0.05, min(5.0, remaining + 0.05))
-
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -534,19 +515,10 @@ def _loop(store: Any) -> None:
             if _stop.is_set():
                 return
             continue
-        outcome = None
         try:
-            outcome = run_once(store, trigger=trigger)
+            run_once(store, trigger=trigger)
         except Exception as e:  # noqa: BLE001 — the loop must survive anything
             _log.warning("scout runner loop error: %s", e)
-        if (isinstance(outcome, dict)
-                and outcome.get("reason") == "lease_held_by_other_runner"):
-            # A lease collision did no work and consumed no interval.  Keep
-            # the same due trigger and retry after a bounded pause; otherwise
-            # boot-time overlap schedules the first real cycle six hours away.
-            if _stop.wait(lease_retry_delay_s(store)):
-                return
-            continue
         if trigger == "interval" or _now() >= next_interval_at:
             failures = int(_state(store).get("consecutive_failures") or 0)
             next_interval_at = _now() + next_delay_s(failures=failures)
