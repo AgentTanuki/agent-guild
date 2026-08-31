@@ -3206,16 +3206,33 @@ class Store:
         # Any durable inbound origin event proves the caller has discovered the
         # Guild.  Catalogue and machine-document events are broken out below,
         # but the qualification/deduplication rule applies to the full history.
-        snapshot, coverage = self.measurement_event_snapshot()
+        # The production census consumes the complete SQLite history through
+        # one ordered cursor.  Materialising 180k decoded JSON rows briefly
+        # consumed most of a small service instance's memory; Python retained
+        # that heap after warm-up and the next scout cycle crossed the process
+        # limit.  Streaming preserves the cursor's immutable SQLite read
+        # snapshot while bounding memory to the actor aggregate below.
+        streaming_snapshot = (
+            self.backend is not None and snapshot_events is None)
+        if streaming_snapshot:
+            snapshot = self.backend.iter_events()
+            floor = self.event_history_floor or {}
+            coverage = {
+                "source": "sqlite_durable_stream",
+                "requested_since": None,
+                "event_types": [],
+                "actor_key_filter_count": 0,
+                "history_complete": not floor,
+                "history_floor": floor or None,
+            }
+        else:
+            snapshot, coverage = self.measurement_event_snapshot()
         if snapshot_events is not None:
             snapshot_events = max(0, int(snapshot_events))
             if snapshot_events > len(snapshot):
                 raise ValueError("requested census snapshot is newer than "
                                  "the durable event history")
             snapshot = snapshot[:snapshot_events]
-        selected_snapshot_events = len(snapshot)
-        coverage = {**coverage,
-                    "selected_snapshot_events": selected_snapshot_events}
 
         actors: dict[str, dict[str, Any]] = {}
         crawler_actors: set[str] = set()
@@ -3223,8 +3240,10 @@ class Store:
         resource_fetches = 0
         legacy_catalogue_rows = 0
         latest_at: Optional[str] = None
+        selected_snapshot_events = 0
 
         for event in snapshot:
+            selected_snapshot_events += 1
             event_type = event.get("type")
             if event_type == "paid_offer_served":
                 legacy_catalogue_rows += 1
@@ -3302,6 +3321,12 @@ class Store:
             evidence["surfaces"].add(discovery_surface)
             evidence["event_types"].add(str(event_type))
             evidence["caller_classes"].add(caller_class)
+
+        coverage = {
+            **coverage,
+            "snapshot_events": selected_snapshot_events,
+            "selected_snapshot_events": selected_snapshot_events,
+        }
 
         committed_rows = [
             {

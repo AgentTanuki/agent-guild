@@ -142,6 +142,31 @@ def test_warm_census_never_rescans_for_an_unavailable_snapshot(
     assert caught.value.available_snapshot_events == built["snapshot_events"]
 
 
+def test_sqlite_warm_census_streams_durable_history(tmp_path, monkeypatch):
+    monkeypatch.setenv("GUILD_STORE", "sqlite")
+    monkeypatch.setenv("GUILD_DISCOVERY_REACH_CACHE", "1")
+    census = Store(path=str(tmp_path / "guild.json"))
+    for index in range(200):
+        census.record_event(
+            f"http:actor-{index % 7}", "discovery_resource_fetched",
+            ua="langchain/0.2.1", discovery_surface="ard_catalog",
+            actor_distinct=True,
+        )
+
+    def forbidden_materialisation(*args, **kwargs):
+        raise AssertionError("warm census materialised the event history")
+
+    monkeypatch.setattr(census.backend, "fetch_events",
+                        forbidden_materialisation)
+    built = census.refresh_discovery_reach_cache()
+    report = census.discovery_reach()
+
+    assert built["snapshot_events"] == 200
+    assert report["measurement_coverage"]["source"] == (
+        "sqlite_durable_stream")
+    assert report["qualified_distinct_autonomous_agents"] == 7
+
+
 def test_machine_resource_fetch_records_one_noncommercial_observation():
     client = TestClient(main.app)
     before = len(main.store.events)

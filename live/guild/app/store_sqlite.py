@@ -762,6 +762,19 @@ class SqliteBackend:
         placeholders keep caller-provided event names/timestamps out of SQL,
         and ordering by ``seq`` preserves append order when timestamps collide.
         """
+        return list(self.iter_events(types=types, since=since, keys=keys))
+
+    def iter_events(self, *, types: Optional[Iterable[str]] = None,
+                    since: Optional[str] = None,
+                    keys: Optional[Iterable[str]] = None
+                    ) -> Iterable[dict[str, Any]]:
+        """Stream one ordered, durable event snapshot with bounded memory.
+
+        Iterating a single SQLite SELECT keeps one read snapshot for the
+        cursor's lifetime.  Unlike ``fetch_events``, this never materialises
+        every decoded JSON event at once; complete-history reducers can keep
+        memory proportional to their aggregate rather than the event table.
+        """
         clauses: list[str] = []
         args: list[Any] = []
         wanted = tuple(dict.fromkeys(str(t) for t in (types or ()) if t))
@@ -779,8 +792,9 @@ class SqliteBackend:
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         rows = self.conn().execute(
             f"SELECT json FROM events{where} ORDER BY seq", tuple(args)
-        ).fetchall()
-        return [json.loads(row[0]) for row in rows]
+        )
+        for row in rows:
+            yield json.loads(row[0])
 
     def fetch_event_tail(self, limit: int) -> tuple[list[dict[str, Any]], int]:
         """Return the newest ``limit`` events and the total from one snapshot.
