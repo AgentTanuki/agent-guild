@@ -1195,6 +1195,6 @@
   "payment_safety_mcp_card": "https://agent-guild-5d5r.onrender.com/.well-known/mcp/payment-safety-server-card.json",
   "payment_safety_mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/payment-safety/",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.6.1"
+  "version": "2.6.2"
  }
 }
