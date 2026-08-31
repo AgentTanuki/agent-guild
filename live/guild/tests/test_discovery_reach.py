@@ -5,9 +5,10 @@ import hashlib
 import json
 
 from fastapi.testclient import TestClient
+import pytest
 
 from app import attribution, crypto, main
-from app.store import Store
+from app.store import DiscoveryReachSnapshotUnavailable, Store
 
 
 def test_reach_deduplicates_agents_and_excludes_vanity_traffic(tmp_path):
@@ -71,6 +72,99 @@ def test_reach_deduplicates_agents_and_excludes_vanity_traffic(tmp_path):
         rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     assert hashlib.sha256(canonical.encode()).hexdigest() == report[
         "evidence"]["actor_evidence_set_sha256"]
+
+
+def test_warm_census_is_an_immutable_replayable_snapshot(tmp_path):
+    census = Store(path=str(tmp_path / "guild.json"))
+    census.record_event(
+        "http:first", "discovery_resource_fetched",
+        ua="langchain/0.2.1", discovery_surface="ard_catalog",
+        actor_distinct=True,
+    )
+    built = census.refresh_discovery_reach_cache()
+    assert built["refreshed"] is True
+
+    summary = census.discovery_reach()
+    snapshot_rows = summary["proof"]["payload"]["event_snapshot_rows"]
+    assert summary["snapshot_cache"]["event_snapshot_rows"] == snapshot_rows
+    assert summary["qualified_distinct_autonomous_agents"] == 1
+
+    # A later event cannot mutate an already signed snapshot. The next
+    # scheduled refresh publishes a new proof instead.
+    census.record_event(
+        "http:second", "query", ua="openai-agents/1.0",
+        endpoint="check", actor_distinct=True,
+    )
+    still_signed = census.discovery_reach()
+    assert still_signed["qualified_distinct_autonomous_agents"] == 1
+    assert still_signed["proof"] == summary["proof"]
+
+    replay = census.discovery_reach(
+        include_actor_evidence=True, snapshot_events=snapshot_rows)
+    assert len(replay["actor_evidence"]) == 1
+    replay["actor_evidence"].clear()  # returned values never mutate the cache
+    assert len(census.discovery_reach(
+        include_actor_evidence=True,
+        snapshot_events=snapshot_rows)["actor_evidence"]) == 1
+
+    rebuilt = census.refresh_discovery_reach_cache()
+    assert rebuilt["snapshot_events"] > snapshot_rows
+    assert census.discovery_reach()[
+        "qualified_distinct_autonomous_agents"] == 2
+
+    restarted = Store(path=str(tmp_path / "guild.json"))
+    restored = restarted.discovery_reach()
+    assert restored["snapshot_cache"]["event_snapshot_rows"] == rebuilt[
+        "snapshot_events"]
+    assert restored["qualified_distinct_autonomous_agents"] == 2
+
+
+def test_warm_census_never_rescans_for_an_unavailable_snapshot(
+        tmp_path, monkeypatch):
+    monkeypatch.setenv("GUILD_DISCOVERY_REACH_CACHE", "1")
+    census = Store(path=str(tmp_path / "guild.json"))
+    census.record_event(
+        "http:first", "discovery_resource_fetched",
+        ua="langchain/0.2.1", discovery_surface="ard_catalog",
+        actor_distinct=True,
+    )
+    built = census.refresh_discovery_reach_cache()
+
+    def forbidden_scan(*args, **kwargs):
+        raise AssertionError("request path attempted a durable-history scan")
+
+    monkeypatch.setattr(census, "measurement_event_snapshot", forbidden_scan)
+    with pytest.raises(DiscoveryReachSnapshotUnavailable) as caught:
+        census.discovery_reach(
+            include_actor_evidence=True,
+            snapshot_events=built["snapshot_events"] - 1,
+        )
+    assert caught.value.available_snapshot_events == built["snapshot_events"]
+
+
+def test_sqlite_warm_census_streams_durable_history(tmp_path, monkeypatch):
+    monkeypatch.setenv("GUILD_STORE", "sqlite")
+    monkeypatch.setenv("GUILD_DISCOVERY_REACH_CACHE", "1")
+    census = Store(path=str(tmp_path / "guild.json"))
+    for index in range(200):
+        census.record_event(
+            f"http:actor-{index % 7}", "discovery_resource_fetched",
+            ua="langchain/0.2.1", discovery_surface="ard_catalog",
+            actor_distinct=True,
+        )
+
+    def forbidden_materialisation(*args, **kwargs):
+        raise AssertionError("warm census materialised the event history")
+
+    monkeypatch.setattr(census.backend, "fetch_events",
+                        forbidden_materialisation)
+    built = census.refresh_discovery_reach_cache()
+    report = census.discovery_reach()
+
+    assert built["snapshot_events"] == 200
+    assert report["measurement_coverage"]["source"] == (
+        "sqlite_durable_stream")
+    assert report["qualified_distinct_autonomous_agents"] == 7
 
 
 def test_machine_resource_fetch_records_one_noncommercial_observation():

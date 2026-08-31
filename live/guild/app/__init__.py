@@ -3,7 +3,16 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.6.2"   # PATCH release recovery (2026-08-31): retries a
+__version__ = "2.6.4"   # PATCH bounded census warm-up (2026-08-31): streams
+                        # the complete SQLite event snapshot through the
+                        # reducer instead of materialising every decoded row,
+                        # preserving service headroom for the scout cycle.
+                        # History of 2.6.3: PATCH live census serving: builds the
+                        # complete durable signed discovery census before
+                        # readiness, serves its immutable declared snapshot
+                        # without a request-time full-history scan, and
+                        # refreshes it on each scout cycle. History of 2.6.2:
+                        # PATCH release recovery (2026-08-31): retries a
                         # boot-time persisted scout lease without consuming
                         # the six-hour interval, and waits boundedly for
                         # GitHub branch-policy convergence before merging a

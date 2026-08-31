@@ -10,6 +10,7 @@ simulated values that drive the weighting.
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -61,6 +62,22 @@ def _iso_age_seconds(ts: Optional[str]) -> float:
 # with small fixtures instead of writing 50,001 rows in every regression.
 EVENT_RETENTION_TRIGGER = 50000
 EVENT_RETENTION_TARGET = 25000
+
+# The signed discovery census is a complete durable-history reduction, not a
+# request-time counter.  Keep its fully replayable snapshot in the existing
+# durable swarm_state KV so serving it never rescans a six-figure event table.
+DISCOVERY_REACH_CACHE_KEY = "discovery_reach_cache"
+DISCOVERY_REACH_CACHE_VERSION = 1
+
+
+class DiscoveryReachSnapshotUnavailable(ValueError):
+    """A warm census is missing, or a caller requested an older snapshot."""
+
+    def __init__(self, *, requested_snapshot_events: Optional[int],
+                 available_snapshot_events: Optional[int]):
+        self.requested_snapshot_events = requested_snapshot_events
+        self.available_snapshot_events = available_snapshot_events
+        super().__init__("discovery reach snapshot is unavailable")
 
 
 # Keepalive event dedup window (seconds). Agents that re-declare the SAME
@@ -193,6 +210,7 @@ class Store:
     def __init__(self, path: Optional[str] = None):
         self.path = path or os.environ.get("GUILD_DATA", "")
         self.lock = threading.RLock()
+        self._discovery_reach_refresh_lock = threading.Lock()
         self.agents: dict[str, dict[str, Any]] = {}
         self.tasks: dict[str, dict[str, Any]] = {}
         self.attestations: list[dict[str, Any]] = []
@@ -3045,10 +3063,120 @@ class Store:
             "measurement_coverage": coverage,
         }
 
+    def discovery_reach_cache_enabled(self) -> bool:
+        """Production SQLite defaults to a precomputed signed census.
+
+        JSON's retained tail is small enough to compute directly.  Tests and
+        operators can disable warming explicitly without changing the census
+        rules or the on-demand calculation.
+        """
+        raw = (os.environ.get("GUILD_DISCOVERY_REACH_CACHE") or "").strip()
+        if raw:
+            return raw == "1"
+        return self.backend is not None
+
+    def _cached_discovery_reach(
+            self, target: int, snapshot_events: Optional[int]
+    ) -> Optional[dict[str, Any]]:
+        with self.lock:
+            cached = self.swarm_state.get(DISCOVERY_REACH_CACHE_KEY)
+            cached = copy.deepcopy(cached) if isinstance(cached, dict) else None
+        if (not cached
+                or cached.get("version") != DISCOVERY_REACH_CACHE_VERSION
+                or int(cached.get("target") or 0) != target
+                or not isinstance(cached.get("report"), dict)):
+            return None
+        cached_rows = int(cached.get("snapshot_events") or 0)
+        if snapshot_events is not None and snapshot_events != cached_rows:
+            return None
+        return cached
+
     def discovery_reach(self, target: int = 25_000, *,
                         include_actor_evidence: bool = False,
                         snapshot_events: Optional[int] = None
                         ) -> dict[str, Any]:
+        """Return a signed census snapshot, using the durable warm cache.
+
+        The cache is itself an exact output of the complete-history reducer:
+        its proof declares ``event_snapshot_rows`` and ``as_of``, and the
+        evidence endpoint replays that same immutable snapshot.  New events do
+        not silently alter an issued proof; startup and every scout cycle
+        publish a new complete snapshot.
+        """
+        target = max(1, int(target))
+        cached = self._cached_discovery_reach(target, snapshot_events)
+        if cached is not None:
+            report = cached["report"]
+            if not include_actor_evidence:
+                report.pop("actor_evidence", None)
+            report["snapshot_cache"] = {
+                "built_at": cached.get("built_at"),
+                "event_snapshot_rows": cached.get("snapshot_events"),
+                "refresh_policy": "service_start_and_scout_cycle",
+            }
+            return report
+        if self.discovery_reach_cache_enabled():
+            # A cache-enabled deployment must never turn a stale evidence
+            # replay or a failed warm-up into an attacker-triggerable full
+            # history scan on the request path. Refresh is an explicit
+            # startup/scout operation; public reads fail quickly and safely.
+            available = self._cached_discovery_reach(target, None)
+            raise DiscoveryReachSnapshotUnavailable(
+                requested_snapshot_events=snapshot_events,
+                available_snapshot_events=(
+                    int(available.get("snapshot_events") or 0)
+                    if available is not None else None),
+            )
+        return self._compute_discovery_reach(
+            target=target, include_actor_evidence=include_actor_evidence,
+            snapshot_events=snapshot_events)
+
+    def refresh_discovery_reach_cache(self, target: int = 25_000
+                                      ) -> dict[str, Any]:
+        """Rebuild and durably publish one complete signed census snapshot.
+
+        Only one thread computes at a time.  Existing readers keep receiving
+        the previous immutable snapshot while a refresh is in progress.
+        """
+        if not self._discovery_reach_refresh_lock.acquire(blocking=False):
+            cached = self._cached_discovery_reach(max(1, int(target)), None)
+            return {
+                "refreshed": False,
+                "reason": "refresh_already_running",
+                "snapshot_events": (cached or {}).get("snapshot_events"),
+            }
+        try:
+            target = max(1, int(target))
+            report = self._compute_discovery_reach(
+                target=target, include_actor_evidence=True)
+            snapshot_events = int(report["proof"]["payload"][
+                "event_snapshot_rows"])
+            cache = {
+                "version": DISCOVERY_REACH_CACHE_VERSION,
+                "target": target,
+                "built_at": _now(),
+                "snapshot_events": snapshot_events,
+                "report": report,
+            }
+            with self.lock, self._txn():
+                self.swarm_state[DISCOVERY_REACH_CACHE_KEY] = cache
+                if self.backend is not None:
+                    self._persist_kv("swarm_state", self.swarm_state)
+                self._save()
+            return {
+                "refreshed": True,
+                "built_at": cache["built_at"],
+                "snapshot_events": snapshot_events,
+                "qualified_distinct_autonomous_agents": report[
+                    "qualified_distinct_autonomous_agents"],
+            }
+        finally:
+            self._discovery_reach_refresh_lock.release()
+
+    def _compute_discovery_reach(self, target: int = 25_000, *,
+                                 include_actor_evidence: bool = False,
+                                 snapshot_events: Optional[int] = None
+                                 ) -> dict[str, Any]:
         """Durable proof of DISTINCT autonomous-agent discovery.
 
         A catalogue hit is not an agent and six paid catalogue rows are not
@@ -3078,16 +3206,33 @@ class Store:
         # Any durable inbound origin event proves the caller has discovered the
         # Guild.  Catalogue and machine-document events are broken out below,
         # but the qualification/deduplication rule applies to the full history.
-        snapshot, coverage = self.measurement_event_snapshot()
+        # The production census consumes the complete SQLite history through
+        # one ordered cursor.  Materialising 180k decoded JSON rows briefly
+        # consumed most of a small service instance's memory; Python retained
+        # that heap after warm-up and the next scout cycle crossed the process
+        # limit.  Streaming preserves the cursor's immutable SQLite read
+        # snapshot while bounding memory to the actor aggregate below.
+        streaming_snapshot = (
+            self.backend is not None and snapshot_events is None)
+        if streaming_snapshot:
+            snapshot = self.backend.iter_events()
+            floor = self.event_history_floor or {}
+            coverage = {
+                "source": "sqlite_durable_stream",
+                "requested_since": None,
+                "event_types": [],
+                "actor_key_filter_count": 0,
+                "history_complete": not floor,
+                "history_floor": floor or None,
+            }
+        else:
+            snapshot, coverage = self.measurement_event_snapshot()
         if snapshot_events is not None:
             snapshot_events = max(0, int(snapshot_events))
             if snapshot_events > len(snapshot):
                 raise ValueError("requested census snapshot is newer than "
                                  "the durable event history")
             snapshot = snapshot[:snapshot_events]
-        selected_snapshot_events = len(snapshot)
-        coverage = {**coverage,
-                    "selected_snapshot_events": selected_snapshot_events}
 
         actors: dict[str, dict[str, Any]] = {}
         crawler_actors: set[str] = set()
@@ -3095,8 +3240,10 @@ class Store:
         resource_fetches = 0
         legacy_catalogue_rows = 0
         latest_at: Optional[str] = None
+        selected_snapshot_events = 0
 
         for event in snapshot:
+            selected_snapshot_events += 1
             event_type = event.get("type")
             if event_type == "paid_offer_served":
                 legacy_catalogue_rows += 1
@@ -3174,6 +3321,12 @@ class Store:
             evidence["surfaces"].add(discovery_surface)
             evidence["event_types"].add(str(event_type))
             evidence["caller_classes"].add(caller_class)
+
+        coverage = {
+            **coverage,
+            "snapshot_events": selected_snapshot_events,
+            "selected_snapshot_events": selected_snapshot_events,
+        }
 
         committed_rows = [
             {
