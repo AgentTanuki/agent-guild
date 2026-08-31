@@ -102,6 +102,73 @@ def test_unknown_objective_returns_hash_bound_no_match_without_demand_guess():
                for action in payload["available_actions"])
 
 
+def test_can_you_unknown_objective_is_no_match_not_probe_ack():
+    text = "Can you investigate flibbertigibbet phenomena SECRET-NO-RELAY"
+    payload, raw = _send(text)
+    assert payload["kind"] == "objective_no_match"
+    _assert_binding(payload, text)
+    assert "SECRET-NO-RELAY" not in raw.decode()
+
+
+def test_http_natural_objective_is_compact_and_never_becomes_a_slug(
+        monkeypatch):
+    monkeypatch.setenv("GUILD_X402_ENABLED", "1")
+    monkeypatch.setenv("GUILD_X402_PAY_TO", "0x" + "11" * 20)
+    monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
+    text = ("I need to fact-check a report for HTTP "
+            "SECRET-HTTP-RELAY-MARKER")
+    response = client.get("/check", params={"capability": text})
+    assert response.status_code == 200
+    assert len(response.content) < 1024
+    assert "PAYMENT-REQUIRED" not in response.headers
+    payload = response.json()
+    assert payload["kind"] == "objective_match"
+    assert payload["match"]["canonical_capability"] == "fact-check"
+    assert payload["result"]["status"] == "mapping_only"
+    assert payload["available_actions"][0]["effect"] == "metered_read"
+    assert "SECRET-HTTP-RELAY-MARKER" not in response.text
+
+    from app.state import store
+    demands = [event for event in store.events
+               if event.get("type") == "capability_demand"]
+    # The demand recorder deliberately deduplicates same-actor retries, so the
+    # canonical row may predate this call in a full-suite process.
+    assert any(event["capability"] == "fact-check" for event in demands)
+    assert "secret-http" not in json.dumps(store.events).lower()
+
+    search_text = "Please find fact checking help SEARCH-RELAY-MARKER"
+    search = client.get("/search", params={"capability": search_text})
+    assert search.status_code == 200 and len(search.content) < 1024
+    assert "PAYMENT-REQUIRED" not in search.headers
+    search_body = search.json()
+    assert search_body["kind"] == "objective_match"
+    assert search_body["match"]["canonical_capability"] == "fact-check"
+    assert search_body["available_actions"][0]["id"] == "trust.search.full"
+    assert search_body["available_actions"][0]["call"]["path"].startswith(
+        "/search?capability=fact-check")
+    assert "SEARCH-RELAY-MARKER" not in search.text
+
+
+def test_bare_check_has_useful_machine_error_without_framework_input_echo():
+    response = client.get("/check")
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["schema"] == "AGERR-1/1.0"
+    assert payload["kind"] == "capability_input_invalid"
+    assert payload["error"]["issues"][0]["field"] == "capability"
+    assert "input" not in payload["error"]["issues"][0]
+    assert payload["available_actions"][0]["call"]["path"] == "/capabilities"
+
+    marker = "INVALID-SEARCH-RELAY-MARKER"
+    invalid_search = client.get("/search", params={
+        "capability": "I need fact checking " + marker,
+        "min_trust": marker,
+    })
+    assert invalid_search.status_code == 422
+    assert invalid_search.json()["kind"] == "capability_input_invalid"
+    assert marker not in invalid_search.text
+
+
 def test_unicode_offsets_are_utf8_byte_offsets_and_matching_is_repeatable():
     text = "🤖 Please help with fact checking"
     first, _ = _send(text)

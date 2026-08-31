@@ -104,6 +104,21 @@ def test_reporter_can_supply_digest_without_relaying_content():
     assert mismatch.status_code == 422
 
 
+def test_invalid_report_validation_never_echoes_rejected_body():
+    marker = "PRIVATE-INVALID-INCIDENT-" + uuid.uuid4().hex
+    response = client.post("/incidents", json={
+        "category": marker,
+        "severity": "high",
+        "details": marker,
+    })
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["schema"] == "AGERR-1/1.0"
+    assert payload["kind"] == "incident_report_invalid"
+    assert marker not in response.text
+    assert all("input" not in issue for issue in payload["error"]["issues"])
+
+
 def test_public_read_surfaces_do_not_exist_and_admin_fails_closed(monkeypatch):
     response = _report("private operator record " + uuid.uuid4().hex)
     assert response.status_code == 201

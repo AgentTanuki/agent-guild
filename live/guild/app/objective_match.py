@@ -50,12 +50,15 @@ ALIASES: tuple[tuple[str, str, int], ...] = (
 
 _KNOWN_CANONICAL = frozenset(canonical for _, canonical, _ in ALIASES)
 _TOKEN_RE = re.compile(r"[a-z0-9]+", re.I)
+_CAPABILITY_ID_RE = re.compile(r"[a-z0-9][a-z0-9_.\-]{0,63}", re.I)
 _EXPLICIT_RE = re.compile(
     r"^\s*(?:capability|check|hire|vet)\b\s*[:=]?\s*"
     r"([a-z0-9][a-z0-9_.\-]{0,63})\s*$", re.I)
 _OBJECTIVE_RE = re.compile(
-    r"\b(?:need|find|looking|recommend|want|help|who\s+can|analyse|analyze|"
-    r"review|delegate|hire|vet|require)\b", re.I)
+    r"(?:\b(?:can|could|would|will)\s+you\b|"
+    r"\b(?:need|find|looking|seeking|recommend|want|help|assist|perform|"
+    r"handle|complete|who\s+can|analyse|analyze|review|delegate|hire|vet|"
+    r"require|please)\b)", re.I)
 
 
 def request_binding(text: str) -> dict[str, Any]:
@@ -65,6 +68,21 @@ def request_binding(text: str) -> dict[str, Any]:
 
 def looks_like_objective(text: str) -> bool:
     return bool(_OBJECTIVE_RE.search(text))
+
+
+def canonical_input(text: str) -> str | None:
+    """Return a safe canonical capability id, or ``None`` for prose.
+
+    This check happens before demand recording and payment quoting on every
+    capability-bearing trust surface.  It deliberately accepts unknown ids:
+    an explicit ``korean-legal`` ask is legitimate unmet demand.  It rejects
+    free text so a sentence can never be slugified into the demand namespace
+    or relayed into a payment challenge.
+    """
+    stripped = (text or "").strip()
+    if not stripped or _CAPABILITY_ID_RE.fullmatch(stripped) is None:
+        return None
+    return canonical_capability(stripped)
 
 
 def _byte_span(text: str, start: int, end: int) -> dict[str, int]:
@@ -93,8 +111,7 @@ def match(text: str, live_capabilities: Iterable[str] = ()) -> dict[str, Any]:
 
     stripped = text.strip()
     whole = canonical_capability(stripped)
-    if stripped and whole in catalog and re.fullmatch(
-            r"[a-z0-9][a-z0-9_.\-]{0,63}", stripped, re.I):
+    if stripped and whole in catalog and _CAPABILITY_ID_RE.fullmatch(stripped):
         start = len(text) - len(text.lstrip())
         return {"contract": CONTRACT, "alias_version": ALIAS_VERSION,
                 "request": binding, "kind": "exact_canonical",
@@ -192,6 +209,8 @@ def objective_capsule(
     full_check: dict[str, Any] | None,
     *,
     price_credits: int | None = None,
+    action_path: str | None = None,
+    action_id: str = "trust.check.full",
 ) -> dict[str, Any]:
     canonical = matched["canonical_capability"]
     if full_check is None:
@@ -208,11 +227,12 @@ def objective_capsule(
             "reachability": decision.get("reachability_status"),
         }
     action = {
-        "id": "trust.check.full",
+        "id": action_id,
         "effect": ("metered_read" if price_credits is not None else "read"),
         "requires_local_authorisation": price_credits is not None,
         "call": {"method": "GET",
-                 "path": "/check?capability=" + quote(canonical, safe="")},
+                 "path": (action_path or
+                          "/check?capability=" + quote(canonical, safe=""))},
     }
     if price_credits is not None:
         action["price_credits"] = price_credits
@@ -229,7 +249,8 @@ def objective_capsule(
     }
 
 
-def unresolved_capsule(matched: dict[str, Any]) -> dict[str, Any]:
+def unresolved_capsule(
+        matched: dict[str, Any], *, transport: str = "a2a") -> dict[str, Any]:
     match_block = {k: v for k, v in matched.items() if k != "request"}
     if match_block.get("kind") == "ambiguous":
         candidates = match_block.get("candidates") or []
@@ -238,6 +259,9 @@ def unresolved_capsule(matched: dict[str, Any]) -> dict[str, Any]:
         # the total plus a stable prefix and can inspect the linked catalog.
         match_block["candidate_count"] = len(candidates)
         match_block["candidates"] = candidates[:4]
+    action_call = ({"transport": "a2a", "send": "capabilities"}
+                   if transport == "a2a"
+                   else {"method": "GET", "path": "/capabilities"})
     return {
         "schema": "AGFC-1/1.0",
         "kind": ("objective_ambiguous" if matched["kind"] == "ambiguous"
@@ -248,6 +272,36 @@ def unresolved_capsule(matched: dict[str, Any]) -> dict[str, Any]:
         "available_actions": [{
             "id": "capabilities.list", "effect": "read",
             "requires_local_authorisation": False,
-            "call": {"transport": "a2a", "send": "capabilities"},
+            "call": action_call,
         }],
     }
+
+
+def note_followthrough(store: Any, actor: str, capability: str, *,
+                       ua: str, endpoint: str, transport: str) -> None:
+    """Link an explicit canonical retry to a recent compact mapping.
+
+    This remains a deliberately labelled heuristic: transports do not share a
+    conversation identifier.  It stores only the parent's request hash and
+    canonical capability, never text, and counts a parent at most once.
+    """
+    parent = None
+    for event in reversed(store.events[-500:]):
+        if (event.get("key") == actor
+                and event.get("type") == "query"
+                and event.get("caller_kind") == "objective_ask"
+                and event.get("capability") == capability):
+            parent = event.get("request_sha256")
+            break
+    if not parent:
+        return
+    if any(event.get("type") == "objective_action_followed"
+           and event.get("parent_request_sha256") == parent
+           and event.get("action") == "trust.check.full"
+           for event in store.events[-500:]):
+        return
+    store.record_event(
+        actor, "objective_action_followed", ua=ua,
+        endpoint=endpoint, transport=transport, capability=capability,
+        action="trust.check.full", parent_request_sha256=parent,
+        attribution="same_actor_capability_recent_tail")
