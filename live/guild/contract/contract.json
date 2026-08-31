@@ -1,4 +1,13 @@
 {
+ "a2a_card_skills": [
+  "guild.preflight",
+  "guild.preflight.deep",
+  "guild.index",
+  "guild.check",
+  "guild.capabilities",
+  "guild.report",
+  "guild.invoke"
+ ],
  "a2a_dynamic_skills": [
   "ag.calc.stats",
   "ag.calc.unit_convert",
@@ -17,12 +26,17 @@
   "ag.text.date_normalize",
   "ag.text.regex_extract"
  ],
+ "a2a_skill_index": "https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json",
  "a2a_skills_static": [
+  "guild.preflight",
+  "guild.preflight.deep",
+  "guild.index",
   "guild.check",
   "guild.capabilities",
+  "guild.report",
   "guild.invoke"
  ],
- "contract_version": 2,
+ "contract_version": 3,
  "mcp_tools": [
   "ag_calc_stats",
   "ag_calc_unit_convert",
@@ -58,6 +72,7 @@
   "guild_prove_verify",
   "guild_record",
   "guild_register",
+  "guild_report",
   "guild_risk_score",
   "guild_search",
   "guild_verify",
@@ -320,6 +335,18 @@
     "POST"
    ],
    "path": "/admin/agents/{agent_id}/first-party"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/admin/incidents"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/admin/incidents/{report_id}"
   },
   {
    "methods": [
@@ -751,6 +778,12 @@
   },
   {
    "methods": [
+    "POST"
+   ],
+   "path": "/incidents"
+  },
+  {
+   "methods": [
     "GET"
    ],
    "path": "/index"
@@ -778,6 +811,12 @@
     "GET"
    ],
    "path": "/instrumentation"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/instrumentation/objectives"
   },
   {
    "methods": [
@@ -1156,6 +1195,6 @@
   "payment_safety_mcp_card": "https://agent-guild-5d5r.onrender.com/.well-known/mcp/payment-safety-server-card.json",
   "payment_safety_mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/payment-safety/",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.5.42"
+  "version": "2.6.0"
  }
 }

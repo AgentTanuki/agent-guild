@@ -28,7 +28,9 @@ from x402.mcp.types import MCP_PAYMENT_META_KEY, MCP_PAYMENT_RESPONSE_META_KEY
 from x402.schemas import PaymentPayload
 
 from . import __version__
+from . import abuse
 from . import callerproof
+from . import incidents
 from . import demand
 from . import inbox as inbox_engine
 from . import journey as journey_engine
@@ -1431,6 +1433,47 @@ def guild_coordination_policy(ctx: Context = None) -> dict:
                        endpoint="coordination_policy")
     from . import coordination
     return coordination.policy_document()
+
+
+@mcp.tool
+def guild_report(
+        category: str,
+        severity: str = "unknown",
+        details: str = "",
+        content_sha256: str = "",
+        task_ref: str = "",
+        mandate_ref: str = "",
+        nonce: str = "",
+        ctx: Context = None) -> dict:
+    """Submit a confidential safety incident and receive a signed hash receipt.
+
+    This is a write-only drop box: the response never echoes report content and
+    never reveals whether another caller submitted the same report. Supply
+    ``details`` (maximum 8 KiB) or ``content_sha256``. The receipt proves only
+    that Agent Guild received a report committing to its hash; it does not
+    prove truth, novelty, routing or resolution. There is no agent-facing list,
+    read, status or reply tool.
+    """
+    # MCP shares the HTTP incident/IP quota. In-process clients used by tests
+    # and embedders have no HTTP request and therefore no spoofed "unknown"
+    # address bucket; hosted Streamable HTTP always supplies one.
+    try:
+        from fastmcp.server.dependencies import get_http_request
+        http_request = get_http_request()
+    except RuntimeError:
+        http_request = None
+    if http_request is not None:
+        abuse.guard(http_request, "incident")
+    try:
+        return incidents.submit(
+            store, category=category, severity=severity,
+            details=(details if details else None),
+            content_sha256=(content_sha256 if content_sha256 else None),
+            task_ref=(task_ref if task_ref else None),
+            mandate_ref=(mandate_ref if mandate_ref else None),
+            nonce=(nonce if nonce else None), transport="mcp")
+    except ValueError as exc:
+        return {"error": "invalid_report", "detail": str(exc)}
 
 
 # --------------------------------------------------------------------------

@@ -1,6 +1,7 @@
-"""Natural-language capability asks must reach the priced trust read."""
+"""Natural objectives map compactly without bypassing the priced trust read."""
 from __future__ import annotations
 
+import json
 import os
 import sys
 import uuid
@@ -68,13 +69,24 @@ def _payment_required(resp_json):
     ("recommend an agent for code-review", "code-review"),
     ("who can do fact-check? I need an agent for fact-check today", "fact-check"),
 ])
-def test_natural_language_ask_is_priced(
+def test_natural_language_ask_maps_to_explicit_priced_action(
         store, client, x402_on, text, capability):
     response = _send(client, text)
     assert response.status_code == 200, response.text
-    payment = _payment_required(response.json())
-    assert payment is not None, f"natural ask was not priced: {text!r}"
-    assert payment["accepts"], text
+    assert _payment_required(response.json()) is None
+    result = response.json()["result"]
+    raw = result["parts"][0]["text"].encode()
+    assert len(raw) < 1024
+    payload = json.loads(raw)
+    assert payload["kind"] == "objective_match"
+    assert payload["match"]["canonical_capability"] == capability
+    assert payload["result"] == {
+        "status": "mapping_only", "trust_decision": "not_included"}
+    action = payload["available_actions"][0]
+    assert action["id"] == "trust.check.full"
+    assert action["effect"] == "metered_read"
+    assert action["requires_local_authorisation"] is True
+    assert action["price_credits"] > 0
 
     demand = [event for event in store.events
               if event.get("type") == "capability_demand"]
@@ -84,6 +96,7 @@ def test_natural_language_ask_is_priced(
              if event.get("type") == "paid_offer_shown"
              and event.get("challenged_operation") == "best_agent"]
     assert len(shown) == 1
+    assert shown[0]["impression"] == "action_link"
 
 
 def test_keyword_syntax_still_works(store, client, x402_on):

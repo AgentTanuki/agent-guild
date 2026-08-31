@@ -35,6 +35,7 @@ _DEFAULTS = {
     "trial": (5, 86400, "TRIAL"),              # trial grants per IP per day
     "read_burst": (240, 60, "READ_BURST"),     # unfunded priced reads per IP/min
     "write_burst": (120, 3600, "WRITE_BURST"), # collaborations/attestations per IP/hr
+    "incident": (30, 3600, "INCIDENT"),         # confidential safety reports/IP/hr
     "demand_watch": (60, 3600, "DEMAND_WATCH"),
     "spend_authorize": (120, 60, "SPEND_AUTHORIZE"),
     "spend_create": (10, 3600, "SPEND_CREATE"),

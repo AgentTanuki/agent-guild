@@ -78,15 +78,15 @@ def test_catalog_publishes_literal_buyer_intents_from_one_source():
         ops["payment_decision"]["buyer_intents"]
 
 
-def test_every_surface_carries_the_paid_catalog():
-    """agent card, manifest, llms.txt — all three, or an agent has to trip a
-    402 on a route it had no reason to call in order to learn we sell
-    anything."""
+def test_every_surface_carries_or_links_the_paid_catalog():
+    """The size-bounded agent card names every operation and links the full
+    catalog; manifest and llms.txt retain the complete buyer detail."""
     card = client.get("/.well-known/agent-card.json").json()
     block = card["x-agent-guild-paid-operations"]
     assert block["source"] == "paid_offer:agent_card"
-    assert {o["operation"] for o in block["operations"]} == PAID_OPS
-    assert all(o["buyer_intents"] for o in block["operations"])
+    assert set(block["operations"]) == PAID_OPS
+    assert block["catalog"].endswith("/.well-known/agent-guild.json")
+    assert block["catalog_field"] == "paid_operations"
 
     man = client.get("/.well-known/agent-guild.json").json()
     assert man["paid_operations"]["source"] == "paid_offer:manifest"
@@ -109,13 +109,11 @@ def test_primary_machine_discovery_surfaces_publish_one_call_envelope_client():
     a proof/payment stack."""
     card = client.get("/.well-known/agent-card.json").json()
     manifest = client.get("/.well-known/agent-guild.json").json()
-    surfaced = (
-        (card["x-agent-guild-paid-operations"],
-         "http://testserver/sdk/agentguild_envelope_client.mjs"),
-        (manifest["paid_operations"],
-         "https://agent-guild-5d5r.onrender.com"
-         "/sdk/agentguild_envelope_client.mjs"),
-    )
+    assert card["x-agent-guild-paid-operations"]["catalog"].endswith(
+        "/.well-known/agent-guild.json")
+    surfaced = ((manifest["paid_operations"],
+                 "https://agent-guild-5d5r.onrender.com"
+                 "/sdk/agentguild_envelope_client.mjs"),)
     for block, expected in surfaced:
         envelope = {op["operation"]: op for op in block["operations"]}[
             "machine_envelope"]
@@ -127,11 +125,13 @@ def test_primary_machine_discovery_surfaces_publish_one_call_envelope_client():
         assert "caller control" in buyer["custody"]
 
 
-def test_free_alternative_is_named_on_every_surface():
+def test_free_alternative_is_present_in_linked_canonical_catalog():
     """Honesty invariant: we would rather be the default than be paid once.
     A paid offer that hides its free sibling is a dark pattern."""
     card = client.get("/.well-known/agent-card.json").json()
-    for op in card["x-agent-guild-paid-operations"]["operations"]:
+    assert card["x-agent-guild-paid-operations"]["catalog"]
+    manifest = client.get("/.well-known/agent-guild.json").json()
+    for op in manifest["paid_operations"]["operations"]:
         assert op["free_alternative"].strip()
     assert "free" in client.get("/llms.txt").text.lower()
 

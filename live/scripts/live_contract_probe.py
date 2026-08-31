@@ -5,8 +5,8 @@ the committed canonical contract (live/guild/contract/contract.json).
 Checks (read-only, no writes):
   * every GET route in the contract without path params answers (2xx/4xx-auth,
     never 404/5xx)
-  * the A2A agent card advertises exactly the contract's skills (superset ok
-    for extras is NOT allowed for statics)
+  * the A2A agent card advertises exactly the contract's compact card skills;
+    indexed dynamic skills are verified through their separate live surface
   * the MCP endpoint lists exactly the contract's tools
   * /ledger/stats agrees the chain verifies; /ledger/reconcile is clean
   * the issuer DID document resolves and matches /ledger/issuer
@@ -76,9 +76,23 @@ def main() -> int:
     try:
         card = json.load(get(HOST + "/.well-known/agent-card.json"))
         skills = {s["id"] for s in card.get("skills", [])}
-        expected = set(CONTRACT["a2a_skills_static"]) | set(CONTRACT["a2a_dynamic_skills"])
-        check("a2a agent-card skills == contract", skills >= expected,
-              f"missing={sorted(expected - skills)}")
+        expected = set(CONTRACT["a2a_card_skills"])
+        linked_index = ((card.get("x-agent-guild-capability-index") or {})
+                        .get("url"))
+        check("a2a agent-card skills == contract", skills == expected,
+              f"missing={sorted(expected - skills)} extra={sorted(skills - expected)}")
+        check("a2a indexed skills link == contract",
+              linked_index == CONTRACT["a2a_skill_index"],
+              f"live={linked_index!r}")
+        indexed = json.load(get(linked_index)) if linked_index else {}
+        indexed_skills = {
+            f"ag.{row['capability']}" for row in indexed.get("identities", [])
+            if row.get("capability")}
+        expected_indexed = set(CONTRACT["a2a_dynamic_skills"])
+        check("a2a indexed skills == contract",
+              indexed_skills == expected_indexed,
+              f"missing={sorted(expected_indexed - indexed_skills)} "
+              f"extra={sorted(indexed_skills - expected_indexed)}")
     except Exception as e:
         check("a2a agent-card skills == contract", False, str(e))
 

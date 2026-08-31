@@ -95,17 +95,21 @@ def test_prove_completed_milestone_and_funnel_counts():
     assert funnel["offered"] >= funnel["completed"]
 
 
-# --- R3: the inbound ask is preserved and exposed ---------------------------
+# --- R3: the inbound ask is hash-bound without becoming a public relay -------
 
-def test_recent_events_expose_what_was_asked():
+def test_recent_events_expose_request_hash_and_canonical_capability():
     client.post("/a2a", json={
         "jsonrpc": "2.0", "id": 2, "method": "message/send",
         "params": {"message": {"parts": [
             {"kind": "text", "text": "check: quantum-fact-check"}]}},
     })
     events = client.get("/instrumentation/recent?limit=10").json()["events"]
-    asked = [e.get("asked") for e in events if e.get("endpoint") == "a2a_message"]
-    assert any(a and "quantum-fact-check" in a for a in asked)
+    import hashlib
+    expected = hashlib.sha256(b"check: quantum-fact-check").hexdigest()
+    request_hashes = [e.get("request_sha256") for e in events
+                      if e.get("endpoint") == "a2a_message"]
+    assert expected in request_hashes
+    assert all("asked" not in e for e in events)
     caps = [e.get("capability") for e in events if e["type"] == "capability_demand"]
     assert "quantum-fact-check" in caps
 
@@ -122,7 +126,8 @@ def test_probe_messages_get_probe_ack_and_pollute_no_demand():
         })
         payload = json.loads(r.json()["result"]["parts"][0]["text"])
         assert payload["kind"] == "probe_ack"
-        assert "supplied_capabilities" in payload
+        assert "available_actions" in payload
+        assert len(json.dumps(payload).encode()) < 1024
     demand = store.demand_summary()
     assert "hello" not in demand and "ping" not in demand and "你好" not in demand
     # Explicit asks still count as demand, supplied or not.

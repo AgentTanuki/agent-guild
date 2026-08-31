@@ -127,6 +127,38 @@ def issue_passport(
     return _add_data_integrity_proof(unsigned, issuer_did, issuer_private_hex, created)
 
 
+def issue_incident_receipt(
+    *,
+    cred_id: str,
+    issuer_did: str,
+    issuer_private_hex: str,
+    report_subject_id: str,
+    report_sha256: str,
+    received_at: str,
+) -> dict[str, Any]:
+    """Issue the deliberately sparse AGIR-1 receipt.
+
+    The signed public bytes commit only to a fresh report id, the canonical
+    report hash, and acceptance time. Reporter identity, contents, category,
+    severity, duplicate status and operator workflow state belong exclusively
+    to the private record and must never be added here.
+    """
+    unsigned = {
+        "@context": VC_CONTEXT_V2,
+        "id": cred_id,
+        "type": ["VerifiableCredential", "AgentGuildIncidentReceipt"],
+        "issuer": issuer_did,
+        "validFrom": received_at,
+        "credentialSubject": {
+            "id": report_subject_id,
+            "reportSha256": report_sha256,
+            "receivedAt": received_at,
+        },
+    }
+    return _add_data_integrity_proof(
+        unsigned, issuer_did, issuer_private_hex, received_at)
+
+
 def _verify_data_integrity(vc: dict[str, Any]) -> bool:
     proof = vc.get("proof") or {}
     if proof.get("cryptosuite") != DATA_INTEGRITY_CRYPTOSUITE:

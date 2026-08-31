@@ -539,3 +539,32 @@ class InboxPost(BaseModel):
                           "guild_next-style: {'action': ..., 'call': ...}")
     ttl_days: int = Field(45, ge=1, le=365)
     dedupe_key: Optional[str] = Field(None, max_length=128)
+
+
+class IncidentReportRequest(BaseModel):
+    """AGIR-1 write-only safety report.
+
+    Raw details are accepted for the private operator queue but are never
+    returned to the caller. A caller that does not want to transmit content may
+    submit only its SHA-256 digest.
+    """
+    category: Literal[
+        "unauthorized_coordination", "authority_confusion", "scope_drift",
+        "credential_exposure", "unsafe_action", "infrastructure_escape",
+        "other",
+    ]
+    severity: Literal["unknown", "low", "medium", "high", "critical"] = "unknown"
+    details: Optional[str] = Field(None, min_length=1, max_length=8192)
+    content_sha256: Optional[str] = Field(
+        None, pattern=r"^[0-9a-f]{64}$",
+        description="Lowercase SHA-256 of the exact UTF-8 report details.")
+    task_ref: Optional[str] = Field(None, min_length=1, max_length=128)
+    mandate_ref: Optional[str] = Field(None, min_length=1, max_length=128)
+    nonce: Optional[str] = Field(None, min_length=8, max_length=128)
+
+
+class IncidentReportResponse(BaseModel):
+    receipt: dict[str, Any]
+    padding: str = Field(
+        ..., description="Inert zero padding that makes every accepted AGIR-1 "
+                         "response the same byte length.")
