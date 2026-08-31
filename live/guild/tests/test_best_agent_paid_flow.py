@@ -197,6 +197,19 @@ def _completion(store: Store, *, mainnet: bool, confirmed: bool = True,
                        settlement_amount_atomic=10000,
                        settlement_tx="0x" + "cd" * 32,
                        payer_attribution=attribution)
+    # The rail records every settlement in the billing ledger too
+    # (record_x402_payment); the GLOBAL revenue headline is derived from
+    # that ledger at read time (revenue-semantics correction 2026-08-31),
+    # so mirror what production does.
+    store.billing_log.append({
+        "key": "x402", "type": "x402_payment", "endpoint": "check",
+        "network": ("eip155:8453" if mainnet else "eip155:84532"),
+        "amount_atomic": 10000, "payer": "0x" + "77" * 20,
+        "transaction": "0x" + "cd" * 32,
+        "status": ("settled_confirmed" if (mainnet and confirmed)
+                   else "settled"),
+        "mainnet": mainnet, "confirmed": confirmed,
+        "payer_attribution": attribution})
 
 
 def test_confirmed_mainnet_best_agent_settlement_is_revenue(store):
@@ -217,18 +230,33 @@ def test_testnet_best_agent_settlement_is_still_not_revenue(store):
     assert m["supporting_testnet_or_unconfirmed_NOT_REVENUE"] == 1
 
 
-@pytest.mark.parametrize("attribution", [
-    "unverified_payer",
-    "cryptographically_bound_machine_payer",
-    "verified_first_party_canary",
+@pytest.mark.parametrize("attribution,is_revenue,is_attributed", [
+    # REVENUE-SEMANTICS CORRECTION (founder decision 2026-08-31): a
+    # confirmed mainnet settlement IS revenue unless the payer is
+    # positively identified as Guild-controlled. Attribution is measured
+    # (attributed/unattributed), never a prerequisite.
+    ("unverified_payer", True, False),
+    ("cryptographically_bound_machine_payer", True, True),
+    ("independently_attested_external_machine", True, True),
+    ("verified_first_party_canary", False, False),
 ])
-def test_mainnet_without_independent_externality_is_not_revenue(
-        store, attribution):
+def test_first_party_exclusion_not_attribution_gates_revenue(
+        store, attribution, is_revenue, is_attributed):
     _completion(store, mainnet=True, attribution=attribution)
     m = experiments.commercial_metrics(store, operation="best_agent")
-    assert m["external_settled_revenue_usd"] == 0.0
-    assert m["paid_decisions"] == 0
-    assert m["settled_but_not_attributable_external"] == 1
+    if is_revenue:
+        assert m["external_settled_revenue_usd"] == pytest.approx(0.01)
+        assert m["paid_decisions"] == 1
+        assert m["attributed_external_payments"] == (1 if is_attributed
+                                                    else 0)
+        assert m["settled_but_not_attributable_external"] == \
+            (0 if is_attributed else 1)
+    else:
+        # positively-identified first-party stays excluded, and is shown as
+        # first-party money rather than disappearing.
+        assert m["external_settled_revenue_usd"] == 0.0
+        assert m["paid_decisions"] == 0
+        assert m["known_first_party_settled_usd"] == pytest.approx(0.01)
 
 
 def test_a2a_settled_signed_decision_records_completion(store):

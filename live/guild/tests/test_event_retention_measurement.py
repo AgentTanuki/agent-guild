@@ -80,7 +80,13 @@ def test_funnel_experiment_and_revenue_read_durable_history(sqlite_store):
     assert revenue["distinct_external_payers"] == 1
     assert revenue["paid_decisions"] == 1
     assert revenue["supporting_testnet_or_unconfirmed_NOT_REVENUE"] == 2
-    assert revenue["settled_but_not_attributable_external"] == 1
+    # revenue-semantics correction 2026-08-31: the canary completion is
+    # positively first-party (excluded, shown as first-party money), and the
+    # attested completion is revenue AND attributed - nothing here is
+    # settled-but-unattributable.
+    assert revenue["settled_but_not_attributable_external"] == 0
+    assert revenue["known_first_party_settled_usd"] == pytest.approx(0.01)
+    assert revenue["attributed_external_payments"] == 1
 
 
 def test_running_arm_and_price_state_survive_restart_unchanged(sqlite_store):

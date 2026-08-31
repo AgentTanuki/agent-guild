@@ -541,6 +541,14 @@ def test_the_portfolio_report_is_not_scoped_away(store):
                        settlement_amount_atomic=20000,
                        payer_attribution=(
                            "independently_attested_external_machine"))
+    # the rail also writes the settlement ledger, which the GLOBAL headline
+    # is derived from at read time (revenue-semantics correction 2026-08-31)
+    store.billing_log.append({
+        "key": "x402", "type": "x402_payment", "endpoint": "preflight_deep",
+        "network": "eip155:8453", "amount_atomic": 20000,
+        "payer": "0x" + "aa" * 20, "transaction": "0x" + "ee" * 32,
+        "status": "settled_confirmed", "mainnet": True, "confirmed": True,
+        "payer_attribution": "independently_attested_external_machine"})
     assert experiments.commercial_metrics(store)["paid_decisions"] == 1
     assert experiments.commercial_metrics(
         store, "deep_preflight")["paid_decisions"] == 1

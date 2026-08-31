@@ -102,13 +102,41 @@ raise a price or invent an operation).
 `GET /commercial` — revenue first, then qualified exposure, then experiments,
 then the supporting metrics explicitly labelled as unable to carry a decision.
 
-The single number: **`external_settled_revenue_usd`** — independently confirmed
-external mainnet settlement only. Sandbox credits, first-party canaries,
-testnet funds and internal transfers are excluded by construction.
+The single number: **`external_settled_revenue_usd`** — all independently
+confirmed mainnet x402 settlements **except** those whose payer is positively
+identified as Guild-controlled (a configured or cryptographically verified
+first-party/canary wallet). Revenue semantics (founder decision 2026-08-31)
+keep four concepts separate:
 
-If that number is `0.00`, the correct reading is that **nothing has been sold
-yet** — regardless of how large the index, the reach or the free-check count
-is.
+1. **Settlement truth** — did real value settle on mainnet? (chain receipt
+   verified by this service, never the facilitator's word; testnet and
+   unconfirmed settlements are a successful payment of nothing.)
+2. **First-party exclusion** — is the payer *positively* known to be
+   Guild-controlled? Only then is the money excluded from the headline.
+3. **Attribution** — can the payment be mechanically linked to a machine
+   identity or operation? Reported as `attributed_external_payments` /
+   `attribution_coverage`; **not** a prerequisite for recognising revenue.
+   `unverified_payer` means the payer's *identity* is unverified — it does
+   not mean the confirmed money is not revenue, and it is never promoted to
+   an independently attested external identity.
+4. **Intent** — never inferred, never required.
+
+Read it with its companions: `gross_settled_revenue_usd`,
+`known_first_party_settled_usd`, `successful_external_payments`,
+`distinct_external_payer_wallets`, `attributed_external_payments` and
+`attribution_coverage`. All are derived at read time from the append-only
+settlement ledger plus the configured first-party wallet registry, so
+`/commercial`, `/billing/revenue` and `/self-eval` cannot disagree.
+
+If `external_settled_revenue_usd` is `0.00` **and** `gross_settled_revenue_usd`
+equals `known_first_party_settled_usd`, nothing has been sold to anyone but
+ourselves. If external settled revenue is positive with
+`attribution_coverage` low or `null`, real non-first-party money has settled
+that we cannot yet bind to a machine identity — that is an attribution gap to
+investigate, **not** an absence of sales, and it must never be reported as
+"$0.00, nothing sold". An unattributed settlement counts in this global
+headline but can promote a specific price/offer experiment only when
+mechanically linked to that operation, quoted price and experiment arm.
 
 ## 8. Safety invariants that must never be traded away
 

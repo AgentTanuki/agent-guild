@@ -3,7 +3,21 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.41"  # PATCH coordination and outcome hardening (2026-08-27):
+__version__ = "2.5.42"  # PATCH revenue-semantics correction (2026-08-31):
+                        # a confirmed mainnet x402 settlement IS revenue
+                        # unless the payer is positively identified as
+                        # Guild-controlled first-party/canary; adds
+                        # gross/known-first-party/external settled revenue,
+                        # payment + distinct-wallet counts and
+                        # attribution_coverage to /commercial,
+                        # /billing/revenue and /self-eval, derived at read
+                        # time from the settlement ledger + configured
+                        # first-party wallet registry. Attribution stays
+                        # measured, never a revenue prerequisite; experiment
+                        # promotion still requires the mechanical
+                        # operation/price/arm link.
+                        # History of 2.5.41:
+                        # PATCH coordination and outcome hardening (2026-08-27):
                         # makes peer authority advisory/attenuated, separates
                         # authenticated worker delivery/stops from attributable
                         # requester grades, binds signed stop reasons and receipt
