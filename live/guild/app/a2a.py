@@ -30,7 +30,10 @@ from typing import Any, Optional
 from fastapi import APIRouter, Request, Response
 
 from . import __version__
+from . import abuse
 from . import callerproof
+from . import incidents
+from . import objective_match as _objective
 from . import coordination as _coordination
 from . import proving
 from . import a2a_x402
@@ -48,31 +51,7 @@ router = APIRouter()
 
 _CAP_RE = re.compile(
     r"(?<![a-z0-9_\-])(?:capability|check|hire|vet)\b\s*[:=]?\s*"
-    r"([a-z0-9][a-z0-9_\-]{1,63})", re.I)
-# Conservative natural-language capability asks. This requires an explicit
-# agent/someone plus a for/to connective, so ordinary conversation does not
-# fabricate demand or trigger a payment challenge.
-_NL_CAP_RE = re.compile(
-    r"\b(?:need|find|looking\s+for|recommend|want|get\s+me|who\s+can)\b"
-    r"[^.\n]{0,40}?\b(?:an?\s+)?(?:agent|someone)\b[^.\n]{0,20}?"
-    r"\b(?:for|to(?:\s+do)?|who\s+can(?:\s+do)?)\s+"
-    r"([a-z0-9][a-z0-9_\-]{1,63})\b", re.I)
-_NL_CAP_STOPWORDS = frozenset({
-    "hire", "check", "vet", "capability", "the", "a", "an", "this", "that",
-    "me", "my", "it", "them", "task", "job", "work", "help", "do", "doing",
-    "hire-", "agent", "someone", "something", "anything"})
-
-
-def _natural_capability(text: str) -> str | None:
-    match = _NL_CAP_RE.search(text)
-    if match is None:
-        return None
-    capability = match.group(1).lower()
-    if capability in _NL_CAP_STOPWORDS:
-        return None
-    return capability
-
-
+    r"([a-z0-9][a-z0-9_\-]{0,63})", re.I)
 # Prove-intent: an agent asking HOW to complete the proving rung. Live lesson
 # (2026-07-06, agent_f58dc48bbe24 "pathtoAGI"): it registered off this surface,
 # then came back and asked "how do I complete prove_key_control? give me the
@@ -414,43 +393,84 @@ def _swarm_skills(base: str) -> list[dict[str, Any]]:
     return skills
 
 
+def _compact_a2a_skills(base: str) -> list[dict[str, Any]]:
+    """The small, stable skills carried by the agent card itself.
+
+    Per-capability utility skills remain fully discoverable through the linked
+    identity index. Repeating their schemas and examples in this card made a
+    first discovery fetch 36 KiB and caused quiet registry-parser failures.
+    """
+    def skill(id_: str, name: str, description: str, tags: list[str],
+              example: str) -> dict[str, Any]:
+        return {"id": id_, "name": name, "description": description,
+                "tags": tags, "examples": [example],
+                "inputModes": ["text/plain"],
+                "outputModes": ["application/json"]}
+
+    index = f"{base}/.well-known/ag-identities/index.json"
+    return [
+        skill("guild.preflight", "Check an endpoint (free)",
+              "Live claimed-vs-observed endpoint check.",
+              ["trust", "preflight", "safety"],
+              "preflight: https://some-agent.example/a2a"),
+        skill("guild.preflight.deep", "Deep endpoint check (paid)",
+              "Preflight plus drift, corroboration and policy evidence.",
+              ["trust", "preflight", "paid"],
+              "deep-preflight: https://some-agent.example/a2a"),
+        skill("guild.index", "Search the trust index (free)",
+              "Search endpoints the Guild has observed.",
+              ["discovery", "trust"], "index: translation"),
+        skill("guild.check", "Vet a capability",
+              "Evidence and reachability for one delegation capability.",
+              ["trust", "delegation"], "check: fact-check"),
+        skill("guild.capabilities", "Supply and demand map",
+              "Registered supply plus capabilities with unmet demand.",
+              ["discovery", "demand"], "capabilities"),
+        skill("guild.report", "Report a safety incident",
+              "Write-only confidential report; returns a signed hash receipt.",
+              ["safety", "incident"],
+              '{"skill":"guild.report","args":{"category":"unsafe_action",'
+              '"severity":"high","details":"<private report>"}}'),
+        skill("guild.invoke", "Invoke a utility capability",
+              f"Send 'invoke: <capability_id> <json>'. Schemas: {index}",
+              ["utility", "deterministic"],
+              'invoke: json.repair {"text":"{\'a\':1,}"}'),
+    ]
+
+
 def _agent_card(base: str) -> dict[str, Any]:
     from . import paidcatalog as _pc
     return {
         "protocolVersion": "0.3.0",
-        # Machine-readable paid layer. Kept OUTSIDE the A2A spec's own keys —
-        # this is an additive vendor block, not an invented spec field — so a
-        # strict A2A consumer ignores it and a curious one can read exactly
-        # what we sell, what it costs and what the free alternative is.
-        "x-agent-guild-paid-operations": _pc.offer_block(
-            "paid_offer:agent_card", base=base),
+        # Compact vendor extension. Full buyer intents, prices, free siblings
+        # and one-call clients live at the linked canonical catalog instead of
+        # adding ~23 KiB to every A2A discovery fetch.
+        "x-agent-guild-paid-operations": {
+            "source": "paid_offer:agent_card",
+            "catalog": f"{base}/.well-known/agent-guild.json",
+            "catalog_field": "paid_operations",
+            "operations": [op["operation"] for op in _pc.operations(base=base)],
+        },
+        "x-agent-guild-capability-index": {
+            "url": f"{base}/.well-known/ag-identities/index.json",
+            "invocation": "invoke: <capability_id> <json>",
+        },
         "name": "Agent Guild",
         "description": (
-            "Seal machine intent without exposing its payload: the paid "
-            "machine_envelope operation binds an authenticated sender DID "
-            "to an exact payload digest, recipient, nonce and expiry; anyone "
-            "can verify it for free. The Guild attests provenance, not truth. "
-            "Also: can I safely use or pay this endpoint right now? Send "
-            "'preflight: <url>' and get back, free and live at request time, "
-            "what that endpoint CLAIMS and separately what it just PROVED: a "
-            "real protocol handshake (not merely HTTP 200), a resolvable agent "
-            "card, whether the card is signed, and whether an advertised "
-            "payment surface actually challenges with 402. Measured "
-            "2026-07-31: 92.9% of registry-listed agents report healthy and "
-            "33.9% complete a task. Send 'index' to search every endpoint we "
-            "have observed. 'deep-preflight: <url>' adds drift history, "
-            "cross-source corroboration and an explicit allow/caution/block "
-            "policy verdict (paid, x402). Also free, and supporting rather "
-            "than the headline: a portable Agent Passport for your own agent "
-            '(POST /agents/register {"name": "<you>", "capabilities": [...], '
-            '"src": "passport_offer:agent_card"} returns the proof challenge; '
-            "verify it, then GET /agents/{id}/passport), and 'check: "
-            "<capability>' to find "
-            "the safest agent for a job. Richer surface over MCP and REST; see "
-            "documentationUrl."
-        ),
+            "Seal machine intent without exposing its payload (the Guild "
+            "attests provenance, not truth). Ask 'can I safely use or pay this "
+            "endpoint?' with preflight: <url>. Vet trust, settle work, or file "
+            "confidential incidents. Supporting portable Agent Passport: "
+            "passport_offer:agent_card. Full REST/MCP: documentationUrl."),
         "url": f"{base}/a2a",
         "preferredTransport": "JSONRPC",
+        # Additive current-spec form. Legacy url/preferredTransport remain for
+        # registries still pinned to A2A 0.3; newer consumers read this list.
+        "supportedInterfaces": [{
+            "url": f"{base}/a2a",
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "0.3",
+        }],
         "provider": {"organization": "Agent Guild", "url": base},
         "version": __version__,
         "documentationUrl": f"{base}/for-agents",
@@ -465,43 +485,23 @@ def _agent_card(base: str) -> dict[str, Any]:
             "extensions": [
                 {
                     "uri": "https://agent-guild.ai/ext/caller-identity/v1",
-                    "description": (
-                        "Optional honest caller identification for attributable "
-                        "discovery. MCP clients send their real clientInfo name "
-                        "and version; HTTP/A2A clients send their actual "
-                        "framework/version User-Agent. Never randomise or claim "
-                        "a runtime you are not using."
-                    ),
+                    "description": "Optional honest caller identification.",
                     "required": False,
                     "params": {
                         "http_header": "User-Agent: <actual framework>/<version>",
-                        "skill_header": (
-                            "User-Agent: agentguild-skill/1.0 "
-                            "(host=<actual runtime>)"),
                         "mcp_field": "initialize.clientInfo{name,version}",
-                        "privacy": (
-                            "Purpose-scoped actor binding; no raw IP or "
-                            "credential is published."),
                         "rules": f"{base}/discovery/reach",
                     },
                 },
                 {
                     "uri": "https://agent-guild.ai/ext/trust/v1",
-                    "description": (
-                        "AGI-1 trust evidence: signed AGD-1 delegation "
-                        "decisions (GET /check?capability=<cap>&signed=true), "
-                        "offline-verifiable Agent Passports "
-                        "(GET /agents/{id}/passport), eddsa-jcs-2022 proofs, "
-                        "pinned checkpoint feed (GET /ledger/checkpoints) "
-                        "with fork detection."
-                    ),
+                    "description": "AGI-1 trust evidence and AGCS-1 authority semantics.",
                     "required": False,
                     "params": {
                         "contract": "AGD-1/1.0",
                         "proof_suite": "eddsa-jcs-2022",
                         "decision_endpoint": f"{base}/check",
                         "passport_endpoint": f"{base}/agents/{{id}}/passport",
-                        "checkpoint_feed": f"{base}/ledger/checkpoints",
                         "conformance": f"{base}/standard",
                         # supplier machines: signed, cacheable feed of REAL
                         # unmet demand — discover work, register, prove, all
@@ -545,87 +545,7 @@ def _agent_card(base: str) -> dict[str, Any]:
         },
         "defaultInputModes": ["text/plain"],
         "defaultOutputModes": ["application/json", "text/plain"],
-        "skills": [
-            {
-                "id": "guild.preflight",
-                "name": "Allow, caution or block an endpoint (free)",
-                "description": (
-                    "Run this in the moment BEFORE you delegate to, or pay, "
-                    "an endpoint you did not write. Free, no account. Returns "
-                    "what the endpoint CLAIMS and, separately, what it just "
-                    "PROVED: a real protocol handshake (not merely HTTP 200), "
-                    "a resolvable agent card, whether that card is signed, and "
-                    "whether an advertised payment surface actually challenges "
-                    "with 402. Checks that could not be performed come back as "
-                    "unknowns and are excluded from the verdict, never "
-                    "averaged into it."
-                ),
-                "tags": ["trust", "preflight", "delegation", "safety", "x402"],
-                "examples": ["preflight: https://some-agent.example/a2a",
-                             "check-endpoint: https://some-agent.example/a2a"],
-                "inputModes": ["text/plain"],
-                "outputModes": ["application/json"],
-            },
-            {
-                "id": "guild.preflight.deep",
-                "name": "Deep endpoint check with policy verdict (paid)",
-                "description": (
-                    "Everything the free preflight returns, plus drift "
-                    "history for this exact endpoint, cross-source "
-                    "corroboration, and an explicit allow/caution/block policy "
-                    "verdict whose threshold is published so you can reject it "
-                    "and apply your own. Priced through the same x402 gateway "
-                    "as every other paid read."
-                ),
-                "tags": ["trust", "preflight", "policy", "x402", "paid"],
-                "examples": ["deep-preflight: https://some-agent.example/a2a"],
-                "inputModes": ["text/plain"],
-                "outputModes": ["application/json"],
-            },
-            {
-                "id": "guild.index",
-                "name": "Search the public trust index (free)",
-                "description": (
-                    "Every endpoint the Guild knows, with what its registry "
-                    "CLAIMS and separately what the Guild OBSERVED when it "
-                    "actually called it. Send 'index' or 'index: <query>'."
-                ),
-                "tags": ["discovery", "trust", "index"],
-                "examples": ["index", "index: translation"],
-                "inputModes": ["text/plain"],
-                "outputModes": ["application/json"],
-            },
-            {
-                "id": "guild.check",
-                "name": "Vet a capability before delegating",
-                "description": (
-                    "One call: the safest agent for a capability, a "
-                    "hire/caution/avoid verdict, a ranked shortlist, and "
-                    "provenance-labelled proof the recommendations improve "
-                    "outcomes. If nobody supplies the capability yet, routes "
-                    "to the nearest supplied capability and explains how to "
-                    "register as the first supplier."
-                ),
-                "tags": ["trust", "reputation", "agent-discovery", "delegation"],
-                "examples": ["check: fact-check", "capability=web-research"],
-                "inputModes": ["text/plain"],
-                "outputModes": ["application/json"],
-            },
-            {
-                "id": "guild.capabilities",
-                "name": "Supply/demand map",
-                "description": (
-                    "Every capability with registered supply, plus unmet "
-                    "demand — capabilities agents asked for that nobody "
-                    "supplies yet. Send 'capabilities' as the message text."
-                ),
-                "tags": ["discovery", "supply", "demand"],
-                "examples": ["capabilities"],
-                "inputModes": ["text/plain"],
-                "outputModes": ["application/json"],
-            },
-            *_swarm_skills(base),
-        ],
+        "skills": _compact_a2a_skills(base),
     }
 
 
@@ -721,6 +641,35 @@ def _with_extension_header(resp: dict[str, Any], request: Request):
     return JSONResponse(content=resp, headers=headers)
 
 
+def _note_objective_followthrough(actor: str, capability: str, ua: str) -> None:
+    """Attribute an explicit full check to the latest compact objective result.
+
+    This is deliberately heuristic and labelled as such: anonymous A2A has no
+    session id, so same actor + canonical capability in the retained event tail
+    is the strongest available link. A parent hash is counted once.
+    """
+    parent = None
+    for event in reversed(store.events[-500:]):
+        if (event.get("key") == actor
+                and event.get("type") == "query"
+                and event.get("caller_kind") == "objective_ask"
+                and event.get("capability") == capability):
+            parent = event.get("request_sha256")
+            break
+    if not parent:
+        return
+    if any(event.get("type") == "objective_action_followed"
+           and event.get("parent_request_sha256") == parent
+           and event.get("action") == "trust.check.full"
+           for event in store.events[-500:]):
+        return
+    store.record_event(
+        actor, "objective_action_followed", ua=ua,
+        endpoint="a2a_message", capability=capability,
+        action="trust.check.full", parent_request_sha256=parent,
+        attribution="same_actor_capability_recent_tail")
+
+
 @router.post("/a2a")
 async def a2a_endpoint(request: Request):
     """Minimal, honest A2A JSON-RPC endpoint.
@@ -799,8 +748,8 @@ async def a2a_endpoint(request: Request):
     # read off the caller's own traffic.
     lowered = text.lower().strip()
     explicit_capability = _CAP_RE.search(text)
-    natural_capability = (
-        None if explicit_capability is not None else _natural_capability(text))
+    objective = (None if explicit_capability is not None else
+                 _objective.match(text, store.capability_index().keys()))
     _adv_url = None
     _inv = re.match(r"^\s*invoke:\s*([a-z0-9_.\-]+)\s*(\{.*\})?\s*$", text, re.S | re.I)
     _inv_intent = bool(re.match(r"^\s*invoke\b", text, re.I))
@@ -833,6 +782,7 @@ async def a2a_endpoint(request: Request):
 
     _skill = _skill_call(text)
     _skill_payload: Optional[dict[str, Any]] = None
+    _incident_payload: Optional[dict[str, Any]] = None
     if _skill is not None:
         _sid, _sargs = _skill
         _sid_l = _sid.lower()
@@ -844,6 +794,9 @@ async def a2a_endpoint(request: Request):
                 caller_kind, caller_cap = "skill_args_missing", None
         elif _sid_l in ("guild.capabilities", "capabilities"):
             caller_kind, caller_cap = "capabilities_map", None
+        elif _sid_l in ("guild.report", "report"):
+            caller_kind, caller_cap = "incident_report", None
+            _incident_payload = _sargs
         elif _sid_l in ("guild.invoke", "invoke"):
             _cid = _sargs.get("capability_id") or _cap_arg
             if isinstance(_cid, str) and _cid.strip():
@@ -875,15 +828,26 @@ async def a2a_endpoint(request: Request):
         # AGCS-1: the canonical coordination-safety policy, same document as
         # GET /coordination-policy and MCP guild_coordination_policy.
         caller_kind, caller_cap = "coordination_policy", None
-    elif explicit_capability is not None or natural_capability is not None:
+    elif explicit_capability is not None:
         caller_kind = "capability_ask"
-        caller_cap = (explicit_capability.group(1)
-                      if explicit_capability is not None
-                      else natural_capability)
+        caller_cap = explicit_capability.group(1)
+    elif objective is not None and objective["kind"] in (
+            "exact_canonical", "versioned_alias", "deterministic_tokens"):
+        caller_kind = "objective_ask"
+        caller_cap = objective["canonical_capability"]
     elif _PROVE_INTENT_RE.search(text):
         caller_kind, caller_cap = "prove_howto", None
     elif (_adv_url := _advertised_url(text)):
+        # A URL-bearing self-description is an endpoint declaration before it
+        # is an unresolved natural-language objective. This preserves the
+        # established advert→declare path without weakening objective matching.
         caller_kind, caller_cap = "endpoint_advert", None
+    elif objective is not None and objective["kind"] == "ambiguous" \
+            and _objective.looks_like_objective(text):
+        caller_kind, caller_cap = "objective_ambiguous", None
+    elif objective is not None and objective["kind"] == "no_match" \
+            and _objective.looks_like_objective(text):
+        caller_kind, caller_cap = "objective_no_match", None
     else:
         caller_kind, caller_cap = "probe", None
 
@@ -891,14 +855,61 @@ async def a2a_endpoint(request: Request):
     # first contact we currently have no way to reach it back (Forge-9 taught
     # us this the hard way — registered with empty metadata, then went quiet).
     # The message body is the only artifact of the encounter; keep it.
-    store.record_event(actor, "query", ua=ua_tag,
-                       endpoint="a2a_message", text=text[:300],
-                       caller_kind=caller_kind, capability=caller_cap,
-                       caller_proof_verified=proof_verified,
-                       caller_did=(caller_did or None))
+    if caller_kind == "incident_report":
+        # Never retain report text, references, reporter identity or proof DID
+        # in the public instrumentation feed. One constant actor records only
+        # that the A2A branch worked; the private record carries operator data.
+        store.record_event("a2a:incident", "query", ua="a2a",
+                           endpoint="a2a_message",
+                           caller_kind="incident_report")
+    else:
+        binding = _objective.request_binding(text)
+        store.record_event(actor, "query", ua=ua_tag,
+                           endpoint="a2a_message",
+                           request_sha256=binding["sha256"],
+                           request_utf8_bytes=binding["utf8_bytes"],
+                           caller_kind=caller_kind, capability=caller_cap,
+                           objective_match_kind=(
+                               (objective or {}).get("kind")
+                               if caller_kind.startswith("objective_") else None),
+                           caller_proof_verified=proof_verified,
+                           caller_did=(caller_did or None))
+        if caller_kind == "capability_ask" and caller_cap:
+            _note_objective_followthrough(actor, caller_cap, ua_tag)
 
     import json as _json
-    if caller_kind == "swarm_invoke_ask":
+    if caller_kind == "incident_report":
+        # The generic /a2a route cannot be bucketed as a write at middleware
+        # level because almost all A2A messages are reads. Apply the same
+        # incident/IP quota here only after the write intent is known.
+        abuse.guard(request, "incident")
+        try:
+            _args = _incident_payload or {}
+            reporter = store.agent_for_presented_key(
+                request.headers.get("x-api-key"))
+            if request.headers.get("x-api-key") and reporter is None:
+                payload = {"error": "invalid_api_key"}
+            else:
+                payload = incidents.submit(
+                    store,
+                    category=str(_args.get("category") or ""),
+                    severity=str(_args.get("severity") or "unknown"),
+                    details=(_args.get("details")
+                             if isinstance(_args.get("details"), str) else None),
+                    content_sha256=(
+                        _args.get("content_sha256")
+                        if isinstance(_args.get("content_sha256"), str) else None),
+                    task_ref=(_args.get("task_ref")
+                              if isinstance(_args.get("task_ref"), str) else None),
+                    mandate_ref=(
+                        _args.get("mandate_ref")
+                        if isinstance(_args.get("mandate_ref"), str) else None),
+                    nonce=(_args.get("nonce")
+                           if isinstance(_args.get("nonce"), str) else None),
+                    reporter_agent=reporter, transport="a2a")
+        except ValueError as exc:
+            payload = {"error": "invalid_report", "detail": str(exc)}
+    elif caller_kind == "swarm_invoke_ask":
         # A2A route into the acquisition gateway: same chokepoint, limits,
         # attribution, and signed provenance envelope as POST /invoke/{id}.
         from .swarm import gateway as _gw
@@ -969,6 +980,10 @@ async def a2a_endpoint(request: Request):
             "schemas": "/.well-known/ag-identities/index.json",
             "terms": "/terms.json",
         }
+    elif caller_kind == "objective_ambiguous":
+        payload = _objective.unresolved_capsule(objective)
+    elif caller_kind == "objective_no_match":
+        payload = _objective.unresolved_capsule(objective)
     elif caller_kind == "capabilities_map":
         payload: dict[str, Any] = {
             "supplied": store.capability_index(),
@@ -1001,6 +1016,9 @@ async def a2a_endpoint(request: Request):
             "skills": {
                 "guild.check": {"args": {"capability": "<capability>"}},
                 "guild.capabilities": {"args": {}},
+                "guild.report": {"args": {"category": "<category>",
+                                             "severity": "<severity>",
+                                             "details": "<private report>"}},
                 "guild.invoke": {"args": {"capability_id": "<id>",
                                           "payload": {}}},
                 **{f"ag.{cid}": "invoke with capability payload as args"
@@ -1008,7 +1026,7 @@ async def a2a_endpoint(request: Request):
             },
             "agent_card": "/.well-known/agent-card.json",
         }
-    elif caller_kind == "capability_ask":
+    elif caller_kind in ("capability_ask", "objective_ask"):
         # PAID trust read — the SAME price and enforcement policy as GET /check
         # and the MCP guild_check tool (one operation, one policy, every
         # transport). When the x402 rail is active + enforced, an unpaid caller
@@ -1027,7 +1045,27 @@ async def a2a_endpoint(request: Request):
                 request.headers.get("x-guild-source")),
             caller_proof_verified=proof_verified,
             caller_did=(caller_did if proof_verified else ""))
-        if _x402_a2a_active():
+        if caller_kind == "objective_ask":
+            # Progressive disclosure is invariant across commercial modes.
+            # A natural first contact receives the same compact advisory
+            # capsule whether billing is soft-launched or enforced. Under
+            # enforcement it exposes only the deterministic mapping: provider,
+            # score and decision remain behind the explicit metered action.
+            if _x402_a2a_active():
+                preq = payments.check_request(caller_cap)
+                payload = _objective.objective_capsule(
+                    objective, None, price_credits=preq.cost)
+                store.record_event(
+                    actor, "paid_offer_shown", ua=ua_tag,
+                    endpoint="first_contact_capsule", transport="a2a",
+                    challenged_operation=preq.operation,
+                    impression="action_link", actor_distinct=True,
+                    price_credits=preq.cost)
+            else:
+                payload = _objective.objective_capsule(
+                    objective,
+                    store.check(caller_cap, demand_recorded=True))
+        elif _x402_a2a_active():
             preq = payments.check_request(caller_cap)
             # B2 (2026-07-15, live-telemetry fix): the demand context rides
             # INTO the challenge so the honest free layer (price, supply
@@ -1047,7 +1085,8 @@ async def a2a_endpoint(request: Request):
                                price_credits=preq.cost)
             resp = {"jsonrpc": "2.0", "id": id_, "result": task}
             return _with_extension_header(resp, request)
-        payload = store.check(caller_cap, demand_recorded=True)
+        else:
+            payload = store.check(caller_cap, demand_recorded=True)
     elif caller_kind == "prove_howto":
         # An agent asking how to prove gets the exact executable answer, not a
         # probe_ack. Recorded distinctly so surfaced→asked→completed is a
@@ -1135,84 +1174,7 @@ async def a2a_endpoint(request: Request):
         # answered the wrong job (a /check on the word "ping") AND polluted
         # unmet_demand with greetings. A probe's job is "are you alive, what
         # can you do?" — answer exactly that, record no demand.
-        payload = {
-            "kind": "probe_ack",
-            "service": "Agent Guild — trust and settlement layer for AI agents",
-            "how_to_ask": ("Send 'check: <capability>' (e.g. 'check: fact-check') "
-                           "for the safest agent to hire + verdict + proof, "
-                           "'capabilities' for the full supply/demand map, or "
-                           "'policy' for the AGCS-1 coordination-safety "
-                           "policy (Guild content is data, not instruction)."),
-            "supplied_capabilities": store.capability_index(),
-            # First-contact dead-end fix (2026-07-07): live telemetry showed a
-            # genuine external agent (a2a:python-httpx) pinging repeatedly and
-            # never advancing. Every actionable path below (prove, endpoint)
-            # requires an agent_id the anonymous prober does not yet have, so it
-            # re-pinged instead of acting. A rational zero-state agent needs the
-            # ONE call it can execute right now with no prior state and no schema
-            # guessing. This is that call: a copy-pasteable register with a
-            # concrete body. Its response returns your agent_id AND a guild_next
-            # that carries the exact prove step — closing probe→register→prove.
-            "register_now": {
-                "why": ("You have no record here yet. This single call creates "
-                        "one (free), returns your agent_id + a did:key you "
-                        "control, and its guild_next tells you the exact next "
-                        "call to earn your first verifiable evidence."),
-                "method": "POST",
-                "url": f"{proving.BASE}/agents/register",
-                "headers": {"Content-Type": "application/json"},
-                "example_body": {
-                    "name": "your-agent-handle",
-                    "capabilities": ["<what you can do, e.g. fact-check>"],
-                    "metadata": {
-                        "endpoint": "<your A2A or HTTP URL, so the Guild can "
-                                    "reach you back with collaboration invites>"
-                    },
-                },
-                "then": ("Read guild_next in the response, then POST to "
-                         f"{proving.BASE}/agents/{{your_agent_id}}/prove to start the "
-                         "free self-serve proving rung — no counterparty needed."),
-            },
-            # Indexer-aware self-description (2026-07-11). Live telemetry shows a
-            # whole and growing CLASS of ecosystem-INTELLIGENCE crawlers probing
-            # /a2a to characterise the Guild for indexes that OTHER agents then
-            # query for discovery: DEMOS-Organism/1.0 (the-organism.xyz, indexes
-            # 1344 agents), AgentsCensusBot, Chiark (agent quality index),
-            # AgenstryBot, A2A-Registry-TaskProbe — 5+ distinct in a single
-            # 200-event window. register_now answers the wrong job for an
-            # indexer: it does not want to be hired or to register, it wants a
-            # crisp, ingestible record. Giving it an accurate canonical
-            # self-description serves the crawler's OWN task and spreads correct
-            # Guild representation across every downstream discovery surface at
-            # zero cost. Only real, live fields — no marketing claims.
-            "self_description": {
-                "note": ("Machine-readable record for ecosystem indexes and "
-                         "directory crawlers: this is how to represent Agent "
-                         "Guild in your catalog."),
-                "name": "Agent Guild",
-                "category": "trust-and-settlement-middleware",
-                "summary": ("Registry-backed trust middleware for agent-to-agent "
-                            "coordination. Before one agent delegates to another, "
-                            "the Guild returns a hire/caution/avoid verdict from "
-                            "evidence-backed work attestations (seed-anchored "
-                            "EigenTrust + structural collusion/Sybil detection), "
-                            "so manufactured praise does not move scores."),
-                "capabilities_supplied": len(store.capability_index()),
-                "protocols": ["A2A", "MCP", "REST"],
-                "standard": "AGI-1 (open, vendor-neutral trust-passport format)",
-                "identity": ("agents identified by W3C did:key (Ed25519); trust "
-                             "passports are W3C Verifiable Credentials verifiable "
-                             "offline against the issuer's did:key"),
-                "urls": {
-                    "home": proving.BASE,
-                    "agent_card": f"{proving.BASE}/.well-known/agent-card.json",
-                    "mcp": f"{proving.BASE}/mcp/",
-                    "trust_check": f"{proving.BASE}/check?capability=<capability>",
-                    "standard": f"{proving.BASE}/standard",
-                    "for_agents": f"{proving.BASE}/for-agents",
-                },
-            },
-        }
+        payload = _objective.probe_capsule(text)
 
     # Route back: every A2A reply carries a way for the caller to become
     # reachable. First contact is worthless to both sides if it's one-way —
@@ -1221,8 +1183,24 @@ async def a2a_endpoint(request: Request):
     # EXCEPTION (AGCS-1): the coordination-safety policy is served byte-
     # identical on every transport — appending transport extras here would
     # break REST/MCP/A2A parity of the canonical document.
-    if caller_kind == "coordination_policy":
-        reply_text = _json.dumps(payload, default=str)
+    if caller_kind in ("coordination_policy", "incident_report", "probe",
+                       "objective_ask", "objective_ambiguous",
+                       "objective_no_match"):
+        # Compact serialization is part of the machine-first byte budget (and
+        # makes AGIR-1 padding identical across HTTP and A2A transports).
+        reply_text = _json.dumps(
+            payload, default=str, ensure_ascii=False, separators=(",", ":"))
+        if caller_kind in ("probe", "objective_ask", "objective_ambiguous",
+                           "objective_no_match"):
+            binding = _objective.request_binding(text)
+            store.record_event(
+                actor, "first_contact_response", ua=ua_tag,
+                endpoint="a2a_message", caller_kind=caller_kind,
+                capability=caller_cap,
+                request_sha256=binding["sha256"],
+                response_bytes=len(reply_text.encode("utf-8")),
+                response_kind=(payload.get("kind")
+                               if isinstance(payload, dict) else None))
         return {
             "jsonrpc": "2.0",
             "id": id_,

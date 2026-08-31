@@ -33,10 +33,20 @@ def test_agent_card_shape_and_honesty():
             assert k in card, k
         assert card["url"].endswith("/a2a")
         assert card["preferredTransport"] == "JSONRPC"
+        assert card["supportedInterfaces"] == [{
+            "url": card["url"],
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "0.3",
+        }]
         # honesty: nothing we don't serve
         assert card["capabilities"]["streaming"] is False
         skill_ids = {s["id"] for s in card["skills"]}
         assert "guild.check" in skill_ids
+        assert "guild.report" in skill_ids
+        assert len(r.content) <= 5120
+        for skill in card["skills"]:
+            assert set(("id", "name", "description", "tags", "examples",
+                        "inputModes", "outputModes")) <= set(skill)
 
 
 def test_a2a_message_send_returns_check_payload():
@@ -89,10 +99,9 @@ def test_badges_never_break_embeds():
     assert ("trust" in r.text) or ("new" in r.text)
 
 
-def test_a2a_reply_carries_route_back_and_logs_text():
-    """Every A2A reply must carry guild_contact (the route back), and the
-    inbound text must be kept on the event — first contact is otherwise
-    unrecoverable (the Forge-9 lesson)."""
+def test_explicit_check_carries_route_back_and_logs_hash_not_text():
+    """Explicit legacy checks retain the rich route-back, while telemetry
+    binds the request by hash instead of turning the public feed into a relay."""
     _seed()
     r = client.post("/a2a", json={
         "jsonrpc": "2.0", "id": 7, "method": "message/send",
@@ -110,7 +119,10 @@ def test_a2a_reply_carries_route_back_and_logs_text():
     assert any(e.get("type") == "prove_surfaced" for e in store.events)
     ev = [e for e in store.events
           if e.get("endpoint") == "a2a_message" and e.get("type") == "query"][-1]
-    assert ev.get("text") == "check: fact-check"
+    import hashlib
+    assert ev.get("text") is None
+    assert ev.get("request_sha256") == hashlib.sha256(
+        b"check: fact-check").hexdigest()
 
 
 def test_declare_endpoint_route():
@@ -143,28 +155,16 @@ def _send(text):
     return json.loads(r.json()["result"]["parts"][0]["text"])
 
 
-def test_probe_ack_carries_ingestible_self_description_for_indexers():
-    """Ecosystem-index crawlers (DEMOS-Organism, AgentsCensusBot, Chiark,
-    AgenstryBot, a2aregistry) probe /a2a to characterise the Guild for indexes
-    other agents query. A bare probe must carry a machine-readable
-    self_description with the canonical category, capability count, protocols,
-    and only real live URLs — so the Guild is represented accurately downstream
-    (2026-07-11)."""
+def test_probe_ack_is_compact_and_routes_indexers_to_the_agent_card():
+    """The default reply stays below one kilobyte; full crawler metadata lives
+    on the spec'd agent-card channel instead of every conversational reply."""
     _seed()
     payload = _send("hello")
     assert payload["kind"] == "probe_ack"
-    sd = payload["self_description"]
-    assert sd["name"] == "Agent Guild"
-    assert sd["category"] == "trust-and-settlement-middleware"
-    # capability count is live, not a projection
-    assert isinstance(sd["capabilities_supplied"], int)
-    assert sd["capabilities_supplied"] == len(payload["supplied_capabilities"])
-    assert set(["A2A", "MCP", "REST"]).issubset(set(sd["protocols"]))
-    # every advertised URL points at a real path (no fabricated endpoints)
-    for key in ("agent_card", "mcp", "standard", "for_agents"):
-        assert sd["urls"][key].startswith("http")
-    # the MCP url uses the trailing slash (bare /mcp 307-redirects and breaks scanners)
-    assert sd["urls"]["mcp"].endswith("/mcp/")
+    assert len(json.dumps(payload).encode()) < 1024
+    assert payload["details"]["agent_card"] == "/.well-known/agent-card.json"
+    assert "self_description" not in payload
+    assert "supplied_capabilities" not in payload
 
 
 def test_a2a_json_skill_invocation_resolves_per_agent_card():
@@ -298,16 +298,16 @@ def test_a2a_malformed_invoke_gets_corrective_error_not_probe_ack():
     assert "expected" in payload
 
 
-def test_a2a_swarm_skill_examples_are_fully_formed():
-    """Skill examples must be copy-pasteable (no '{...}' placeholders) —
-    generic clients template their first call off the example verbatim."""
+def test_a2a_generic_invoke_example_is_fully_formed():
+    """The compact card keeps one copy-pasteable invoke example and links all
+    per-capability fixtures through the dedicated index."""
     card = client.get("/.well-known/agent-card.json").json()
-    swarm_skills = [s for s in card["skills"] if s["id"].startswith("ag.")]
-    assert swarm_skills
-    for s in swarm_skills:
-        ex = s["examples"][0]
-        assert "{...}" not in ex, s["id"]
-        assert ex.startswith("invoke: "), s["id"]
+    generic = next(s for s in card["skills"] if s["id"] == "guild.invoke")
+    ex = generic["examples"][0]
+    assert "{...}" not in ex
+    assert ex.startswith("invoke: ")
+    assert card["x-agent-guild-capability-index"]["url"].endswith(
+        "/.well-known/ag-identities/index.json")
 
 
 def _send_a2a(text):
@@ -347,8 +347,8 @@ def test_json_skill_call_guild_capabilities_returns_map():
 
 
 def test_json_skill_call_ag_capability_invokes_swarm():
-    """{"skill":"ag.json.repair","args":{...}} — the literal per-capability
-    skill id off the card — must route into the acquisition gateway."""
+    """A literal per-capability skill id from the linked capability index must
+    still route into the acquisition gateway."""
     payload = _send_a2a(
         '{"skill": "ag.json.repair", "args": {"text": "{\'a\': 1,}"}}')
     assert payload.get("kind") != "probe_ack"

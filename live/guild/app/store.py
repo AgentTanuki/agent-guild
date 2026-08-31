@@ -299,6 +299,11 @@ class Store:
         # The Guild's ONLY channel to an agent with no inbound endpoint is
         # the agent's own next call — messages wait here until then.
         self.guild_inbox: dict[str, list] = {}
+        # AGIR-1 confidential incident drop box. These collections are never
+        # exposed through public reads or instrumentation: reports holds the
+        # private operator record; dedupe maps canonical hash to first report.
+        self.incident_reports: dict[str, dict[str, Any]] = {}
+        self.incident_dedupe: dict[str, str] = {}
         self._rep_cache: Optional[ScoringResult] = None
         # Append-only sidecar journal for instrumentation events. record_event
         # is deliberately cheap (no full-store _save on read paths), which used
@@ -622,6 +627,8 @@ class Store:
             b.put_kv("externality_attestations",
                      self.externality_attestations)
             b.put_kv("guild_inbox", self.guild_inbox)
+            b.put_kv("incident_reports", self.incident_reports)
+            b.put_kv("incident_dedupe", self.incident_dedupe)
             b.put_kv("event_history_floor", self.event_history_floor)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
@@ -693,6 +700,8 @@ class Store:
             b.put_kv("externality_attestations",
                      self.externality_attestations)
             b.put_kv("guild_inbox", self.guild_inbox)
+            b.put_kv("incident_reports", self.incident_reports)
+            b.put_kv("incident_dedupe", self.incident_dedupe)
             b.put_kv("event_history_floor", self.event_history_floor)
             for _inv in self.__dict__.get("outbound_invocations", {}).values():
                 b.put_invocation(_inv)
@@ -878,6 +887,10 @@ class Store:
         self.externality_attestations = self.backend.fetch_kv(
             "externality_attestations", {}) or {}
         self.guild_inbox = self.backend.fetch_kv("guild_inbox", {}) or {}
+        self.incident_reports = self.backend.fetch_kv(
+            "incident_reports", {}) or {}
+        self.incident_dedupe = self.backend.fetch_kv(
+            "incident_dedupe", {}) or {}
         if d["outbound_invocations"]:
             self.__dict__["outbound_invocations"] = d["outbound_invocations"]
 
@@ -942,6 +955,8 @@ class Store:
             self.externality_attestations = data.get(
                 "externality_attestations", {})
             self.guild_inbox = data.get("guild_inbox", {})
+            self.incident_reports = data.get("incident_reports", {})
+            self.incident_dedupe = data.get("incident_dedupe", {})
 
     def _migrate_plaintext_keys(self) -> None:
         """One-time, in-place migration (runs only under GUILD_HASH_KEYS=1):
@@ -1078,6 +1093,8 @@ class Store:
                        "externality_attestations":
                            self.externality_attestations,
                        "guild_inbox": self.guild_inbox,
+                       "incident_reports": self.incident_reports,
+                       "incident_dedupe": self.incident_dedupe,
                        "swarm_state": self.swarm_state,
                        "trust_index": self.trust_index,
                        "watches": self.watches,
@@ -3668,10 +3685,11 @@ class Store:
                 "first_party": bool(e.get("fp")),
                 "user_agent": (e.get("ua") or "")[:80],
                 "actor": (k[:10] + "…") if k != "anon" else "anon",
-                # R3 (machine-economics audit 2026-07-06): the inbound ask is
-                # the demand signal — expose what was actually requested so
-                # "improve the answers" starts from real questions, not guesses.
-                "asked": (e.get("text") or "")[:200] or None,
+                # Hash-bound input telemetry: enough to correlate retries and
+                # measure objective→action without re-publishing arbitrary
+                # caller text through this public feed.
+                "request_sha256": e.get("request_sha256"),
+                "request_utf8_bytes": e.get("request_utf8_bytes"),
                 "capability": e.get("capability"),
             })
         return out
@@ -3759,6 +3777,73 @@ class Store:
                      "key_proof milestone (first verified proof). "
                      "a2a_replies_carrying_prove_offer counts A2A replies that "
                      "surfaced the rung to (typically anonymous) callers."),
+        }
+
+    def objective_to_action_funnel(self) -> dict[str, Any]:
+        """Deterministic objective mapping and progressive-disclosure funnel.
+
+        All input is represented by SHA-256 and byte counts only. Follow-through
+        is a labelled anonymous heuristic (same actor + canonical capability in
+        the recent retained tail), never presented as a cryptographic session.
+        """
+        queries = [e for e in self.events
+                   if e.get("type") == "query"
+                   and e.get("caller_kind") in (
+                       "objective_ask", "objective_ambiguous",
+                       "objective_no_match")]
+        mapped = [e for e in queries if e.get("caller_kind") == "objective_ask"]
+        ambiguous = [e for e in queries
+                     if e.get("caller_kind") == "objective_ambiguous"]
+        no_match = [e for e in queries
+                    if e.get("caller_kind") == "objective_no_match"]
+        responses = [e for e in self.events
+                     if e.get("type") == "first_contact_response"
+                     and e.get("caller_kind") in (
+                         "objective_ask", "objective_ambiguous",
+                         "objective_no_match", "probe")]
+        objective_responses = [e for e in responses
+                               if e.get("caller_kind") != "probe"]
+        sizes = [int(e.get("response_bytes") or 0)
+                 for e in objective_responses if e.get("response_bytes") is not None]
+        follows = [e for e in self.events
+                   if e.get("type") == "objective_action_followed"
+                   and e.get("action") == "trust.check.full"]
+        matched_parents = {e.get("request_sha256") for e in mapped
+                           if e.get("request_sha256")}
+        followed_parents = {e.get("parent_request_sha256") for e in follows
+                            if e.get("parent_request_sha256") in matched_parents}
+        total = len(queries)
+        return {
+            "schema": "AGFC-METRICS-1/1.0",
+            "objective_requests": total,
+            "mapped": len(mapped),
+            "ambiguous": len(ambiguous),
+            "no_match": len(no_match),
+            "mapping_rate": (round(len(mapped) / total, 4) if total else None),
+            "ambiguity_rate": (round(len(ambiguous) / total, 4)
+                               if total else None),
+            "no_match_rate": (round(len(no_match) / total, 4)
+                              if total else None),
+            "response_bytes": {
+                "observed": len(sizes),
+                "average": (round(sum(sizes) / len(sizes), 1) if sizes else None),
+                "maximum": (max(sizes) if sizes else None),
+                "under_1kb": sum(1 for size in sizes if size < 1024),
+            },
+            "full_detail_followthrough": {
+                "mapped_requests": len(matched_parents),
+                "followed": len(followed_parents),
+                "rate": (round(len(followed_parents) / len(matched_parents), 4)
+                         if matched_parents else None),
+                "attribution": "same_actor_capability_recent_tail",
+            },
+            "retention": {
+                "history_complete": (
+                    self.events_omitted_by_retention == 0
+                    and not bool(self.event_history_floor)),
+                "events_omitted": self.events_omitted_by_retention,
+            },
+            "privacy": "request hashes and canonical capabilities only; no caller text",
         }
 
     def _is_bootstrap_task(self, t: dict[str, Any]) -> bool:

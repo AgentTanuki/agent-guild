@@ -51,6 +51,9 @@ def test_agent_card_declares_the_extension_when_active(monkeypatch):
         ext = next(e for e in card["capabilities"]["extensions"]
                    if e["uri"] == a2a_x402.EXTENSION_URI)
         assert ext["params"]["pay_to"] == PAY_TO
+        # The optional payment extension is the largest card variant; even it
+        # must remain within the 5 KiB registry compatibility budget.
+        assert len(client.get("/.well-known/agent-card.json").content) <= 5120
 
 
 def test_card_omits_extension_when_soft_launch(monkeypatch):
@@ -81,6 +84,28 @@ def test_unpaid_check_returns_payment_required_task_not_the_decision():
         # the decision itself never leaked
         blob = json.dumps(task)
         assert "shortlist" not in blob and "AGD-1" not in blob
+
+
+def test_natural_objective_stays_compact_before_explicit_metered_check():
+    """Billing cannot turn machine first contact into a payment-sized reply."""
+    from app.main import app
+    with TestClient(app) as client:
+        r = _send(client, "I need help fact checking this report")
+        assert r.status_code == 200
+        result = r.json()["result"]
+        assert result["kind"] == "message"
+        raw = result["parts"][0]["text"].encode()
+        assert len(raw) < 1024
+        payload = json.loads(raw)
+        assert payload["kind"] == "objective_match"
+        assert payload["match"]["canonical_capability"] == "fact-check"
+        assert payload["result"] == {
+            "status": "mapping_only", "trust_decision": "not_included"}
+        action = payload["available_actions"][0]
+        assert action["id"] == "trust.check.full"
+        assert action["effect"] == "metered_read"
+        assert action["requires_local_authorisation"] is True
+        assert action["price_credits"] > 0
 
 
 def _payment_metadata(required, *, amount=None, resource=None, nonce=None):

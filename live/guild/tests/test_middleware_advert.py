@@ -38,15 +38,13 @@ def _events(etype):
 # ---------------------------------------------------------------------------
 
 def test_unknown_probe_gets_discover_and_register_guidance():
-    """An unknown agent probing receives how-to-ask + register + declare
-    routes, never a bare ack."""
+    """An unknown agent gets compact typed actions, never a prose wall."""
     payload = _send("hello")
     assert payload["kind"] == "probe_ack"
-    assert "how_to_ask" in payload
-    contact = payload["guild_contact"]
-    assert "/agents/register" in contact["register"]
-    assert "/endpoint" in contact["declare_endpoint"]
-    assert "prove" in contact  # the proving rung is surfaced to strangers
+    actions = {a["id"]: a for a in payload["available_actions"]}
+    assert actions["trust.check"]["call"]["send"] == "check: <capability>"
+    assert actions["identity.register"]["call"]["path"] == "/agents/register"
+    assert actions["identity.register"]["requires_local_authorisation"] is True
 
 
 def test_registered_unproved_agent_asking_how_to_prove_gets_exact_payload():

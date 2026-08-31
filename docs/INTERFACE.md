@@ -1,6 +1,6 @@
 # Agent Guild — machine interface (GENERATED)
 
-*Generated from `live/guild/contract/contract.json` v2 (service 2.5.42). Do not edit by hand — run `make contract`.*
+*Generated from `live/guild/contract/contract.json` v3 (service 2.6.0). Do not edit by hand — run `make contract`.*
 
 - Host: https://agent-guild-5d5r.onrender.com
 - MCP (streamable HTTP): https://agent-guild-5d5r.onrender.com/mcp/
@@ -43,6 +43,8 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /.well-known/x402`
 - `POST /adjudicators/enroll`
 - `POST /admin/agents/{agent_id}/first-party`
+- `GET /admin/incidents`
+- `GET /admin/incidents/{report_id}`
 - `POST /admin/index/cycle`
 - `POST /admin/issuer/rotate`
 - `GET /agents`
@@ -114,11 +116,13 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `GET /funnel/passports`
 - `GET /funnel/spend-mandates`
 - `GET /health`
+- `POST /incidents`
 - `GET /index`
 - `GET /index/search`
 - `GET /index/{endpoint_id}`
 - `GET /index/{endpoint_id}/evidence`
 - `GET /instrumentation`
+- `GET /instrumentation/objectives`
 - `GET /instrumentation/recent`
 - `GET /ledger/checkpoint`
 - `POST /ledger/checkpoint/publish`
@@ -216,6 +220,7 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 - `guild_prove_verify`
 - `guild_record`
 - `guild_register`
+- `guild_report`
 - `guild_risk_score`
 - `guild_search`
 - `guild_verify`
@@ -229,22 +234,26 @@ guild_mediated requires two-party cryptographic participation, a Guild-observed 
 
 ## A2A skills
 
+- `guild.preflight` (static)
+- `guild.preflight.deep` (static)
+- `guild.index` (static)
 - `guild.check` (static)
 - `guild.capabilities` (static)
+- `guild.report` (static)
 - `guild.invoke` (static)
-- `ag.calc.stats`
-- `ag.calc.unit_convert`
-- `ag.code.semver_compare`
-- `ag.data.dedupe`
-- `ag.data.record_link`
-- `ag.json.canonicalize`
-- `ag.json.diff`
-- `ag.json.path_extract`
-- `ag.json.repair`
-- `ag.json.schema_infer`
-- `ag.json.validate`
-- `ag.table.csv_to_json`
-- `ag.table.json_to_csv`
-- `ag.table.markdown_extract`
-- `ag.text.date_normalize`
-- `ag.text.regex_extract`
+- `ag.calc.stats` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.calc.unit_convert` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.code.semver_compare` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.data.dedupe` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.data.record_link` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.json.canonicalize` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.json.diff` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.json.path_extract` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.json.repair` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.json.schema_infer` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.json.validate` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.table.csv_to_json` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.table.json_to_csv` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.table.markdown_extract` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.text.date_normalize` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)
+- `ag.text.regex_extract` (indexed at https://agent-guild-5d5r.onrender.com/.well-known/ag-identities/index.json)

@@ -3,7 +3,16 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.5.42"  # PATCH revenue-semantics correction (2026-08-31):
+__version__ = "2.6.0"   # MINOR machine-first communications (2026-08-31):
+                        # adds the confidential AGIR-1 incident drop box with
+                        # signed hash-only receipts; deterministic hash-bound
+                        # objective matching and sub-1KiB first-contact
+                        # capsules; explicit side-effect/authority metadata;
+                        # objective→action metrics; and a <=5KiB agent card
+                        # with linked capability/paid catalogues. Existing
+                        # explicit check, invocation and payment paths remain.
+                        # History of 2.5.42:
+                        # PATCH revenue-semantics correction (2026-08-31):
                         # a confirmed mainnet x402 settlement IS revenue
                         # unless the payer is positively identified as
                         # Guild-controlled first-party/canary; adds

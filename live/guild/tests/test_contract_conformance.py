@@ -62,9 +62,21 @@ def test_live_agent_card_matches_contract_skills():
     committed = json.loads((HERE / "contract" / "contract.json").read_text())
     card = client.get("/.well-known/agent-card.json").json()
     card_skills = {s["id"] for s in card.get("skills", [])}
-    expected = set(committed["a2a_skills_static"]) | set(committed["a2a_dynamic_skills"])
-    assert expected <= card_skills, (
-        f"agent card is missing contract skills: {expected - card_skills}")
+    expected = set(committed["a2a_card_skills"])
+    assert card_skills == expected
+    assert card["x-agent-guild-capability-index"]["url"].endswith(
+        "/.well-known/ag-identities/index.json")
+    assert committed["a2a_skill_index"].endswith(
+        "/.well-known/ag-identities/index.json")
+
+
+def test_production_probe_understands_compact_card_contract():
+    """The deployment gate must not demand the skills deliberately moved to
+    the linked index and auto-revert an otherwise conforming release."""
+    source = (REPO / "live" / "scripts" / "live_contract_probe.py").read_text()
+    assert 'CONTRACT["a2a_card_skills"]' in source
+    assert 'linked_index == CONTRACT["a2a_skill_index"]' in source
+    assert 'expected_indexed = set(CONTRACT["a2a_dynamic_skills"])' in source
 
 
 def test_rest_contract_paths_are_served():

@@ -91,12 +91,15 @@ def test_swarm_identities_registered_as_first_party_supply():
     assert len(again) == len(CAPABILITIES)
 
 
-def test_a2a_card_advertises_swarm_skills():
+def test_a2a_card_links_swarm_skill_index_without_inlining_every_skill():
     card = client.get("/.well-known/agent-card.json").json()
     ids = {s["id"] for s in card["skills"]}
     assert "guild.invoke" in ids
-    assert "ag.json.repair" in ids
-    assert len(ids) >= len(CAPABILITIES) + 2
+    assert not any(skill_id.startswith("ag.") for skill_id in ids)
+    assert card["x-agent-guild-capability-index"]["url"].endswith(
+        "/.well-known/ag-identities/index.json")
+    index = client.get("/.well-known/ag-identities/index.json").json()
+    assert index["count"] >= len(CAPABILITIES)
 
 
 def test_manifest_links_swarm_surfaces():

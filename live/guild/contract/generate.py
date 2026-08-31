@@ -63,14 +63,18 @@ def build_contract() -> dict:
     payment_safety_tools = sorted(
         t.name for t in asyncio.run(payment_safety_mcp.list_tools()))
 
-    # A2A: static skills are fixed contract; ag.* skills mirror the published
-    # swarm capabilities (fixture-gated at boot, one per capability id).
-    a2a_static = ["guild.check", "guild.capabilities", "guild.invoke"]
+    # A2A: keep the registry-facing card compact. Stable generic skills live
+    # on the card; per-capability ag.* skills remain invocable and are listed
+    # in the linked, fixture-gated capability index.
+    a2a_static = [
+        "guild.preflight", "guild.preflight.deep", "guild.index",
+        "guild.check", "guild.capabilities", "guild.report", "guild.invoke",
+    ]
     from app.swarm.capabilities import CAPABILITIES
     swarm_caps = sorted(CAPABILITIES)
 
     return {
-        "contract_version": 2,
+        "contract_version": 3,
         "service": {
             "name": "Agent Guild",
             "version": __version__,
@@ -171,6 +175,8 @@ def build_contract() -> dict:
         "payment_safety_mcp_tools": payment_safety_tools,
         "a2a_skills_static": a2a_static,
         "a2a_dynamic_skills": [f"ag.{c}" for c in swarm_caps],
+        "a2a_card_skills": a2a_static,
+        "a2a_skill_index": f"{HOST}/.well-known/ag-identities/index.json",
     }
 
 
@@ -445,7 +451,7 @@ def derived_interface_md(contract: dict) -> str:
     for sk in contract["a2a_skills_static"]:
         lines.append(f"- `{sk}` (static)")
     for sk in contract["a2a_dynamic_skills"]:
-        lines.append(f"- `{sk}`")
+        lines.append(f"- `{sk}` (indexed at {contract['a2a_skill_index']})")
     return "\n".join(lines) + "\n"
 
 
