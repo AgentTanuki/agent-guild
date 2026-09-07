@@ -77,7 +77,7 @@ def test_no_message_send_is_ever_used_to_probe():
         "the scout must never send message/send merely to probe an agent")
 
 
-def test_split_events_and_no_endpoint_verified_from_card_only():
+def test_split_events_and_no_endpoint_verified_from_card_only(fresh_scout_demand):
     cap = _cap()
     endpoint = f"https://{cap}.example/a2a"
     demand.record_demand(cap, transport="http", actor="ev-" + cap,

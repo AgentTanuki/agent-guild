@@ -14,9 +14,18 @@ DISCOVERY_EVENT_TYPES = {"swarm_index_fetch", "swarm_identity_fetch",
 INVOKE_EVENT_TYPES = {"swarm_invoke"}
 
 
-def _swarm_events(store) -> list[dict]:
-    return [e for e in store.events
-            if e.get("type") in DISCOVERY_EVENT_TYPES | INVOKE_EVENT_TYPES]
+MEASUREMENT_NOTE = (
+    "Event history uses the durable store where available. Restoring older "
+    "records is not new activity; prior retained-tail snapshots are not "
+    "comparable. External qualification is a caller heuristic, not proof of "
+    "independent ownership. Completion means a utility returned success, not "
+    "that a caller found it useful or paid. Historical missing attribution "
+    "cannot be reconstructed. Compacted JSON history remains incomplete.")
+
+
+def _swarm_events(store):
+    return store.measurement_event_view(
+        types=tuple(sorted(DISCOVERY_EVENT_TYPES | INVOKE_EVENT_TYPES)))
 
 
 def referral_bindings(store) -> list[dict]:
@@ -41,7 +50,8 @@ def referral_bindings(store) -> list[dict]:
 def build_graph(store) -> dict:
     """Actor-level discovery→invoke→register paths, labelled organic vs internal."""
     actors: dict[str, dict] = {}
-    for e in _swarm_events(store):
+    events, coverage = _swarm_events(store)
+    for e in events:
         key = e.get("actor") or e.get("key") or "anon"
         a = actors.setdefault(key, {
             "actor": key, "class": attribution_class(e),
@@ -65,6 +75,9 @@ def build_graph(store) -> dict:
     bindings = referral_bindings(store)
     return {
         "schema_version": "ag-discovery-graph/1",
+        "measurement_version": "swarm-activity-v2",
+        "measurement_coverage": coverage,
+        "interpretation": MEASUREMENT_NOTE,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "actors": sorted(nodes, key=lambda x: x["last_seen"] or "", reverse=True),
         "registrations_via_referral": bindings,
@@ -78,40 +91,42 @@ def build_graph(store) -> dict:
 def growth_stats(store) -> dict:
     """The primary-metric rollup. External-only headline; internal side-by-side
     for honesty, never merged."""
-    ev = _swarm_events(store)
-    ext = [e for e in ev if is_genuine_external(e)]
-    fp = [e for e in ev if e.get("fp")]
-    other = [e for e in ev if not e.get("fp") and not is_genuine_external(e)]
-
-    def funnel(events: list[dict]) -> dict:
-        invokes = [e for e in events if e["type"] in INVOKE_EVENT_TYPES]
-        actors_inv = {}
-        for e in invokes:
-            actors_inv.setdefault(e.get("actor") or e.get("key") or "anon",
-                                  []).append(e)
-        return {
-            "discovery_fetches": sum(1 for e in events
-                                     if e["type"] in DISCOVERY_EVENT_TYPES),
-            "first_invocations": len(actors_inv),
-            "total_invocations": len(invokes),
-            "successful_completions": sum(1 for e in invokes
-                                          if e.get("outcome") == "success"),
-            "repeat_callers": sum(1 for v in actors_inv.values() if len(v) > 1),
-        }
+    events, coverage = _swarm_events(store)
+    buckets = {key: {"discovery_fetches": 0, "total_invocations": 0,
+                     "successful_completions": 0, "actors": {}}
+               for key in ("genuine_external", "unattributable_external",
+                           "ag_internal_first_party")}
+    for event in events:
+        key = ("ag_internal_first_party" if event.get("fp") else
+               "genuine_external" if is_genuine_external(event) else
+               "unattributable_external")
+        bucket = buckets[key]
+        if event["type"] in DISCOVERY_EVENT_TYPES:
+            bucket["discovery_fetches"] += 1
+        else:
+            bucket["total_invocations"] += 1
+            bucket["successful_completions"] += event.get("outcome") == "success"
+            actor = event.get("actor") or event.get("key") or "anon"
+            bucket["actors"][actor] = bucket["actors"].get(actor, 0) + 1
+    for bucket in buckets.values():
+        actors = bucket.pop("actors")
+        bucket["first_invocations"] = len(actors)
+        bucket["repeat_callers"] = sum(n > 1 for n in actors.values())
 
     bindings = referral_bindings(store)
     organic_reg = [b for b in bindings if not b["first_party"]]
     total_new = [a for a in store.agents.values()
                  if not a.get("first_party") and not a.get("seed")]
     return {
-        "genuine_external": funnel(ext),
-        "unattributable_external": funnel(other),
-        "ag_internal_first_party": funnel(fp),
+        **buckets,
+        "measurement_version": "swarm-activity-v2",
+        "measurement_coverage": coverage,
+        "interpretation": MEASUREMENT_NOTE,
         "machine_registrations_via_referral": len(organic_reg),
         "external_registrations_total": len(total_new),
         "pct_members_acquired_autonomously": (
             round(100 * len(organic_reg) / len(total_new), 1)
             if total_new else None),
-        "cost_per_successful_external_acquisition": (
-            "compute-only; ~$0 marginal (Render starter plan is the fixed cost)"),
+        "cost_per_successful_external_acquisition": None,
+        "cost_measurement": "unavailable: no allocated serving/acquisition cost ledger",
     }

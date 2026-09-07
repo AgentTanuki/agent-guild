@@ -223,17 +223,13 @@ def test_canary_incident_moves_funnel_paid_decision_to_first_party():
     append-only event history."""
     s = Store(path="")
     s.record_event(None, "query", ua="python-httpx/0.27.2", paid=True,
-                   rail="x402", endpoint="check.get")
-    # pin the recorded timestamps into the incident window (read-time
-    # classification means ONLY the read changes, never the stored event)
-    s.events[-1]["at"] = "2026-07-21T07:26:40+00:00"
+                   rail="x402", endpoint="check.get", at="2026-07-21T07:26:40+00:00")
+    # Pin fixture timestamps before persistence; production history is immutable.
     s.record_event(None, "query", ua="python-httpx/0.27.2", paid=True,
-                   rail="x402", endpoint="check.get")
-    s.events[-1]["at"] = "2026-07-21T07:30:10+00:00"
+                   rail="x402", endpoint="check.get", at="2026-07-21T07:30:10+00:00")
     # a genuinely external paid read outside the window, for contrast
     s.record_event(None, "query", ua="langchain/0.2.1", paid=True,
-                   rail="credits_sandbox", endpoint="check.get")
-    s.events[-1]["at"] = "2026-07-22T09:00:00+00:00"
+                   rail="credits_sandbox", endpoint="check.get", at="2026-07-22T09:00:00+00:00")
 
     funnel = s.conversion_funnel()
     paid = next(st for st in funnel["stages"]

@@ -4483,7 +4483,7 @@ class Store:
             row["last_lookup"] = e.get("at")
         return summary
 
-    def _derive_demand_rows(self) -> dict[str, dict[str, Any]]:
+    def _derive_demand_rows(self, events=None) -> dict[str, dict[str, Any]]:
         """Read-time aggregation of demand, keyed by capability, from TWO
         sources without rewriting history:
 
@@ -4503,6 +4503,10 @@ class Store:
         never count."""
         from . import attribution
         from . import demand as demand_mod
+
+        if events is None:
+            events, _ = self.measurement_event_view(
+                types=("capability_demand", "query"))
 
         rows: dict[str, dict[str, Any]] = {}
         seen: set[tuple[str, str, int]] = set()   # (actor, cap, hour-bucket)
@@ -4551,7 +4555,7 @@ class Store:
         # tooling / crawlers / first-party) still count toward `lookups` so
         # the row is visible, but never toward genuine/verified/heuristic —
         # and the published feed filters on genuine_lookups.
-        for e in self.events:
+        for e in events:
             if e.get("type") != "capability_demand":
                 continue
             cap = e.get("capability", "")
@@ -4581,7 +4585,7 @@ class Store:
                                else "recorder_heuristic"))
 
         # 2. LEGACY pre-recorder A2A capability asks (read-time recovery)
-        for e in self.events:
+        for e in events:
             if e.get("type") != "query":
                 continue
             if e.get("endpoint") != "a2a_message":
@@ -4600,6 +4604,9 @@ class Store:
         return rows
 
     def demand_feed_entries(self) -> list[dict[str, Any]]:
+        return self.demand_feed_report()["entries"]
+
+    def demand_feed_report(self) -> dict[str, Any]:
         """Aggregated UNMET demand for the supplier-facing machine feed
         (/demand/feed). Per canonical capability: verified vs heuristic
         lookup counts (kept separate — cryptographically caller-proof-backed
@@ -4612,7 +4619,9 @@ class Store:
         re-interpreted, never rewritten. An entry stays on the feed until
         the capability has a VERIFIED reachable supplier."""
         from . import demand as demand_mod
-        rows = self._derive_demand_rows()
+        events, coverage = self.measurement_event_view(
+            types=("capability_demand", "query"))
+        rows = self._derive_demand_rows(events)
         out = []
         for cap, row in rows.items():
             counts = demand_mod.supply_counts(self, cap)
@@ -4624,7 +4633,22 @@ class Store:
             out.append(row)
         out.sort(key=lambda r: (r["verified_lookups"], r["heuristic_lookups"],
                                 r["last_seen"] or ""), reverse=True)
-        return out
+        # Only stable coverage facts belong in the signed/cacheable feed.
+        # The event view pins a sequence internally; unrelated append activity
+        # must not invalidate an unchanged feed's ETag on every fetch.
+        feed_coverage = {k: coverage.get(k) for k in (
+            "source", "read_mode", "history_complete", "history_floor")}
+        return {
+            "entries": out,
+            "measurement_version": "demand-history-v2",
+            "measurement_coverage": feed_coverage,
+            "interpretation": (
+                "Historical capability asks, not funded jobs or demonstrated "
+                "useful outcomes. Caller proof verifies identity, not external "
+                "ownership; other qualification is heuristic. Restored durable "
+                "history is not new demand; prior retained-tail counts are not "
+                "comparable. JSON history lost to compaction is incomplete."),
+        }
 
     def conversion_funnel(self) -> dict[str, Any]:
         """B4 — the complete autonomous machine funnel, honestly measured:
@@ -4676,7 +4700,9 @@ class Store:
                         "candidate_endpoint_verified": 0,
                         "contact_attempted": 0,
                         "contact_delivered": 0}
-        for e in self.events:
+        events, coverage = self.measurement_event_view(
+            types=tuple(sorted(set(flow_types) | set(scout_counts) | {"query"})))
+        for e in events:
             t = e.get("type")
             if t in scout_counts:
                 scout_counts[t] += 1
@@ -4690,17 +4716,27 @@ class Store:
             flows[stage][_class_of(e)] += 1
 
         outcomes = {"external": 0, "first_party": 0, "unknown": 0}
+        # Task receipts use accepted/rejected/disputed and neutral states,
+        # not just the historical success/failure spellings. Preserve the
+        # actual state so a delivery or honest stop is never called success.
+        from . import evidence_semantics
+        by_outcome = {state: {"external": 0, "first_party": 0, "unknown": 0}
+                      for state in sorted(evidence_semantics.RECEIPT_OUTCOMES
+                                          | {"success", "failure"})}
         for t in self.tasks.values():
-            if t.get("outcome") not in ("success", "failure"):
+            state = t.get("outcome")
+            if state not in by_outcome:
                 continue
             req = self.agents.get(t.get("requester_agent_id") or "") or {}
             wrk = self.agents.get(t.get("worker_agent_id") or "") or {}
             if req.get("first_party") or wrk.get("first_party"):
-                outcomes["first_party"] += 1
+                classification = "first_party"
             elif req and wrk:
-                outcomes["external"] += 1
+                classification = "external"
             else:
-                outcomes["unknown"] += 1
+                classification = "unknown"
+            outcomes[classification] += 1
+            by_outcome[state][classification] += 1
 
         # mainnet settlements: only independently confirmed ones count at
         # all; the CANARY (first-party payer flag at settle time, or an
@@ -4749,6 +4785,14 @@ class Store:
                                "shown separately, never merged")}
 
         return {
+            "measurement_version": "conversion-activity-v2",
+            "measurement_coverage": coverage,
+            "interpretation": (
+                "Event stages use retained durable history; task outcomes, "
+                "current endpoints and settlements use their separate stores. "
+                "These are activity counts, not a linked buyer conversion "
+                "rate. Restoring older events is not new adoption; prior "
+                "retained-tail snapshots are not comparable."),
             "stages": [
                 _flow("demand_observed",
                       "explicit capability_demand events"),
@@ -4785,11 +4829,15 @@ class Store:
                 _flow("delegation", "delegations"),
                 {"stage": "outcome", "count": outcomes["external"],
                  "breakdown": dict(outcomes),
-                 "source": "tasks with a recorded outcome — external = "
-                           "both parties registered and neither "
-                           "Guild-operated; first-party = any "
-                           "Guild-operated party; unknown = a party "
-                           "record is missing"},
+                 "by_outcome": by_outcome,
+                 "source": "tasks with a recognised non-open outcome, split "
+                           "by actual receipt state (including legacy success/"
+                           "failure). Delivery and neutral stops are not "
+                           "successful completion. external = both parties "
+                           "registered and neither marked Guild-operated; "
+                           "this does not prove independent ownership or "
+                           "useful work. first-party = any Guild-operated "
+                           "party; unknown = a party record is missing"},
                 {"stage": "external_mainnet_settlement",
                  "count": mainnet["external"],
                  "source": "independently confirmed mainnet settlements "

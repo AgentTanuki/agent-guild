@@ -3634,7 +3634,8 @@ def demand_feed(request: Request,
     # actor-hash per hour so a poller can never flood the funnel (the
     # 2026-07-14 keepalive-flood lesson applies here from day one).
     _record_feed_pull(request)
-    entries = [r for r in store.demand_feed_entries()
+    report = store.demand_feed_report()
+    entries = [r for r in report["entries"]
                if r["genuine_lookups"] > 0]
     total = len(entries)
     start = (page - 1) * per_page
@@ -3645,6 +3646,9 @@ def demand_feed(request: Request,
         "per_page": per_page,
         "total": total,
         "entries": entries[start:start + per_page],
+        "measurement_version": report["measurement_version"],
+        "measurement_coverage": report["measurement_coverage"],
+        "interpretation": report["interpretation"],
         "entry_fields": {
             "capability": "canonical capability token",
             "demand_id": "stable identifier for this capability's demand",

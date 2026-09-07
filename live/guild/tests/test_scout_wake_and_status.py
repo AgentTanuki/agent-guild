@@ -63,7 +63,7 @@ def test_zero_demand_cycle_reports_adapters_not_run(monkeypatch):
             "an adapter that never ran must not claim ok")
 
 
-def test_adapters_that_actually_ran_report_ran():
+def test_adapters_that_actually_ran_report_ran(fresh_scout_demand):
     cap = _cap()
     demand.record_demand(cap, transport="http", actor="a-status", ua=EXT_UA)
     summary = scout.run_scout(store, fetch=_no_net)

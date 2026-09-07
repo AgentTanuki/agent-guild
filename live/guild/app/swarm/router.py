@@ -55,11 +55,10 @@ def _fp_from_request(request) -> tuple[bool, str]:
     return ok, _fp_auth.role_of(h.get(_fp_auth.ROLE_HEADER))
 
 
-def _stamp_fp(request) -> None:
+def _fp_event_fields(request) -> dict:
     ok, role = _fp_from_request(request)
-    if ok and store.events:
-        store.events[-1]["fp"] = True
-        store.events[-1]["fp_role"] = role
+    # Attribution must be present before append-only event persistence.
+    return {"fp": True, "fp_role": role} if ok else {}
 
 
 def _require_admin(x_admin_token: Optional[str]) -> None:
@@ -106,8 +105,8 @@ def identity_index(request: Request,
     ensure_built()
     with store.lock:
         store.record_event(None, "swarm_index_fetch",
-                           ua=request.headers.get("user-agent", ""))
-        _stamp_fp(request)
+                           ua=request.headers.get("user-agent", ""),
+                           **_fp_event_fields(request))
     return registry.index(BASE)
 
 
@@ -122,8 +121,8 @@ def identity_document(ag_id: str, request: Request,
     with store.lock:
         store.record_event(None, "swarm_identity_fetch",
                            ua=request.headers.get("user-agent", ""),
-                           capability=doc["identity"]["capability"]["id"])
-        _stamp_fp(request)
+                           capability=doc["identity"]["capability"]["id"],
+                           **_fp_event_fields(request))
     return doc
 
 
@@ -131,8 +130,8 @@ def identity_document(ag_id: str, request: Request,
 def terms(request: Request, x_guild_source: Optional[str] = Header(None)):
     with store.lock:
         store.record_event(None, "swarm_terms_fetch",
-                           ua=request.headers.get("user-agent", ""))
-        _stamp_fp(request)
+                           ua=request.headers.get("user-agent", ""),
+                           **_fp_event_fields(request))
     return gateway.terms(BASE)
 
 
@@ -159,8 +158,8 @@ def invoke(capability_id: str, request: Request,
         with store.lock:
             store.record_event(None, "swarm_invoke_denied",
                                ua=request.headers.get("user-agent", ""),
-                               capability=capability_id, reason=d.kind)
-            _stamp_fp(request)
+                               capability=capability_id, reason=d.kind,
+                               **_fp_event_fields(request))
         headers = {}
         if d.status == 429:
             headers["Retry-After"] = str(d.detail.get("retry_after_seconds", 60))

@@ -190,12 +190,8 @@ def invoke(store, capability_id: str, payload: Any, *,
             None if not is_member else actor, "swarm_invoke", ua=ua,
             endpoint="swarm_invoke", capability=capability_id,
             outcome="success" if ok else error_kind,
-            tier=rate["tier"], actor=actor)
-        if first_party:
-            # record_event derives fp from the billing account; guests have
-            # none, so tag explicitly when the caller declared first-party.
-            store.events[-1]["fp"] = True
-            store.events[-1]["fp_role"] = first_party_role
+            tier=rate["tier"], actor=actor,
+            **({"fp": True, "fp_role": first_party_role} if first_party else {}))
         if referral:
             tokens = store.swarm_state.setdefault("referral_tokens", {})
             tokens[referral] = {"capability": capability_id, "actor": actor,
