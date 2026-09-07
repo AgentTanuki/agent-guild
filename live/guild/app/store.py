@@ -1049,7 +1049,8 @@ class Store:
         # (a crash between the SQLite commit and a JSONL append must never create
         # an inconsistent claim). So the journal is disabled under sqlite — the
         # journal is only read once, at cutover, to import a pre-sqlite JSON store.
-        if self.backend is not None or not self.events_path:
+        if (self.backend is not None or not self.events_path
+                or getattr(self, "_market_save_deferred", False)):
             return
         try:
             with open(self.events_path, "a") as f:
@@ -1059,6 +1060,14 @@ class Store:
             pass  # instrumentation must never take down a request path
 
     def _save(self) -> None:
+        # Cold callers (including transport bookkeeping) can save outside a
+        # mutator. Serialize the JSON replacement with the mutation it records.
+        with self.lock:
+            self._save_locked()
+
+    def _save_locked(self) -> None:
+        if self.backend is None and getattr(self, "_market_save_deferred", False):
+            return
         if self.backend is not None:
             # sqlite: write-through happens at the per-entity persist hooks.
             # Inside an explicit _txn (a wrapped mutating method) the hooks have

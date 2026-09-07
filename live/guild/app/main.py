@@ -2109,7 +2109,9 @@ def post_offer(req: OfferRequest, x_api_key: Optional[str] = Header(None)):
         offer = market.create_offer(
             store, requester, req.worker_id, req.capability, req.amount,
             req.deadline_seconds, terms=req.terms, requester_key=x_api_key,
-            offer_signature=req.offer_signature)
+            offer_signature=req.offer_signature, request_id=req.request_id)
+    except market.OfferRequestConflict as e:
+        raise HTTPException(409, str(e))
     except (ValueError, UnknownAccount, InsufficientCredits) as e:
         raise HTTPException(400, str(e))
     return offer
