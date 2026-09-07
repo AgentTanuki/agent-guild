@@ -2708,11 +2708,8 @@ class Store:
             owner_agent_id = ((acct or {}).get("owner_agent_id")
                               or (acct or {}).get("agent_id"))
             owner_agent = self.agents.get(owner_agent_id or "") or {}
-            known_owned_agent = owner_agent_id in (
-                _attr.KNOWN_GUILD_OPERATED_AGENT_IDS)
             fp = (bool(acct and acct.get("first_party"))
-                  or bool(owner_agent.get("first_party"))
-                  or known_owned_agent
+                  or _attr.is_guild_operated_agent(owner_agent_id, owner_agent)
                   or _attr.is_guild_internal_origin(meta))
             event = {"key": key or "anon", "type": etype, "ua": ua or "",
                      "fp": fp, "surface": self._surface_of(key, ua or ""),
@@ -3562,8 +3559,8 @@ class Store:
         # historical rows: marking an account/agent first-party (or pinning a
         # proven legacy Guild identity) must reclassify its immutable old
         # events without rewriting or deleting the event log.
-        if (acct.get("first_party") or agent.get("first_party")
-                or agent_id in _attr.KNOWN_GUILD_OPERATED_AGENT_IDS):
+        if (acct.get("first_party")
+                or _attr.is_guild_operated_agent(agent_id, agent)):
             ev = {**ev, "fp": True}
         member = bool(acct)
         verified = bool((agent.get("milestones") or {}).get("key_proof")
@@ -4678,7 +4675,7 @@ class Store:
         def _class_of(e: dict[str, Any]) -> str:
             if e.get("demand_first_party"):
                 return "first_party"
-            cls = attribution.caller_class(e)
+            cls = self._caller_class_for(e)
             if cls in ("AG_INTERNAL", "AG_TEST", "OPERATOR"):
                 return "first_party"
             if (attribution.may_count_as_external_growth(cls)
@@ -4727,9 +4724,12 @@ class Store:
             state = t.get("outcome")
             if state not in by_outcome:
                 continue
-            req = self.agents.get(t.get("requester_agent_id") or "") or {}
-            wrk = self.agents.get(t.get("worker_agent_id") or "") or {}
-            if req.get("first_party") or wrk.get("first_party"):
+            req_id = t.get("requester_agent_id")
+            wrk_id = t.get("worker_agent_id")
+            req = self.agents.get(req_id or "") or {}
+            wrk = self.agents.get(wrk_id or "") or {}
+            if (attribution.is_guild_operated_agent(req_id, req)
+                    or attribution.is_guild_operated_agent(wrk_id, wrk)):
                 classification = "first_party"
             elif req and wrk:
                 classification = "external"
@@ -4785,14 +4785,18 @@ class Store:
                                "shown separately, never merged")}
 
         return {
-            "measurement_version": "conversion-activity-v2",
+            "measurement_version": "conversion-activity-v3",
             "measurement_coverage": coverage,
             "interpretation": (
                 "Event stages use retained durable history; task outcomes, "
                 "current endpoints and settlements use their separate stores. "
                 "These are activity counts, not a linked buyer conversion "
                 "rate. Restoring older events is not new adoption; prior "
-                "retained-tail snapshots are not comparable."),
+                "retained-tail snapshots are not comparable. Known-owned "
+                "legacy identities and current first-party account/agent "
+                "flags reclassify historical activity at read time without "
+                "rewriting records; v2 attribution counts are not directly "
+                "comparable."),
             "stages": [
                 _flow("demand_observed",
                       "explicit capability_demand events"),
@@ -4834,7 +4838,8 @@ class Store:
                            "by actual receipt state (including legacy success/"
                            "failure). Delivery and neutral stops are not "
                            "successful completion. external = both parties "
-                           "registered and neither marked Guild-operated; "
+                           "registered and neither flagged nor exact-pinned "
+                           "as Guild-operated; "
                            "this does not prove independent ownership or "
                            "useful work. first-party = any Guild-operated "
                            "party; unknown = a party record is missing"},
