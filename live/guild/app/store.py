@@ -7895,6 +7895,7 @@ class Store:
         promoted to an attested external identity - `unverified_payer`
         still means exactly what it says about IDENTITY."""
         from . import payments as _payments
+        from .settledactivity import wallet_transaction_activity
 
         def _usd(rows: list) -> float:
             return round(sum(int(b.get("amount_atomic") or 0)
@@ -7924,6 +7925,10 @@ class Store:
             "distinct_external_payer_wallets": len({
                 str(b.get("payer") or "").lower()
                 for b in external if b.get("payer")}),
+            # A caller may pay twice without a caller-proof identity. Keep
+            # this ledger-derived wallet observation separate from the
+            # event-linked repeat_paid_callers metric and from adoption.
+            "settled_payer_activity": wallet_transaction_activity(external),
             "attributed_external_payments": len(attributed),
             "attribution_coverage": (
                 round(len(attributed) / n_external, 6)

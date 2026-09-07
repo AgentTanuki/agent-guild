@@ -59,6 +59,21 @@ any particular copy treatment improves conversion.
 Use `/billing/revenue` as the revenue source and `/commercial` for the supporting
 funnel, payment-stage diagnostics and cohort definitions.
 
+The global `/billing/revenue` and `/commercial` reports expose
+`settled_payer_activity` (`settled-wallet-activity-v1`) alongside revenue. It
+counts distinct confirmed mainnet transaction hashes per EVM network and payer
+address, excluding known first-party settlements. A returning wallet remains
+visible when caller identity is missing. Duplicate records do not create repeat
+payments; conflicting or unsupported bindings are disclosed and excluded from
+this measure without erasing revenue. No individual wallet identifiers are added
+to this aggregate.
+
+`wallets_with_multiple_transactions` is not a count of agents, independently
+owned customers, useful outcomes or retention across time periods. The separate
+`repeat_paid_callers` metric requires an event-linked caller key. Global wallet
+activity must not promote a scoped pricing or product experiment; those still
+require the operation, quoted price and treatment window to match.
+
 1. Separate confirmed mainnet settlement from testnet, sandbox, fabricated
    facilitator responses and failed payments.
 2. Separate known first-party payments from the external-by-rule residual. Unknown
