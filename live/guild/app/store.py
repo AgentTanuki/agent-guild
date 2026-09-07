@@ -5475,14 +5475,16 @@ class Store:
             routing = {
                 "routable": False,
                 "provider_id": None,
+                "reason_code": "no_verified_route",
                 "reason": ("no supplier of this capability has a VERIFIED, "
                            "currently reachable endpoint"
                            if any_reachable else
                            "no supplier of this capability has declared an "
                            "endpoint at all"),
-                "next_step": ("suppliers: declare + verify an endpoint "
-                              "(POST /agents/{id}/endpoint); buyers: register "
-                              "a demand watch (POST /demand/watch)"),
+                "next_step": ("buyers: refresh an already-declared endpoint "
+                              "with POST /agents/{id}/endpoint/refresh (no body "
+                              "or credentials), or use POST /demand/watch; "
+                              "only suppliers can declare/change their endpoint"),
             }
             best = top_ranked  # nothing routable: evaluate the evidence-top
         verdict = self.risk_for(best["id"]) if best else None
@@ -5609,6 +5611,7 @@ class Store:
                 routing = {
                     "routable": False,
                     "provider_id": None,
+                    "reason_code": "counterparty_binding_failed",
                     "reason": ("counterparty binding could not be established "
                                "between the decision and the routed provider — "
                                "failed closed (no route is served on a "
@@ -5616,8 +5619,32 @@ class Store:
                     "next_step": "retry; if this persists, report it — this "
                                  "is a Guild-side invariant violation",
                 }
+        # Compose action-facing fields only AFTER the counterparty binding
+        # gate. A favourable evidence estimate cannot supply a missing route.
+        # Keep risk_for() and the AGD-1 evidence unchanged; the legacy /check
+        # presentation must not say "hire" while this very response says that
+        # no verified route exists. This block is shared by HTTP, MCP and A2A.
+        route_ready = bool(routing.get("routable"))
+        if decision is not None:
+            decision["recommended_for_routing"] = route_ready
+        if best is not None:
+            best = {**best, "recommended_for_routing": route_ready}
+        if verdict is not None:
+            verdict = dict(verdict)
+            verdict["counterparty_first_party"] = (
+                ((decision or {}).get("identity") or {}).get("first_party")
+                if routing.get("reason_code") != "counterparty_binding_failed"
+                else None)
+            if not route_ready:
+                verdict.update({
+                    "actionable": False,
+                    "actionability_reason": routing["reason_code"],
+                })
+                if verdict["recommendation"] == "hire":
+                    verdict["recommendation"] = "caution"
         out: dict[str, Any] = {
             "schema_version": 2,
+            "presentation_version": "check-route-v1",
             "capability": capability,
             "status": "supply" if best else "no_supply_yet",
             "routing": routing,
@@ -5636,8 +5663,11 @@ class Store:
                 "when routable, else the evidence-top. `highest_ranked` (when "
                 "present) is informational only and never actionable. "
                 "`verdict` and hire/caution/avoid are LEGACY presentation "
-                "retained for v1 callers — thresholds belong to the caller, "
-                "not the Guild."),
+                "retained for v1 callers. check-route-v1 suppresses a legacy "
+                "hire when no verified bound route exists and marks the "
+                "verdict actionable=false. Evidence scores are unchanged; "
+                "a route is not task-success evidence or permission to act. "
+                "Thresholds and authority belong to the caller."),
             "best_agent": best,
             "verdict": verdict,
             "shortlist": short,
@@ -5755,7 +5785,73 @@ class Store:
         # first to delegate + vouch. This is the exact loop that yields the first
         # genuine external attestation on the canonical ledger, and writes are
         # free, so the nudge costs the consumer nothing to act on.
-        if best is not None:
+        if best is not None and not route_ready:
+            # Reuse the public, bounded refresh instead of telling a buyer to
+            # change another agent's identity or to attest work not yet done.
+            # A probe target may differ from the evidence-top; it is expressly
+            # an observation target, never a substituted delegation target.
+            refresh_target = next(
+                (entry for entry in _reachable
+                 if url_policy_check(str(entry.get("contact") or ""))[0]), None)
+            buyer_action: dict[str, Any]
+            if routing.get("reason_code") == "counterparty_binding_failed":
+                buyer_action = {
+                    "method": "GET", "path": "/health",
+                    "credential_required": False,
+                    "effect": "inspect_guild_health_only",
+                }
+                one_call = "GET /health"
+                next_action = (
+                    "Do not delegate: the Guild could not bind the decision to "
+                    "one counterparty. Inspect service health before retrying "
+                    "the priced lookup; endpoint refresh cannot repair this Guild-side error.")
+            elif refresh_target is not None:
+                path = f"/agents/{refresh_target['id']}/endpoint/refresh"
+                buyer_action = {
+                    "method": "POST", "path": path,
+                    "body_allowed": False, "credential_required": False,
+                    "effect": "refresh_stored_endpoint_only",
+                    "probe_target_id": refresh_target["id"],
+                }
+                one_call = f"POST {path} (no body or credentials)"
+                next_action = (
+                    "Refresh the already-declared endpoint, inspect the result "
+                    "and retry this capability lookup. Respect retry_after_seconds; "
+                    "a probe does not establish task competence or authorise delegation.")
+            else:
+                buyer_action = {
+                    "method": "POST", "path": "/demand/watch",
+                    "body": {"capability": capability},
+                    "credential_required": True,
+                    "credential_kind": "registered_agent_X-API-Key",
+                    "register_if_needed": {
+                        "method": "POST", "path": "/agents/register",
+                        "body": {"name": "<your agent name>", "capabilities": []},
+                    },
+                }
+                one_call = (
+                    "POST /demand/watch " + json.dumps({"capability": capability})
+                    + " with your registered-agent X-API-Key")
+                next_action = (
+                    "Watch this capability for a change in supply. A registered "
+                    "agent key is required; an anonymous trial key is not sufficient. "
+                    "The watch is visible on later reads, not an outbound notification.")
+            out["guild_next"] = {
+                "situation": "No verified bound route is available for this capability.",
+                "prerequisite": "verified_route",
+                "delegation_ready": False,
+                "high_value_action": next_action,
+                "one_call": one_call,
+                "buyer_action": buyer_action,
+                "supplier_action": {
+                    "method": "POST", "path": f"/agents/{best['id']}/endpoint",
+                    "credential_required": True,
+                    "credential_kind": "supplier_owner_X-API-Key",
+                    "note": "Only the owner of this supplier may declare or change its endpoint.",
+                },
+                "why_free": "Endpoint refresh and demand watches are free; neither creates reputation.",
+            }
+        elif best is not None:
             best_conf = best.get("confidence") or 0.0
             if best_conf < 0.2:
                 out["guild_next"] = {
@@ -5767,8 +5863,9 @@ class Store:
                         "not because anything bad is known."
                     ),
                     "high_value_action": (
-                        "Be the first to establish its reputation. Delegate a real "
-                        "task; when you get usable work back, vouch for the outcome. "
+                        "If your own policy permits this unproven supplier, "
+                        "delegate a real task within your authority. Only after "
+                        "you receive usable work, vouch for the actual outcome. "
                         "The first honest attestation on an unproven supplier moves "
                         "the score every later agent will rely on — highest-leverage "
                         "signal you can contribute."
@@ -5852,6 +5949,7 @@ class Store:
             "type": "AgentGuildDecision",
             "contract": "AGD-1/1.0",
             "issuer": gid["did"],
+            "presentation_version": res["presentation_version"],
             "capability": capability,
             "status": res["status"],
             "issued_at": now.isoformat(),
