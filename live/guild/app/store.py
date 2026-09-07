@@ -4981,11 +4981,23 @@ class Store:
                              "subject_evidence_attached")}
         counters = {"passport_requested": 0, "passport_issue_failed": 0,
                     "passport_issued_events": 0}
-        for e in self.events:
+        failure_reasons: dict[str, int] = {}
+        events, coverage = self.measurement_event_view(types=(
+            "passport_requested", "passport_issue_failed", "passport_issued",
+            "passport_verified", "first_attestation_received"))
+        for e in events:
             t = e.get("type")
             if t in counters:
                 counters[t] += 1
+            if t == "passport_issue_failed":
+                # Current issuer failure code; never expose arbitrary historic
+                # payload strings as public diagnostic labels.
+                reason = e.get("reason")
+                reason = (reason if reason == "unknown_agent_or_no_reputation"
+                          else "other" if reason else "unspecified")
+                failure_reasons[reason] = failure_reasons.get(reason, 0) + 1
             if t == "passport_issued":
+                counters["passport_issued_events"] += 1
                 subj = e.get("subject_id") or ""
                 cls = _cls(e)
                 # `self_claim` is stamped at write time (2026-07-31 onward).
@@ -5012,7 +5024,13 @@ class Store:
             "behaviours": {
                 k: {c: len(v) for c, v in by_cls.items()}
                 for k, by_cls in buckets.items()},
+            "measurement_version": "passport-activity-v2",
+            "baseline_note": ("Corrected passport_issued success-event mapping and "
+                              "durable-history coverage; earlier retained-tail "
+                              "snapshots are not directly comparable."),
             "event_counts": counters,
+            "issuer_failure_reasons": dict(sorted(failure_reasons.items())),
+            "measurement_coverage": coverage,
             "note": ("A passport_issued EVENT is a successful credential "
                      "production, not an adopting agent: one agent can appear "
                      "many times and a third party fetching someone else's "

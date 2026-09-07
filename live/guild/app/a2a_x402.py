@@ -39,6 +39,7 @@ from x402.schemas import PaymentPayload
 
 from . import demand as demand_mod
 from . import payments
+from . import paymentdiag
 from . import x402
 from .payments import PaidRequest
 from .state import store
@@ -372,7 +373,18 @@ def _failed_task(task_id: str, code: str, detail: str,
     }
 
 
-def handle_payment_submission(message: dict[str, Any],
+def _observe_submission(meta):
+    paymentdiag.emit("payment_submission_present")
+    if meta.get(PAYLOAD_KEY) is not None:
+        paymentdiag.emit("credential_present")
+
+
+def handle_payment_submission(message: dict[str, Any], caller_did: str = "") -> dict[str, Any]:
+    with paymentdiag.observe("unknown", "a2a"):
+        return _handle_payment_submission_inner(message, caller_did)
+
+
+def _handle_payment_submission_inner(message: dict[str, Any],
                               caller_did: str = "") -> dict[str, Any]:
     """Settle a submitted A2A payment against its stored quote and return the
     completed (or failed) Task. Idempotent recovery + double-settlement guards
@@ -382,13 +394,21 @@ def handle_payment_submission(message: dict[str, Any],
     attribution exactly as on HTTP and MCP."""
     task_id, meta = _extract_payment_meta(message)
     if not task_id:
+        _observe_submission(meta)
+        paymentdiag.reject("unknown_task")
         return _rpc_failure("payment submission missing taskId")
     task = store.x402_task_get(task_id)
     if task is None:
+        _observe_submission(meta)
+        paymentdiag.reject("unknown_task")
         return _rpc_failure(f"unknown taskId {task_id}")
+    if paymentdiag.current() is not None:
+        paymentdiag.current().operation = task.get("operation") or "unknown"
+    _observe_submission(meta)
     receipts = list(task.get("receipts") or [])
     raw_payload = meta.get(PAYLOAD_KEY)
     if not isinstance(raw_payload, dict):
+        paymentdiag.reject("malformed_credential")
         return _failed_task(task_id, "INVALID_SIGNATURE",
                             "x402.payment.payload missing or malformed",
                             receipts)
@@ -405,10 +425,13 @@ def handle_payment_submission(message: dict[str, Any],
         else:
             payload = PaymentPayload(**raw_payload)
             protocol = "a2a-v2"
+        paymentdiag.emit("credential_parsed")
     except x402.PaymentBindingError as e:
+        paymentdiag.reject(e.reason)
         return _failed_task(task_id, _err_code(e.reason), e.detail or e.reason,
                             receipts)
     except Exception as e:  # malformed payload
+        paymentdiag.reject("malformed_credential")
         return _failed_task(task_id, "INVALID_SIGNATURE", str(e)[:200], receipts)
     try:
         settled = payments.settle_x402(payload, preq, protocol=protocol,
@@ -421,6 +444,7 @@ def handle_payment_submission(message: dict[str, Any],
                             receipts)
     except payments.CachedPaidResult as cached:
         result = cached.result_json
+        paymentdiag.emit("cached_result_prepared")
         settle = cached.settle_record or {}
         return _completed_task(task_id, result, receipts + [
             _settle_response(settle)])

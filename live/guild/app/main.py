@@ -47,6 +47,7 @@ from .models import (
 )
 from . import __version__
 from . import billing
+from . import paymentdiag
 from . import mpp
 from .billing import InsufficientCredits, UnknownAccount, PRICING, CREDIT_USD
 from . import instanceid
@@ -664,6 +665,9 @@ async def _cached_paid_result_handler(request: Request,
     """Official payment-identifier semantics: same id + same request returns
     the SAME cached result without another settlement."""
     headers = payments.cached_reply_headers(exc)
+    diagnostic = getattr(exc, "diagnostic", None)
+    if diagnostic is not None:
+        diagnostic.emit("cached_result_prepared")
     # MPP idempotent replay: an MPP retry must also receive a valid
     # Payment-Receipt, derived from the ALREADY-CONFIRMED cached settlement —
     # zero new facilitator call (pure header derivation from stored data).
@@ -1153,8 +1157,13 @@ def _executable_payment_present() -> bool:
     return bool(_xpay_sig.get() or _mpp_payment_present())
 
 
-def meter(preq: PaidRequest, x_api_key: Optional[str],
-          response: Response) -> dict:
+def meter(preq: PaidRequest, x_api_key: Optional[str], response: Response) -> dict:
+    with paymentdiag.observe(preq.operation, "http", _fp_flag.get() is True):
+        return _meter_inner(preq, x_api_key, response)
+
+
+def _meter_inner(preq: PaidRequest, x_api_key: Optional[str],
+                 response: Response) -> dict:
     """Charge one priced request through the shared paid-operation gateway
     (app/payments.py — the SAME gateway MCP and A2A use). Behaviour:
 
@@ -1179,12 +1188,18 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
     # "Authorization: Payment" credential is ambiguous about which rail to
     # settle and is refused outright: ambiguity must never risk two charges.
     _mpp_hdr = _mpp_auth.get()
+    if xsig or xp1 or _mpp_payment_present():
+        paymentdiag.emit("credential_present")
+        if not x402.enabled():
+            paymentdiag.emit("credential_ignored", "x402_disabled")
     if (xsig or xp1) and mpp.is_mpp_authorization(_mpp_hdr):
+        paymentdiag.reject("conflicting_credentials")
         raise HTTPException(400, mpp.MppError(
             "malformed-credential",
             "both an x402 payment header and an MPP Authorization: Payment "
             "credential present — send exactly one payment protocol").problem)
     if xp1 and not xsig:
+        paymentdiag.reject("v1_not_accepted")
         # v1 cannot echo the resource, so it cannot be bound to the actual
         # request — fail closed with the exact migration path.
         raise _challenge_http(PaymentChallenge(preq, extra={
@@ -1197,11 +1212,14 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
     if xsig and x402.enabled():
         try:
             payment = x402.decode_payment_signature(xsig)
+            paymentdiag.emit("credential_parsed")
         except x402.PaymentBindingError as e:
+            paymentdiag.reject(e.reason)
             raise _challenge_http(PaymentChallenge(preq, extra={
                 "error": "x402_payment_invalid", "reason": e.reason,
                 "detail": e.detail[:300]}))
         except Exception as e:
+            paymentdiag.reject("malformed_credential")
             raise _challenge_http(PaymentChallenge(preq, extra={
                 "error": "x402_payment_invalid", "detail": str(e)[:200]}))
     _protocol = "v2"
@@ -1217,7 +1235,9 @@ def meter(preq: PaidRequest, x_api_key: Optional[str],
             payment, _mpp_source = mpp.credential_to_payment(
                 _mpp_hdr, preq, preq.cost)
             _protocol = "mpp_evm"
+            paymentdiag.emit("credential_parsed")
         except mpp.MppError as e:
+            paymentdiag.reject("malformed_credential")
             if e.status == 402:
                 raise _challenge_http(PaymentChallenge(preq, extra={
                     "error": "mpp_payment_invalid", "reason": e.slug,
@@ -5937,6 +5957,7 @@ def commercial_report(operation: Optional[str] = None):
     idx = trustindex.summarise(store.trust_index.values())
     return {
         "revenue_first": snap["commercial"],
+        "payment_diagnostics": paymentdiag.summary(store, operation),
         "qualified_exposure": snap["qualified_exposure"],
         "experiments": snap["experiments"],
         "supporting_never_sufficient": {

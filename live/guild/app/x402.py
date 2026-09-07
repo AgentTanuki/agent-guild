@@ -83,6 +83,7 @@ from x402.schemas import (
 )
 
 from . import x402_cdp
+from . import paymentdiag
 from . import x402_confirm
 
 if TYPE_CHECKING:  # circular-import-free type hints only
@@ -1262,20 +1263,26 @@ def process_payment(payload: PaymentPayload, preq: "PaidRequest",
     fac = _facilitator()
     try:
         try:
+            paymentdiag.emit("facilitator_verify_started")
             v = fac.verify(payload, offered)
         except Exception as e:
+            paymentdiag.reject("facilitator_verify_error")
             # verify never settles — definitively retryable
             replay_guard.release(ident)
             return {"ok": False, "stage": "verify",
                     "reason": f"facilitator error: {e}", "protocol": protocol}
         if not getattr(v, "is_valid", False):
+            paymentdiag.reject("facilitator_verify_rejected")
             replay_guard.release(ident)      # never reached settlement
             return {"ok": False, "stage": "verify",
                     "reason": getattr(v, "invalid_reason", None) or "invalid",
                     "protocol": protocol}
+        paymentdiag.emit("facilitator_verified")
         try:
+            paymentdiag.emit("facilitator_settle_started")
             s = fac.settle(payload, offered)
         except Exception as e:
+            paymentdiag.emit("unresolved", "facilitator_settle_error")
             # a transport failure DURING settle is AMBIGUOUS: the settlement
             # may have been broadcast. Release the in-process identity guard
             # (the durable recovery path owns the truth from here), but tell
@@ -1304,6 +1311,11 @@ def process_payment(payload: PaymentPayload, preq: "PaidRequest",
         malformed = "facilitator claimed success without a valid tx hash"
     else:
         malformed = None
+    if ok:
+        paymentdiag.emit("facilitator_settlement_accepted")
+    else:
+        paymentdiag.reject("malformed_settlement_response" if malformed
+                           else "facilitator_settle_rejected")
     record = {
         "ok": ok,
         "stage": "settle",
@@ -1331,7 +1343,7 @@ def process_payment(payload: PaymentPayload, preq: "PaidRequest",
         # A mainnet facilitator response alone is NEVER sufficient: confirm
         # the Base transaction receipt and the USDC Transfer event
         # (status, contract, recipient, exact amount) on an independent RPC.
-        conf = x402_confirm.confirm_settlement(
+        conf = paymentdiag.confirm(x402_confirm.confirm_settlement,
             tx, asset=offered.asset, recipient=offered.pay_to,
             amount_atomic=offered.amount)
         record["confirmation"] = {k: conf.get(k) for k in
