@@ -218,7 +218,7 @@ def _fixture_fetch(cap, endpoint):
     return fetch
 
 
-def test_rediscovery_emits_refreshed_not_discovered():
+def test_rediscovery_emits_refreshed_not_discovered(fresh_scout_demand):
     from app.main import app
     cap = _cap()
     endpoint = f"https://{cap}.example"

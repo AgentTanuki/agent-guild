@@ -922,7 +922,16 @@ def run_scout(store: Any, fetch: Callable = safe_fetch_json,
     `deadline` (epoch seconds) bounds the whole pass."""
     adapters = adapters if adapters is not None else ADAPTERS
     demand_rows = [r for r in store.demand_feed_entries()
-                   if r["genuine_lookups"] > 0][:MAX_CAPABILITIES_PER_RUN]
+                   if r["genuine_lookups"] > 0]
+    # A restored historical top ten must not starve queued requests forever.
+    # Pending demand remains subject to the same eligibility and per-run cap;
+    # oldest queued requests go first, then the existing historical ranking.
+    from . import runner
+    pending = runner.pending_demand(store)
+    demand_rows.sort(key=lambda row: (
+        0 if row["capability"] in pending else 1,
+        str((pending.get(row["capability"]) or {}).get("first_requested_at") or "")))
+    demand_rows = demand_rows[:MAX_CAPABILITIES_PER_RUN]
     st = _scout_state(store)
     # TRUTHFUL adapter status: an adapter that never ran must never read as
     # ok. Zero demand ⇒ every adapter is skipped with the reason stated.

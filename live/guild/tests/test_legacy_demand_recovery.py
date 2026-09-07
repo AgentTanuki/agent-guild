@@ -131,7 +131,7 @@ def test_verified_machine_demand_is_separate_from_heuristic():
             feed["entry_fields"]["heuristic_lookups"]).lower()
 
 
-def test_scout_consumes_qualified_heuristic_demand():
+def test_scout_consumes_qualified_heuristic_demand(fresh_scout_demand):
     from app.swarm import scout
     cap = _cap()
     _legacy_ask(cap)

@@ -21,6 +21,8 @@ utility return is not evidence that the caller used or paid for its output.
 Serving/acquisition cost is unknown until an allocated cost ledger exists.
 The funnel's task-outcome stage splits the actual receipt states, including
 delivery, acceptance, rejection and neutral stops; it is not a success count.
+The bounded discovery scout prioritises eligible pending requests before the
+historical ranking, preserving its per-run limit and all attribution gates.
 
 ## What is implemented
 

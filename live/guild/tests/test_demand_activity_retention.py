@@ -204,3 +204,27 @@ def test_funnel_preserves_real_receipt_states_without_promoting_stops(retained_s
     assert result["by_outcome"]["blocked"]["external"] == 1
     assert "open" not in result["by_outcome"]
     assert "invented" not in result["by_outcome"]
+
+
+def test_pending_demand_precedes_historical_rank_without_bypassing_limits(
+        retained_store, monkeypatch):
+    from app.swarm import scout, runner
+    s = retained_store
+    monkeypatch.setenv("GUILD_SCOUT_AUTORUN", "1")
+    monkeypatch.setenv("GUILD_SCOUT_WAKE_DEBOUNCE_S", "0")
+    monkeypatch.setattr(scout, "MAX_CAPABILITIES_PER_RUN", 2)
+    monkeypatch.setattr(scout, "ADAPTERS", {"fixture": lambda cap, fetch: []})
+    # Feed order favours established historical asks. New queued demand must
+    # still reach the adapters and be acknowledged after processing.
+    rows = [{"capability": f"historical-{n}", "genuine_lookups": 100}
+            for n in range(12)]
+    rows += [{"capability": cap, "genuine_lookups": qualified}
+             for cap, qualified in (("second", 1), ("first", 1), ("not-qualified", 0))]
+    monkeypatch.setattr(s, "demand_feed_entries", lambda: rows)
+    runner.notify_demand(s, "first")
+    runner.notify_demand(s, "second")
+    runner.notify_demand(s, "not-qualified")
+    out = runner.run_once(s, fetch=lambda *a, **kw: pytest.fail("unexpected network"))
+    assert out["completed"] is True
+    assert out["summary"]["capabilities"] == ["first", "second"]
+    assert set(runner.pending_demand(s)) == {"not-qualified"}

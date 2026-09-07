@@ -72,7 +72,7 @@ def _probe_ok(url):
     return {"reachable": True, "status": "ok", "detail": "200"}
 
 
-def test_scout_searches_only_observed_unmet_demand():
+def test_scout_searches_only_observed_unmet_demand(fresh_scout_demand):
     cap = _cap()
     calls = []
 
@@ -91,7 +91,7 @@ def test_scout_searches_only_observed_unmet_demand():
     assert cap in calls
 
 
-def test_discovered_candidate_is_unverified_and_earns_nothing():
+def test_discovered_candidate_is_unverified_and_earns_nothing(fresh_scout_demand):
     cap = _cap()
     endpoint = "https://supplier.example"
     _observe_demand(cap)
@@ -118,7 +118,7 @@ def test_discovered_candidate_is_unverified_and_earns_nothing():
     assert decision["routing"]["routable"] is False
 
 
-def test_candidate_stays_unverified_until_cryptographic_participation():
+def test_candidate_stays_unverified_until_cryptographic_participation(fresh_scout_demand):
     """Acceptance gate: only registering + proving (cryptographic
     participation) moves a discovered supplier into the trust plane — the
     scout record itself never upgrades."""
