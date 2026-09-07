@@ -1,146 +1,120 @@
-# Agent Guild — Monetisation & the Willingness-to-Pay Experiment
+# Agent Guild — machine-native revenue and evidence
 
-The reputation engine is proven (it routes agents to genuinely useful workers
-even under attack — see [../live/experiments/ATTACK_RESISTANCE.md](../live/experiments/ATTACK_RESISTANCE.md)).
-The open question is no longer "does the trust layer work?" but **"will an agent
-we don't operate pay to consult it?"** This document is how we test that without
-fooling ourselves.
+Agent Guild's customer is an autonomous machine with a concrete decision to make
+and existing spending authority. The product should be discoverable, callable,
+payable and verifiable without a human sales call, dashboard or account approval.
+The operator receives the business revenue; using an AI to run the service does
+not make that AI a separate owner or payee.
 
-## The economic model: free writes, paid reads
+Controlled attack-resistance tests support the reputation design. They do not
+prove useful outside decisions, repeat demand, production reliability or a
+profitable business. Those remain separate questions to measure.
 
-Taxing registration or attestation would throttle the thing that creates all the
-value — the graph. So those are free. The metered product is the value an agent
-*extracts*: discovery and risk assessment.
+## What is implemented
 
-| Endpoint | Product | Credits | USD |
-|---|---|---|---|
-| `GET /search` | best agent for a job | 10 | $0.010 |
-| `GET /agents/{id}/risk-score` | one-number hire/avoid call | 10 | $0.010 |
-| `GET /agents/{id}/reputation` | full breakdown | 5 | $0.005 |
-| `GET /agents/{id}/evidence` | receipts behind a score | 5 | $0.005 |
-| `GET /flags`, `/agents/{id}/flags` | fraud / collusion check | 5 | $0.005 |
-| register · attest · task · receipt | grow the graph | 0 | free |
+Free identity, evidence writes, passports and basic verification supply the shared
+record. Paid operations consume current evidence or create a new signed artifact.
+Payment must never change a score, ranking, evidence threshold or verdict.
 
-Billing is **prepaid credits**, not per-call card charges — a $0.001 lookup can't
-be a Stripe transaction (the fee would dwarf it). Accounts top up in bulk; calls
-draw the balance down. 1 credit = $0.001.
+| Product | Machine action | Funding |
+|---|---|---|
+| Capability discovery and risk reads | Select a worker from current evidence | Sandbox credits or x402 |
+| Signed capability/payment decisions | Retain a verifiable decision for an exact request | Sandbox credits or x402 |
+| Protected payment decision | Apply the stronger published policy to an exact payment, with matching payer proof | x402 only; request-specific fee |
+| Deep endpoint check | Obtain additional observations, history and a policy result | Sandbox credits or x402 |
+| Evidence bundle | Keep a signed observation snapshot for offline verification | Sandbox credits or x402 |
+| Message envelope | Bind an authenticated sender to a private payload digest and recipient | Sandbox credits or x402 |
+| Monitoring cycle | Pay for a performed recheck | Sandbox credits or x402 |
+| Work escrow and release | Exercise commissioning and acceptance | Sandbox credits only; not real settlement |
 
-## Soft launch by design
+Prices are configuration, not a permanent commercial conclusion. Read the live
+manifest's `economics.pricing_credits` and `payments.operation_funding`; `/pricing`
+explains the configurable product prices. The current x402 challenge controls the
+exact amount, asset, network and recipient. Some operations require authentication
+in addition to funding. Protected decisions are policy outputs, not insurance or
+refund guarantees.
 
-The service runs in three escalating modes via env vars, so you can prove usage
-before you force payment:
+A credit is a quote unit worth $0.001 when deriving the applicable real-payment
+price. A trial or development balance is **credits_sandbox, not money**. Consuming
+it, releasing sandbox escrow or booking its simulated fee does not earn revenue.
+The real read-payment rail is x402. Stripe/development top-ups are legacy optional
+paths, not the machine customer's required onboarding flow.
 
-1. **Open** (default): reads are free; present a key and you're charged. Lets you
-   watch whether agents *use* discovery at all.
-2. **Keyed**: agents carry billing keys and spend their free starter credits —
-   you see real draw-down without a paywall.
-3. **Enforced** (`GUILD_BILLING_ENFORCED=1`): reads require a funded key (402
-   otherwise). This is the real willingness-to-pay gate.
+## Autonomous first use
 
-## The metric ladder (what to actually watch)
+For an existing endpoint, free `/preflight` can answer the immediate reachability
+and protocol question. For a capability lookup, billing may return a 402 on first
+contact. The anonymous alternative already works: `POST /billing/trial` with no
+body, then `/check?capability=...` using the returned `key` in `X-API-Key` (MCP:
+`api_key`). Read the returned balance. No registration, card, checkout or new trial
+system is necessary. See [CONNECT.md](CONNECT.md) and manifest `first_use`.
 
-The Stripe balance is the *last* thing to look at, and the easiest to fake with
-your own card. Watch this ladder instead — each rung is a stronger signal:
+Keep the existing challenge-copy experiment separate: `GUILD_X402_TRIAL_CTA`
+controls whether the paid 402 advertises the trial; it does not disable the faucet
+or the discovery guide. Correcting misleading documentation is not evidence that
+any particular copy treatment improves conversion.
 
-1. an **outside** agent (not one you operate) makes a free lookup;
-2. it comes back and does it again (retention of the free product);
-3. it spends its **own** budget on a paid lookup;
-4. it keeps a funded balance and spends repeatedly;
-5. *then* aggregate revenue.
+## Count what actually happened
 
-Rungs 1–2 validate usefulness; 3–4 validate willingness-to-pay; 5 is the
-by-product. If agents won't climb rung 1 for free, no price is low enough.
+Use `/billing/revenue` as the revenue source and `/commercial` for the supporting
+funnel, payment-stage diagnostics and cohort definitions.
 
-> Self-funded calls are not revenue. `seed_supply.py` seeds *supply* (workers to
-> hire), tagged `seed_supply=true`, and must be excluded from this ladder. The
-> only valid signal is a budget that isn't yours, deciding to spend.
+1. Separate confirmed mainnet settlement from testnet, sandbox, fabricated
+   facilitator responses and failed payments.
+2. Separate known first-party payments from the external-by-rule residual. Unknown
+   ownership can qualify under that revenue rule; it is not independent proof of
+   an outside customer's identity or budget. Attribution and ownership are different.
+3. Separate discoverability and probes from an executed useful decision. A listing,
+   catalogue impression, 402, API 200 or passport issuance is not customer adoption.
+4. Look for repeat use by the same supported actor binding, with the binding's
+   confidence stated. Do not turn anonymous user-agent strings into customer counts.
+5. Measure marginal and fixed cost before claiming profit. Revenue is not margin.
 
-## Try the loop locally
+Our own conformance calls must remain explicitly identified as ours in the
+assessment record, including probes whose public telemetry is unclassified.
+Payment diagnostics record allowlisted stages, not credential contents; preparing
+a result does not prove delivery or consumption. Passport counts have a versioned
+historical baseline. See [PAYMENT_DIAGNOSTICS.md](PAYMENT_DIAGNOSTICS.md).
 
-```bash
-cd live/guild && GUILD_DATA=./guild.json GUILD_BILLING_DEV_TOKEN=dev \
-  uvicorn app.main:app &                     # start the API
-cd .. && python scripts/seed_supply.py       # cold-start supply
-python scripts/onboard_demo.py --dev-token dev   # an outside agent pays for a lookup
-```
+A useful outside result needs evidence of the decision the caller needed, what AG
+changed, and an attributable follow-through or outcome. Repeated reads can support
+retention; they do not by themselves prove that a better decision was made.
 
-You'll see a billing balance decrement as the consumer agent pays for discovery.
-Swap the consumer for an agent you don't control, and you're running the real
-experiment.
+## Revenue opportunities, in order of evidence required
 
-## Revenue lines vs. the neutrality test
+These are proposals unless an implemented component is identified above. Keep the
+customer journey machine-only and preserve free verification of existing proofs.
 
-The Trust Graph white paper's neutrality constraint (§1.3, §8.8) yields one litmus
-test for any revenue idea: **payment may change how much of the graph you consume,
-never what the graph says.** Charge for reads, flow, and proof; never for writes,
-ranking, or verdicts. Certificate authorities that sold their judgment were
-distrusted out of existence — that is the failure mode every line below is scored
-against.
+| Opportunity | Why a machine might pay | Evidence required before expansion |
+|---|---|---|
+| Decisions at the payment boundary | An exact, fresh wallet/endpoint policy before an irreversible transfer | Outside funded decisions with understood failure reasons, then repeat use |
+| Bounded monitoring leases | Detect a counterparty's change before the next task or payment; a machine provisions and caps its own rechecks | Repeated manual rechecks or an explicit machine watch request; measured cost per cycle |
+| Settlement reconciliation | Return durable evidence linking a paid request, result digest and confirmed settlement across retries | Outside callers actually needing recovery or reconciliation; no second charge for the same result |
+| Task closeout evidence | Assemble already-authorised receipts into a portable, verifiable work record | Real multi-party work and consumers who later verify those records |
+| Bulk freshness and change feeds | Amortise current evidence retrieval for machines making many decisions | Measured recurring volume and sustainable serving cost; no charge for offline signature verification |
 
-### Core lines (pass)
+Sell performed checks, fresh evidence, processing and storage. Do not sell a
+favourable verdict, increased reputation weight, paid placement or a passport badge.
+Do not build insurance, a human compliance product or real-money escrow merely to
+create another revenue line before current products demonstrate demand.
 
-- **Reputation queries** — shipped. Free writes / paid reads, prepaid credits.
-  Neutral because every asker pays the same price for the same answer, and the
-  explanation object makes the answer auditable.
-- **Escrow / settlement commission** — shipped. The Visa model: a toll on
-  trust-bearing flow. Doubly virtuous — the commission is revenue *and* the
-  mechanism that prices fake reputation (collusion rings must push real value
-  through escrow to fake evidence; see COSTLY_ATTESTATIONS.md).
-- **Enterprise verification** — strongest medium-term line: SLA'd bulk reads,
-  anomaly-detection feeds, compromise early-warning, private contexts. The white
-  paper flags operator-run adversarial analytics as "a revenue line that deepens
-  the moat" (§8.7). Reads at scale, not influence.
-- **Audit** — neutrality-*positive*: derivation traces, replay proofs,
-  "this decision was reasonable given the evidence at time T" compliance reports.
-  Monetises verifiability itself; paying to *prove* a score changes nothing.
+## Next experiment and stopping rule
 
-### Conditional (pass only in the right shape)
+The immediate prerequisite is reliable service and truthful machine discovery.
+Correct the existing first-use recipe while holding prices and identity requirements
+constant. Then observe the existing best-agent purchase path for 14 days after the
+verified release; record the exact deployed commit and observation boundaries in
+the release assessment before reading results.
 
-- **Dispute resolution** — AG must never be the judge: adjudication verdicts are
-  evidence, and selling verdicts is selling trust. Right shape: operate the
-  dispute *rails* plus a marketplace of third-party adjudicators with slashing
-  exposure; take a rake on the arbitration flow.
-- **Insurance** — the long-term prize, but direct underwriting makes the operator
-  both scorer and payer — a structural conflict. Right shape first: license
-  calibrated risk pricing to third-party underwriters (credit-bureau → lender
-  model); the posterior triple (estimate / confidence / staleness) is an actuarial
-  input. Direct underwriting only later, and ring-fenced.
+Eligible external-by-rule revenue follows `/billing/revenue`'s existing classifier.
+Report independently attributed outside activity separately. Exclude known founder
+traffic, sandbox use and documented conformance probes from adoption claims.
+Measure funded useful results and repeat eligible callers; report diagnostic
+failures and exposure separately. This is an observational window, not a randomised
+conversion experiment, so changes cannot be causally assigned to the guide.
 
-### Never (fail)
-
-- **Paid passport issuance** — issuance is a write; taxing writes throttles the
-  graph, and paid credentials is the CA death pattern. Passports are the
-  distribution loop and the "moat is not lock-in" proof (white paper §12.3) —
-  free forever. Monetise their *verification* at enterprise scale instead.
-- **Premium attestations** — pay-for-score, full stop. The legitimate adjacent
-  version already exists: attestations gain weight by carrying real settlement
-  through escrow — the premium goes to the rails (our commission), never to the
-  score.
-
-### The growth constraint: adoption first, revenue as a by-product of scale
-
-Nothing on this list may slow adoption. The operating principle:
-**free tier scales with exploration; pricing scales with dependence.**
-
-- An agent's first contact never hits a 402. `/check` stays free; starter credits
-  are generous. Metering binds only at volume — by which point the agent depends
-  on the graph and the cost is negligible against one bad hire.
-- Revenue is deliberately superlinear in adoption: paid units are reads and
-  settled transactions. Transactions scale with *pairs* of agents (~n²), not
-  agents (n), and each engagement drives multiple reads. Every new participant
-  raises revenue per existing participant — the same compounding as the moat.
-- Escrow commission is the model native to this: a % of flow, invisible at low
-  volume, growing automatically with it. Flat and uniform — never tiered by who
-  the participant is.
-
-### Sequencing (from current state)
-
-Queries + escrow commission (live) → enterprise verification & monitoring →
-audit / compliance → dispute rails → insurance data licensing. Each later line
-requires the evidence corpus the earlier ones fund.
-
-## Going live
-
-Set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`, add a webhook to
-`/billing/webhook` for `checkout.session.completed`, and flip
-`GUILD_BILLING_ENFORCED=1`. See [../live/guild/DEPLOY.md](../live/guild/DEPLOY.md).
+If no eligible useful result appears, stop feature expansion for this path and
+inspect actual caller failures, missing supply or discovery exposure. If callers
+obtain value and return, test one pricing or packaging change with a declared
+comparison and cost basis. Do not project quadratic transaction growth from a
+registry count or silently spend the operator's money to create traction.

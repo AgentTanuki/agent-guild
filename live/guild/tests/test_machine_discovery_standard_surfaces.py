@@ -103,7 +103,9 @@ def test_auth_md_states_real_admission_and_no_delegated_oauth():
     assert "custodial=false and api_key=null" in response.text
     assert "X-API-Key" in response.text
     assert "x402" in response.text
-    assert "eip155:8453" in response.text
+    # Network selection follows live configuration, not a hard-coded mainnet
+    # claim on development/testnet deployments.
+    assert "/x402/readiness" in response.text
     assert "Some other reads are metered" in response.text
     assert "Agent Guild uses no delegated OAuth" in response.text
     assert "delegated OAuth token" in response.text

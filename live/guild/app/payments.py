@@ -65,6 +65,26 @@ from .crypto import canonicalize_jcs
 # ---------------------------------------------------------------------------
 
 
+def fixed_operation_prices() -> dict[str, int]:
+    """Discover the fixed-price gateway operations at their current prices.
+
+    Watch provisioning is outside this gateway; protected decisions instead
+    quote a request-specific fee. Neither belongs in this fixed-price table.
+    Keep zero-priced experiments discoverable on the same funding routes.
+    """
+    from . import pricing
+    operations = set(PRICING) | (set(pricing.DEFAULTS) - {"watch_provision"})
+    return {operation: operation_price(operation) for operation in sorted(operations)}
+
+
+def operation_price(operation: str) -> int:
+    """Use the same live price for execution and machine discovery."""
+    from . import pricing
+    if operation in pricing.DEFAULTS:
+        return pricing.price(operation)
+    return PRICING[operation]
+
+
 def _canon_value(v: Any) -> str:
     """Canonical string form for a query value (deterministic across the
     quote and the acceptance — both are computed by THIS server)."""
@@ -163,10 +183,7 @@ class PaidRequest:
         their PRICING entry so nothing existing changes behaviour."""
         if self.cost_credits_override is not None:
             return self.cost_credits_override
-        from . import pricing as _pricing
-        if self.operation in _pricing.DEFAULTS:
-            return _pricing.price(self.operation)
-        return PRICING[self.operation]
+        return operation_price(self.operation)
 
 
 # Builders for every priced semantic operation. MCP and A2A use these too, so
@@ -1423,14 +1440,30 @@ def classify_payer_attribution(store: Any, *, payer: str,
     return result
 
 
-def acquire_info() -> dict[str, Any]:
-    """Machine-readable description of how an agent acquires payment power,
-    no human."""
+def trial_info() -> dict[str, Any]:
+    """An executable anonymous trial recipe; no identity registration needed."""
     return {
-        "trial": {"method": "POST", "path": "/billing/trial",
-                  "human_free": True,
-                  "unit": "credits_sandbox (NOT money)"},
-        "topup": {"method": "POST", "path": "/billing/topup"},
+        "method": "POST", "path": "/billing/trial",
+        "human_free": True, "registration_required": False,
+        "request_body_required": False,
+        "unit": "credits_sandbox (NOT money)",
+        "grant_credits": billing.TRIAL_CREDITS,
+        "balance_response_field": "balance",
+        "balance_note": "Use the returned balance; it includes any account starter credits.",
+        "credential": {"response_field": "key", "http_header": "X-API-Key",
+                       "mcp_argument": "api_key", "secret": True},
+    }
+
+
+def acquire_info() -> dict[str, Any]:
+    """Funding discovery, distinguishing anonymous trial and real payment."""
+    return {
+        "trial": trial_info(),
+        "topup": {"method": "POST", "path": "/billing/topup",
+                  "unit": "credits_sandbox",
+                  "modes": ["development_token", "stripe_checkout"],
+                  "note": "Configuration-dependent development credits or a Stripe Checkout URL; "
+                          "not required for autonomous x402 payments."},
         "x402": ("active (v2) — retry with a PAYMENT-SIGNATURE header built "
                  "from the PAYMENT-REQUIRED challenge (see `accepts`); "
                  "A2A: x402 extension v0.1 at POST /a2a; MCP: retry the tool "
