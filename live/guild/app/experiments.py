@@ -229,6 +229,8 @@ def _measurement_snapshot(store: Any, *, types: tuple[str, ...],
                           since: Optional[str]
                           ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Obtain one immutable history cut, durable when the Store supports it."""
+    if hasattr(store, "measurement_event_view"):
+        return store.measurement_event_view(types=types, since=since)
     if hasattr(store, "measurement_event_snapshot"):
         return store.measurement_event_snapshot(types=types, since=since)
     events = [dict(event) for event in getattr(store, "events", [])

@@ -764,17 +764,49 @@ class SqliteBackend:
         """
         return list(self.iter_events(types=types, since=since, keys=keys))
 
-    def iter_events(self, *, types: Optional[Iterable[str]] = None,
-                    since: Optional[str] = None,
-                    keys: Optional[Iterable[str]] = None
-                    ) -> Iterable[dict[str, Any]]:
-        """Stream one ordered, durable event snapshot with bounded memory.
+    def event_view(self, *, types: Optional[Iterable[str]] = None,
+                   since: Optional[str] = None,
+                   keys: Optional[Iterable[str]] = None,
+                   through_seq: Optional[int] = None):
+        """Replayable, bounded-memory view of one append-only history cut.
 
-        Iterating a single SQLite SELECT keeps one read snapshot for the
-        cursor's lifetime.  Unlike ``fetch_events``, this never materialises
-        every decoded JSON event at once; complete-history reducers can keep
-        memory proportional to their aggregate rather than the event table.
+        Pin the durable sequence before reading. Later appends cannot change
+        either pass of a report, including when event clocks run backwards.
+        The view retains filters and a count, never decoded event history.
+
+        SQLite serializes writers; append_event never supplies a sequence and
+        runtime code never updates/deletes event rows. A lower allocated seq
+        therefore cannot commit behind a higher visible seq. This guarantee
+        must be revisited if durable event mutation is ever introduced.
         """
+        cutoff = (int(through_seq) if through_seq is not None else int(
+            self.conn().execute(
+                "SELECT COALESCE(MAX(seq), 0) FROM events").fetchone()[0]))
+        backend = self
+        wanted_types = tuple(types or ())
+        wanted_keys = tuple(keys or ())
+        where, args = self._event_filter(
+            types=wanted_types, since=since, keys=wanted_keys,
+            through_seq=cutoff)
+        count = int(self.conn().execute(
+            f"SELECT COUNT(*) FROM events{where}", args).fetchone()[0])
+
+        class EventView:
+            through_seq = cutoff
+
+            def __len__(self):
+                return count
+
+            def __iter__(self):
+                return iter(backend.iter_events(
+                    types=wanted_types, since=since, keys=wanted_keys,
+                    through_seq=cutoff))
+
+        return EventView()
+
+    @staticmethod
+    def _event_filter(*, types=None, since=None, keys=None,
+                      through_seq=None):
         clauses: list[str] = []
         args: list[Any] = []
         wanted = tuple(dict.fromkeys(str(t) for t in (types or ()) if t))
@@ -789,7 +821,26 @@ class SqliteBackend:
         if wanted_keys:
             clauses.append(f"key IN ({','.join('?' for _ in wanted_keys)})")
             args.extend(wanted_keys)
-        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        if through_seq is not None:
+            clauses.append("seq <= ?")
+            args.append(int(through_seq))
+        return (f" WHERE {' AND '.join(clauses)}" if clauses else "",
+                tuple(args))
+
+    def iter_events(self, *, types: Optional[Iterable[str]] = None,
+                    since: Optional[str] = None,
+                    keys: Optional[Iterable[str]] = None,
+                    through_seq: Optional[int] = None
+                    ) -> Iterable[dict[str, Any]]:
+        """Stream one ordered, durable event snapshot with bounded memory.
+
+        Iterating a single SQLite SELECT keeps one read snapshot for the
+        cursor's lifetime.  Unlike ``fetch_events``, this never materialises
+        every decoded JSON event at once; complete-history reducers can keep
+        memory proportional to their aggregate rather than the event table.
+        """
+        where, args = self._event_filter(
+            types=types, since=since, keys=keys, through_seq=through_seq)
         rows = self.conn().execute(
             f"SELECT json FROM events{where} ORDER BY seq", tuple(args)
         )

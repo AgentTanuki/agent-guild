@@ -272,7 +272,9 @@ def test_sqlite_metric_secret_experiment_and_signal_survive_restart(
     monkeypatch.setenv("GUILD_STORE_PATH", str(db))
     owner = _owner("0x" + "29" * 32)
     payee = Account.create().address
-    at = datetime(2026, 8, 13, 2, 30, tzinfo=timezone.utc)
+    # The readback intentionally uses the live clock. Start this persistence
+    # fixture today so its 21-day enrollment window cannot expire in CI.
+    at = datetime.now(timezone.utc)
     local = Store(path="")
     made = spendmandate.create(
         local, _create_body(), caller_did=owner, now=at)
