@@ -159,4 +159,4 @@ def test_generic_entry_types_are_closed_set():
         "register", "config_change", "capability_change", "receipt",
         "attestation", "escrow_event",
         "task_created", "reclassification", "issuer_rotation",
-        "signed_outcome"}
+        "signed_outcome", "evidence_commitment"}

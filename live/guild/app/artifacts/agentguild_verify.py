@@ -158,6 +158,135 @@ def verify_checkpoint(cp: dict[str, Any]) -> bool:
         return False
 
 
+def evidence_canonical(value: Any) -> str:
+    """Evidence v2's portable AGI-1 subset: ASCII field names, safe integers.
+
+    String VALUES remain unrestricted Unicode. Reject unsupported numbers and
+    field names instead of producing bytes Python and JavaScript disagree on.
+    This is raw canonical JSON + Ed25519, not W3C Data Integrity.
+    """
+    if isinstance(value, dict):
+        if any(not isinstance(k, str) or not k.isascii() for k in value):
+            raise ValueError("evidence field names must be ASCII")
+        for item in value.values():
+            evidence_canonical(item)
+    elif isinstance(value, list):
+        for item in value:
+            evidence_canonical(item)
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        if not (-9007199254740991 <= value <= 9007199254740991) or int(value) != value:
+            raise ValueError("evidence numbers must be safe integers")
+    return _canonical(value)
+
+
+def _evidence_digest(value: Any) -> str:
+    return hashlib.sha256(evidence_canonical(value).encode("utf-8")).hexdigest()
+
+
+def _evidence_inclusion(body: dict, public_key: bytes) -> bool:
+    anchor = body["ledger_anchor"]
+    core = {k: v for k, v in body.items() if k != "ledger_anchor"}
+    digest = _evidence_digest(core)
+    entry = anchor["checkpoint_entry"]
+    cp = entry["checkpoint"]
+    inclusion = anchor["inclusion"]
+    record = inclusion["record"]
+    if not (anchor["snapshot_sha256"] == digest
+            and record["type"] == "evidence_commitment"
+            and record["body"] == {"version": 2, "snapshot_sha256": digest}
+            and record["actor_did"] == body["issuer"] == cp["issuer"]
+            and verify_checkpoint(cp)
+            and _verify_sig({k: v for k, v in entry.items() if k != "entry_proof"},
+                            entry["entry_proof"], public_key)
+            and entry["index"] == anchor["checkpoint_index"] == inclusion["checkpoint_index"]
+            and entry["ledger_length"] == cp["count"]
+            and cp["head_hash"] == anchor["head_hash"] == inclusion["checkpoint_head_hash"]
+            and entry["published_at"] == anchor["published_at"]
+            and cp["merkle_root"] == inclusion["checkpoint_merkle_root"]):
+        return False
+    # This record contains only strings and integers: AGI-1 and the ledger's
+    # original sorted-JSON content-hash encoding are identical here.
+    h = _evidence_digest({k: v for k, v in record.items() if k not in ("hash", "id")})
+    if record["hash"] != h or record["id"] != "evt_" + h[:12]:
+        return False
+    index, width = inclusion["seq"], cp["count"]
+    if (type(index) is not int or type(width) is not int
+            or not 0 <= index < width or record["seq"] != index):
+        return False
+    path = iter(inclusion["path"])
+    while width > 1:
+        step = next(path)
+        sibling = step["hash"]
+        side = "left" if index % 2 else "right"
+        if (step["position"] != side or len(sibling) != 64
+                or any(c not in "0123456789abcdef" for c in sibling)):
+            return False
+        if index == width - 1 and width % 2 and sibling != h:
+            return False  # duplicated odd leaf
+        pair = sibling + h if side == "left" else h + sibling
+        h = hashlib.sha256(pair.encode("ascii")).hexdigest()
+        index, width = index // 2, (width + 1) // 2
+    return next(path, None) is None and h == cp["merkle_root"]
+
+
+def verify_evidence_bundle(bundle: dict[str, Any], *, expected_issuer: str,
+                           expected_endpoint: Optional[str] = None,
+                           expected_audience: Optional[str] = None,
+                           now: Optional[datetime] = None) -> dict[str, Any]:
+    """Verify evidence offline against an issuer pinned by the caller.
+
+    A v2 success checks signature, checksum, exact request binding, expiry,
+    and the observation's inclusion in a signed checkpoint. It does not prove
+    the issuer's observations true, or independently witness its ledger.
+    Legacy v1 signatures remain readable, but never pass v2 inclusion checks.
+    """
+    out = {"valid": False, "signature_valid": False, "checksum_valid": False,
+           "ledger_inclusion_valid": False, "expired": True}
+    try:
+        issuer = bundle["issuer"]
+        if not expected_issuer or issuer != expected_issuer:
+            return {**out, "reason": "issuer does not match caller's trusted issuer"}
+        body = {k: v for k, v in bundle.items() if k not in ("proof", "bundle_sha256")}
+        pub = public_key_from_did(issuer)
+        out["signature_valid"] = _verify_sig(body, bundle["proof"], pub)
+        version = bundle["version"]
+        if bundle["type"] != "AgentGuildEvidenceBundle" or type(version) is not int or version not in (1, 2):
+            return {**out, "reason": "unsupported evidence format"}
+        issued = datetime.fromisoformat(bundle["issued_at"])
+        expires = datetime.fromisoformat(bundle["valid_until"])
+        at = now or datetime.now(timezone.utc)
+        out["expired"] = at >= expires
+        time_valid = issued.tzinfo is not None and expires.tzinfo is not None and issued <= at < expires
+        endpoint = bundle.get("requested_endpoint") if version == 2 else None
+        binding_valid = ((expected_endpoint is None or endpoint == expected_endpoint)
+                         and (expected_audience is None or bundle.get("audience") == expected_audience))
+        checksum_body = {k: v for k, v in bundle.items() if k != "bundle_sha256"}
+        if version == 2:
+            out["checksum_valid"] = _evidence_digest(checksum_body) == bundle["bundle_sha256"]
+            out["ledger_inclusion_valid"] = _evidence_inclusion(body, pub)
+            nonce = bundle["commitment_nonce"]
+            structure_valid = (isinstance(endpoint, str) and bool(endpoint)
+                               and isinstance(nonce, str) and len(nonce) == 32
+                               and all(c in "0123456789abcdef" for c in nonce))
+        else:
+            legacy_bytes = json.dumps(checksum_body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+            out["checksum_valid"] = hashlib.sha256(legacy_bytes.encode()).hexdigest() == bundle.get("bundle_sha256")
+            structure_valid = True
+        out.update(issuer=issuer, subject_endpoint=bundle.get("subject_endpoint"),
+                   requested_endpoint=endpoint, issued_at=bundle["issued_at"],
+                   policy_decision=(bundle.get("policy") or {}).get("decision"),
+                   request_binding_valid=binding_valid, version=version)
+        out["valid"] = bool(out["signature_valid"] and out["checksum_valid"] and time_valid
+                            and binding_valid and structure_valid
+                            and (version == 1 or out["ledger_inclusion_valid"]))
+        out["note"] = ("origin and integrity only; observations are not a safety guarantee. "
+                       "Expired evidence still describes its issuance time. "
+                       "Version 1 has no observation inclusion proof.")
+    except (KeyError, TypeError, ValueError, IndexError, StopIteration, OverflowError, AttributeError, RecursionError):
+        out["reason"] = "malformed or incomplete evidence"
+    return out
+
+
 def verify_passport(vc: dict[str, Any], *, expected_issuer: Optional[str] = None) -> dict[str, Any]:
     """Verify an AGI-1 Agent Passport offline. Returns a structured result:
     {valid, issuer, subject, claims, checkpoint_valid, issuer_matches}.

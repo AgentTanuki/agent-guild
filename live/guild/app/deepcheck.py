@@ -29,10 +29,12 @@ THE INVARIANT THAT MATTERS MOST
 from __future__ import annotations
 
 import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from .crypto import canonicalize, sign_jcs
+from .crypto import sign_jcs
+from .artifacts.agentguild_verify import evidence_canonical, verify_evidence_bundle
 from . import preflight, trustindex
 
 #: Default validity of a signed bundle. Short by design: an evidence object
@@ -143,8 +145,9 @@ def deep_preflight(store: Any, url: str) -> dict[str, Any]:
         "observations": (entry or {}).get("observation_count", 0),
         "first_indexed_at": (entry or {}).get("first_indexed_at"),
         "drift": (entry or {}).get("drift", []),
-        "note": ("drift is the state changes we have recorded for this exact "
-                 "endpoint. An endpoint with no history is not safe or unsafe "
+        "note": ("drift is the state changes recorded for this normalized index "
+                 "endpoint group; query strings and trailing slashes may be merged. "
+                 "An endpoint with no history is not safe or unsafe "
                  "— it is unobserved, and this is its first data point."),
     }
     return {
@@ -190,7 +193,8 @@ def evidence_bundle(store: Any, url: str, *, ttl_s: int = DEFAULT_TTL_S,
     issued = _now()
     body = {
         "type": "AgentGuildEvidenceBundle",
-        "version": 1,
+        "version": 2,
+        "requested_endpoint": url.strip(),
         "subject_endpoint": trustindex.normalise_url(url),
         "subject_id": trustindex.fingerprint(url),
         "audience": audience or None,
@@ -209,18 +213,27 @@ def evidence_bundle(store: Any, url: str, *, ttl_s: int = DEFAULT_TTL_S,
         "history": deep.get("history"),
         "corroboration": deep.get("corroboration"),
         "issuer": gid["did"],
-        "ledger_anchor": {
-            "checkpoint_index": anchor.get("index"),
-            "head_hash": (anchor.get("checkpoint") or {}).get("head_hash"),
-            "published_at": anchor.get("published_at"),
-        },
+        # Keep the salt PRIVATE in this bundle. Public ledger observers cannot
+        # dictionary-guess a known URL/audience from the published digest.
+        "commitment_nonce": secrets.token_hex(16),
         "verification": {
-            "suite": "eddsa-jcs-2022",
+            "suite": "Ed25519",
+            "canonicalization": "AGI-1 canonical JSON; ASCII field names and safe integer numbers",
             "issuer_did_document": "/.well-known/agent-guild-did.json",
-            "how": ("canonicalize the bundle WITHOUT the `proof` field (JCS), "
-                    "then verify `proof` as an ed25519 signature over that "
-                    "canonical form using the issuer did:key. No call to the "
-                    "Guild is required — that is the point of the artefact."),
+            "python_sdk": "/sdk/agentguild_verify.py",
+            "javascript_sdk": "/sdk/agentguild_verify.mjs",
+            "how": ("Use verify_evidence_bundle / verifyEvidenceBundle with a trusted "
+                    "expected issuer and the exact requested endpoint/audience. For "
+                    "the raw Ed25519 hex signature, canonicalize without BOTH `proof` "
+                    "and `bundle_sha256`. The checksum excludes only `bundle_sha256`. "
+                    "Verify the salted snapshot commitment, ledger record, Merkle path, "
+                    "checkpoint signature and feed-entry signature. No network is needed."),
+            "endpoint_scope": ("requested_endpoint is the exact request URL. "
+                               "subject_endpoint/subject_id group index history and may "
+                               "merge query strings or trailing slashes."),
+            "trust_limits": ("Timestamps are issuer assertions, not external time proofs. "
+                             "This bundle alone cannot detect an issuer's split ledger views; "
+                             "independently retain and compare public checkpoints when needed."),
         },
         "honesty": (
             "This attests to what the Guild OBSERVED at `issued_at`, not to "
@@ -229,16 +242,40 @@ def evidence_bundle(store: Any, url: str, *, ttl_s: int = DEFAULT_TTL_S,
             "never averaged into it."),
     }
     try:
+        digest = hashlib.sha256(evidence_canonical(body).encode("utf-8")).hexdigest()
+        # Publish ONLY the commitment, never the request, audience or results.
+        # An issuance/settlement failure may leave an unpurchased commitment;
+        # this event is evidence of issuance, never payment or customer demand.
+        with store.lock:
+            if store.guild_identity().get("did") != gid["did"]:
+                raise EvidenceIssuanceRefused("issuer changed during observation; retry")
+            record = store.append_ledger_event(
+                "evidence_commitment", {"version": 2, "snapshot_sha256": digest},
+                actor_did=gid["did"])
+            anchor = store.publish_checkpoint()
+            inclusion = store.ledger_inclusion_proof(record["id"], anchor["index"])
+        body["ledger_anchor"] = {
+            "checkpoint_index": anchor["index"],
+            "head_hash": anchor["checkpoint"]["head_hash"],
+            "published_at": anchor["published_at"],
+            "snapshot_sha256": digest,
+            "checkpoint_entry": anchor,
+            "inclusion": inclusion,
+        }
+        evidence_canonical(body)
         proof = sign_jcs(body, gid["private_key"])
     except Exception as exc:  # noqa: BLE001
         raise EvidenceIssuanceRefused(
-            f"signing failed: {type(exc).__name__}") from exc
+            f"commitment, anchoring or signing failed: {type(exc).__name__}") from exc
     if not proof:
         raise EvidenceIssuanceRefused("signing produced no proof")
 
     bundle = {**body, "proof": proof}
     bundle["bundle_sha256"] = hashlib.sha256(
-        canonicalize(bundle).encode("utf-8")).hexdigest()
+        evidence_canonical(bundle).encode("utf-8")).hexdigest()
+    if not verify_evidence_bundle(bundle, expected_issuer=gid["did"],
+                                  expected_endpoint=url.strip(), now=_now())["valid"]:
+        raise EvidenceIssuanceRefused("produced evidence failed independent artifact validation")
     return bundle
 
 
@@ -247,41 +284,13 @@ def verify_bundle(store: Any, bundle: dict[str, Any]) -> dict[str, Any]:
 
     Free on purpose: charging to check an artefact we sold would make the
     artefact worth less than we claimed when we sold it."""
-    from .crypto import public_key_from_did, verify_jcs
-
-    if not isinstance(bundle, dict) or "proof" not in bundle:
-        return {"valid": False, "reason": "not a bundle (no proof)"}
-    body = {k: v for k, v in bundle.items()
-            if k not in ("proof", "bundle_sha256")}
+    if not isinstance(bundle, dict):
+        return {"valid": False, "reason": "not a bundle"}
     issuer = str(bundle.get("issuer") or "")
-    known = []
     try:
         known = list(store.guild_did_history())
-    except Exception:  # noqa: BLE001
+    except Exception:
         known = []
     if issuer not in known:
-        return {"valid": False, "reason": "issuer is not a Guild key",
-                "issuer": issuer}
-    try:
-        pub = public_key_from_did(issuer)
-        ok = verify_jcs(body, str(bundle["proof"]), pub)
-    except Exception as exc:  # noqa: BLE001
-        return {"valid": False, "reason": f"malformed proof: {type(exc).__name__}"}
-
-    expired = False
-    try:
-        expired = _now() > datetime.fromisoformat(str(bundle.get("valid_until")))
-    except (TypeError, ValueError):
-        expired = True
-    return {
-        "valid": bool(ok) and not expired,
-        "signature_valid": bool(ok),
-        "expired": expired,
-        "issuer": issuer,
-        "subject_endpoint": bundle.get("subject_endpoint"),
-        "policy_decision": (bundle.get("policy") or {}).get("decision"),
-        "issued_at": bundle.get("issued_at"),
-        "note": ("an EXPIRED bundle with a valid signature is still proof of "
-                 "what was observed at `issued_at` — it is simply no longer "
-                 "evidence about now"),
-    }
+        return {"valid": False, "reason": "issuer is not a Guild key", "issuer": issuer}
+    return verify_evidence_bundle(bundle, expected_issuer=issuer, now=_now())

@@ -471,6 +471,14 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             # Audience therefore remains private in settlement metadata while
             # a quote cannot be replayed for a differently scoped artifact.
             "server_derived_settlement_params": ["request_sha256"],
+            "offline_verification": {
+                "version": 2,
+                "python": "/sdk/agentguild_verify.py#verify_evidence_bundle",
+                "javascript": "/sdk/agentguild_verify.mjs#verifyEvidenceBundle",
+                "caller_checks": ["trusted issuer", "exact endpoint", "audience", "expiry",
+                                  "checksum", "observation inclusion proof"],
+                "limit": "issuer commitment, not independently witnessed observation truth",
+            },
             "auth": "none required — pay per call from the 402 challenge, "
                     "or send X-API-Key to draw on a credit balance",
             "key_required": False,
@@ -478,9 +486,10 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
         },
         "alternatives": {},
         "what_you_get": (
-            "A signed, portable, offline-verifiable evidence snapshot you "
-            "keep, anchored to the published checkpoint feed with an inclusion "
-            "proof. Re-verifiable without calling us again."),
+            "A version-2 signed endpoint observation you keep, with its salted "
+            "commitment, Merkle inclusion proof and signed checkpoint. Verify "
+            "offline with the Python or JavaScript drop-in verifier. The issuer "
+            "attests to its own observation; inclusion is not independent witnessing."),
         "why_it_is_worth_it": (
             "It survives us. A verdict you can only re-obtain by asking the "
             "issuer is not evidence, it is a subscription. Fails closed: if "
