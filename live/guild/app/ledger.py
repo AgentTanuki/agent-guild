@@ -146,6 +146,7 @@ class CollaborationRecord:
 # Legacy collab records carry no "type" key and their hashes are untouched — the
 # chain does NOT restart. New event kinds are added here, never removed.
 GENERIC_ENTRY_TYPES = (
+    "evidence_commitment",  # salted digest only; private observations stay in the bundle
     "register",        # an identity joined (public fields only — never keys)
     "config_change",   # a declared behavioral-configuration change (§7.3)
     "capability_change",  # authenticated supply declaration; history is append-only

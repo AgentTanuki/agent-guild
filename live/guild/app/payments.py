@@ -1210,6 +1210,94 @@ def _settle_x402_inner(payload: PaymentPayload, preq: PaidRequest,
 # ---------------------------------------------------------------------------
 
 
+def prepare_issuance(preq: PaidRequest, *, api_key: Optional[str] = None,
+                     payment: Optional[PaymentPayload] = None) -> None:
+    """Non-settling eligibility check before producing a durable artifact.
+
+    This never reserves a payment, consumes a nonce, or charges credits. The
+    ordinary gateway must still authorize after successful issuance. Completed
+    purchases are recovered here, before fresh observation/signing dependencies.
+    """
+    from .state import store
+    if payment is not None:
+        if not x402.enabled():
+            raise PaymentChallenge(preq, extra={"error": "x402_payment_invalid",
+                                               "reason": "x402_disabled"})
+        pid = extract_payment_identifier(payment, validate=False)
+        if pid is not None and not is_valid_payment_id(pid):
+            raise PaymentIdConflict("invalid_payment_identifier",
+                                    "invalid payment identifier")
+        if pid is None and x402.is_mainnet(x402.network()):
+            pid = internal_recovery_id(payment, preq)
+        if pid:
+            with _pid_lock:
+                rec = store.x402_payment_id_get(pid)
+                if rec is not None:
+                    inner = payment.payload if isinstance(payment.payload, dict) else {}
+                    authorization = inner.get("authorization")
+                    authorization = authorization if isinstance(authorization, dict) else {}
+                    payer = str(authorization.get("from") or "").lower()
+                    for field, expected, reason in (
+                        ("payer", payer, "payer"),
+                        ("request_hash", preq.request_hash, "resource"),
+                        ("payload_fingerprint", _payload_fingerprint(payment), "payload"),
+                    ):
+                        if rec.get(field) != expected:
+                            raise PaymentIdConflict(
+                                f"payment_identifier_{reason}_mismatch",
+                                "identifier is bound to a different purchase", payment_id=pid)
+                    if rec.get("status") == "completed":
+                        # Exact previously verified bytes authenticate access
+                        # to this one saved purchase. Settlement-window expiry
+                        # does not revoke a result the buyer already paid for.
+                        raise CachedPaidResult(rec)
+                    x402.check_binding(payment, preq, preq.cost)
+                    if pid in _INFLIGHT_PIDS:
+                        raise PaymentIdConflict("payment_identifier_in_flight",
+                                                "retry after the current purchase completes",
+                                                payment_id=pid)
+                    # Recovery may involve an already consumed nonce. The
+                    # gateway resolves the durable state without a new charge.
+                    return
+        errors = x402.config_errors()
+        if errors:
+            raise x402.PaymentBindingError("x402_misconfigured", "; ".join(errors))
+        x402.check_binding(payment, preq, preq.cost)
+        fac = x402._facilitator()
+        try:
+            try:
+                result = fac.verify(payment, x402.requirements(preq.cost))
+            except Exception as exc:
+                raise PaymentChallenge(preq, extra={
+                    "error": "x402_payment_rejected", "reason": "facilitator_verify_error",
+                    "detail": "eligibility could not be verified; nothing was settled"}) from exc
+            if not getattr(result, "is_valid", False):
+                raise PaymentChallenge(preq, extra={
+                    "error": "x402_payment_rejected", "reason": "facilitator_verify_rejected"})
+        finally:
+            try:
+                fac.close()
+            except Exception:
+                pass
+        return
+    if api_key:
+        with store.lock:
+            key = store._account_key(api_key)
+            if key:
+                store._sync_account_from_db(key)
+            account = store.accounts.get(key) if key else None
+            if account is not None:
+                if account["balance"] < preq.cost:
+                    raise PaymentChallenge(preq, extra={
+                        "error": "insufficient_credits", "balance": account["balance"],
+                        "cost": preq.cost, "acquire": acquire_info()})
+                return
+            if billing.billing_enforced():
+                raise PaymentChallenge(preq, extra={"error": "unknown_billing_key"})
+    if billing.billing_enforced():
+        raise PaymentChallenge(preq, extra={"error": "payment_required"})
+
+
 def authorize(preq: PaidRequest, *, api_key: Optional[str] = None,
               payment: Optional[PaymentPayload] = None, protocol: str = "v2",
               ua: str = "", transport: str = "http", actor: Optional[str] = None,

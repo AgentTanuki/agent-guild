@@ -323,7 +323,9 @@ def test_evidence_bundle_uses_body_bound_quote_and_settles_once(monkeypatch):
         assert paid.status_code == 200
         assert paid.json() == {"schema": "AGEB-1", "proof": "test"}
         assert paid.headers.get("PAYMENT-RESPONSE")
-    assert len(fac.verify_calls) == 1
+    # Non-settling eligibility before issuance, then ordinary settlement
+    # verification after issuance. Exactly one funds transfer.
+    assert len(fac.verify_calls) == 2
     assert len(fac.settle_calls) == 1
     assert issued == [{"ttl_s": deepcheck.MIN_TTL_S,
                        "audience": body["audience"]}]

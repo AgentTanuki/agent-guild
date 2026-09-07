@@ -1163,7 +1163,7 @@ def meter(preq: PaidRequest, x_api_key: Optional[str], response: Response) -> di
 
 
 def _meter_inner(preq: PaidRequest, x_api_key: Optional[str],
-                 response: Response) -> dict:
+                 response: Response, *, prepare_only: bool = False) -> dict:
     """Charge one priced request through the shared paid-operation gateway
     (app/payments.py — the SAME gateway MCP and A2A use). Behaviour:
 
@@ -1249,6 +1249,9 @@ def _meter_inner(preq: PaidRequest, x_api_key: Optional[str],
                     "detail": str(e)[:300]}))
             raise HTTPException(e.status, e.problem)
     try:
+        if prepare_only:
+            payments.prepare_issuance(preq, api_key=x_api_key, payment=payment)
+            return {}
         # Payer attribution is True-or-UNKNOWN, never affirmatively False:
         # a request without valid first-party headers is UNCLASSIFIED (our
         # own tooling has forgotten the header before) — recording False
@@ -1420,6 +1423,7 @@ def health():
             # activation observables (deploy canaries assert on these):
             "store": store.store_mode,
             "hashed_keys": creds.hashing_enabled(),
+            "evidence_bundle_version": 2,
             "credential_quarantine": {
                 "version": creds.QUARANTINE_VERSION,
                 "blocked_key_ids": len(creds.COMPROMISED_KEY_IDS)},
@@ -5509,7 +5513,7 @@ def deep_preflight_route(request: Request, response: Response,
 
 
 @app.post("/evidence/bundle")
-def evidence_bundle_route(body: dict[str, Any], response: Response,
+def evidence_bundle_route(body: dict[str, Any], response: Response, request: Request,
                           x_api_key: Optional[str] = Header(None)):
     """PAID signed evidence bundle — a portable, offline-verifiable snapshot.
 
@@ -5533,6 +5537,10 @@ def evidence_bundle_route(body: dict[str, Any], response: Response,
     # effective TTL the buyer supplied.  The empty-body discovery sentinel is
     # never a payable substitute for this request.
     _probe_challenge_or_none(preq, x_api_key)
+    # Validate funding without settling; recover completed results before
+    # probing endpoints or publishing fresh evidence commitments.
+    _meter_inner(preq, x_api_key, response, prepare_only=True)
+    abuse.guard(request, "evidence_issue")
     # Produce FIRST, charge second: a refusal must never bill.
     try:
         bundle = deepcheck.evidence_bundle(
