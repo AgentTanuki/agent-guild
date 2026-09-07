@@ -162,14 +162,14 @@ def test_one_experiment_decision_uses_one_durable_event_cut(
         challenged_operation="best_agent", actor_distinct=True,
         impression="challenge_402", price_credits=10)
 
-    original = s.backend.fetch_events
+    original = s.backend.event_view
     calls = []
 
-    def _fetch_events(**kwargs):
+    def _event_view(**kwargs):
         calls.append(kwargs)
         return original(**kwargs)
 
-    monkeypatch.setattr(s.backend, "fetch_events", _fetch_events)
+    monkeypatch.setattr(s.backend, "event_view", _event_view)
     out = experiments.evaluate(s, "best")
     assert out["decision"] == "kill"
     assert len(calls) == 1

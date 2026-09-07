@@ -2770,6 +2770,35 @@ class Store:
                     "snapshot_events": len(events)}
         return events, coverage
 
+    def measurement_event_view(
+            self, *, types: Optional[tuple[str, ...]] = None,
+            since: Optional[str] = None,
+            keys: Optional[tuple[str, ...]] = None,
+            through_seq: Optional[int] = None):
+        """Replay one fixed event cut without loading SQLite history in RAM.
+
+        JSON already has a bounded retained cache; preserve its explicit
+        incomplete-history metadata. SQLite pins append sequence, not time,
+        so later backdated events cannot change a report between passes.
+        """
+        if self.backend is None:
+            return self.measurement_event_snapshot(
+                types=types, since=since, keys=keys)
+        view = self.backend.event_view(
+            types=types, since=since, keys=keys, through_seq=through_seq)
+        floor = self.event_history_floor or {}
+        return view, {
+            "source": "sqlite_durable",
+            "read_mode": "bounded_memory",
+            "snapshot_through_seq": view.through_seq,
+            "requested_since": since,
+            "event_types": list(types or ()),
+            "actor_key_filter_count": len(keys or ()),
+            "snapshot_events": len(view),
+            "history_complete": not floor,
+            "history_floor": floor or None,
+        }
+
     def paid_offer_funnel(self, operation: Optional[str] = None
                           ) -> dict[str, Any]:
         """QUALIFIED PAID-OFFER IMPRESSIONS, split by operation and by source.
@@ -2800,7 +2829,7 @@ class Store:
         by_source: dict[str, dict[str, Any]] = {}
         qualified_actors: set = set()
         raw = anon = 0
-        event_snapshot, measurement_coverage = self.measurement_event_snapshot(
+        event_snapshot, measurement_coverage = self.measurement_event_view(
             types=("paid_offer_served",))
         for ev in event_snapshot:
             if ev.get("type") != "paid_offer_served":
@@ -2863,9 +2892,10 @@ class Store:
 
         total_q = len(qualified_actors)
         return {
-            "measure": ("DISTINCT QUALIFIED EXTERNAL ACTORS shown a paid "
-                        "offer. Raw impressions are reported beside it and are "
-                        "reach, not attention."),
+            "measure": ("DISTINCT QUALIFIED EXTERNAL ACTORS served free paid-"
+                        "operation catalogue entries. One catalogue read can "
+                        "emit one entry per operation; raw_impressions counts "
+                        "entries, not requests, buyers or payment attempts."),
             "qualification_rule": (
                 "An impression qualifies only if the caller AUTHENTICATED as a "
                 "registered member (EXTERNAL_MEMBER/EXTERNAL_VERIFIED), or is "
@@ -2913,8 +2943,16 @@ class Store:
         from . import attribution as _attr
         from . import experiments as _experiments
 
-        candidate_events, candidate_coverage = self.measurement_event_snapshot(
-            types=("paid_offer_served",))
+        # SQLite candidates and joined history share one append-sequence cut.
+        # For JSON, replay one copied (bounded) cache for both passes.
+        json_snapshot = None
+        if self.backend is None:
+            json_snapshot, candidate_coverage = self.measurement_event_view()
+            candidate_events = [event for event in json_snapshot
+                                if event.get("type") == "paid_offer_served"]
+        else:
+            candidate_events, candidate_coverage = self.measurement_event_view(
+                types=("paid_offer_served",))
         qualified: set[str] = set()
         for event in candidate_events:
             actor = event.get("key") or "anon"
@@ -2924,9 +2962,15 @@ class Store:
             if self._qualifies_as_paid_demand(event, caller_class):
                 qualified.add(str(actor))
 
-        if qualified:
-            snapshot, coverage = self.measurement_event_snapshot(
-                keys=tuple(sorted(qualified)))
+        if qualified and json_snapshot is not None:
+            snapshot = [event for event in json_snapshot
+                        if event.get("key") in qualified]
+            coverage = {**candidate_coverage, "snapshot_events": len(snapshot),
+                        "actor_key_filter_count": len(qualified)}
+        elif qualified:
+            snapshot, coverage = self.measurement_event_view(
+                keys=tuple(sorted(qualified)),
+                through_seq=candidate_coverage["snapshot_through_seq"])
         else:
             snapshot, coverage = [], candidate_coverage
         coverage = {
@@ -2935,106 +2979,99 @@ class Store:
             "journey_snapshot_events": len(snapshot),
         }
 
-        grouped: dict[str, list[dict[str, Any]]] = {
-            actor: [] for actor in qualified
-        }
+        completion_types = set(_experiments.ALL_PAID_EVENTS)
+        # Keep only per-actor aggregates. A long-running probe must not retain
+        # its entire decoded history merely to count its repeated challenges.
+        grouped = {}
+        for actor in qualified:
+            grouped[actor] = {
+                "actor": actor, "caller_classes": Counter(),
+                "user_agents": set(), "first_at": None, "last_at": None,
+                "user_agents_truncated": False,
+                "visits_30m": 0, "event_types": Counter(),
+                "transports": Counter(), "catalogue_offer_entries": 0,
+                "catalogue_sources": Counter(), "catalogue_operations": Counter(),
+                "mcp_catalogue_offer_entries": 0,
+                "mcp_catalogue_distinct_operations": set(),
+                "price_challenges": 0, "challenged_operations": Counter(),
+                "paid_completions": 0, "verified_mainnet_completions": 0,
+                "independently_attested_external_completions": 0,
+                "_previous": None, "_seen": False,
+            }
         for event in snapshot:
             actor = str(event.get("key") or "anon")
-            if actor in grouped:
-                grouped[actor].append(event)
+            if actor not in grouped:
+                continue
+            row = grouped[actor]
+            etype = str(event.get("type") or "unknown")
+            row["caller_classes"][_attr.attribution_class(event)] += 1
+            row["event_types"][etype] += 1
+            row["transports"][str(event.get("transport") or
+                                  event.get("surface") or "unknown")] += 1
+            if event.get("ua"):
+                ua = str(event["ua"])[:80]
+                if ua in row["user_agents"] or len(row["user_agents"]) < 64:
+                    row["user_agents"].add(ua)
+                else:
+                    row["user_agents_truncated"] = True
+            if not row["_seen"]:
+                row["first_at"] = event.get("at")
+                row["_seen"] = True
+            row["last_at"] = event.get("at")
+            try:
+                current = datetime.fromisoformat(str(event.get("at")))
+                previous = row["_previous"]
+                if previous is None or (current - previous).total_seconds() > 1800:
+                    row["visits_30m"] += 1
+                row["_previous"] = current
+            except (TypeError, ValueError):
+                pass  # Invalid/mixed-aware timestamps cannot invent a visit.
+            if etype == "paid_offer_served":
+                row["catalogue_offer_entries"] += 1
+                source = str(event.get("source") or "unknown")
+                row["catalogue_sources"][source] += 1
+                row["catalogue_operations"][str(
+                    event.get("operation") or "unknown")] += 1
+                if source == "paid_offer:mcp_tool":
+                    row["mcp_catalogue_offer_entries"] += 1
+                    if event.get("operation"):
+                        row["mcp_catalogue_distinct_operations"].add(
+                            str(event["operation"]))
+            if etype in ("paid_offer_shown", "paid_offer_challenged"):
+                row["price_challenges"] += 1
+                row["challenged_operations"][str(
+                    event.get("challenged_operation") or "unknown")] += 1
+            if etype in completion_types and event.get("settlement_mode") in (
+                    "x402", "credits_sandbox"):
+                row["paid_completions"] += 1
+                if _experiments.is_revenue(event):
+                    row["verified_mainnet_completions"] += 1
+                    if event.get("payer_attribution") == (
+                            "independently_attested_external_machine"):
+                        row["independently_attested_external_completions"] += 1
 
-        completion_types = set(_experiments.ALL_PAID_EVENTS)
-
-        def _visit_count(events: list[dict[str, Any]]) -> int:
-            visits = 0
-            previous: Optional[datetime] = None
-            for event in events:
-                raw = event.get("at")
-                try:
-                    current = datetime.fromisoformat(str(raw))
-                except (TypeError, ValueError):
-                    continue
-                try:
-                    if (previous is None or
-                            (current - previous).total_seconds() > 1800):
-                        visits += 1
-                    previous = current
-                except TypeError:
-                    # Future imports may contain a naive timestamp among aware
-                    # production rows. Never invent a visit or 500 this view.
-                    continue
-            return visits
-
-        journeys: list[dict[str, Any]] = []
-        for actor, events in grouped.items():
-            catalogue = [event for event in events
-                         if event.get("type") == "paid_offer_served"]
-            challenges = [event for event in events
-                          if event.get("type") in
-                          ("paid_offer_shown", "paid_offer_challenged")]
-            completions = [event for event in events
-                           if event.get("type") in completion_types
-                           and event.get("settlement_mode") in
-                           ("x402", "credits_sandbox")]
-            revenue = [event for event in completions
-                       if _experiments.is_revenue(event)]
-            external_revenue = [event for event in revenue
-                                if event.get("payer_attribution") ==
-                                "independently_attested_external_machine"]
-            mcp_catalogue = [event for event in catalogue
-                             if event.get("source") == "paid_offer:mcp_tool"]
-            distinct_catalogue_ops = sorted({
-                str(event.get("operation")) for event in mcp_catalogue
-                if event.get("operation")
-            })
-            uas = sorted({str(event.get("ua") or "")[:80] for event in events
-                          if event.get("ua")})
-            classes = Counter(_attr.attribution_class(event) for event in events)
-            visits = _visit_count(events)
-            challenge_ops = Counter(
-                str(event.get("challenged_operation") or "unknown")
-                for event in challenges)
-            if external_revenue:
+        journeys = []
+        for row in grouped.values():
+            if row["independently_attested_external_completions"]:
                 signal = "independently_attested_external_completion"
-            elif revenue:
+            elif row["verified_mainnet_completions"]:
                 signal = "verified_mainnet_unattributed_completion"
-            elif completions:
+            elif row["paid_completions"]:
                 signal = "non_revenue_completion"
-            elif challenges:
+            elif row["price_challenges"]:
                 signal = "quoted_no_completion"
             else:
                 signal = "catalogue_only"
-            journeys.append({
-                "actor": actor,
-                "caller_classes": dict(sorted(classes.items())),
-                "user_agents": uas,
-                "first_at": events[0].get("at") if events else None,
-                "last_at": events[-1].get("at") if events else None,
-                "visits_30m": visits,
-                "returned": visits >= 2,
-                "event_types": dict(sorted(Counter(
-                    str(event.get("type") or "unknown")
-                    for event in events).items())),
-                "transports": dict(sorted(Counter(
-                    str(event.get("transport") or event.get("surface") or
-                        "unknown") for event in events).items())),
-                "catalogue_offer_entries": len(catalogue),
-                "catalogue_sources": dict(sorted(Counter(
-                    str(event.get("source") or "unknown")
-                    for event in catalogue).items())),
-                "catalogue_operations": dict(sorted(Counter(
-                    str(event.get("operation") or "unknown")
-                    for event in catalogue).items())),
-                "mcp_catalogue_offer_entries": len(mcp_catalogue),
-                "mcp_catalogue_distinct_operations": distinct_catalogue_ops,
-                "price_challenges": len(challenges),
-                "challenged_operations": dict(sorted(challenge_ops.items())),
-                "paid_completions": len(completions),
-                "verified_mainnet_completions": len(revenue),
-                "independently_attested_external_completions": len(
-                    external_revenue),
-                "signal": signal,
-            })
+            row.pop("_previous")
+            row.pop("_seen")
+            for key, value in row.items():
+                if isinstance(value, Counter):
+                    row[key] = dict(sorted(value.items()))
+                elif isinstance(value, set):
+                    row[key] = sorted(value)
+            row["returned"] = row["visits_30m"] >= 2
+            row["signal"] = signal
+            journeys.append(row)
         journeys.sort(key=lambda item: (
             str(item.get("last_at") or ""), str(item.get("actor") or "")),
             reverse=True)
@@ -3047,6 +3084,10 @@ class Store:
                 "legal identity, but some pseudonyms may be derived from a "
                 "network address. Two keys are not proof of two machines"),
             "metric_reconciliation": {
+                "user_agents": (
+                    "up to 64 distinct observed UA labels per actor, each "
+                    "truncated to 80 characters; user_agents_truncated marks "
+                    "omitted variants. Event and commercial counts stay exact"),
                 "catalogue_offer_entries": (
                     "paid_offer_served rows: free catalogue exposure, one row "
                     "per advertised operation; catalogue width changes over "
@@ -3056,9 +3097,10 @@ class Store:
                     "paid_offer_shown/paid_offer_challenged rows: an executable "
                     "price quote for one operation; still not revenue"),
                 "verified_mainnet_completions": (
-                    "independently confirmed mainnet settlements; payer "
-                    "externality is reported separately and remains required "
-                    "before anything is revenue"),
+                    "independently confirmed mainnet completions; known "
+                    "first-party funds are excluded from external revenue, "
+                    "while unknown payer identity remains unattributed revenue. "
+                    "Use /billing/revenue for authoritative settlement totals"),
             },
             "measurement_coverage": coverage,
         }
