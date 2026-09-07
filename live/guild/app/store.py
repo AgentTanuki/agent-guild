@@ -1557,7 +1557,13 @@ class Store:
                 and _iso_age_seconds(event_meta.get("at"))
                     < KEEPALIVE_EVENT_WINDOW_S)
             agent.setdefault("metadata", {})["endpoint"] = endpoint
-            agent.pop("reachability", None)
+            retained = _reach.preserve_execution_observation(
+                agent.get("reachability"),
+                {"endpoint_fingerprint": _reach.endpoint_fingerprint(endpoint)})
+            if retained.get("execution_availability"):
+                agent["reachability"] = retained
+            else:
+                agent.pop("reachability", None)
             if not suppress_repeat:
                 self.record_event(self.account_for_agent(agent_id), "endpoint_declared",
                                   agent_id=agent_id, endpoint=endpoint, verified=False,
@@ -1606,6 +1612,10 @@ class Store:
                 agent = self.agents.get(agent_id)
                 # only apply if the endpoint hasn't changed under us
                 if agent and (agent.get("metadata") or {}).get("endpoint") == endpoint:
+                    previous_execution = _reach.execution_fields(
+                        endpoint, agent.get("reachability"))
+                    record = _reach.preserve_execution_observation(
+                        agent.get("reachability"), record)
                     agent["reachability"] = record
                     status = record["status"]
                     # a suppressed keepalive still records its verification if
@@ -1613,15 +1623,19 @@ class Store:
                     # never hidden). "verification_inconclusive" (in-flight dup /
                     # probe saturation) is no-new-evidence — not a transition.
                     status_changed = (
-                        status != (agent.get("reachability_event_meta") or {})
-                        .get("status")
+                        (status != (agent.get("reachability_event_meta") or {})
+                         .get("status")
+                         or previous_execution.get("accepting_work")
+                         != _reach.execution_fields(endpoint, record).get("accepting_work"))
                         and status != "verification_inconclusive")
                     if not suppress_repeat or status_changed:
                         self.record_event(self.account_for_agent(agent_id),
                                           "endpoint_verification",
                                           agent_id=agent_id,
                                           reachability_status=status,
-                                          evidence_level=record["evidence_level"])
+                                          evidence_level=record["evidence_level"],
+                                          execution_accepting_work=_reach.execution_fields(
+                                              endpoint, record).get("accepting_work"))
                         agent["reachability_event_meta"] = {
                             "endpoint": endpoint, "status": status,
                             "at": _now()}
@@ -1683,7 +1697,14 @@ class Store:
                         1, int(PUBLIC_ENDPOINT_REFRESH_LEASE_S)),
                     **current_fields,
                 }
-            if last_age < PUBLIC_ENDPOINT_REFRESH_COOLDOWN_S:
+            # One bounded refresh upgrades a legacy routable observation that
+            # could not inspect explicit execution refusal. Every actual new
+            # probe, including failure, stamps the version and cools down.
+            needs_execution_refresh = (
+                current_fields["recommended_for_routing"]
+                and record.get("execution_observation_version")
+                != _reach.EXECUTION_OBSERVATION_VERSION)
+            if last_age < PUBLIC_ENDPOINT_REFRESH_COOLDOWN_S and not needs_execution_refresh:
                 retry = max(1, int(
                     PUBLIC_ENDPOINT_REFRESH_COOLDOWN_S - last_age + 0.999))
                 return {
@@ -1770,6 +1791,9 @@ class Store:
 
             previous_status = (
                 agent.get("reachability_event_meta") or {}).get("status")
+            previous_execution = _reach.execution_fields(endpoint, agent.get("reachability"))
+            probe_record = _reach.preserve_execution_observation(
+                agent.get("reachability"), probe_record)
             agent["reachability"] = probe_record
             completed_at = _now()
             agent["reachability_public_refresh"] = {
@@ -1781,12 +1805,17 @@ class Store:
             status = probe_record["status"]
             event_age = _iso_age_seconds(
                 (agent.get("reachability_event_meta") or {}).get("at"))
-            if status != previous_status or event_age >= KEEPALIVE_EVENT_WINDOW_S:
+            execution_changed = (previous_execution.get("accepting_work")
+                                 != _reach.execution_fields(endpoint, probe_record)
+                                 .get("accepting_work"))
+            if status != previous_status or execution_changed or event_age >= KEEPALIVE_EVENT_WINDOW_S:
                 self.record_event(
                     self.account_for_agent(agent_id),
                     "endpoint_verification", agent_id=agent_id,
                     reachability_status=status,
                     evidence_level=probe_record["evidence_level"],
+                    execution_accepting_work=_reach.execution_fields(
+                        endpoint, probe_record).get("accepting_work"),
                     refresh_source="public_crank")
                 agent["reachability_event_meta"] = {
                     "endpoint": endpoint, "status": status,
@@ -1873,7 +1902,9 @@ class Store:
                 return _terminal("endpoint_changed")   # stale — endpoint moved
             if not protocol_ok:
                 return _terminal("protocol_failed")
-            agent["reachability"] = _reach.invocation_verified_record(current, invocation_id)
+            agent["reachability"] = _reach.preserve_execution_observation(
+                agent.get("reachability"),
+                _reach.invocation_verified_record(current, invocation_id))
             inv["result"] = "verified"
             # Guild-observed BOUND invocation → provenance evidence (prov-v2):
             # if this verified, AG-originated invocation references a known task
@@ -5453,6 +5484,8 @@ class Store:
         # matches (shortlist is capability-filtered). Otherwise `routing`
         # honestly says there is nothing to route to and what would change that.
         _routable = [e for e in _all if e.get("recommended_for_routing")]
+        _unavailable = [e for e in _all
+                        if (e.get("execution_availability") or {}).get("accepting_work") is False]
         if _routable:
             _r = _routable[0]
             _r_rec = self.get_agent(_r["id"]) or {}
@@ -5469,14 +5502,17 @@ class Store:
                 "last_verified_at": _r.get("last_verified_at"),
                 "verification_age_seconds": _r.get("verification_age_seconds"),
                 "invocation_supported": _r.get("invocation_supported", False),
+                "execution_availability": _r.get("execution_availability"),
             }
             best = _r          # the EVALUATED provider IS the ROUTED provider
         else:
             routing = {
                 "routable": False,
                 "provider_id": None,
-                "reason_code": "no_verified_route",
-                "reason": ("no supplier of this capability has a VERIFIED, "
+                "reason_code": "execution_unavailable" if _unavailable else "no_verified_route",
+                "reason": ("one or more suppliers explicitly decline work and "
+                           "no other verified route is available" if _unavailable else
+                           "no supplier of this capability has a VERIFIED, "
                            "currently reachable endpoint"
                            if any_reachable else
                            "no supplier of this capability has declared an "
@@ -5487,6 +5523,12 @@ class Store:
                               "only suppliers can declare/change their endpoint"),
             }
             best = top_ranked  # nothing routable: evaluate the evidence-top
+        if _unavailable:
+            routing["unavailable_supplier_count"] = len(_unavailable)
+            routing["unavailable_suppliers"] = [{
+                "agent_id": entry["id"], "endpoint": entry.get("contact"),
+                "execution_availability": entry["execution_availability"],
+            } for entry in _unavailable[:10]]
         verdict = self.risk_for(best["id"]) if best else None
         # Demand telemetry: every /check is a demand signal for a capability.
         # Recording it (hit or miss) is what makes the be_first pitch honest —
@@ -5582,6 +5624,7 @@ class Store:
                 "last_verified_at": best.get("last_verified_at"),
                 "verification_age_seconds": best.get("verification_age_seconds"),
                 "invocation_supported": best.get("invocation_supported", False),
+                "execution_availability": best.get("execution_availability"),
                 "recommended_for_routing": best.get("recommended_for_routing", False),
                 # AGCS-1 (2026-08-18, additive): what authority this decision
                 # does and does NOT carry. The decision is evidence for the
@@ -5624,6 +5667,7 @@ class Store:
         # Keep risk_for() and the AGD-1 evidence unchanged; the legacy /check
         # presentation must not say "hire" while this very response says that
         # no verified route exists. This block is shared by HTTP, MCP and A2A.
+        routing["execution_policy_version"] = _reach.EXECUTION_OBSERVATION_VERSION
         route_ready = bool(routing.get("routable"))
         if decision is not None:
             decision["recommended_for_routing"] = route_ready
@@ -5792,7 +5836,8 @@ class Store:
             # an observation target, never a substituted delegation target.
             refresh_target = next(
                 (entry for entry in _reachable
-                 if url_policy_check(str(entry.get("contact") or ""))[0]), None)
+                 if url_policy_check(str(entry.get("contact") or ""))[0]
+                 and (entry.get("execution_availability") or {}).get("accepting_work") is not False), None)
             buyer_action: dict[str, Any]
             if routing.get("reason_code") == "counterparty_binding_failed":
                 buyer_action = {

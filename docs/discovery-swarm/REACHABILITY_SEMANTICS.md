@@ -92,3 +92,13 @@ Every stored record carries: `status`, `evidence_level`, `method`, `checked_at`,
 
 ### Declaration latency
 `verify=true` runs the probe synchronously but **bounded** (3s timeout, ≤8KB read), concurrency-capped (`GUILD_REACH_MAX_PROBES`, default 4), per-agent rate-limited (5/60s), and deduped (identical in-flight agent+endpoint verifications collapse to `verification_inconclusive`). This synchronous design is **temporary for Pilot A** (no job system yet); the intended shape is: validate policy → save `declared_unverified` → queue verification → return a job id → update the record on completion.
+
+
+## Execution availability overlay (2026-09-07)
+
+The contact evidence ladder remains unchanged. `execution-routing-v1` additionally
+excludes providers whose exact endpoint has declared `accepting_work: false`.
+A protocol handshake or later contact-only invocation does not erase that
+refusal. Observations, staleness, unknown availability, refresh migration and
+reopening rules are specified in [WORK_EXECUTION_AVAILABILITY.md](../WORK_EXECUTION_AVAILABILITY.md).
+A route establishes contact eligibility, never a completed task or permission.
