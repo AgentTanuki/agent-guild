@@ -235,6 +235,7 @@ class OfferRequest(BaseModel):
     deadline_seconds: int = Field(3600, ge=30, description="Accept+deliver deadline")
     terms: Optional[dict[str, Any]] = Field(None, description="Free-form machine terms")
     offer_signature: Optional[str] = Field(None, description="Self-sovereign requesters: hex ed25519 over the JCS core")
+    request_id: Optional[str] = Field(None, min_length=8, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$", description="Persist before submitting. Reuse this requester-scoped ID and identical intent to recover the original offer after a lost reply; changed intent returns 409. Do not use a credential as this ID.")
 
 
 class OfferAcceptRequest(BaseModel):

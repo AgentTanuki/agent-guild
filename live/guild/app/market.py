@@ -31,6 +31,9 @@ Value-at-risk tiers (credits are the SANDBOX unit; see x402.py for real rails):
 from __future__ import annotations
 
 import hashlib
+import copy
+import math
+import re
 import os
 import secrets
 from datetime import datetime, timezone, timedelta
@@ -83,58 +86,123 @@ def _sign_as(store, agent: dict[str, Any], core: dict[str, Any],
 # Offers
 # --------------------------------------------------------------------------
 
+class OfferRequestConflict(ValueError):
+    """A requester reused a retry ID for a different commitment."""
+
+
 def create_offer(store, requester: dict[str, Any], worker_id: str,
                  capability: str, amount: float, deadline_seconds: int,
                  terms: Optional[dict[str, Any]] = None,
                  requester_key: Optional[str] = None,
-                 offer_signature: Optional[str] = None) -> dict[str, Any]:
-    worker = store.get_agent(worker_id)
-    if worker is None:
-        raise ValueError("worker not found")
-    if worker_id == requester["id"]:
-        raise ValueError("cannot offer a task to yourself")
-    deadline_seconds = max(1, min(int(deadline_seconds), 30 * 86400))
+                 offer_signature: Optional[str] = None,
+                 request_id: Optional[str] = None) -> dict[str, Any]:
+    """Commit once per requester-owned retry ID, including the escrow hold.
+
+    IDs are optional for compatibility. A caller must persist an ID and the
+    exact intent BEFORE posting, and reuse both after an uncertain reply.
+    The original deadline, signatures and terminal status are never renewed.
+    """
+    if request_id is not None and (not isinstance(request_id, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._:-]{7,127}", request_id)):
+        raise ValueError("request_id must be 8-128 ASCII letters, digits, '.', '_', ':' or '-'")
     amount = float(amount)
-    offer_id = "off_" + secrets.token_hex(8)
-    core = {
-        "offer_id": offer_id,
-        "requester_id": requester["id"], "requester_did": requester.get("did", ""),
-        "worker_id": worker_id, "worker_did": worker.get("did", ""),
-        "capability": capability,
-        "amount": amount, "currency": SANDBOX_CURRENCY,
-        "value_tier": value_tier(amount),
-        "requester_config_hash": store._config_stamp(requester["id"]) or "none_declared",
-        "worker_config_hash": store._config_stamp(worker_id) or "none_declared",
-        "created_at": _iso(_now()),
-        "deadline_at": _iso(_now() + timedelta(seconds=deadline_seconds)),
-        "terms": terms or {},
-    }
-    sig = _sign_as(store, requester, core, offer_signature)
-    escrow_id = None
-    if amount > 0:
-        if not requester_key:
-            raise ValueError("funded offers require the requester's billing key")
-        esc = store.open_escrow(requester_key, worker_id, int(amount), capability,
-                                metadata={"offer_id": offer_id})
-        escrow_id = esc["id"]
-    offer = {
-        "id": offer_id, "core": core, "core_hash": _core_hash(core),
-        "offer_sig": sig, "status": "open", "escrow_id": escrow_id,
-        "accept": None, "task_id": None,
-    }
-    with store.lock, store._txn():
-        store.__dict__.setdefault("offers", {})[offer_id] = offer
-        if store.backend is not None:
-            store._persist_kv("offers", store.offers)
-        store._save()
-    store.append_ledger_event("task_created", {
-        "kind": "offer", "offer_id": offer_id, "offer_hash": offer["core_hash"],
-        "requester_id": requester["id"], "worker_id": worker_id,
-        "capability": capability, "amount": amount, "currency": SANDBOX_CURRENCY,
-        "value_tier": core["value_tier"], "escrow_id": escrow_id,
-        "task_id": None,
-    }, actor_did=requester.get("did", ""))
-    return offer
+    if not math.isfinite(amount) or amount < 0 or not amount.is_integer():
+        raise ValueError("amount must be a non-negative whole number of sandbox credits")
+    deadline_seconds = max(1, min(int(deadline_seconds), 30 * 86400))
+    intent = {"worker_id": worker_id, "capability": capability,
+              "amount": amount, "deadline_seconds": deadline_seconds, "terms": terms or {}}
+    fingerprint = _core_hash(intent)
+    offer_id = ("off_" + hashlib.sha256(canonicalize_jcs({
+        "requester_id": requester["id"], "request_id": request_id}).encode()).hexdigest()[:32]
+        if request_id is not None else "off_" + secrets.token_hex(8))
+    # The lock protects process-local state; BEGIN IMMEDIATE serializes distinct
+    # SQLite Store instances. Refresh the offers view only after obtaining it.
+    with store.lock:
+        mutating = False
+        snapshot = None
+        previous_defer = getattr(store, "_market_save_deferred", False)
+        try:
+            with store._txn():
+                if store.backend is not None:
+                    for key, record in (store.backend.fetch_kv("offers", {}) or {}).items():
+                        # Preserve references held by the existing acceptance
+                        # path while refreshing the durable offer collection.
+                        if key in store.offers:
+                            store.offers[key].update(record)
+                        else:
+                            store.offers[key] = record
+                existing = store.offers.get(offer_id)
+                if existing is not None:
+                    if existing["core"].get("request_fingerprint") != fingerprint:
+                        raise OfferRequestConflict("request_id already binds a different offer; use its original intent or a new ID for new work")
+                    return existing
+                worker = store.get_agent(worker_id)
+                if worker is None:
+                    raise ValueError("worker not found")
+                if worker_id == requester["id"]:
+                    raise ValueError("cannot offer a task to yourself")
+                now = _now()
+                core = {
+                    "offer_id": offer_id,
+                    "requester_id": requester["id"], "requester_did": requester.get("did", ""),
+                    "worker_id": worker_id, "worker_did": worker.get("did", ""),
+                    "capability": capability, "amount": amount, "currency": SANDBOX_CURRENCY,
+                    "value_tier": value_tier(amount),
+                    "requester_config_hash": store._config_stamp(requester["id"]) or "none_declared",
+                    "worker_config_hash": store._config_stamp(worker_id) or "none_declared",
+                    "created_at": _iso(now),
+                    "deadline_at": _iso(now + timedelta(seconds=deadline_seconds)),
+                    "terms": copy.deepcopy(terms or {}),
+                }
+                if request_id is not None:
+                    core["request_fingerprint"] = fingerprint
+                sig = _sign_as(store, requester, core, offer_signature)
+                if amount > 0 and not requester_key:
+                    raise ValueError("funded offers require the requester's billing key")
+                if store.backend is None:
+                    # JSON compatibility: defer nested snapshots and event
+                    # sidecars until ONE final atomic replacement. Only the
+                    # funding account is changed; other account values are shared.
+                    snapshot = {name: copy.copy(getattr(store, name)) for name in (
+                        "accounts", "offers", "escrows", "billing_log", "events",
+                        "ledger_records", "revision", "events_omitted_by_retention")}
+                    account_key = store._account_key(requester_key) if requester_key else None
+                    if account_key in snapshot["accounts"]:
+                        snapshot["accounts"][account_key] = dict(snapshot["accounts"][account_key])
+                    store._market_save_deferred = True
+                mutating = True
+                escrow_id = None
+                if amount > 0:
+                    esc = store.open_escrow(requester_key, worker_id, int(amount), capability,
+                                            metadata={"offer_id": offer_id})
+                    escrow_id = esc["id"]
+                offer = {"id": offer_id, "core": core, "core_hash": _core_hash(core),
+                         "offer_sig": sig, "status": "open", "escrow_id": escrow_id,
+                         "accept": None, "task_id": None}
+                store.offers[offer_id] = offer
+                if store.backend is not None:
+                    store._persist_kv("offers", store.offers)
+                store.append_ledger_event("task_created", {
+                    "kind": "offer", "offer_id": offer_id, "offer_hash": offer["core_hash"],
+                    "requester_id": requester["id"], "worker_id": worker_id,
+                    "capability": capability, "amount": amount, "currency": SANDBOX_CURRENCY,
+                    "value_tier": core["value_tier"], "escrow_id": escrow_id, "task_id": None,
+                }, actor_did=requester.get("did", ""))
+                store._market_save_deferred = previous_defer
+                store._save()
+            return offer
+        except Exception:
+            if mutating:
+                if store.backend is not None:
+                    # A rolled-back SQL transaction must not leave a cached
+                    # ghost offer or debit that a subsequent retry can observe.
+                    store._load_sqlite()
+                elif snapshot is not None:
+                    for name, value in snapshot.items():
+                        setattr(store, name, value)
+            raise
+        finally:
+            store._market_save_deferred = previous_defer
 
 
 def accept_offer(store, offer_id: str, worker: dict[str, Any],
