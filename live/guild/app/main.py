@@ -1237,7 +1237,12 @@ def _meter_inner(preq: PaidRequest, x_api_key: Optional[str],
             _protocol = "mpp_evm"
             paymentdiag.emit("credential_parsed")
         except mpp.MppError as e:
-            paymentdiag.reject("malformed_credential")
+            paymentdiag.reject({
+                "malformed-credential": "malformed_credential",
+                "invalid-challenge": "mpp_invalid_challenge",
+                "payment-expired": "mpp_payment_expired",
+                "verification-failed": "mpp_verification_failed",
+            }.get(e.slug, "mpp_credential_rejected"))
             if e.status == 402:
                 raise _challenge_http(PaymentChallenge(preq, extra={
                     "error": "mpp_payment_invalid", "reason": e.slug,

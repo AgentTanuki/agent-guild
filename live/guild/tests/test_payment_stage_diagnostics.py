@@ -210,3 +210,23 @@ def test_durable_stage_and_passport_history_survive_cache_trim(isolated, monkeyp
     else:
         assert report["measurement_coverage"]["history_complete"] is False
         assert passport["measurement_coverage"]["history_complete"] is False
+
+
+@pytest.mark.parametrize("slug,reason", [
+    ("malformed-credential", "malformed_credential"),
+    ("invalid-challenge", "mpp_invalid_challenge"),
+    ("payment-expired", "mpp_payment_expired"),
+    ("verification-failed", "mpp_verification_failed"),
+])
+def test_mpp_failure_codes_preserve_validation_boundary(isolated, monkeypatch, slug, reason):
+    monkeypatch.setattr(main.mpp, "enabled", lambda: True)
+    def reject(*args):
+        raise main.mpp.MppError(slug, "private-provider-detail")
+    monkeypatch.setattr(main.mpp, "credential_to_payment", reject)
+    response = TestClient(main.app).get("/search?capability=anything", headers={
+        "Authorization": "Payment opaque-credential"})
+    assert response.status_code == 402
+    assert stages(isolated) == {"credential_present", "rejected"}
+    assert observations(isolated)[-1]["reason_code"] == reason
+    assert "private-provider-detail" not in json.dumps(observations(isolated))
+    assert "opaque-credential" not in json.dumps(observations(isolated))

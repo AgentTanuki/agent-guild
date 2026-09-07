@@ -32,6 +32,8 @@ STAGES = (
 REASONS = frozenset((
     "none", "other", "malformed_credential", "conflicting_credentials",
     "v1_not_accepted", "x402_disabled", "x402_misconfigured",
+    "mpp_invalid_challenge", "mpp_payment_expired", "mpp_verification_failed",
+    "mpp_credential_rejected",
     "invalid_x402_version", "method_mismatch", "requirements_mismatch",
     "resource_mismatch", "invalid_payload", "amount_mismatch",
     "recipient_mismatch", "authorization_not_yet_valid",
