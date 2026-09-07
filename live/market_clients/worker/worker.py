@@ -24,8 +24,11 @@ import base64
 import hashlib
 import json
 import os
+from pathlib import Path
+import tempfile
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -71,25 +74,46 @@ def text_stats(text: str) -> dict[str, Any]:
 
 
 def _save_state():
+    """Persist identity and pending work before the next remote side effect.
+
+    Atomic replacement preserves the previous journal on a failed write. The
+    file contains credentials, so replacements are always owner-readable only.
+    A storage error must stop this iteration, never silently drop accepted work.
+    """
+    destination = Path(STATE_PATH)
+    temporary = None
     try:
-        with open(STATE_PATH, "w") as f:
+        with tempfile.NamedTemporaryFile(
+                mode="w", dir=destination.parent, prefix=".worker-", delete=False) as f:
+            temporary = f.name
             json.dump(_state, f)
-    except OSError:
-        pass
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, destination)
+        temporary = None
+        directory_fd = os.open(destination.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temporary is not None:
+            os.unlink(temporary)
 
 
 def ensure_identity() -> None:
     if os.path.exists(STATE_PATH):
-        try:
-            _state.update(json.load(open(STATE_PATH)))
-        except (OSError, ValueError):
-            pass
+        # A corrupt/unreadable journal is not permission to create a new
+        # identity and abandon the old identity's accepted jobs.
+        with open(STATE_PATH) as f:
+            _state.update(json.load(f))
     with _client() as c:
         if not _state.get("agent_id"):
             r = c.post("/agents/register",
                        json={"name": NAME, "capabilities": [CAPABILITY],
                              "metadata": {"framework": "fastapi",
                                           "operator": "agent-guild (first-party demo supply)",
+                                          "first_party": True,
                                           "price_per_call": 5}})
             r.raise_for_status()
             body = r.json()
@@ -107,6 +131,115 @@ def ensure_identity() -> None:
             if pv.status_code == 200:
                 _state["proven"] = True
                 _save_state()
+
+
+def _json(response) -> dict[str, Any]:
+    response.raise_for_status()
+    return response.json()
+
+
+def _receipt_matches(task: dict, receipt: dict) -> bool:
+    return (task.get("deliverable_hash") == receipt["deliverable_hash"]
+            and task.get("deliverable_url") == receipt["deliverable_url"])
+
+
+def _deliver_offer(c, offer_id: str) -> None:
+    pending = _state["pending"]
+    job = pending[offer_id]
+    # An earlier failed save may have left an in-memory pending entry. Retry
+    # persistence before acting on it, even without a process restart.
+    _save_state()
+    offer = _json(c.get(f"/offers/{offer_id}"))
+    core = offer["core"]
+    if (offer["id"] != offer_id or offer["core_hash"] != job["offer_hash"]
+            or core["worker_id"] != _state["agent_id"]
+            or core["capability"] != CAPABILITY):
+        raise ValueError("offer binding changed; refusing execution")
+    if offer["status"] not in ("open", "accepted"):
+        del pending[offer_id]
+        _save_state()
+        return
+    headers = {"X-API-Key": _state["api_key"]}
+    if offer["status"] == "open":
+        # The journal already contains this ID. If this response is lost, the
+        # next iteration fetches the accepted offer instead of accepting twice.
+        _json(c.post(f"/offers/{offer_id}/accept", headers=headers, json={}))
+        offer = _json(c.get(f"/offers/{offer_id}"))
+    task_id = offer.get("task_id")
+    if not task_id or offer["status"] != "accepted":
+        raise ValueError("offer has no accepted task")
+    if job.get("task_id") and job["task_id"] != task_id:
+        raise ValueError("accepted task binding changed")
+    job["task_id"] = task_id
+    task = _json(c.get(f"/tasks/{task_id}"))
+    if (task["id"] != task_id or task["worker_agent_id"] != _state["agent_id"]
+            or task["requester_agent_id"] != core["requester_id"]
+            or task["task_type"] != CAPABILITY):
+        raise ValueError("task does not match the accepted offer")
+    receipt = job.get("receipt")
+    if receipt is None:
+        if datetime.fromisoformat(core["deadline_at"]) <= datetime.now(timezone.utc):
+            del pending[offer_id]
+            _save_state()
+            return
+        text = (core.get("terms") or {}).get("input")
+        if not isinstance(text, str):
+            raise ValueError("text.stats requires a string input")
+        payload = json.dumps(text_stats(text), sort_keys=True, separators=(",", ":"))
+        receipt = {
+            "deliverable_hash": "0x" + hashlib.sha256(payload.encode()).hexdigest(),
+            "deliverable_url": "data:application/json;base64," + base64.b64encode(
+                payload.encode()).decode(),
+            "outcome": "delivered",
+        }
+        job["receipt"] = receipt
+        _save_state()
+    if not _receipt_matches(task, receipt):
+        if task.get("deliverable_hash") or task["outcome"] != "open":
+            raise ValueError("conflicting or terminal task; refusing to overwrite")
+        if datetime.fromisoformat(core["deadline_at"]) <= datetime.now(timezone.utc):
+            del pending[offer_id]
+            _save_state()
+            return
+        delivered = _json(c.post(f"/tasks/{task_id}/receipt", headers=headers, json=receipt))
+        if delivered.get("id") != task_id or not _receipt_matches(delivered, receipt):
+            raise ValueError("receipt acknowledgment does not match delivery")
+    # Reconcile a lost acknowledgment through the authoritative task. This is
+    # evidence that Guild retained the result, not that the buyer accepted it.
+    delivered = _state.setdefault("delivered", [])
+    if not any(d["task_id"] == task_id for d in delivered):
+        delivered.append({"offer_id": offer_id, "task_id": task_id,
+                          "deliverable_hash": receipt["deliverable_hash"], "at": time.time()})
+    _state["delivered"] = delivered[-100:]
+    del pending[offer_id]
+    _save_state()
+
+
+def poll_once(c) -> None:
+    pending = _state.setdefault("pending", {})
+    # Resume persisted IDs first. Recovery does not depend on an accepted job
+    # remaining in the open feed (or fitting within that feed's page size).
+    for offer_id in list(pending):
+        try:
+            _deliver_offer(c, offer_id)
+        except (httpx.HTTPError, ValueError, KeyError) as error:
+            print(f"pending offer {offer_id}: {type(error).__name__}", flush=True)
+    offers = _json(c.get("/offers", params={
+        "worker_id": _state["agent_id"], "status": "open"}))
+    for offer in offers.get("offers", []):
+        core = offer.get("core") or {}
+        if (core.get("worker_id") != _state["agent_id"]
+                or core.get("capability") != CAPABILITY
+                or not isinstance((core.get("terms") or {}).get("input"), str)):
+            continue
+        offer_id = offer["id"]
+        if offer_id in pending:
+            continue
+        pending[offer_id] = {"offer_hash": offer["core_hash"]}
+        try:
+            _deliver_offer(c, offer_id)
+        except (httpx.HTTPError, ValueError, KeyError) as error:
+            print(f"pending offer {offer_id}: {type(error).__name__}", flush=True)
 
 
 def work_loop() -> None:
@@ -127,29 +260,7 @@ def work_loop() -> None:
                         last_verify = time.time()
                     except Exception:
                         pass
-                offers = c.get("/offers", params={
-                    "worker_id": _state["agent_id"], "status": "open"}).json()
-                for offer in offers.get("offers", []):
-                    oid = offer["id"]
-                    acc = c.post(f"/offers/{oid}/accept", headers=h, json={})
-                    if acc.status_code != 200:
-                        continue
-                    task_id = acc.json()["task_id"]
-                    text = str((offer["core"].get("terms") or {}).get("input", ""))
-                    result = text_stats(text)
-                    payload = json.dumps(result, sort_keys=True,
-                                         separators=(",", ":"))
-                    dhash = "0x" + hashlib.sha256(payload.encode()).hexdigest()
-                    durl = ("data:application/json;base64,"
-                            + base64.b64encode(payload.encode()).decode())
-                    c.post(f"/tasks/{task_id}/receipt", headers=h,
-                           json={"deliverable_hash": dhash,
-                                 "deliverable_url": durl,
-                                 "outcome": "delivered"})
-                    _state.setdefault("delivered", []).append(
-                        {"offer_id": oid, "task_id": task_id,
-                         "deliverable_hash": dhash, "at": time.time()})
-                    _save_state()
+                poll_once(c)
         except Exception as e:  # keep polling forever; log to stdout
             print(f"work_loop error: {e}", flush=True)
         time.sleep(POLL_S)
@@ -165,6 +276,8 @@ def _boot():
             except Exception as e:
                 print(f"identity bootstrap retry {attempt}: {e}", flush=True)
                 time.sleep(10)
+        else:
+            return  # no polling with an unproven or unpersisted identity
         work_loop()
     threading.Thread(target=_init, daemon=True).start()
 
@@ -172,6 +285,8 @@ def _boot():
 @app.get("/")
 def info():
     return {"role": "market-worker", "framework": "fastapi",
+            "git_sha": os.environ.get("RENDER_GIT_COMMIT"),
+            "handoff_recovery": "pending-offers-v1",
             "capability": CAPABILITY, "agent_id": _state.get("agent_id"),
             "guild": GUILD, "a2a": PUBLIC_URL,
             "first_party": True,
