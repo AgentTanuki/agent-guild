@@ -589,6 +589,7 @@ def commercial_metrics(store: Any, operation: Optional[str] = None,
                   "external_settled_revenue_usd",
                   "successful_external_payments",
                   "distinct_external_payer_wallets",
+                  "settled_payer_activity",
                   "attributed_external_payments",
                   "attribution_coverage"):
             metrics[k] = headline[k]
