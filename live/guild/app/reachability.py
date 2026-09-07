@@ -58,6 +58,7 @@ OUTCOME_HTTP_RESPONSIVE = "http_responsive"
 OUTCOME_PROTOCOL_RESPONSIVE = "protocol_responsive"
 OUTCOME_UNREACHABLE = "currently_unreachable"
 OUTCOME_INCONCLUSIVE = "verification_inconclusive"
+EXECUTION_OBSERVATION_VERSION = "execution-routing-v1"
 
 
 def _env_int(name: str, default: int, lo: int, hi: int) -> int:
@@ -288,6 +289,79 @@ def _http_request_pinned(scheme: str, host: str, family: int, addr: str,
 
 
 # --- 3. LIVENESS PROBE (owner-initiated, SSRF-safe) --------------------------
+def _probe_record(*args, **kwargs) -> dict[str, Any]:
+    record = make_record(*args, **kwargs)
+    record["execution_observation_version"] = EXECUTION_OBSERVATION_VERSION
+    return record
+
+
+def _execution_declaration(body: bytes, endpoint: str) -> Optional[dict]:
+    """Parse data from the exact endpoint's complete card, never instructions.
+
+    A claim is a provider declaration, not proof of competence or completion.
+    Truncated JSON and a card for another endpoint cannot supply this evidence.
+    Only a typed, versioned boolean is accepted; remote reasons are not copied.
+    """
+    try:
+        card = json.loads(body)
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(card, dict) or card.get("url") != endpoint:
+        return None
+    guild = card.get("agentGuild")
+    claims = [("execution", card.get("execution"))]
+    if isinstance(guild, dict):
+        claims.append(("agentGuild.execution", guild.get("execution")))
+    valid = [(source, claim) for source, claim in claims
+             if isinstance(claim, dict)
+             and claim.get("version") == "worker-execution-v1"
+             and type(claim.get("accepting_work")) is bool]
+    if not valid:
+        return None
+    # A conflicting explicit refusal wins; never choose a permissive alias.
+    source, claim = min(valid, key=lambda entry: entry[1]["accepting_work"])
+    now = _now()
+    return {
+        "accepting_work": claim["accepting_work"],
+        "source": source, "evidence": "provider_declaration",
+        "checked_at": _iso(now),
+        "expires_at": _iso(now + timedelta(seconds=recent_ttl())),
+        "endpoint_fingerprint": endpoint_fingerprint(endpoint),
+    }
+
+
+def preserve_execution_observation(previous: Optional[dict], record: dict) -> dict:
+    """Contact, omission and redeclaration do not retract an observed refusal.
+
+    Preserve its original age rather than refreshing it without new evidence.
+    A valid new declaration supersedes it; an endpoint change invalidates it.
+    """
+    result = dict(record)
+    old = (previous or {}).get("execution_availability")
+    if (not result.get("execution_availability") and isinstance(old, dict)
+            and old.get("endpoint_fingerprint") == result.get("endpoint_fingerprint")):
+        result["execution_availability"] = dict(old)
+    if ("execution_observation_version" not in result and previous
+            and previous.get("endpoint_fingerprint") == result.get("endpoint_fingerprint")
+            and previous.get("execution_observation_version")):
+        result["execution_observation_version"] = previous["execution_observation_version"]
+    return result
+
+
+def execution_fields(endpoint: Optional[str], record: Optional[dict]) -> dict:
+    observation = (record or {}).get("execution_availability")
+    if (not isinstance(observation, dict)
+            or observation.get("endpoint_fingerprint") != endpoint_fingerprint(endpoint)
+            or type(observation.get("accepting_work")) is not bool):
+        return {"status": "unknown", "accepting_work": None,
+                "evidence": "no_endpoint_bound_declaration"}
+    stale = _expired(observation)
+    accepting = observation["accepting_work"]
+    return {**observation, "stale": stale,
+            "status": ("stale_" if stale else "")
+                      + ("declared_available" if accepting else "unavailable")}
+
+
 def liveness_probe(url: str, *, ssl_context: Optional[ssl.SSLContext] = None
                    ) -> dict[str, Any]:
     """A single bounded SSRF-safe check. Chooses a protocol-specific probe when
@@ -296,14 +370,14 @@ def liveness_probe(url: str, *, ssl_context: Optional[ssl.SSLContext] = None
     Returns a reachability record (see make_record)."""
     ok, reason = url_policy_check(url)
     if not ok:
-        return make_record("currently_unreachable", "declaration_probe",
+        return _probe_record("currently_unreachable", "declaration_probe",
                            "none", url, detail=f"policy: {reason}")
     parts = urlsplit(url)
     host = parts.hostname
     port = parts.port or (443 if parts.scheme == "https" else 80)
     ok, addrs, reason = _resolve_and_screen(host, port)
     if not ok:
-        return make_record("currently_unreachable", "declaration_probe",
+        return _probe_record("currently_unreachable", "declaration_probe",
                            "none", url, detail=reason)
     family, addr = addrs[0]
 
@@ -311,30 +385,35 @@ def liveness_probe(url: str, *, ssl_context: Optional[ssl.SSLContext] = None
         return _http_request_pinned(parts.scheme, host, family, addr, port,
                                     path, method, body, headers, ssl_context)
 
+    observations: dict[str, Any] = {}
     try:
-        outcome, code, detail = _classify(parts, _req)
+        outcome, code, detail = _classify(parts, _req, observations)
     except ssl.SSLError as e:
-        return make_record("currently_unreachable", "declaration_probe",
+        return _probe_record("currently_unreachable", "declaration_probe",
                            "none", url, detail=f"tls failure: {type(e).__name__}")
     except Exception as e:
-        return make_record("currently_unreachable", "declaration_probe",
+        return _probe_record("currently_unreachable", "declaration_probe",
                            "none", url, detail=f"probe failed: {type(e).__name__}")
 
     if outcome == OUTCOME_PROTOCOL_RESPONSIVE:
-        return make_record("recently_reachable", "protocol_probe",
-                           "protocol_handshake", url, detail=detail)
+        record = _probe_record("recently_reachable", "protocol_probe",
+                               "protocol_handshake", url, detail=detail)
+        if observations.get("execution_availability"):
+            record["execution_availability"] = observations["execution_availability"]
+        return record
     if outcome == OUTCOME_HTTP_RESPONSIVE:
         # a server answered but proved no protocol — weak evidence, NOT routable
-        return make_record("http_responsive", "declaration_probe",
+        return _probe_record("http_responsive", "declaration_probe",
                            "http_response", url, detail=detail)
     if outcome == OUTCOME_UNREACHABLE:
-        return make_record("currently_unreachable", "declaration_probe",
+        return _probe_record("currently_unreachable", "declaration_probe",
                            "none", url, detail=detail)
-    return make_record("verification_inconclusive", "declaration_probe",
+    return _probe_record("verification_inconclusive", "declaration_probe",
                        "none", url, detail=detail)
 
 
-def _classify(parts, req) -> tuple[str, Optional[int], str]:
+def _classify(parts, req, observations: Optional[dict] = None
+              ) -> tuple[str, Optional[int], str]:
     """Return (outcome, http_code, detail). Protocol-specific first."""
     path = parts.path or "/"
     base = ""  # same host, path swapped
@@ -342,6 +421,9 @@ def _classify(parts, req) -> tuple[str, Optional[int], str]:
     if "/a2a" in path or path in ("", "/"):
         code, body = req("/.well-known/agent-card.json", method="GET")
         if code and 200 <= code < 300 and _looks_like_a2a_card(body):
+            if observations is not None:
+                observations["execution_availability"] = _execution_declaration(
+                    body, parts.geturl())
             return OUTCOME_PROTOCOL_RESPONSIVE, code, "a2a agent-card handshake"
     # MCP: initialise handshake (no secrets) with a jsonrpc result = protocol proof
     if "/mcp" in path:
@@ -461,6 +543,7 @@ def reachability_fields(endpoint: Optional[str],
     use_rec = bool(record
                    and record.get("endpoint_fingerprint") == endpoint_fingerprint(endpoint)
                    and status == record.get("status"))
+    execution = execution_fields(endpoint, record)
     return {
         "has_declared_endpoint": declared,
         "reachability_status": status,
@@ -475,7 +558,9 @@ def reachability_fields(endpoint: Optional[str],
         "endpoint_fingerprint": endpoint_fingerprint(endpoint),
         # only a successful AG-originated invocation proves work goes through
         "invocation_supported": status == "invocation_verified",
-        "recommended_for_routing": status in ROUTABLE_STATUSES,
+        "execution_availability": execution,
+        "recommended_for_routing": (status in ROUTABLE_STATUSES
+                                    and execution["accepting_work"] is not False),
     }
 
 
