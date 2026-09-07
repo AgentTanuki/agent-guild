@@ -74,7 +74,11 @@ OURS_MCP_CLIENTS = {
 # was enforced.  These exact production identities are public and auditable:
 # four TanukiTextStats registrations declare
 # ``operator=agent-guild (first-party demo supply)`` and the fifth is the
-# operator-owned Codex Autonomous Worker.  Their old account/event rows were
+# operator-owned Codex Autonomous Worker. Two July 13 buyer identities are
+# pinned by the committed first-party run artifacts in artifacts/market_evidence/
+# external_txn_{helloworld,paki}.json (steps/register_buyer). The providers in
+# those runs are external; that does not make our buyer an external customer.
+# Their old account/event rows were
 # written with ``first_party=false`` and therefore used to qualify as external
 # verified members at read time.  Keep this a narrow exact-ID set: it may only
 # demote known-owned traffic and must never infer ownership from a name/domain.
@@ -84,7 +88,22 @@ KNOWN_GUILD_OPERATED_AGENT_IDS = frozenset({
     "agent_87bcabedf2c0",
     "agent_c7d2e902dc50",
     "agent_f75dd36ac192",
+    "agent_1e6cf5203b48",
+    "agent_42e6eb9716d5",
 })
+
+
+def is_guild_operated_agent(agent_id: str | None,
+                           agent: Mapping[str, Any] | None = None) -> bool:
+    """Ownership evidence for analytics, including exact legacy identities.
+
+    This only demotes known-owned activity. Names, endpoints, counterparty
+    ownership and resemblance to our tests never establish ownership. It does
+    not mutate accounts, tasks, reputation evidence or payment attribution.
+    """
+    return (agent_id in KNOWN_GUILD_OPERATED_AGENT_IDS
+            or bool((agent or {}).get("first_party")))
+
 
 # Known first-party incidents: OUR OWN traffic that slipped past first-party
 # tagging (e.g. a maintainer test that forgot the X-Guild-Source header) and

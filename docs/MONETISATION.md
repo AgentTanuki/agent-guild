@@ -13,7 +13,7 @@ profitable business. Those remain separate questions to measure.
 Demand and utility activity reports use durable event history when SQLite is
 active. `/demand/feed` reports `demand-history-v2`, `/swarm/stats` and
 `/swarm/graph` report `swarm-activity-v2`, and `/funnel` reports
-`conversion-activity-v2`. Each discloses coverage; a compacted JSON history or
+`conversion-activity-v3`. Each discloses coverage; a compacted JSON history or
 known missing prefix is incomplete. Restored historical counts are not new
 demand and must not be compared as growth against older reports that used only
 the recent serving cache. Capability asks are not funded jobs, and a successful
@@ -21,6 +21,15 @@ utility return is not evidence that the caller used or paid for its output.
 Serving/acquisition cost is unknown until an allocated cost ledger exists.
 The funnel's task-outcome stage splits the actual receipt states, including
 delivery, acceptance, rejection and neutral stops; it is not a success count.
+Version 3 also applies the central exact-ID ownership corrections to historical
+task parties and current account/agent ownership to event stages. Two July 13
+buyers are proved first-party by the committed `artifacts/market_evidence/`
+`external_txn_helloworld.json` and `external_txn_paki.json` run records. They used
+sandbox credits against external providers. Those observations remain intact;
+they establish no outside customer payment. Similar buyer names are insufficient
+for ownership attribution. Counts before and after this correction are not a
+growth comparison, and the remaining external task bucket means registered and
+not known-owned, not independently proved customer demand.
 The bounded discovery scout prioritises eligible pending requests before the
 historical ranking, preserving its per-run limit and all attribution gates.
 
