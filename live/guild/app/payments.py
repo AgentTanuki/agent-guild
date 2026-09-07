@@ -50,6 +50,7 @@ from x402.extensions.payment_identifier import (
 from x402.schemas import PaymentPayload, PaymentRequired
 
 from . import billing
+from . import paymentdiag
 from . import callerproof
 from . import crypto
 from . import deepcheck
@@ -474,6 +475,7 @@ class Settled:
     payment_id: Optional[str]
     payload_fingerprint: str
     _finalized: dict[str, Any] = field(default_factory=dict)
+    diagnostic: Optional[paymentdiag.Attempt] = None
 
     def finalize(self, response_bytes: bytes) -> dict[str, Any]:
         """Issue the signed receipt + evidence attachment for the exact bytes
@@ -482,7 +484,14 @@ class Settled:
         if self._finalized:
             return self._finalized
         try:
-            return self._finalize_inner(response_bytes)
+            result = self._finalize_inner(response_bytes)
+            if self.diagnostic is not None:
+                self.diagnostic.emit("result_prepared")
+            return result
+        except Exception:
+            if self.diagnostic is not None:
+                self.diagnostic.emit("result_finalize_failed", "result_finalize_error")
+            raise
         finally:
             _inflight_discard(self.payment_id)
 
@@ -826,7 +835,7 @@ def _resolve_settling(rec: dict[str, Any], preq: PaidRequest, ident: str,
                               "located for independent confirmation; "
                               "re-present the same payment to retry — you "
                               "will not be charged twice"})
-            conf = x402_confirm.confirm_settlement(
+            conf = paymentdiag.confirm(x402_confirm.confirm_settlement,
                 tx, asset=offered.asset, recipient=offered.pay_to,
                 amount_atomic=offered.amount)
             record["confirmation"] = {k: conf.get(k) for k in
@@ -884,6 +893,38 @@ def _apply_attribution(settled: dict[str, Any], *, first_party: Optional[bool],
 
 
 def settle_x402(payload: PaymentPayload, preq: PaidRequest,
+                protocol: str = "v2", method: Optional[str] = None,
+                first_party: Optional[bool] = None, caller_did: str = "") -> Settled:
+    with paymentdiag.observe(preq.operation, "unknown", first_party is True) as diag:
+        paymentdiag.emit("credential_present")
+        paymentdiag.emit("credential_parsed")
+        try:
+            settled = _settle_x402_inner(
+                payload, preq, protocol, method, first_party, caller_did)
+        except x402.PaymentBindingError as exc:
+            paymentdiag.reject(exc.reason)
+            raise
+        except PaymentIdConflict as exc:
+            paymentdiag.reject("payment_in_progress" if exc.reason ==
+                               "payment_identifier_in_flight" else
+                               "payment_identifier_conflict")
+            raise
+        except CachedPaidResult as exc:
+            exc.diagnostic = diag
+            raise
+        except PaymentChallenge as exc:
+            reason = exc.body.get("reason") or exc.body.get("error")
+            if reason in ("settlement_unconfirmed", "settlement_state_unknown"):
+                paymentdiag.emit("unresolved", reason)
+            elif not any(stage in ("rejected", "unresolved") for stage, _ in diag.seen):
+                paymentdiag.reject(reason or "payment_rejected")
+            raise
+        settled.diagnostic = diag
+        paymentdiag.emit("authorization_accepted")
+        return settled
+
+
+def _settle_x402_inner(payload: PaymentPayload, preq: PaidRequest,
                 protocol: str = "v2",
                 method: Optional[str] = None,
                 first_party: Optional[bool] = None,
@@ -909,7 +950,10 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
         raise x402.PaymentBindingError("x402_misconfigured",
                                        "; ".join(x402.config_errors()))
     x402.check_binding(payload, preq, cost, method=method)
+    paymentdiag.emit("binding_valid")
     pid, fingerprint, mode, rec = _handle_payment_identifier(payload, preq)
+    if mode != "fresh":
+        paymentdiag.emit("recovery_started")
 
     def _fail_pid() -> None:
         # ONLY on definitive no-settlement paths (binding/verify failures,
@@ -942,7 +986,7 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
             # settlement, never served until confirmed.
             prior_rec = dict(rec["settlement_record"])
             tx = prior_rec.get("transaction") or ""
-            conf = x402_confirm.confirm_settlement(
+            conf = paymentdiag.confirm(x402_confirm.confirm_settlement,
                 tx, asset=prior_rec.get("asset") or "",
                 recipient=prior_rec.get("recipient") or "",
                 amount_atomic=prior_rec.get("amount_atomic") or "0")
@@ -1010,7 +1054,7 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
                 "reason": "double_settlement_rejected",
                 "detail": "this payment identity was already settled"})
         if prior and prior.get("status") == "settled_unconfirmed":
-            conf = x402.x402_confirm.confirm_settlement(
+            conf = paymentdiag.confirm(x402.x402_confirm.confirm_settlement,
                 prior.get("transaction") or "",
                 asset=prior.get("asset") or "",
                 recipient=prior.get("recipient") or "",
@@ -1149,7 +1193,32 @@ def settle_x402(payload: PaymentPayload, preq: PaidRequest,
 # ---------------------------------------------------------------------------
 
 
-def authorize(preq: PaidRequest, *,
+def authorize(preq: PaidRequest, *, api_key: Optional[str] = None,
+              payment: Optional[PaymentPayload] = None, protocol: str = "v2",
+              ua: str = "", transport: str = "http", actor: Optional[str] = None,
+              first_party: Optional[bool] = None, caller_did: str = "") -> Authorization:
+    with paymentdiag.observe(preq.operation, transport, first_party is True) as diag:
+        if payment is not None:
+            paymentdiag.emit("credential_present")
+            paymentdiag.emit("credential_parsed")
+        try:
+            auth = _authorize_inner(
+                preq, api_key=api_key, payment=payment, protocol=protocol,
+                ua=ua, transport=transport, actor=actor, first_party=first_party,
+                caller_did=caller_did)
+        except PaymentChallenge as exc:
+            if not any(stage in ("rejected", "unresolved") for stage, _ in diag.seen):
+                paymentdiag.reject(exc.body.get("reason") or
+                                   exc.body.get("error") or "payment_rejected")
+            raise
+        if auth.mode == "credits_sandbox":
+            paymentdiag.emit("sandbox_authorized")
+        elif auth.mode == "free":
+            paymentdiag.emit("free_authorized")
+        return auth
+
+
+def _authorize_inner(preq: PaidRequest, *,
               api_key: Optional[str] = None,
               payment: Optional[PaymentPayload] = None,
               protocol: str = "v2",

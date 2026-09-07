@@ -498,6 +498,7 @@ def test_paid_mcp_read_records_paid_true_not_false(monkeypatch):
 
 def test_sandbox_credits_are_labelled_never_revenue(monkeypatch):
     from app.state import store
+    before = store.escrow_summary()["real_settlement"]["transactions"]
     acct = store.create_account()
     r = _call("guild_check", {"capability": "fact-check",
                               "api_key": acct["key"]})
@@ -505,4 +506,4 @@ def test_sandbox_credits_are_labelled_never_revenue(monkeypatch):
     assert not getattr(r, "is_error", False)
     assert r.meta and r.meta.get("x402/settlement-unit") == "credits_sandbox"
     rev = store.escrow_summary()
-    assert rev["real_settlement"]["transactions"] == 0
+    assert rev["real_settlement"]["transactions"] == before

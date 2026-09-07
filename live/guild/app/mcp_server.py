@@ -38,6 +38,7 @@ from . import objective_match
 from . import inbox as inbox_engine
 from . import journey as journey_engine
 from . import payments
+from . import paymentdiag
 from . import proving
 from . import x402
 from mcp.types import LATEST_PROTOCOL_VERSION, ToolAnnotations
@@ -350,8 +351,6 @@ def _mcp_payment(ctx: "Context | None",
     normalized PaymentPayloads must match or ambiguity fails closed before
     settlement.
     """
-    if not x402.enabled():
-        return None
     data = None
     if ctx is not None:
         try:
@@ -362,8 +361,16 @@ def _mcp_payment(ctx: "Context | None",
             extra = getattr(meta, "model_extra", None)
             if isinstance(extra, dict):
                 data = extra.get(MCP_PAYMENT_META_KEY)
+    if data is not None or tool_payment is not None:
+        paymentdiag.emit("credential_present")
+    if not x402.enabled():
+        if data is not None or tool_payment is not None:
+            paymentdiag.emit("credential_ignored", "x402_disabled")
+        return None
     meta_payment = _parse_mcp_payment(
         data, source=f"_meta[{MCP_PAYMENT_META_KEY!r}]", strict=False)
+    if data is not None and meta_payment is None:
+        paymentdiag.reject("malformed_credential")
     argument_payment = _parse_mcp_payment(
         tool_payment, source="x402_payment",
         strict=(tool_payment is not None and meta_payment is None))
@@ -555,6 +562,13 @@ def _with_inbox(result: Any, presented_key: str) -> Any:
 
 
 def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
+                ctx: "Context | None", api_key: str = "", structured: bool = True,
+                dem: "dict | None" = None, x402_payment: Any = None) -> ToolResult:
+    with paymentdiag.observe(preq.operation, "mcp", _first_party_payer() is True):
+        return _serve_paid_inner(preq, produce, ctx, api_key, structured, dem, x402_payment)
+
+
+def _serve_paid_inner(preq: PaidRequest, produce: Callable[[], Any],
                 ctx: "Context | None", api_key: str = "",
                 structured: bool = True,
                 dem: "dict | None" = None,
@@ -600,6 +614,10 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
                                   "reason": e.reason, "detail": e.detail,
                                   "payment_id": e.payment_id})
     except x402.PaymentBindingError as e:
+        paymentdiag.reject("conflicting_credentials" if e.reason ==
+                           "conflicting_mcp_payment" else
+                           "malformed_credential" if e.reason ==
+                           "invalid_mcp_payment_argument" else e.reason)
         ch = PaymentChallenge(preq, extra={"error": "x402_payment_invalid",
                                            "reason": e.reason,
                                            "detail": e.detail[:300]})
@@ -609,6 +627,7 @@ def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
         # official idempotency: same id + same request → cached result, no
         # second settlement.
         result = e.result_json
+        paymentdiag.emit("cached_result_prepared")
         meta = {"x402/idempotent-replay": True}
         if e.settle_record:
             meta[MCP_PAYMENT_RESPONSE_META_KEY] = e.settle_record
