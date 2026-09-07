@@ -5,6 +5,7 @@ interactions are excluded from every growth number by construction."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 from typing import Any
 
 from ..attribution import attribution_class, is_genuine_external
@@ -26,6 +27,16 @@ MEASUREMENT_NOTE = (
 def _swarm_events(store):
     return store.measurement_event_view(
         types=tuple(sorted(DISCOVERY_EVENT_TYPES | INVOKE_EVENT_TYPES)))
+
+
+def public_actor_id(actor: str) -> str:
+    """Public projection only: historical actor fields may contain secrets.
+
+    Always fingerprint, including in legacy plaintext credential mode. Never
+    depend on a current write-time sanitizer to protect immutable old rows.
+    """
+    digest = hashlib.sha256(("agent-guild/swarm-actor/v1\0" + str(actor)).encode()).hexdigest()
+    return "swarm-actor:" + digest
 
 
 def referral_bindings(store) -> list[dict]:
@@ -54,7 +65,7 @@ def build_graph(store) -> dict:
     for e in events:
         key = e.get("actor") or e.get("key") or "anon"
         a = actors.setdefault(key, {
-            "actor": key, "class": attribution_class(e),
+            "actor": public_actor_id(key), "class": attribution_class(e),
             "discoveries": 0, "invocations": 0, "successes": 0,
             "capabilities": set(), "first_seen": e.get("at"),
             "last_seen": e.get("at")})
@@ -76,6 +87,11 @@ def build_graph(store) -> dict:
     return {
         "schema_version": "ag-discovery-graph/1",
         "measurement_version": "swarm-activity-v2",
+        "actor_identifier_version": "swarm-actor-sha256-v1",
+        "actor_identifier_note": (
+            "Actor identifiers are stable domain-separated fingerprints, "
+            "never raw historical credential or request actor fields. They "
+            "identify recorded actor buckets, not independently owned agents."),
         "measurement_coverage": coverage,
         "interpretation": MEASUREMENT_NOTE,
         "generated_at": datetime.now(timezone.utc).isoformat(),
