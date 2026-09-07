@@ -34,7 +34,7 @@ def test_llms_txt_leads_with_passport_and_records_offer():
     assert r.status_code == 200
     text = r.text
     # the passport claim LEADS: it appears before the /check pitch
-    assert text.index("Agent Passport") < text.index("Start here")
+    assert text.index("Agent Passport") < text.index("GET /check?capability=")
     assert 'src": "passport_offer:llms' in text
     assert "POST /agents/{id}/prove" in text
     assert "GET /agents/{id}/passport" in text
