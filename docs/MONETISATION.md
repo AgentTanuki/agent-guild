@@ -10,6 +10,18 @@ Controlled attack-resistance tests support the reputation design. They do not
 prove useful outside decisions, repeat demand, production reliability or a
 profitable business. Those remain separate questions to measure.
 
+Demand and utility activity reports use durable event history when SQLite is
+active. `/demand/feed` reports `demand-history-v2`, `/swarm/stats` and
+`/swarm/graph` report `swarm-activity-v2`, and `/funnel` reports
+`conversion-activity-v2`. Each discloses coverage; a compacted JSON history or
+known missing prefix is incomplete. Restored historical counts are not new
+demand and must not be compared as growth against older reports that used only
+the recent serving cache. Capability asks are not funded jobs, and a successful
+utility return is not evidence that the caller used or paid for its output.
+Serving/acquisition cost is unknown until an allocated cost ledger exists.
+The funnel's task-outcome stage splits the actual receipt states, including
+delivery, acceptance, rejection and neutral stops; it is not a success count.
+
 ## What is implemented
 
 Free identity, evidence writes, passports and basic verification supply the shared
