@@ -484,7 +484,11 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             "key_required": False,
             "directly_callable": True,
         },
-        "alternatives": {},
+        "alternatives": {
+            "mcp": "guild_evidence_bundle(url=\"<endpoint>\", ttl_seconds=3600, audience=\"<task>\")",
+            "mcp_payment": "retry the same tool with x402/payment metadata or x402_payment",
+            "mcp_verify": "guild_evidence_verify(bundle, expected_endpoint, expected_audience) — free",
+        },
         "what_you_get": (
             "A version-2 signed endpoint observation you keep, with its salted "
             "commitment, Merkle inclusion proof and signed checkpoint. Verify "

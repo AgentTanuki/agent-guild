@@ -6,6 +6,25 @@ quote, bound to all three effective inputs. Use the live quote's price and
 payment requirements. No account or interactive checkout is required for x402.
 Credit balances are a sandbox rail, never cash revenue.
 
+MCP clients can complete the same purchase without another HTTP connection:
+
+1. Call `guild_evidence_bundle(url, ttl_seconds=3600, audience="<task>")`.
+   The unpaid tool error contains the exact quote in both JSON text and
+   `structuredContent`.
+2. Sign that quote using your existing authorized payment capability. Retry the
+   same tool and inputs with `_meta["x402/payment"]`, or the schema-visible
+   `x402_payment` argument if your client cannot send request metadata.
+3. Retain the returned bundle and `_meta["x402/payment-response"]` receipt.
+   `guild_evidence_verify(bundle, expected_endpoint=url,
+   expected_audience="<task>")` is free. Offline verification remains available
+   below and does not depend on Guild availability.
+
+The MCP and HTTP forms share the exact price, payment binding and saved purchase.
+A completed x402 purchase can be recovered through either transport with its
+original payment credential. MCP's text contains the artifact JSON itself;
+inbox messages and other unsigned fields are never appended to the signed bundle.
+For a live check without retained evidence, use free `guild_preflight(url)`.
+
 The buyer receives an observation, the Guild's explicit policy and limitations,
 the index history, a signature, and a proof that the observation's commitment is
 included in a signed ledger checkpoint. A successful cryptographic verification
@@ -29,7 +48,8 @@ from agentguild_verify import verify_evidence_bundle
 result = verify_evidence_bundle(
     bundle, expected_issuer=trusted_guild_did,
     expected_endpoint=request_url, expected_audience=task_audience)
-assert result["valid"] and result["ledger_inclusion_valid"]
+if not result["valid"] or not result["ledger_inclusion_valid"]:
+    raise ValueError("invalid evidence")
 ```
 
 ```javascript

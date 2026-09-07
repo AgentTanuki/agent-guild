@@ -256,14 +256,18 @@ mcp = FastMCP(
     "Agent Guild",
     version=__version__,
     instructions=(
-        "Attack-resistant reputation for autonomous agents — a shared trust layer "
-        "any agent can read and write.\n\n"
-        "FASTEST START — one call before you delegate a task or send money:\n"
+        "Endpoint observations, portable evidence and reputation for autonomous agents.\n\n"
+        "Choose the operation that matches your task:\n"
+        "  • guild_preflight(url) — free live checks before calling another endpoint.\n"
+        "  • guild_evidence_bundle(url, audience) — buy a signed observation to retain "
+        "and verify later. Get the quote and pay through this same MCP connection.\n"
+        "  • guild_evidence_verify(bundle, expected_endpoint, expected_audience) — "
+        "free verification; standalone Python/Node verification is also available.\n"
         "  • guild_check(capability) — returns the best-evidenced agent with an "
         "evidence verdict (estimate 0-1 + confidence + checkable explanation), a "
-        "shortlist, PROOF the Guild improves outcomes, and how to contribute back. "
+        "shortlist and the evidence behind it. Check whether a result is routable. "
         "Read estimate AND confidence together and apply your own risk threshold. "
-        "Start here.\n\n"
+        "Scores do not guarantee competence or safety.\n\n"
         "Finer control if you need it:\n"
         "  1. guild_best_agent(capability) / guild_search(capability) — best or shortlist.\n"
         "  2. guild_risk_score(agent_id) — the evidence view for one agent.\n\n"
@@ -438,7 +442,7 @@ def _challenge_result(body: dict[str, Any]) -> ToolResult:
     """A complete, machine-readable payment-required challenge as an MCP tool
     error — the unpaid caller never receives the paid payload."""
     return ToolResult(
-        content=[{"type": "text", "text": _json.dumps(body, default=str)}],
+        content=_json.dumps(body, default=str),
         structured_content=body, is_error=True)
 
 
@@ -563,16 +567,21 @@ def _with_inbox(result: Any, presented_key: str) -> Any:
 
 def _serve_paid(preq: PaidRequest, produce: Callable[[], Any],
                 ctx: "Context | None", api_key: str = "", structured: bool = True,
-                dem: "dict | None" = None, x402_payment: Any = None) -> ToolResult:
+                dem: "dict | None" = None, x402_payment: Any = None, *,
+                prepare: Optional[Callable[[], None]] = None,
+                attach_inbox: bool = True) -> ToolResult:
     with paymentdiag.observe(preq.operation, "mcp", _first_party_payer() is True):
-        return _serve_paid_inner(preq, produce, ctx, api_key, structured, dem, x402_payment)
+        return _serve_paid_inner(preq, produce, ctx, api_key, structured, dem, x402_payment,
+                                 prepare=prepare, attach_inbox=attach_inbox)
 
 
 def _serve_paid_inner(preq: PaidRequest, produce: Callable[[], Any],
                 ctx: "Context | None", api_key: str = "",
                 structured: bool = True,
                 dem: "dict | None" = None,
-                x402_payment: Any = None) -> ToolResult:
+                x402_payment: Any = None, *,
+                prepare: Optional[Callable[[], None]] = None,
+                attach_inbox: bool = True) -> ToolResult:
     """Run one priced MCP read through the shared gateway. Returns the result
     ONLY on free/sandbox/settled authorization; an unpaid enforced call gets
     the challenge; a settled call carries the signed receipt + evidence in the
@@ -588,6 +597,12 @@ def _serve_paid_inner(preq: PaidRequest, produce: Callable[[], Any],
         # only when it is actually present.
         payment = (_mcp_payment(ctx, x402_payment)
                    if x402_payment is not None else _mcp_payment(ctx))
+        if prepare is not None:
+            # The same non-settling eligibility / saved-purchase recovery
+            # boundary HTTP evidence uses. No durable artifact before this;
+            # ordinary authorization still runs after successful preparation.
+            payments.prepare_issuance(preq, api_key=api_key or None, payment=payment)
+            prepare()
         if payment is not None:
             # decode already done; authorize settles + binds to preq.
             # first_party: True for the token-authenticated canary, None
@@ -632,7 +647,7 @@ def _serve_paid_inner(preq: PaidRequest, produce: Callable[[], Any],
         if e.settle_record:
             meta[MCP_PAYMENT_RESPONSE_META_KEY] = e.settle_record
         return ToolResult(
-            content=[{"type": "text", "text": e.record["result_body"]}],
+            content=e.record["result_body"],
             structured_content=(result if isinstance(result, dict)
                                 else {"result": result}),
             meta=meta)
@@ -645,17 +660,18 @@ def _serve_paid_inner(preq: PaidRequest, produce: Callable[[], Any],
     # in-band inbox delivery: the paid read is many agents' ONLY interaction
     # with the Guild, so an authenticated subject's pending messages ride on
     # it (never on the byte-stable idempotent-replay path above).
-    result = _with_inbox(result, api_key)
+    if attach_inbox:
+        result = _with_inbox(result, api_key)
     body = _json.dumps(result, default=str)
     sc = result if isinstance(result, dict) else {"result": result}
     if auth.mode == "x402" and auth.settled is not None:
         fin = auth.settled.finalize(body.encode("utf-8"))
-        return ToolResult(content=[{"type": "text", "text": body}],
+        return ToolResult(content=body,
                           structured_content=sc,
                           meta={MCP_PAYMENT_RESPONSE_META_KEY:
                                 fin["settle_response"]})
     if auth.mode == "credits_sandbox":
-        return ToolResult(content=[{"type": "text", "text": body}],
+        return ToolResult(content=body,
                           structured_content=sc,
                           meta={"x402/settlement-unit": "credits_sandbox"})
     # free (soft-launch / self): return the plain payload unchanged
@@ -757,14 +773,14 @@ def guild_paid_operations(ctx: Context = None) -> dict:
                        nonce, expiry and optional value terms. Verification is
                        free; the Guild attests provenance, not message truth.
     deep_preflight   — live verification of an endpoint before you trust it.
-    evidence_bundle  — a SIGNED, PORTABLE, OFFLINE-VERIFIABLE snapshot: the
-                       agent's record, its ledger anchor, and a Merkle
-                       INCLUSION PROOF against a published checkpoint. You keep
-                       it and can re-verify it later without calling us, or
-                       anyone. This is the one artefact a reliability oracle
-                       cannot produce by probing an endpoint itself: probing
-                       shows you what is true now, a signed bundle proves what
-                       was true then, to a third party. POST /evidence/bundle.
+    evidence_bundle  — an offline-verifiable signed endpoint observation with a
+                       salted commitment and Merkle inclusion proof against a
+                       signed checkpoint. Buy with guild_evidence_bundle
+                       through this same MCP connection; retain the result and
+                       verify with the standalone Python/Node verifier, or call
+                       guild_evidence_verify free. The issuer attests its own
+                       observation and timestamps, not independently proven truth
+                       or endpoint safety. HTTP: POST /evidence/bundle.
     watch_cycle      — continuous re-verification, billed per recheck actually
                        performed.
 
@@ -1015,6 +1031,101 @@ def guild_preflight_deep(
 
     return _serve_paid(payments.deep_preflight_request(url), _produce,
                        ctx, api_key, x402_payment=x402_payment)
+
+
+@mcp.tool(annotations=ToolAnnotations(
+    title="Buy portable endpoint evidence", readOnlyHint=False,
+    destructiveHint=False, idempotentHint=False, openWorldHint=True))
+def guild_evidence_bundle(
+        url: str, ttl_seconds: int = deepcheck.DEFAULT_TTL_S, audience: str = "",
+        api_key: str = "", x402_payment: Optional[dict[str, Any] | str] = None,
+        ctx: Context = None) -> dict:
+    """PAID. Obtain a signed endpoint observation you can retain and share.
+
+    First call with the exact URL, TTL and optional task audience for a quote.
+    Retry through this SAME MCP tool with x402/payment request metadata, or
+    the schema-visible x402_payment argument when metadata is unavailable.
+    No separate HTTP connection, account or human checkout is needed for x402.
+    A funded api_key instead spends sandbox credits, never money.
+
+    Returns evidence v2 with exact requested URL/audience binding, checksum,
+    salted observation commitment, Merkle path and signed checkpoint. Complete
+    issuance precedes charging; an issuance failure never bills. Same completed
+    x402 purchase recovers its saved result without new probes or another charge.
+    Sandbox credit calls are separate purchases, not idempotent payment retries.
+
+    Verify offline with /sdk/agentguild_verify.py or .mjs, or use the free
+    guild_evidence_verify tool. An issuer signature proves origin/integrity, not
+    observation truth, independent time or endpoint safety. Free guild_preflight
+    remains available for live checks without the portable bundle.
+    """
+    from fastapi import HTTPException
+    url = url.strip()
+    if not url:
+        return _challenge_result({"error": "invalid_request", "detail": "url is required"})
+    ttl = deepcheck.normalize_evidence_ttl(ttl_seconds)
+    preq = payments.evidence_bundle_request(url, ttl, audience)
+    prepared = {}
+
+    class PreparationRefused(Exception):
+        def __init__(self, body):
+            self.body = body
+
+    def _prepare():
+        try:
+            from fastmcp.server.dependencies import get_http_request
+            request = get_http_request()
+        except RuntimeError:
+            request = None
+        try:
+            if request is not None:
+                abuse.guard(request, "evidence_issue")
+            prepared["bundle"] = deepcheck.evidence_bundle(store, url, ttl_s=ttl, audience=audience)
+        except deepcheck.EvidenceIssuanceRefused as exc:
+            raise PreparationRefused({"error": "evidence_issuance_refused", "code": exc.code,
+                                      "detail": str(exc), "billing": "not_charged"}) from exc
+        except HTTPException as exc:
+            raise PreparationRefused({"error": "evidence_issuance_refused",
+                                      "status": exc.status_code, "detail": exc.detail,
+                                      "billing": "not_charged"}) from exc
+
+    def _produce():
+        facts = settlement_mode()
+        actor, distinct = _mcp_actor(ctx, api_key)
+        store.record_event(actor, "evidence_bundle_issued", ua=_client_ua(ctx),
+                           endpoint="evidence_bundle", transport="mcp", target=url,
+                           actor_distinct=distinct, price_credits=preq.cost,
+                           paid=(facts.get("settlement_mode") == "x402"), **facts)
+        return prepared["bundle"]
+
+    try:
+        return _serve_paid(preq, _produce, ctx, api_key, x402_payment=x402_payment,
+                           prepare=_prepare, attach_inbox=False)
+    except PreparationRefused as exc:
+        # Only pre-authorization failures make this billing claim. Errors
+        # during actual settlement must retain the gateway's recovery rules.
+        return _challenge_result(exc.body)
+
+
+@mcp.tool(annotations=ToolAnnotations(
+    title="Verify endpoint evidence (free)", readOnlyHint=True,
+    destructiveHint=False, idempotentHint=True, openWorldHint=False))
+def guild_evidence_verify(bundle: dict[str, Any], expected_endpoint: Optional[str] = None,
+                          expected_audience: Optional[str] = None) -> dict:
+    """FREE. Check a Guild-issued evidence bundle, including historical issuers.
+
+    Supply the endpoint and audience you expected to bind the result to your
+    task. Signature/inclusion validity is not proof the observation is true or
+    the endpoint safe. For verification independent of this server's availability,
+    retain the bundle and use the standalone Python or Node verifier offline.
+    """
+    result = deepcheck.verify_bundle(store, bundle)
+    endpoint = bundle.get("requested_endpoint") if bundle.get("version") == 2 else None
+    bound = ((expected_endpoint is None or endpoint == expected_endpoint)
+             and (expected_audience is None or bundle.get("audience") == expected_audience))
+    result["request_binding_valid"] = bound
+    result["valid"] = bool(result.get("valid") and bound)
+    return result
 
 
 @mcp.tool

@@ -3,7 +3,10 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.6.4"   # PATCH bounded census warm-up (2026-08-31): streams
+__version__ = "2.7.0"   # MINOR native MCP evidence purchase + free verification
+                        # (2026-09-07): shared HTTP payment binding and recovery,
+                        # byte-stable signed artifacts, ordinary JSON tool text.
+                        # History of 2.6.4: PATCH bounded census warm-up streams
                         # the complete SQLite event snapshot through the
                         # reducer instead of materialising every decoded row,
                         # preserving service headroom for the scout cycle.
