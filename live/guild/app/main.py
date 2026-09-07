@@ -4715,8 +4715,10 @@ request schemas are at /openapi.json and MCP tools/list at /mcp.
   and retry the same request with payment from an authorised funded wallet.
   No Guild billing account is required. Some operations also require caller proof.
   The manifest lists supported funding routes; /auth.md gives exact auth semantics.
-- Inspect confidence, evidence and provenance alongside the verdict. A listing,
-  seeded demonstration or successful API call does not establish a useful hire.
+- Check routing.routable before delegating. If false, follow guild_next.buyer_action:
+  refresh an already-declared endpoint without a body or key, or use a demand watch.
+  Only its owner can declare or change a supplier endpoint. Then inspect confidence,
+  evidence and provenance; a protocol handshake does not establish task competence.
 
 ## Identity and evidence
 

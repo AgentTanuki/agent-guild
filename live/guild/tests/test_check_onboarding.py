@@ -11,6 +11,7 @@ os.environ["GUILD_DATA"] = ""  # in-memory only
 
 from app.store import Store  # noqa: E402
 from app.bootstrap_eval import seed_bootstrap_evaluation  # noqa: E402
+from app import reachability as R  # noqa: E402
 
 
 def _seeded_store():
@@ -55,7 +56,12 @@ def test_check_matches_search_and_risk_paths():
     r = s.check("research")
     best = r["best_agent"]
     assert best == s.shortlist("research", limit=3)[0]
-    assert r["verdict"] == s.risk_for(best["id"])
+    evidence = s.risk_for(best["id"])
+    for key, value in evidence.items():
+        if key != "recommendation":
+            assert r["verdict"][key] == value
+    assert r["verdict"]["actionable"] is False
+    assert r["verdict"]["recommendation"] != "hire"
 
 
 def test_check_no_supply_returns_nearest_and_be_first():
@@ -90,7 +96,9 @@ def test_check_cold_start_supplier_gets_guild_next():
     payload must name the situation honestly and hand the caller the exact
     first-attestation call — the loop that yields the first real attestation."""
     s = _seeded_store()
-    rec = s.register_agent("ColdStartCo", ["widget-forging"], {})
+    endpoint = "https://worker.example/a2a"
+    rec = s.register_agent("ColdStartCo", ["widget-forging"], {"endpoint": endpoint})
+    rec["reachability"] = R.invocation_verified_record(endpoint, "test-invocation")
     r = s.check("widget-forging")
     assert r["status"] == "supply"
     assert r["best_agent"]["confidence"] < 0.2
@@ -108,6 +116,11 @@ def test_check_proven_supplier_has_no_guild_next():
     """The cold-start nudge must NOT fire for an evidence-backed supplier —
     otherwise it would nag on every lookup and stop meaning anything."""
     s = _seeded_store()
+    best = s.shortlist("fact-check", limit=1)[0]
+    rec = s.get_agent(best["id"])
+    rec["metadata"]["endpoint"] = "https://worker.example/a2a"
+    rec["reachability"] = R.invocation_verified_record(
+        rec["metadata"]["endpoint"], "test-invocation")
     r = s.check("fact-check")  # seed supply carries real attestations
     assert r["best_agent"]["confidence"] >= 0.2
     assert "guild_next" not in r

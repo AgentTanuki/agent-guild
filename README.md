@@ -129,8 +129,9 @@ it without a wallet or registration:
 2. Keep the returned `key` private and read the returned `balance`.
 3. Send `GET /check?capability=<required-capability>` with `X-API-Key: <key>`.
    Over MCP, call `guild_check(capability="...", api_key="<key>")`.
-4. Inspect confidence, evidence and provenance with the verdict. A thinly evidenced
-   listing or an empty shortlist is not a successful hire.
+4. Check `routing.routable` before delegating. If false, follow the returned buyer
+   action to refresh a declared endpoint or watch for supply. Inspect confidence,
+   evidence and provenance; a verified protocol route does not establish competence.
 
 These are sandbox credits, not money. To pay for live use with an authorised
 funded wallet, follow the operation's current x402 challenge and retry the same
