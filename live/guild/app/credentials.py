@@ -52,6 +52,15 @@ def is_legacy_scope(agent: Optional[dict[str, Any]]) -> bool:
 
 KEY_ID_LEN = 32  # hex chars = 128 bits of identifier entropy (NOT a secret)
 
+# Public key identifiers from the 2026-09-07 historical actor disclosure.
+# Containment must survive state restores and both credential storage modes.
+# Never place the disclosed credentials here or use them in a live probe.
+COMPROMISED_KEY_IDS = frozenset({
+    "285f0f76f02d6e7f14e7510b45208871",  # known tooling placeholder
+    "8ecca85351bc2652a98eb541a75f6007",  # legacy first-party actor
+})
+QUARANTINE_VERSION = "credential-quarantine-2026-09-07"
+
 DK_LEN = 32                 # derived-key length in bytes (explicit)
 MIN_PROD_ITERS = 100_000    # production floor; below this needs dev/test mode
 MAX_ITERS = 10_000_000      # bound any iteration count before it drives PBKDF2
@@ -141,6 +150,17 @@ def key_id_of(raw: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:KEY_ID_LEN]
 
 
+def is_quarantined(presented: Optional[str]) -> bool:
+    """Reject a disclosed bearer by public identifier, without its raw value.
+
+    Check an exact public identifier as well: it must not become a usable
+    legacy account credential after a storage-mode change or state restore.
+    This is unconditional; configuration cannot re-enable a disclosed key.
+    """
+    return bool(presented and (presented in COMPROMISED_KEY_IDS
+                              or key_id_of(presented) in COMPROMISED_KEY_IDS))
+
+
 def sanitize_actor_key(key: Optional[str]) -> Optional[str]:
     """Map a raw secret (sk_...) to its public key_id when hashing is ON, so no
     secret can reach the events journal — even a probe with an unknown or
@@ -171,7 +191,7 @@ def verify_agent_key(agent: Optional[dict[str, Any]], presented: Optional[str]) 
     """Constant-time credential check against one agent record. Handles both
     storage forms (plaintext legacy, salted hash) in either mode, plus
     revocation (no stored credential) and optional expiry."""
-    if not agent or not presented:
+    if not agent or not presented or is_quarantined(presented):
         return False
     if _expired(agent):
         return False

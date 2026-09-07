@@ -2170,7 +2170,7 @@ class Store:
         equality; hashed accounts match only when the RAW sk_ secret is
         presented (its sha256 prefix is the account key). A bare public
         key_id is never accepted as a credential."""
-        if not presented:
+        if not presented or creds.is_quarantined(presented):
             return None
         acct = self.accounts.get(presented)
         if acct is not None and not acct.get("hashed"):

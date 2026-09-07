@@ -1420,6 +1420,9 @@ def health():
             # activation observables (deploy canaries assert on these):
             "store": store.store_mode,
             "hashed_keys": creds.hashing_enabled(),
+            "credential_quarantine": {
+                "version": creds.QUARANTINE_VERSION,
+                "blocked_key_ids": len(creds.COMPROMISED_KEY_IDS)},
             "abuse_controls": abuse.enabled(),
             "strict_first_party": bool(os.environ.get("GUILD_FIRST_PARTY_TOKEN")),
             # Canonical-view integrity. An instance that boots from a stale or
