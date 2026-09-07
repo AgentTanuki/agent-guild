@@ -149,6 +149,7 @@ def build_contract() -> dict:
             "priced_mcp_tools": ["guild_check", "guild_search",
                                  "guild_best_agent", "guild_risk_score",
                                  "guild_preflight_deep",
+                                 "guild_evidence_bundle",
                                  "guild_envelope_issue",
                                  "guild_x402_payment_safety"],
             "priced_a2a_skills": ["guild.check", "guild.preflight.deep"],

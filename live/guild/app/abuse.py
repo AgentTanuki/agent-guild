@@ -70,7 +70,9 @@ def check(bucket: str, key: str, max_hits: int, window_s: float) -> None:
     with _lock:
         hits = [t for t in _hits.get(k, []) if now - t < window_s]
         if len(hits) >= max_hits:
-            retry = int(window_s - (now - hits[0])) + 1
+            # A configured zero quota disables new work even before a first
+            # hit exists. It must return a retryable refusal, not an IndexError.
+            retry = int(window_s - (now - hits[0])) + 1 if hits else max(1, int(window_s))
             raise HTTPException(429, {
                 "error": "rate_limited",
                 "bucket": bucket,

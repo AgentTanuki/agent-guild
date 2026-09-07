@@ -63,6 +63,8 @@
   "guild_envelope_verify",
   "guild_escrow_open",
   "guild_escrow_release",
+  "guild_evidence_bundle",
+  "guild_evidence_verify",
   "guild_index",
   "guild_paid_operations",
   "guild_passport",
@@ -134,6 +136,7 @@
    "guild_best_agent",
    "guild_risk_score",
    "guild_preflight_deep",
+   "guild_evidence_bundle",
    "guild_envelope_issue",
    "guild_x402_payment_safety"
   ],
@@ -1195,6 +1198,6 @@
   "payment_safety_mcp_card": "https://agent-guild-5d5r.onrender.com/.well-known/mcp/payment-safety-server-card.json",
   "payment_safety_mcp_url": "https://agent-guild-5d5r.onrender.com/mcp/payment-safety/",
   "repository": "https://github.com/AgentTanuki/agent-guild",
-  "version": "2.6.4"
+  "version": "2.7.0"
  }
 }
