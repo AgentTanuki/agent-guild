@@ -1,0 +1,57 @@
+{
+  "name": "pi-agent-guild",
+  "version": "0.1.0",
+  "description": "Agent Guild counterparty trust for the pi coding agent: free live preflight of agent/MCP endpoints and capability checks before you delegate or pay.",
+  "license": "MIT",
+  "author": "AgentTanuki",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AgentTanuki/agent-guild.git",
+    "directory": "integrations/pi-agent-guild"
+  },
+  "homepage": "https://github.com/AgentTanuki/agent-guild",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "coding-agent",
+    "extension",
+    "agent-guild",
+    "agent-trust",
+    "mcp",
+    "a2a",
+    "x402",
+    "preflight"
+  ],
+  "type": "module",
+  "files": [
+    "extensions",
+    "skills",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.85.1",
+    "typebox": ">=1.3.7 <2"
+  },
+  "devDependencies": {
+    "typebox": "1.3.29"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test:live": "AGENT_GUILD_LIVE=1 node --experimental-strip-types --test test/*.test.ts"
+  },
+  "bugs": {
+    "url": "https://github.com/AgentTanuki/agent-guild/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  }
+}
