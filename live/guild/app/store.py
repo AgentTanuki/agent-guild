@@ -2698,6 +2698,10 @@ class Store:
         third-party usage can be isolated. `surface` names the transport the
         event arrived on (mcp / a2a / http), stamped at write time so
         per-surface funnels never guess."""
+        from . import firstparty as _fp_auth
+        # MCP tools and their shared helpers retain the authenticated request
+        # classification without changing the client's own handshake identity.
+        meta.update(_fp_auth.event_metadata())
         with self.lock:
             key = creds.sanitize_actor_key(key)
             acct = self.accounts.get(key or "")
