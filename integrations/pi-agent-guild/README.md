@@ -2,7 +2,29 @@
 
 [Agent Guild](https://github.com/AgentTanuki/agent-guild) counterparty trust for the [pi coding agent](https://pi.dev): check an agent or MCP endpoint in the moment before you delegate to it or pay it.
 
-**npm release pending.** This source has been tested in Pi 0.85.1, with no model call or payment. The corrected preflight service is deployed. Until the npm package is available, use the local extension command below after installing its peer dependencies.
+**npm release pending.** This source has been tested in Pi 0.85.1, with no model call or payment. The corrected preflight service is deployed. You can install the verified source package using the steps below.
+
+## Install from source
+
+With Node.js 22.19 or newer and Pi 0.85.1 installed, run:
+
+```bash
+git clone --filter=blob:none https://github.com/AgentTanuki/agent-guild.git
+git -C agent-guild checkout 4fa1aba933ed360e9b0fe7d8db5c919cde209dc0
+pi install ./agent-guild/integrations/pi-agent-guild
+```
+
+This installs the extension and bundled skill for your Pi user. Add `-l` to the `pi install` command for project scope. Pi supplies the extension's peer dependencies; no `npm install` is needed. Start a new Pi session and run `/guild` to check the configuration.
+
+Keep the clone in place: Pi references the local path without copying it. `pi update` does not update local packages; fetch and review a newer Git revision, then check it out yourself. To uninstall, run `pi remove ./agent-guild/integrations/pi-agent-guild` from the same directory (with `-l` if installed for the project).
+
+To try only the extension without saving an installation:
+
+```bash
+pi -e ./agent-guild/integrations/pi-agent-guild/extensions/agent-guild.ts
+```
+
+Pi 0.85.1's direct Git package source does not support a repository subdirectory, so use the local path above rather than installing this repository root. See Pi's [package documentation](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md) for source and scope options.
 
 ## What you get
 
