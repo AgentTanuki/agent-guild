@@ -407,7 +407,7 @@ def passport_bundle(store, agent: dict[str, Any]) -> dict[str, Any]:
         "verify_call": {
             "method": "POST",
             "url": f"{BASE}/credentials/verify",
-            "body": '{"credential": <the passport JSON you fetched>}',
+            "body": "<the passport JSON you fetched>",
         },
         "badge_url": f"{BASE}/agents/{aid}/badge.svg",
         "expose": {

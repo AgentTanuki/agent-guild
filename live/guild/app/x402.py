@@ -1089,7 +1089,7 @@ def payment_required_body(preq: "PaidRequest", credits_cost: int,
         "prove_control": ("POST /agents/{id}/prove → sign/confirm → "
                           "POST /agents/{id}/prove/verify"),
         "fetch_passport": "GET /agents/{id}/passport (free, Guild-signed VC)",
-        "verify": 'POST /credentials/verify {"credential": <passport JSON>}',
+        "verify": "POST /credentials/verify <passport JSON>",
         "badge": "GET /agents/{id}/badge.svg",
     }
     sandbox_note = "Credits are a SANDBOX settlement unit (not money). "

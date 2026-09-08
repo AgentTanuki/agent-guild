@@ -168,7 +168,7 @@ def ensure_passport_offer(store, agent: dict[str, Any]) -> None:
               f"2) Any party verifies it offline against the Guild's "
               f"published did ({base}/.well-known/agent-guild-did.json) or "
               f"live via POST {base}/credentials/verify "
-              '{"credential": <the passport JSON>}. '
+              "<the passport JSON>. "
               f"3) Embed your live badge: {base}/agents/{aid}/badge.svg. "
               "4) If your operator's policy permits editing your own public "
               "metadata, expose it: add the badge and your passport URL to "

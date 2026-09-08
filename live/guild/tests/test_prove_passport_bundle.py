@@ -56,7 +56,7 @@ def _assert_bundle(passport, aid):
     assert passport["url"].endswith(f"/agents/{aid}/passport")
     vc = passport["verify_call"]
     assert vc["method"] == "POST" and vc["url"].endswith("/credentials/verify")
-    assert "credential" in vc["body"]
+    assert "passport JSON" in vc["body"]
     assert passport["badge_url"].endswith(f"/agents/{aid}/badge.svg")
     assert "agent-guild-did.json" in passport["expose"]["how"]
     # the evidence path rides the same response (author-first-attestation)
