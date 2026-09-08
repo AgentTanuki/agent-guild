@@ -6,7 +6,7 @@
 name: ci
 
 # Trigger model (2026-07-23, machine-loop approval-gate fix):
-#   push: [main, "ship/**"] + workflow_dispatch — deliberately NO
+#   push: [main, "ship/**", "codex/**"] + workflow_dispatch — deliberately NO
 #   `pull_request`.
 #
 # Why no pull_request: GitHub forces the pull_request-triggered runs of a PR
@@ -18,7 +18,7 @@ name: ci
 # workflow_dispatch ci runs are green (observed live on PR #5). Removing the
 # pull_request trigger removes those placeholders entirely.
 #
-# What replaces it: `push: ["ship/**"]`. A ship branch is pushed from an
+# What replaces it: push checks on ship/** and codex/**. These branches are pushed from an
 # authenticated USER session (never GITHUB_TOKEN), so its push-event ci runs
 # start automatically with NO approval gate and report the required contexts
 # on the exact branch head SHA — which is the PR head — satisfying branch
@@ -29,11 +29,11 @@ name: ci
 # Net effect: required checks still all run, branch protection is unchanged,
 # exact-SHA deploy verification and recovery are untouched — only the human
 # approval click is gone. A human fork PR still cannot auto-run these checks
-# (it can't push to ship/** on origin), so protections are TIGHTER, never
+# (it can't push to these branches on origin), so protections are TIGHTER, never
 # relaxed.
 on:
   push:
-    branches: [main, "ship/**"]
+    branches: [main, "ship/**", "codex/**"]
   workflow_dispatch:
 
 jobs:
