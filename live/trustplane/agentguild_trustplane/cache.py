@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from .contract import passport_binding_violation
+from .contract import passport_binding_violation, request_capability_violation
 from .verify import (verify_data_integrity, within_validity,
                      verify_rotation_chain)
 
@@ -125,6 +125,11 @@ class SignedDecisionCache:
             # served back for that identity; refuse before any pin.
             self.counters["verify_failures"] += 1
             return False
+        if kind == "decision" and request_capability_violation(key, signed_doc):
+            # a decision stored under a capability it was not issued for
+            # would be served back for that capability; refuse before any pin.
+            self.counters["verify_failures"] += 1
+            return False
         if not self.issuer_ok(v["issuer_did"]):
             self.counters["verify_failures"] += 1
             return False
@@ -171,6 +176,12 @@ class SignedDecisionCache:
             if passport_binding_violation(key, doc):
                 self.counters["verify_failures"] += 1
                 return None, "corrupt", None
+        if kind == "decision" and request_capability_violation(key, doc):
+            # the slot (sanitised path) may be shared by several keys or
+            # written behind our back: the envelope itself must name this
+            # capability, checked BEFORE issuer_ok so it can never pin.
+            self.counters["verify_failures"] += 1
+            return None, "corrupt", None
         if not self.issuer_ok(v["issuer_did"]):
             self.counters["verify_failures"] += 1
             return None, "corrupt", None

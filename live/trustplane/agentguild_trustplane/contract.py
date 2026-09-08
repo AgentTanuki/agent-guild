@@ -172,3 +172,43 @@ def passport_binding_violation(agent_id: str, doc: Any) -> Optional[str]:
     if m.group(1) != agent_id:
         return f"subject mismatch: credential id names {m.group(1)!r}, not {agent_id!r}"
     return None
+
+
+# --- request ↔ envelope capability binding (pure; shared by client and cache) --
+_CAP_ALLOWED = re.compile(r"[^a-z0-9_.\-]")
+_CAP_MAX_LEN = 64
+
+
+def canonical_capability(capability: Any) -> Optional[str]:
+    """The Guild's deterministic canonical capability id (lower-case, trimmed,
+    whitespace collapsed to hyphens, charset restricted to ``a-z0-9_.-``,
+    bounded length) — the same normalisation the service applies before it
+    issues a decision. None for anything that is not a non-empty string or
+    that canonicalises to nothing."""
+    if not isinstance(capability, str):
+        return None
+    cap = re.sub(r"\s+", "-", capability.strip().lower())
+    cap = _CAP_ALLOWED.sub("", cap)[:_CAP_MAX_LEN]
+    return cap or None
+
+
+def request_capability_violation(requested: Any, envelope: Any) -> Optional[str]:
+    """Bind a signed decision envelope to the capability that was REQUESTED.
+
+    A signed AgentGuildDecision carries the capability it was issued for
+    (``envelope.capability``); serving it for a different request — from
+    the network or from a cache slot — would be evidence about the wrong
+    thing. Returns None only when both canonicalise to the same non-empty
+    id; a missing, malformed or different capability is a violation."""
+    want = canonical_capability(requested)
+    if want is None:
+        return f"requested capability is not a valid capability id: {requested!r}"
+    if not isinstance(envelope, dict):
+        return "envelope is not an object"
+    got = envelope.get("capability")
+    if not isinstance(got, str) or not got.strip():
+        return "envelope has no capability"
+    have = canonical_capability(got)
+    if have != want:
+        return f"envelope capability {got!r} != requested {requested!r}"
+    return None

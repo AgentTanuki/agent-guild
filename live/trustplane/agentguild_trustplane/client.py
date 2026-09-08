@@ -7,8 +7,11 @@ pass 2026-07-13: a live document is returned as channel="live" ONLY after it
   2. comes from an allowed/pinned issuer — a changed issuer is accepted only
      via a VERIFIED dual-signed rotation chain fetched from /ledger/rotations,
   3. is inside its validity window,
-  4. is AGD-1 conformant (when a decision is present), and
-  5. satisfies the one-counterparty binding (decision == routed provider).
+  4. is AGD-1 conformant (when a decision is present),
+  5. satisfies the one-counterparty binding (decision == routed provider), and
+  6. is about the capability that was REQUESTED (envelope.capability, after
+     the Guild's canonicalisation) — a decision for another capability is
+     never served for this one, live or from the cache.
 
 A verification failure is an UNVERIFIED state (channel="unverified"), never
 "live": the cache is consulted, and if nothing verifiable exists the gateway
@@ -47,7 +50,8 @@ from typing import Any, Optional
 
 from ._version import __version__
 from .cache import SignedDecisionCache
-from .contract import validate_decision, binding_violations, passport_binding_violation
+from .contract import (validate_decision, binding_violations,
+                       passport_binding_violation, request_capability_violation)
 from .verify import verify_data_integrity, within_validity
 
 DEFAULT_BASE = "https://agent-guild-5d5r.onrender.com"
@@ -403,15 +407,21 @@ class GuildClient:
                 return True
         return False
 
-    def _verify_live(self, doc: dict[str, Any]) -> Optional[str]:
+    def _verify_live(self, doc: dict[str, Any],
+                     capability: Optional[str] = None) -> Optional[str]:
         """Full verification of a live signed envelope. Returns None when the
-        document is acceptable, else a failure reason."""
+        document is acceptable, else a failure reason. When ``capability``
+        is given the envelope must be about that request."""
         v = verify_data_integrity(doc)
         if not v["verified"]:
             return f"proof: {v['reason']}"
         valid, _age = within_validity(doc)
         if not valid:
             return "outside validity window"
+        if capability is not None:
+            cap_err = request_capability_violation(capability, doc)
+            if cap_err:
+                return "request binding violated: " + cap_err
         decision = doc.get("decision")
         if decision is not None:
             errs = validate_decision(decision)
@@ -463,7 +473,7 @@ class GuildClient:
             fetched = None
             failure = "response is not a JSON object"
         if fetched is not None:
-            failure = self._verify_live(fetched)
+            failure = self._verify_live(fetched, capability)
             if failure is None:
                 self.stats["live_fetches"] += 1
                 if self.cache is not None:
@@ -472,10 +482,16 @@ class GuildClient:
             self.stats["live_verify_failures"] += 1
             self.last_verify_failure = failure
         if self.cache is not None:
+            # cache.get re-verifies, checks the window and the request
+            # capability binding before any issuer pin; a corrupt or
+            # mis-bound entry is an integrity signal, not an outage.
             doc, state, age = self.cache.get("decision", capability)
             if doc is not None:
                 self.stats["cache_serves"] += 1
                 return doc, "cache", age
+            if state == "corrupt" and failure is None:
+                failure = "cached decision failed verification or request binding"
+                self.last_verify_failure = failure
         self.stats["outages"] += 1
         if failure is not None:
             return None, "unverified", None

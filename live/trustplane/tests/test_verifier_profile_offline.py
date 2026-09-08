@@ -215,7 +215,7 @@ def test_rejected_documents_do_not_establish_cache_pin(tmp_path):
     cache._path("passport", "did:key:zSubject").write_text(json.dumps({"stored_at": 0, "doc": expired}))
     assert cache.get("passport", "did:key:zSubject")[:2] == (None, "stale")
     # ... whereas an expired DECISION is still served as stale for the engine (unchanged)
-    dec = iss.sign({"type": "AgentGuildDecision", "issuer": iss.did,
+    dec = iss.sign({"type": "AgentGuildDecision", "issuer": iss.did, "capability": "cap",
                     "issued_at": (NOW - timedelta(days=9)).isoformat(),
                     "valid_until": (NOW - timedelta(days=2)).isoformat()})
     cache._path("decision", "cap").write_text(json.dumps({"stored_at": 0, "doc": dec}))
