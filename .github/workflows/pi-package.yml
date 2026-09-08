@@ -1,0 +1,26 @@
+name: Pi package
+
+on:
+  push:
+    branches: [main, "codex/**", "ship/**"]
+    paths:
+      - "integrations/pi-agent-guild/**"
+      - ".github/workflows/pi-package.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/pi-agent-guild
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-save --ignore-scripts --legacy-peer-deps typebox@1.3.29
+      - run: npm test
