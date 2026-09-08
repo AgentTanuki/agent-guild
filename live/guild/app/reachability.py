@@ -37,6 +37,7 @@ import os
 import socket
 import ssl
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 from urllib.parse import urlsplit
@@ -154,6 +155,8 @@ def _screen_ip(ip) -> tuple[bool, str]:
         return False, "unspecified address"
     if ip.is_reserved:
         return False, "reserved address"
+    if not ip.is_global:
+        return False, "non-global address space"
     return True, "ok"
 
 
@@ -189,16 +192,23 @@ def _connect_pinned(scheme: str, host: str, family: int, addr: str, port: int,
     HTTP layer can never re-resolve the hostname (DNS-rebinding safe). TLS
     verification is NEVER disabled."""
     raw = socket.socket(family, socket.SOCK_STREAM)
-    raw.settimeout(PROBE_TIMEOUT_S)
-    raw.connect((addr, port))
-    if scheme == "https":
-        ctx = ssl_context or ssl.create_default_context()
-        # explicit belt-and-braces: default context already sets these
-        ctx.check_hostname = True
-        ctx.verify_mode = ssl.CERT_REQUIRED
-        # SNI + cert hostname validation both use `host`, not `addr`
-        return ctx.wrap_socket(raw, server_hostname=host)
-    return raw
+    deadline = time.monotonic() + PROBE_TIMEOUT_S
+    try:
+        raw.settimeout(PROBE_TIMEOUT_S)
+        raw.connect((addr, port))
+        if scheme == "https":
+            ctx = ssl_context or ssl.create_default_context()
+            ctx.check_hostname = True
+            ctx.verify_mode = ssl.CERT_REQUIRED
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise socket.timeout("probe connection deadline")
+            raw.settimeout(remaining)
+            return ctx.wrap_socket(raw, server_hostname=host)
+        return raw
+    except Exception:
+        raw.close()
+        raise
 
 
 def _dechunk(raw: bytes) -> bytes:
@@ -222,6 +232,8 @@ def _dechunk(raw: bytes) -> bytes:
             size = int(size_line, 16)
         except ValueError:
             return raw if not out else bytes(out)
+        if size < 0:
+            return raw if not out else bytes(out)
         if size == 0:
             break
         start = eol + 2
@@ -230,20 +242,78 @@ def _dechunk(raw: bytes) -> bytes:
     return bytes(out) if out else raw
 
 
+class _ProbeBody(bytes):
+    """A bytes-compatible prefix with HTTP message-completion evidence."""
+    def __new__(cls, value: bytes, *, complete: bool):
+        obj = super().__new__(cls, value)
+        obj.complete = complete
+        return obj
+
+
+def _http_body_prefix(buf: bytes, method: str, *, eof: bool = False):
+    head, separator, raw = buf.partition(b"\r\n\r\n")
+    bits = head.split(b"\r\n", 1)[0].split(b" ")
+    code = None
+    if len(bits) >= 2 and bits[0].startswith(b"HTTP/"):
+        try:
+            code = int(bits[1])
+        except ValueError:
+            pass
+    if not separator:
+        return code, _ProbeBody(b"", complete=False)
+    headers = {}
+    for line in head.split(b"\r\n")[1:]:
+        key, sep, value = line.partition(b":")
+        if sep:
+            headers[key.strip().lower()] = value.strip().lower()
+    complete = eof
+    if method == "HEAD" or code in (204, 304):
+        raw, complete = b"", True
+    elif b"chunked" in [v.strip() for v in headers.get(b"transfer-encoding", b"").split(b",")]:
+        # Follow chunk boundaries: a zero-looking string inside an event is
+        # never evidence that the HTTP message ended.
+        pos, complete = 0, False
+        while pos < len(raw):
+            eol = raw.find(b"\r\n", pos)
+            if eol < 0:
+                break
+            try:
+                size = int(raw[pos:eol].split(b";", 1)[0], 16)
+            except ValueError:
+                break
+            if size < 0:
+                break
+            if size == 0:
+                tail = raw[eol + 2:]
+                complete = tail.startswith(b"\r\n") or b"\r\n\r\n" in tail
+                break
+            pos = eol + 2 + size
+            if raw[pos:pos + 2] != b"\r\n":
+                break
+            pos += 2
+        raw = _dechunk(raw)
+    elif b"content-length" in headers:
+        length = headers[b"content-length"]
+        complete = length.isdigit() and len(raw) >= int(length)
+        if length.isdigit():
+            raw = raw[:int(length)]
+    return code, _ProbeBody(raw, complete=complete)
+
+
 def _http_request_pinned(scheme: str, host: str, family: int, addr: str,
                          port: int, path: str, method: str = "HEAD",
                          body: Optional[bytes] = None,
                          extra_headers: str = "",
                          ssl_context: Optional[ssl.SSLContext] = None
                          ) -> tuple[Optional[int], bytes]:
-    """One bounded HTTP request over a pinned connection. Returns
-    (status_code, body_prefix). No redirects are followed (caller treats 3xx as
-    a failure). Body read is capped at PROBE_MAX_BYTES; not otherwise processed.
-    No credentials are ever sent."""
+    """One pinned HTTP request, capped in bytes and total connection/read time.
+
+    No redirects or credentials. Retain completion metadata on the bytes
+    prefix, so a stalled stream cannot be confused with a complete bad reply.
+    """
+    deadline = time.monotonic() + PROBE_TIMEOUT_S
     sock = _connect_pinned(scheme, host, family, addr, port, ssl_context)
     try:
-        # Header lookup in ASGI servers may use the first value. Sending the
-        # default */* before MCP's required JSON/SSE Accept caused HTTP 406.
         accept = "" if any(line.lower().startswith("accept:")
                            for line in extra_headers.splitlines()) else "Accept: */*\r\n"
         req = (f"{method} {path} HTTP/1.1\r\nHost: {host}\r\n"
@@ -252,47 +322,38 @@ def _http_request_pinned(scheme: str, host: str, family: int, addr: str,
         if body is not None:
             req += f"Content-Length: {len(body)}\r\n"
         req += "\r\n"
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise socket.timeout("probe deadline")
+        sock.settimeout(remaining)
         sock.sendall(req.encode("ascii", "ignore") + (body or b""))
-        sock.settimeout(PROBE_TIMEOUT_S)
-        buf = b""
+        try:
+            is_initialize = method == "POST" and json.loads(body or b"{}").get("method") == "initialize"
+        except (ValueError, AttributeError):
+            is_initialize = False
+        buf, eof = b"", False
         while len(buf) < PROBE_MAX_BYTES:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                if not buf:
+                    raise socket.timeout("probe deadline")
+                break
+            sock.settimeout(remaining)
             try:
                 chunk = sock.recv(min(1024, PROBE_MAX_BYTES - len(buf)))
             except socket.timeout:
-                # SSE can keep the connection open after a complete reply.
-                # Preserve observed bytes; the protocol parser still requires
-                # a complete, matching result before granting protocol proof.
                 if not buf:
                     raise
                 break
             if not chunk:
+                eof = True
                 break
             buf += chunk
-        first = buf.split(b"\r\n", 1)[0].decode("ascii", "ignore")
-        bits = first.split(" ")
-        code = None
-        if len(bits) >= 2 and bits[0].startswith("HTTP/"):
-            try:
-                code = int(bits[1])
-            except ValueError:
-                code = None
-        head, _, body_prefix = buf.partition(b"\r\n\r\n")
-        if b"\r\n\r\n" not in buf:
-            body_prefix = b""
-        # CHUNKED TRANSFER-ENCODING (defect found 2026-07-31). The raw body of
-        # a chunked response begins with a hex chunk LENGTH line, so every
-        # JSON check downstream failed to parse it. Because the A2A card check
-        # (_looks_like_a2a_card) is what promotes an endpoint from
-        # "http_responsive" to "recently_reachable / protocol_handshake", ANY
-        # agent served over chunked encoding — which is the default for most
-        # streaming frameworks, including our own — was being classified as
-        # unproven. That is why `verified_reachable` read 0 for every entry in
-        # the demand feed: not because nobody was reachable, but because the
-        # prober could not read them. Undercounting reachability is the exact
-        # error class this service exists to eliminate, so it is fixed here.
-        if b"transfer-encoding: chunked" in head.lower():
-            body_prefix = _dechunk(body_prefix)
-        return code, body_prefix
+            _, prefix = _http_body_prefix(buf, method)
+            if prefix.complete or (is_initialize and (
+                    _mcp_initialize_message(prefix) is not None or _complete_json(prefix))):
+                break
+        return _http_body_prefix(buf, method, eof=eof)
     finally:
         try:
             sock.close()
@@ -427,47 +488,61 @@ def liveness_probe(url: str, *, ssl_context: Optional[ssl.SSLContext] = None
                        "none", url, detail=detail)
 
 
-def _mcp_initialize_result(body: bytes) -> bool:
-    """Recognize a complete matching InitializeResult in JSON or SSE.
+def _complete_json(body: bytes) -> bool:
+    try:
+        json.loads(body)
+        return True
+    except (ValueError, UnicodeDecodeError):
+        return False
 
-    Text mentioning jsonrpc/result, error replies, unrelated request IDs and
-    incomplete prefixes are not evidence of a successful initialization.
+
+def _mcp_initialize_message(body: bytes) -> Optional[dict]:
+    """Find the first complete response to our request, including errors.
+
+    SSE notifications and unrelated responses can precede the reply. Only a
+    blank-line-terminated event is complete; remote instructions are ignored.
     """
     try:
         text = body.decode("utf-8")
     except UnicodeDecodeError:
-        return False
+        return None
     candidates = [text]
-    data: list[str] = []
-    for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
-        if not line:
-            if data:
-                candidates.append("\n".join(data))
-                data = []
-        elif line.startswith("data:"):
-            data.append(line[5:].removeprefix(" "))
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    for event in normalized.split("\n\n")[:-1]:
+        data = [line[5:].removeprefix(" ") for line in event.split("\n")
+                if line.startswith("data:")]
+        if data:
+            candidates.append("\n".join(data))
     for candidate in candidates:
         try:
             msg = json.loads(candidate)
         except (ValueError, UnicodeDecodeError):
             continue
-        if (not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0"
-                or type(msg.get("id")) is not int or msg["id"] != 1
-                or "error" in msg):
-            continue
-        result = msg.get("result")
-        if not isinstance(result, dict):
-            continue
-        info = result.get("serverInfo")
-        if (isinstance(result.get("protocolVersion"), str)
-                and result["protocolVersion"] in {
-                "2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"}
-                and isinstance(result.get("capabilities"), dict)
-                and isinstance(info, dict)
-                and all(isinstance(info.get(k), str) and info[k].strip()
-                        for k in ("name", "version"))):
-            return True
-    return False
+        if (isinstance(msg, dict) and msg.get("jsonrpc") == "2.0"
+                and type(msg.get("id")) in (int, float) and msg["id"] == 1
+                and ("result" in msg or "error" in msg)):
+            return msg
+    return None
+
+
+def _mcp_initialize_result(body: bytes) -> bool:
+    """Validate an observed InitializeResult, not a successful tool call."""
+    msg = _mcp_initialize_message(body)
+    if msg is None or "error" in msg or not isinstance(msg.get("result"), dict):
+        return False
+    result = msg["result"]
+    version = result.get("protocolVersion")
+    if not isinstance(version, str):
+        return False
+    try:
+        if datetime.strptime(version, "%Y-%m-%d").date().isoformat() != version:
+            return False
+    except ValueError:
+        return False
+    info = result.get("serverInfo")
+    return (isinstance(result.get("capabilities"), dict) and isinstance(info, dict)
+            and all(isinstance(info.get(k), str) and info[k].strip()
+                    for k in ("name", "version")))
 
 
 def _classify(parts, req, observations: Optional[dict] = None
@@ -493,22 +568,29 @@ def _classify(parts, req, observations: Optional[dict] = None
                          headers="Content-Type: application/json\r\n"
                                  "Accept: application/json, text/event-stream\r\n")
         if code and 200 <= code < 300 and _mcp_initialize_result(body):
-            return OUTCOME_PROTOCOL_RESPONSIVE, code, "mcp initialise handshake"
+            version = _mcp_initialize_message(body)["result"]["protocolVersion"]
+            return OUTCOME_PROTOCOL_RESPONSIVE, code, f"mcp initialise response (protocol {version})"
         if code in (401, 402, 403):
             if observations is not None:
                 observations["protocol_probe"] = {
                     "protocol": "mcp", "result": "authorization_required",
                     "http_status": code}
             return OUTCOME_HTTP_RESPONSIVE, code, f"MCP initialize requires authorization (HTTP {code})"
-        # The bounded reader may receive only part of a large JSON/SSE reply.
-        # That cannot prove the protocol, but is not evidence it is broken.
-        text = body.decode("utf-8", "replace").strip()
-        if code and 200 <= code < 300 and (text.startswith(("{", "event:", "data:", ":"))):
+        if code and 200 <= code < 300:
+            # Complete JSON documents and matching error/invalid responses
+            # fail even if the HTTP stream stays open. Only an actually
+            # incomplete observation is unknown. Plain bytes in callers/tests
+            # mean a complete supplied body unless explicitly marked otherwise.
+            incomplete = (not getattr(body, "complete", True)
+                          and not _complete_json(body)
+                          and _mcp_initialize_message(body) is None)
+            result = "inconclusive" if incomplete else "failed"
             if observations is not None:
                 observations["protocol_probe"] = {
-                    "protocol": "mcp", "result": "inconclusive",
-                    "http_status": code}
-            return OUTCOME_HTTP_RESPONSIVE, code, "MCP response did not contain a complete matching initialization result"
+                    "protocol": "mcp", "result": result, "http_status": code}
+            detail = ("MCP response incomplete before probe limit" if incomplete else
+                      "MCP response did not contain a valid matching initialization result")
+            return OUTCOME_HTTP_RESPONSIVE, code, detail
     # Generic fallback: HEAD, then GET if HEAD is not allowed (405).
     code, _ = req(path, method="HEAD")
     if code is None:
