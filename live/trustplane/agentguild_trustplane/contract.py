@@ -21,6 +21,7 @@ integrators can vendor it.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 from .verify import within_validity
@@ -125,4 +126,89 @@ def staleness_days(decision: dict[str, Any]) -> Optional[float]:
     s = decision.get("staleness")
     if isinstance(s, dict):
         return s.get("age_days")
+    return None
+
+
+# --- Agent Passport subject binding (pure; shared by client and cache) --------
+PASSPORT_TYPE = "AgentGuildPassport"
+# The issuer's credential id for a passport: urn:passport:<guild agent id>:<unix ts>
+_PASSPORT_ID_RE = re.compile(r"^urn:passport:([A-Za-z0-9_.-]+):(\d+)$")
+
+
+def passport_binding_violation(agent_id: str, doc: Any) -> Optional[str]:
+    """Bind an Agent Passport to the identity that was asked for.
+
+    Returns None only when the binding is POSITIVELY proven; any doubt is a
+    reason string. Rules: ``credentialSubject.id`` must be a non-empty
+    string and ``type`` must include AgentGuildPassport. A ``did:`` request
+    must equal ``credentialSubject.id``. A Guild-local id can only be bound
+    through the issuer's well-formed credential id
+    ``urn:passport:<agent_id>:<timestamp>``; an absent, malformed or
+    differently-named credential id is a violation, never a pass-through."""
+    if not isinstance(agent_id, str) or not agent_id:
+        return "no subject requested"
+    if not isinstance(doc, dict):
+        return "credential is not an object"
+    subject = doc.get("credentialSubject")
+    if not isinstance(subject, dict):
+        return "credentialSubject missing"
+    sid = subject.get("id")
+    if not isinstance(sid, str) or not sid:
+        return "credentialSubject.id missing or not a string"
+    types = doc.get("type")
+    if isinstance(types, str):
+        types = [types]
+    if not isinstance(types, list) or PASSPORT_TYPE not in types:
+        return f"not an {PASSPORT_TYPE} credential"
+    if agent_id.startswith("did:"):
+        if sid != agent_id:
+            return f"subject mismatch: credential is about {sid!r}, not {agent_id!r}"
+        return None
+    cred_id = doc.get("id")
+    m = _PASSPORT_ID_RE.match(cred_id) if isinstance(cred_id, str) else None
+    if m is None:
+        return ("cannot bind local id: credential id is not a well-formed "
+                "urn:passport:<agent_id>:<timestamp>")
+    if m.group(1) != agent_id:
+        return f"subject mismatch: credential id names {m.group(1)!r}, not {agent_id!r}"
+    return None
+
+
+# --- request ↔ envelope capability binding (pure; shared by client and cache) --
+_CAP_ALLOWED = re.compile(r"[^a-z0-9_.\-]")
+_CAP_MAX_LEN = 64
+
+
+def canonical_capability(capability: Any) -> Optional[str]:
+    """The Guild's deterministic canonical capability id (lower-case, trimmed,
+    whitespace collapsed to hyphens, charset restricted to ``a-z0-9_.-``,
+    bounded length) — the same normalisation the service applies before it
+    issues a decision. None for anything that is not a non-empty string or
+    that canonicalises to nothing."""
+    if not isinstance(capability, str):
+        return None
+    cap = re.sub(r"\s+", "-", capability.strip().lower())
+    cap = _CAP_ALLOWED.sub("", cap)[:_CAP_MAX_LEN]
+    return cap or None
+
+
+def request_capability_violation(requested: Any, envelope: Any) -> Optional[str]:
+    """Bind a signed decision envelope to the capability that was REQUESTED.
+
+    A signed AgentGuildDecision carries the capability it was issued for
+    (``envelope.capability``); serving it for a different request — from
+    the network or from a cache slot — would be evidence about the wrong
+    thing. Returns None only when both canonicalise to the same non-empty
+    id; a missing, malformed or different capability is a violation."""
+    want = canonical_capability(requested)
+    if want is None:
+        return f"requested capability is not a valid capability id: {requested!r}"
+    if not isinstance(envelope, dict):
+        return "envelope is not an object"
+    got = envelope.get("capability")
+    if not isinstance(got, str) or not got.strip():
+        return "envelope has no capability"
+    have = canonical_capability(got)
+    if have != want:
+        return f"envelope capability {got!r} != requested {requested!r}"
     return None

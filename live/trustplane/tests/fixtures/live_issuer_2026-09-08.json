@@ -1,0 +1,17 @@
+{
+ "captured_at": "2026-09-08T11:33:30.107087+00:00",
+ "note": "Unpaid, first-party-marked live response captured by the operator (Root) on 2026-09-08; used as an offline fixture. No payment was sent.",
+ "path": "/ledger/issuer",
+ "status": 200,
+ "headers": {
+  "Content-Type": "application/json"
+ },
+ "body": {
+  "did": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+  "history": [
+   "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R"
+  ],
+  "rotations": [],
+  "continuity_valid": true
+ }
+}
