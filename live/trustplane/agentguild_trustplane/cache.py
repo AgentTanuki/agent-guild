@@ -113,6 +113,12 @@ class SignedDecisionCache:
         if not v["verified"]:
             self.counters["verify_failures"] += 1
             return False
+        valid, _age = within_validity(signed_doc)
+        if not valid:
+            # not valid NOW (future start, expired, or malformed window): it
+            # must not enter the cache and must not establish a TOFU pin.
+            self.counters["verify_failures"] += 1
+            return False
         if not self.issuer_ok(v["issuer_did"]):
             self.counters["verify_failures"] += 1
             return False
@@ -139,12 +145,19 @@ class SignedDecisionCache:
             self.counters["verify_failures"] += 1
             return None, "corrupt", None
         v = verify_data_integrity(doc)
-        if not v["verified"] or not self.issuer_ok(v["issuer_did"]):
+        if not v["verified"]:
             self.counters["verify_failures"] += 1
             return None, "corrupt", None
         valid, age = within_validity(doc)
-        if age is not None:
-            self.served_ages.append(age)
+        if age is None or (age < 0 and not valid):
+            # malformed window or a start in the future: never served, and
+            # (checked BEFORE issuer_ok) never a source of a TOFU pin.
+            self.counters["verify_failures"] += 1
+            return None, "corrupt", None
+        if not self.issuer_ok(v["issuer_did"]):
+            self.counters["verify_failures"] += 1
+            return None, "corrupt", None
+        self.served_ages.append(age)
         if valid:
             self.counters["hit_fresh"] += 1
             return doc, "fresh", age
