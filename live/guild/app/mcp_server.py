@@ -147,7 +147,7 @@ def _client_ua(ctx: "Context | None") -> str:
 def _http_headers_for_attribution() -> dict:
     """The HTTP headers of the current MCP request (Streamable HTTP mount),
     lowercase keys — {} when unavailable (stdio/tests). Used ONLY for
-    first-party payer attribution; never for authorization."""
+    first-party event and payer attribution; never for authorization."""
     try:
         from fastmcp.server.dependencies import get_http_headers
         return {str(k).lower(): v for k, v in (get_http_headers() or {}
@@ -283,6 +283,21 @@ mcp = FastMCP(
     ),
 )
 
+
+class FirstPartyAttributionMiddleware(Middleware):
+    """Preserve token-validated attribution for every event in a tool call."""
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        from . import firstparty as _fp_auth
+        headers = _http_headers_for_attribution()
+        with _fp_auth.event_context(
+                headers.get(_fp_auth.HEADER.lower()),
+                headers.get(_fp_auth.LEGACY_HEADER.lower()),
+                headers.get(_fp_auth.ROLE_HEADER.lower())):
+            return await call_next(context)
+
+
+mcp.add_middleware(FirstPartyAttributionMiddleware())
 # one caller-proof verification per tools/call, on the REAL execution path.
 mcp.add_middleware(CallerProofMiddleware())
 

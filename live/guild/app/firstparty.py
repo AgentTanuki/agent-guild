@@ -25,11 +25,35 @@ from __future__ import annotations
 
 import hmac
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Optional
 
 HEADER = "X-Agent-Guild-First-Party"
 LEGACY_HEADER = "X-Guild-Source"
 ROLE_HEADER = "X-Agent-Guild-Role"
+
+# Only validated classification crosses the tool execution boundary. Never
+# retain a presented token in event metadata or a session shared by callers.
+_event_attribution: ContextVar[Optional[str]] = ContextVar(
+    "first_party_event_role", default=None)
+
+
+@contextmanager
+def event_context(presented=None, legacy=None, role=None):
+    """Scope first-party event classification to one transport request."""
+    value = role_of(role) if is_first_party(presented, legacy) else None
+    token = _event_attribution.set(value)
+    try:
+        yield
+    finally:
+        _event_attribution.reset(token)
+
+
+def event_metadata() -> dict:
+    """Validated classification only; no authentication or billing authority."""
+    role = _event_attribution.get()
+    return {} if role is None else {"fp": True, "fp_role": role}
 
 
 def _configured_tokens() -> list[str]:
