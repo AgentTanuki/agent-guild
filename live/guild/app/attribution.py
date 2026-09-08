@@ -43,7 +43,9 @@ FRAMEWORK_RE = re.compile(
 # emitted by our own worker or copied by any caller. Keep it distinct from
 # AG_TEST (a real third party may use the skill) and from EXTERNAL_* (the UA
 # alone is never enough to claim external demand or revenue).
-PROPAGATION_UA_RE = re.compile(r"\bagentguild-skill(?:/|\b)", re.I)
+# The Pi package also identifies our distributed integration, not ownership
+# of its caller. Keep its usage observable without manufacturing external growth.
+PROPAGATION_UA_RE = re.compile(r"\b(?:agentguild-skill|pi-agent-guild)(?:/|\b)", re.I)
 
 # Bare tooling — indistinguishable from our own verification calls. NOT genuine.
 # `guild-ops-check` is our own scheduled ops probe and is named here explicitly
@@ -422,6 +424,9 @@ def caller_class(event: Mapping[str, Any], *,
         return "AG_TEST"
     if CRAWLER_UA_RE.search(ua):
         return "REGISTRY_CRAWLER"
+    # Deliberately retain the propagation guard ahead of member flags:
+    # holding a Guild-issued key does not establish independent ownership of
+    # an AG-distributed client. Track usage separately from external growth.
     if PROPAGATION_UA_RE.search(ua):
         return "PROPAGATION_CLIENT"
     if member and verified:

@@ -108,14 +108,15 @@ def test_unsigned_card_is_caution_not_a_block(monkeypatch):
     assert "agent_card_signed" in out["failed"]
 
 
-def test_payment_claim_that_does_not_challenge_is_a_failure(monkeypatch):
-    """5.7% of self-declared paid agents actually return 402."""
+def test_free_discovery_root_does_not_disprove_paid_operations(monkeypatch):
+    """Free discovery and initialization may coexist with paid tool calls."""
     card = json.dumps({"protocolVersion": "0.3", "x402": {"price": "0.01"}}).encode()
     _fake(monkeypatch, probe={"status": "recently_reachable",
                               "evidence_level": "protocol_handshake"},
           card_body=card, root_code=200)
     out = preflight.run("https://example.com/a2a")
-    assert "payment_claim_holds" in out["failed"]
+    assert "payment_claim_holds" in out["unknowns"]
+    assert "payment_claim_holds" not in out["failed"]
 
 
 def test_payment_claim_that_does_challenge_passes(monkeypatch):

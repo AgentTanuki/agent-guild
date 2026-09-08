@@ -97,7 +97,7 @@ def test_a2a_card_handshake_is_recently_reachable_and_routable():
 
 def test_mcp_initialise_handshake_is_recently_reachable():
     s = _fresh(); a = s.register_agent("MCP", ["x"], {})
-    body = b'{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26"}}'
+    body = b'{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26","capabilities":{},"serverInfo":{"name":"test","version":"1"}}}'
     with mock.patch.object(R.socket, "getaddrinfo", return_value=_ai("93.184.216.34")), \
          mock.patch.object(R, "_http_request_pinned", return_value=(200, body)):
         out = s.set_agent_endpoint(a["id"], "https://prov.example/mcp/", verify=True)

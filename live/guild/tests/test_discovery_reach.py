@@ -198,11 +198,16 @@ def test_agent_skill_identity_is_transparent_but_not_independent(tmp_path):
         ua="mcp:agentguild-skill/1.1 (host=codex)",
         endpoint="check", actor_distinct=True,
     )
+    store.record_event(
+        "http:pi-package-user", "query",
+        ua="pi-agent-guild/0.1.0 (pi coding agent extension)",
+        endpoint="check", actor_distinct=True,
+    )
     report = store.discovery_reach()
     assert report["qualified_distinct_autonomous_agents"] == 0
     assert report["tiers"]["T3_framework_ua_actors"] == 0
     assert report["evidence"]["excluded_distinct_actors_by_reason"] == {
-        "propagation_client": 2,
+        "propagation_client": 3,
     }
 
 
