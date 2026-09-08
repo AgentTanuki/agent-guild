@@ -223,3 +223,21 @@ def test_negative_chunk_length_is_rejected_without_looping():
     assert r._dechunk(raw) == raw
     _, prefix = r._http_body_prefix(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n" + raw, "POST")
     assert prefix.complete is False
+
+
+@pytest.mark.parametrize("path", ["/sse", "/api/agent", "/api?hint=/mcp"])
+def test_unattempted_protocol_is_unknown_and_never_proven(monkeypatch, path):
+    calls = []
+    def request(*args, **kwargs):
+        calls.append(args[6])
+        return 200, b""
+    monkeypatch.setattr(r, "_resolve_and_screen", lambda *args:
+                        (True, [(socket.AF_INET, "93.184.216.34")], "ok"))
+    monkeypatch.setattr(r, "_http_request_pinned", request)
+    monkeypatch.setattr(preflight, "_probe_get", lambda *args: (404, b"", ""))
+    out = preflight.run("https://example.com" + path)
+    assert calls == ["HEAD"]
+    check = next(c for c in out["checks"] if c["check"] == "protocol_handshake")
+    assert check["status"] == "unknown"
+    assert "no protocol probe applies" in check["detail"]
+    assert "protocol_handshake" not in out["failed"]

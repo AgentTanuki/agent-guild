@@ -120,15 +120,18 @@ def run(url: str, *, store=None) -> dict[str, Any]:
                              rec.get("detail") or "responded"))
         checks.append(_check(
             "protocol_handshake", "proven",
-            "completed a real A2A/MCP handshake, not merely an HTTP 200"))
+            "received an A2A card or valid MCP initialization response; "
+            "this does not prove successful task execution"))
     elif status == "http_responsive":
         checks.append(_check("endpoint_reachable", "proven",
                              "something answered over HTTP"))
-        incomplete = (rec.get("protocol_probe") or {}).get("result") in (
-            "authorization_required", "inconclusive")
+        probe_result = (rec.get("protocol_probe") or {}).get("result")
+        incomplete = probe_result in (
+            "authorization_required", "inconclusive", "not_attempted")
         checks.append(_check(
             "protocol_handshake", "unknown" if incomplete else "failed",
-            rec.get("detail") if incomplete else
+            "no protocol probe applies to this endpoint path" if probe_result == "not_attempted"
+            else rec.get("detail") if incomplete else
             "the unauthenticated bounded probe did not observe a successful "
             "agent protocol handshake; an HTTP response alone is not protocol proof"))
     else:

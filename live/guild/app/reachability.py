@@ -591,6 +591,10 @@ def _classify(parts, req, observations: Optional[dict] = None
             detail = ("MCP response incomplete before probe limit" if incomplete else
                       "MCP response did not contain a valid matching initialization result")
             return OUTCOME_HTTP_RESPONSIVE, code, detail
+    if (observations is not None and "/a2a" not in parts.path
+            and "/mcp" not in parts.path and parts.path not in ("", "/")):
+        observations["protocol_probe"] = {
+            "protocol": "unspecified", "result": "not_attempted"}
     # Generic fallback: HEAD, then GET if HEAD is not allowed (405).
     code, _ = req(path, method="HEAD")
     if code is None:

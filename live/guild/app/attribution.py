@@ -424,6 +424,9 @@ def caller_class(event: Mapping[str, Any], *,
         return "AG_TEST"
     if CRAWLER_UA_RE.search(ua):
         return "REGISTRY_CRAWLER"
+    # Deliberately retain the propagation guard ahead of member flags:
+    # holding a Guild-issued key does not establish independent ownership of
+    # an AG-distributed client. Track usage separately from external growth.
     if PROPAGATION_UA_RE.search(ua):
         return "PROPAGATION_CLIENT"
     if member and verified:
