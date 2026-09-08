@@ -41,6 +41,9 @@
     "@earendil-works/pi-coding-agent": "^0.85.1",
     "typebox": ">=1.3.7 <2"
   },
+  "devDependencies": {
+    "typebox": "1.3.29"
+  },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "test:live": "AGENT_GUILD_LIVE=1 node --experimental-strip-types --test test/*.test.ts"
