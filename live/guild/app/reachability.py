@@ -242,9 +242,13 @@ def _http_request_pinned(scheme: str, host: str, family: int, addr: str,
     No credentials are ever sent."""
     sock = _connect_pinned(scheme, host, family, addr, port, ssl_context)
     try:
+        # Header lookup in ASGI servers may use the first value. Sending the
+        # default */* before MCP's required JSON/SSE Accept caused HTTP 406.
+        accept = "" if any(line.lower().startswith("accept:")
+                           for line in extra_headers.splitlines()) else "Accept: */*\r\n"
         req = (f"{method} {path} HTTP/1.1\r\nHost: {host}\r\n"
                f"User-Agent: guild-reachability-probe/1\r\n"
-               f"Accept: */*\r\nConnection: close\r\n{extra_headers}")
+               f"{accept}Connection: close\r\n{extra_headers}")
         if body is not None:
             req += f"Content-Length: {len(body)}\r\n"
         req += "\r\n"
@@ -252,7 +256,15 @@ def _http_request_pinned(scheme: str, host: str, family: int, addr: str,
         sock.settimeout(PROBE_TIMEOUT_S)
         buf = b""
         while len(buf) < PROBE_MAX_BYTES:
-            chunk = sock.recv(min(1024, PROBE_MAX_BYTES - len(buf)))
+            try:
+                chunk = sock.recv(min(1024, PROBE_MAX_BYTES - len(buf)))
+            except socket.timeout:
+                # SSE can keep the connection open after a complete reply.
+                # Preserve observed bytes; the protocol parser still requires
+                # a complete, matching result before granting protocol proof.
+                if not buf:
+                    raise
+                break
             if not chunk:
                 break
             buf += chunk
@@ -403,8 +415,11 @@ def liveness_probe(url: str, *, ssl_context: Optional[ssl.SSLContext] = None
         return record
     if outcome == OUTCOME_HTTP_RESPONSIVE:
         # a server answered but proved no protocol — weak evidence, NOT routable
-        return _probe_record("http_responsive", "declaration_probe",
-                           "http_response", url, detail=detail)
+        record = _probe_record("http_responsive", "declaration_probe",
+                               "http_response", url, detail=detail)
+        if observations.get("protocol_probe"):
+            record["protocol_probe"] = observations["protocol_probe"]
+        return record
     if outcome == OUTCOME_UNREACHABLE:
         return _probe_record("currently_unreachable", "declaration_probe",
                            "none", url, detail=detail)
@@ -412,13 +427,55 @@ def liveness_probe(url: str, *, ssl_context: Optional[ssl.SSLContext] = None
                        "none", url, detail=detail)
 
 
+def _mcp_initialize_result(body: bytes) -> bool:
+    """Recognize a complete matching InitializeResult in JSON or SSE.
+
+    Text mentioning jsonrpc/result, error replies, unrelated request IDs and
+    incomplete prefixes are not evidence of a successful initialization.
+    """
+    try:
+        text = body.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    candidates = [text]
+    data: list[str] = []
+    for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if not line:
+            if data:
+                candidates.append("\n".join(data))
+                data = []
+        elif line.startswith("data:"):
+            data.append(line[5:].removeprefix(" "))
+    for candidate in candidates:
+        try:
+            msg = json.loads(candidate)
+        except (ValueError, UnicodeDecodeError):
+            continue
+        if (not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0"
+                or type(msg.get("id")) is not int or msg["id"] != 1
+                or "error" in msg):
+            continue
+        result = msg.get("result")
+        if not isinstance(result, dict):
+            continue
+        info = result.get("serverInfo")
+        if (isinstance(result.get("protocolVersion"), str)
+                and result["protocolVersion"] in {
+                "2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"}
+                and isinstance(result.get("capabilities"), dict)
+                and isinstance(info, dict)
+                and all(isinstance(info.get(k), str) and info[k].strip()
+                        for k in ("name", "version"))):
+            return True
+    return False
+
+
 def _classify(parts, req, observations: Optional[dict] = None
               ) -> tuple[str, Optional[int], str]:
     """Return (outcome, http_code, detail). Protocol-specific first."""
-    path = parts.path or "/"
-    base = ""  # same host, path swapped
+    path = (parts.path or "/") + ("?" + parts.query if parts.query else "")
     # A2A: an Agent Card at the well-known path with card markers = protocol proof
-    if "/a2a" in path or path in ("", "/"):
+    if "/a2a" in parts.path or parts.path in ("", "/"):
         code, body = req("/.well-known/agent-card.json", method="GET")
         if code and 200 <= code < 300 and _looks_like_a2a_card(body):
             if observations is not None:
@@ -426,7 +483,7 @@ def _classify(parts, req, observations: Optional[dict] = None
                     body, parts.geturl())
             return OUTCOME_PROTOCOL_RESPONSIVE, code, "a2a agent-card handshake"
     # MCP: initialise handshake (no secrets) with a jsonrpc result = protocol proof
-    if "/mcp" in path:
+    if "/mcp" in parts.path:
         init = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
                            "params": {"protocolVersion": "2025-03-26",
                                       "capabilities": {},
@@ -435,8 +492,23 @@ def _classify(parts, req, observations: Optional[dict] = None
         code, body = req(path, method="POST", body=init,
                          headers="Content-Type: application/json\r\n"
                                  "Accept: application/json, text/event-stream\r\n")
-        if code and 200 <= code < 300 and b"jsonrpc" in body and b"result" in body:
+        if code and 200 <= code < 300 and _mcp_initialize_result(body):
             return OUTCOME_PROTOCOL_RESPONSIVE, code, "mcp initialise handshake"
+        if code in (401, 402, 403):
+            if observations is not None:
+                observations["protocol_probe"] = {
+                    "protocol": "mcp", "result": "authorization_required",
+                    "http_status": code}
+            return OUTCOME_HTTP_RESPONSIVE, code, f"MCP initialize requires authorization (HTTP {code})"
+        # The bounded reader may receive only part of a large JSON/SSE reply.
+        # That cannot prove the protocol, but is not evidence it is broken.
+        text = body.decode("utf-8", "replace").strip()
+        if code and 200 <= code < 300 and (text.startswith(("{", "event:", "data:", ":"))):
+            if observations is not None:
+                observations["protocol_probe"] = {
+                    "protocol": "mcp", "result": "inconclusive",
+                    "http_status": code}
+            return OUTCOME_HTTP_RESPONSIVE, code, "MCP response did not contain a complete matching initialization result"
     # Generic fallback: HEAD, then GET if HEAD is not allowed (405).
     code, _ = req(path, method="HEAD")
     if code is None:

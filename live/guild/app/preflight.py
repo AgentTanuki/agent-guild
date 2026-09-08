@@ -124,11 +124,13 @@ def run(url: str, *, store=None) -> dict[str, Any]:
     elif status == "http_responsive":
         checks.append(_check("endpoint_reachable", "proven",
                              "something answered over HTTP"))
+        incomplete = (rec.get("protocol_probe") or {}).get("result") in (
+            "authorization_required", "inconclusive")
         checks.append(_check(
-            "protocol_handshake", "failed",
-            "a server answered but proved NO agent protocol. This is the "
-            "single most common failure mode measured in the wild: 92.9% of "
-            "listed agents report healthy, 33.9% actually complete a task."))
+            "protocol_handshake", "unknown" if incomplete else "failed",
+            rec.get("detail") if incomplete else
+            "the unauthenticated bounded probe did not observe a successful "
+            "agent protocol handshake; an HTTP response alone is not protocol proof"))
     else:
         checks.append(_check("endpoint_reachable", "failed",
                              rec.get("detail") or "no response"))
@@ -192,10 +194,10 @@ def run(url: str, *, store=None) -> dict[str, Any]:
                                  perr or "could not probe the paid surface"))
         else:
             checks.append(_check(
-                "payment_claim_holds", "failed",
-                f"card advertises payment but the endpoint answered {pcode}, "
-                "not 402. Measured in the wild: only 5.7% of self-declared "
-                "paid agents actually challenge."))
+                "payment_claim_holds", "unknown",
+                f"the discovery root answered {pcode}, not 402. A free root "
+                "can coexist with paid operations; the card's paid operation "
+                "was not executed, so its payment claim is unverified."))
     else:
         checks.append(_check("payment_claim_holds", "unknown",
                              "the card makes no payment claim to test"))
@@ -234,7 +236,8 @@ def run(url: str, *, store=None) -> dict[str, Any]:
             "This endpoint did not prove it can do the thing it is listed for.")
     elif failed_other:
         verdict, headline = "delegate_with_caution", (
-            "It works, but at least one of its own claims does not hold.")
+            "At least one check failed; inspect its details and the unknowns "
+            "before deciding whether to delegate.")
     else:
         verdict, headline = "no_failed_checks", (
             "Every check we could perform passed. That is not an endorsement — "
