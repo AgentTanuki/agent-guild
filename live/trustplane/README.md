@@ -11,7 +11,7 @@ delegation your framework makes under a policy **you** own.
 > release is uploaded. Until then install from source:
 >
 > ```
-> pip install "git+https://github.com/AgentTanuki/agent-guild.git@f4c9edffe5a262ed4379a54aeaa1e0738e51e0f9#subdirectory=live/trustplane"
+> pip install "git+https://github.com/AgentTanuki/agent-guild.git@f7c33a521c5e684d379ed9584b6879b6ea6dad56#subdirectory=live/trustplane"
 > # or, from a checkout:
 > pip install ./live/trustplane
 > ```

@@ -52,6 +52,7 @@ jobs:
                   standalone = relative.name in {
                       "test_client_transport_offline.py", "test_verifier_profile_offline.py",
                       "test_import_side_effects.py", "test_root_review_regressions.py",
+                      "test_request_binding_offline.py",
                   }
                   fixture = len(relative.parts) == 3 and relative.parts[1] == "fixtures"
                   if not (standalone or fixture):
@@ -60,7 +61,7 @@ jobs:
                   target.parent.mkdir(parents=True, exist_ok=True)
                   target.write_bytes(archive.extractfile(member).read())
                   copied += 1
-          assert copied >= 8, "source distribution is missing standalone tests or fixtures"
+          assert copied >= 9, "source distribution is missing standalone tests or fixtures"
           PY
       - name: Test wheel and source installs outside the checkout
         env:
