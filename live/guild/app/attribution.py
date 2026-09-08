@@ -114,6 +114,19 @@ def is_guild_operated_agent(agent_id: str | None,
 # never silently hide a real agent. The same UA OUTSIDE the window still counts.
 KNOWN_FIRST_PARTY_INCIDENTS: list[dict[str, str]] = [
     {
+        "ua": "mcp:MCPClient/1.0.0",
+        "from": "2026-09-08T13:16:45.477651+00:00",
+        "to": "2026-09-08T13:16:46.276347+00:00",
+        "reason": "Guild-operated Google ADK TypeScript 2.0.0 integration "
+                  "validation for google/adk-docs PR #2210. The native MCP "
+                  "client sent first-party headers, but MCP discovery event "
+                  "recording ignored them. These nine paid_offer_served "
+                  "events are our free preflight and operation-catalogue "
+                  "checks, not new external engagement. The exact observed "
+                  "window leaves this generic SDK identity external outside "
+                  "the validation run; append-only source events are retained.",
+    },
+    {
         "actor_alias_sha256": (
             "f7ea1d14b9d84c12b41afdb0cf0e872726583f1edc06ed58b367af3376b484a4"
         ),
