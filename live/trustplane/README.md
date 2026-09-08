@@ -11,7 +11,7 @@ delegation your framework makes under a policy **you** own.
 > release is uploaded. Until then install from source:
 >
 > ```
-> pip install "git+https://github.com/AgentTanuki/agent-guild.git@main#subdirectory=live/trustplane"
+> pip install "git+https://github.com/AgentTanuki/agent-guild.git@f4c9edffe5a262ed4379a54aeaa1e0738e51e0f9#subdirectory=live/trustplane"
 > # or, from a checkout:
 > pip install ./live/trustplane
 > ```
@@ -169,7 +169,7 @@ authed = GuildClient(api_key=api_key)
 
 `register` posts exactly what you pass (plus an honest `src` attribution
 tag naming this package; `src=None` omits it). It never requests seed
-status, never sends admin or first-party headers, and does not store, adopt
+status, does not add admin or first-party headers, and does not store, adopt
 or log the key. Bring your own ed25519 key (`public_key=<hex>`) for a
 self-sovereign identity. Then: `authed.passport_result(resp["id"])`.
 
