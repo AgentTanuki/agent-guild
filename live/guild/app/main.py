@@ -3046,7 +3046,8 @@ def verify_credential_endpoint(credential: dict, request: Request,
     """Verify any Guild-issued credential (e.g. an Agent Passport) offline-style:
     returns whether it's a valid, Guild-signed credential plus the subject's LIVE
     reputation (so a stale snapshot can't mislead). This is the propagation entry
-    point — checking a passport you received is how you discover the Guild. Free."""
+    point — checking a passport you received is how you discover the Guild. Free.
+    The JSON request body is the credential object itself."""
     return store.verify_passport(credential, actor_key=x_api_key, ua=_ua.get())
 
 
@@ -3342,7 +3343,7 @@ def _passport_offer_block(surface: str) -> dict[str, Any]:
                           "POST /agents/{id}/prove/verify"),
         "fetch_passport": ("GET /agents/{id}/passport — a Guild-signed "
                            "Verifiable Credential, verifiable offline"),
-        "verify": 'POST /credentials/verify {"credential": <passport JSON>}',
+        "verify": "POST /credentials/verify <passport JSON>",
         "badge": "GET /agents/{id}/badge.svg",
         "issuer_did": "/.well-known/agent-guild-did.json",
     }
@@ -3950,8 +3951,7 @@ def _manifest() -> dict:
                 "POST /agents/{id}/prove/verify",
                 "GET /agents/{id}/passport (free)",
             ],
-            "verify": ('POST /credentials/verify '
-                       '{"credential": <passport JSON>}'),
+            "verify": "POST /credentials/verify <passport JSON>",
             "badge": "GET /agents/{id}/badge.svg",
             "issuer_did": "/.well-known/agent-guild-did.json",
         },

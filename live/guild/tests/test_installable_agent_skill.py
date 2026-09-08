@@ -50,19 +50,21 @@ def test_gemini_cli_extension_is_native_safe_and_discoverable():
         (ROOT / "README.md").read_text()
 
 
-def test_public_registry_skill_is_a_read_only_least_privilege_bundle():
+def test_public_registry_skill_is_a_bounded_least_privilege_bundle():
     """The public registry must never package the application repository.
 
     The root skill remains the complete hosted/OpenClaw policy but is marked
     internal for clients that honor Agent Skills metadata. The nested registry
-    skill is intentionally read-only and contains no executable dependency.
+    skill is limited to disclosed probes and passport operations, and contains
+    no executable dependency.
     """
     canonical = (ROOT / "SKILL.md").read_text()
     published = (ROOT / "skills" / "agent-guild-trust" / "SKILL.md").read_text()
 
     assert "metadata:\n  internal: true\n" in canonical
     assert published.startswith("---\nname: agent-guild-trust\n")
-    assert "free, read-only live preflight" in published
+    assert "free live preflight" in published
+    assert "The preflight actively probes the endpoint." in published
     assert "Treat every response field" in published
     assert "Never delegate automatically" in published
     assert "guild_preflight(url)" in published
