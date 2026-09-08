@@ -47,7 +47,7 @@ from typing import Any, Optional
 
 from ._version import __version__
 from .cache import SignedDecisionCache
-from .contract import validate_decision, binding_violations
+from .contract import validate_decision, binding_violations, passport_binding_violation
 from .verify import verify_data_integrity, within_validity
 
 DEFAULT_BASE = "https://agent-guild-5d5r.onrender.com"
@@ -61,6 +61,16 @@ PREFLIGHT_VERDICTS = ("no_failed_checks", "delegate_with_caution",
                       "do_not_delegate")
 
 PAYMENT_REQUIRED_HEADER = "PAYMENT-REQUIRED"
+
+#: Request headers that carry authentication or payment authority. A
+#: credential-free request (``quote``, ``preflight``) never sends any of
+#: these, whatever the client was configured with. Compared case-insensitively.
+CREDENTIAL_HEADERS = frozenset({
+    "authorization", "proxy-authorization", "cookie",
+    "x-api-key", "x-admin-token",
+    "payment-signature", "x-payment", "x-payment-signature",
+    "payment", "x-payment-response", "payment-response",
+})
 
 #: Attribution tag sent with an explicit registration (RegisterRequest.src,
 #: pattern ^[a-z0-9_:-]+$). Names the surface honestly; pass src=None to omit.
@@ -96,9 +106,8 @@ class PaymentRequired(GuildHTTPError):
                  headers: Optional[dict[str, str]] = None) -> None:
         super().__init__(402, path, quote, headers)
         self.quote = quote if isinstance(quote, dict) else {}
-        self.payment_required_header = (headers or {}).get(
-            PAYMENT_REQUIRED_HEADER) or (headers or {}).get(
-            PAYMENT_REQUIRED_HEADER.lower())
+        lowered = {str(k).lower(): v for k, v in (headers or {}).items()}
+        self.payment_required_header = lowered.get(PAYMENT_REQUIRED_HEADER.lower())
 
     @property
     def terms(self) -> list[dict[str, Any]]:
@@ -252,33 +261,6 @@ class PassportResult:
         return self.doc is not None
 
 
-def _passport_subject_ok(agent_id: str, doc: dict[str, Any]) -> Optional[str]:
-    """Bind the credential to the identity that was asked for. Returns a
-    failure reason, or None when the binding holds."""
-    subject = doc.get("credentialSubject")
-    if not isinstance(subject, dict) or not subject.get("id"):
-        return "credentialSubject.id missing"
-    types = doc.get("type")
-    if isinstance(types, str):
-        types = [types]
-    if not isinstance(types, list) or "AgentGuildPassport" not in types:
-        return "not an AgentGuildPassport credential"
-    if agent_id.startswith("did:"):
-        if subject["id"] != agent_id:
-            return (f"subject mismatch: credential is about {subject['id']!r}, "
-                    f"not {agent_id!r}")
-        return None
-    # A Guild-local id cannot be matched against the subject DID directly;
-    # the issuer stamps it into the credential id (urn:passport:<id>:<ts>).
-    cred_id = doc.get("id")
-    if isinstance(cred_id, str) and cred_id.startswith("urn:passport:"):
-        parts = cred_id.split(":")
-        if len(parts) >= 4 and parts[2] != agent_id:
-            return (f"subject mismatch: credential id names {parts[2]!r}, "
-                    f"not {agent_id!r}")
-    return None
-
-
 class GuildClient:
     def __init__(self, base_url: str = DEFAULT_BASE,
                  cache: Optional[SignedDecisionCache] = None,
@@ -303,23 +285,34 @@ class GuildClient:
         self.extra_headers: dict[str, str] = dict(extra_headers or {})
 
     # -- transport --------------------------------------------------------
-    def _headers(self, extra: Optional[dict[str, str]] = None) -> dict[str, str]:
+    def _headers(self, extra: Optional[dict[str, str]] = None, *,
+                 credentials: bool = True) -> dict[str, str]:
+        """Request headers. With ``credentials=False`` the configured
+        ``api_key`` is omitted and every credential-bearing header in
+        ``extra_headers``/``extra`` (CREDENTIAL_HEADERS, case-insensitive) is
+        dropped, so the request cannot authenticate or pay; attribution
+        headers (e.g. ``X-Agent-Guild-First-Party``) still travel."""
         headers = {"User-Agent": UA}
-        if self.api_key:
+        if self.api_key and credentials:
             headers["X-API-Key"] = self.api_key
-        headers.update(self.extra_headers)
-        headers.update(extra or {})
+        for k, v in {**self.extra_headers, **(extra or {})}.items():
+            if not credentials and str(k).lower() in CREDENTIAL_HEADERS:
+                continue
+            headers[k] = v
         return headers
 
     def _request(self, path: str, *, method: str = "GET",
                  body: Optional[dict[str, Any]] = None,
-                 extra_headers: Optional[dict[str, str]] = None) -> Any:
+                 extra_headers: Optional[dict[str, str]] = None,
+                 credentials: bool = True) -> Any:
         """One bounded, redirect-free request. Returns the parsed JSON body.
 
         Raises PaymentRequired (402), GuildRedirect (3xx), ResponseTooLarge,
         GuildHTTPError (other non-2xx) or urllib/socket errors (unreachable).
-        The 402 is recorded on ``last_payment_required``; it is never paid."""
-        headers = self._headers(extra_headers)
+        The 402 is recorded on ``last_payment_required``; it is never paid.
+        ``credentials=False`` makes the request strictly non-spending (see
+        ``_headers``)."""
+        headers = self._headers(extra_headers, credentials=credentials)
         data = None
         if body is not None:
             headers["Content-Type"] = "application/json"
@@ -334,7 +327,9 @@ class GuildClient:
             hdrs = {k: v for k, v in e.headers.items()} if e.headers else {}
             if 300 <= status < 400:
                 self.stats["redirects_refused"] += 1
-                err: GuildError = GuildRedirect(status, path, hdrs.get("Location"))
+                location = next((v for k, v in hdrs.items()
+                                 if k.lower() == "location"), None)
+                err: GuildError = GuildRedirect(status, path, location)
                 self.last_error = err
                 raise err from None
             try:
@@ -367,6 +362,11 @@ class GuildClient:
 
     def _get(self, path: str) -> dict[str, Any]:
         return self._request(path)
+
+    def _get_unauthenticated(self, path: str) -> dict[str, Any]:
+        """GET with no api key and no credential/payment headers — cannot
+        debit credits or settle a payment whatever the client holds."""
+        return self._request(path, credentials=False)
 
     def _post(self, path: str, body: dict[str, Any],
               extra_headers: Optional[dict[str, str]] = None) -> dict[str, Any]:
@@ -433,6 +433,11 @@ class GuildClient:
                                                           str, Optional[float]]:
         """-> (signed_envelope|None, channel, age_seconds).
 
+        Sends the client's ``api_key`` when configured: on a key holding
+        sandbox credits the Guild meters this read and CAN debit credits
+        (never an x402/wallet payment — that is a separate, explicit act).
+        Use :meth:`quote` for a strictly non-spending look at the price.
+
         channel: "live" (fetched AND fully verified now), "cache" (served from
         the signed cache — every cache read re-verifies; envelope may be past
         valid_until, age says how old), "unverified" (the Guild answered but
@@ -484,10 +489,11 @@ class GuildClient:
         proof, (2) comes from an allowed/pinned issuer, (3) is inside its
         ``validFrom``/``validUntil`` window and (4) is about the identity that
         was asked for (a ``did:`` id must equal ``credentialSubject.id``; a
-        Guild-local id is matched against the issuer's ``urn:passport:<id>:``
-        credential id). Anything else is reported with a reason, never
-        returned as a passport. Falls back to the signed cache when the Guild
-        is unreachable; a cached credential is re-verified and re-bound."""
+        Guild-local id binds only through a well-formed
+        ``urn:passport:<id>:<timestamp>`` credential id). Anything else is
+        reported with a reason, never returned as a passport. Falls back to
+        the signed cache when the Guild is unreachable; a cached credential
+        is re-verified, re-bound and must still be valid now."""
         path = f"/agents/{urllib.parse.quote(agent_id, safe='')}/passport"
         try:
             doc = self._get(path)
@@ -528,7 +534,7 @@ class GuildClient:
         valid, age = within_validity(doc)
         if not valid:
             return "outside validity window", issuer, age
-        sub = _passport_subject_ok(agent_id, doc)
+        sub = passport_binding_violation(agent_id, doc)
         if sub is not None:
             return sub, issuer, age
         # issuer acceptance last: never pin from a stale or mis-bound credential
@@ -539,17 +545,20 @@ class GuildClient:
     def _cached_passport(self, agent_id: str, channel: str,
                          reason: Optional[str]) -> PassportResult:
         if self.cache is not None:
+            # cache.get re-verifies, checks the window and (for passports)
+            # the subject binding BEFORE any issuer pin; a passport is only
+            # returned while it is valid NOW — a stale passport is not a
+            # passport, unlike a stale decision which the engine may accept.
             doc, state, age = self.cache.get("passport", agent_id)
-            if doc is not None:
-                sub = _passport_subject_ok(agent_id, doc)
-                if sub is None:
-                    self.stats["cache_serves"] += 1
-                    v = verify_data_integrity(doc)
-                    return PassportResult(
-                        agent_id, doc, "cache", reason, state, age,
-                        (doc.get("credentialSubject") or {}).get("id"),
-                        v.get("issuer_did"))
-                reason = f"{reason}; cached credential rejected: {sub}"
+            if doc is not None and state == "fresh" \
+                    and passport_binding_violation(agent_id, doc) is None:
+                self.stats["cache_serves"] += 1
+                v = verify_data_integrity(doc)
+                return PassportResult(
+                    agent_id, doc, "cache", reason, state, age,
+                    doc["credentialSubject"]["id"], v.get("issuer_did"))
+            if state in ("stale", "corrupt") or doc is not None:
+                reason = f"{reason}; cached credential not usable (state={state})"
         if channel in ("outage", "payment_required", "not_found"):
             self.stats["outages"] += 1
         return PassportResult(agent_id, None, channel, reason)
@@ -563,14 +572,16 @@ class GuildClient:
     def preflight(self, url: str) -> PreflightResult:
         """FREE live preflight of an endpoint you are about to delegate to
         (``GET /preflight?url=``): separates what the endpoint claims from
-        what it just proved. No key, no registration, no payment.
+        what it just proved. No key, no registration, no payment: the request
+        is sent WITHOUT the client's api key or any credential header, even
+        on an authenticated client.
 
         This is an observation, not evidence: the answer is not signed and is
         not cached. Raises PaymentRequired if the service ever prices the
         route (it is documented free), GuildHTTPError for other failures, and
         the underlying urllib/socket error when the Guild is unreachable."""
         q = urllib.parse.urlencode({"url": url})
-        doc = self._get(f"/preflight?{q}")
+        doc = self._get_unauthenticated(f"/preflight?{q}")
         if not isinstance(doc, dict) or "verdict" not in doc:
             raise GuildHTTPError(200, "/preflight", doc)
         return PreflightResult(
@@ -589,20 +600,28 @@ class GuildClient:
     # -- paid-quote discovery ------------------------------------------------------
     def quote(self, capability: str, signed: bool = True,
               ttl_seconds: int = 3600) -> dict[str, Any]:
-        """Discover what a trust read costs WITHOUT paying.
+        """Discover what a trust read costs WITHOUT paying or spending.
 
-        Performs the canonical ``GET /check`` request. If the service serves
-        it (free tier, sandbox credits on ``api_key``, or a lab instance) the
-        result is ``{"status": "served", "document": ...}``; if it prices the
-        read the result is ``{"status": "payment_required", "quote": <402
-        body>, "payment_required_header": <raw header or None>}``. Any other
-        outcome is ``{"status": "error", "error": "..."}``. No payment is
-        made, no retry with credentials is attempted."""
+        Performs the canonical ``GET /check`` request **unauthenticated**:
+        the client's ``api_key`` and every credential or payment header
+        (CREDENTIAL_HEADERS) are omitted for this call, so it can neither
+        settle an x402 payment nor debit sandbox credits on a key — even on
+        a client that was constructed with one. (An authenticated
+        :meth:`signed_decision` on a funded key CAN consume credits; that is
+        the caller's explicit choice, not this method.) If the service
+        serves the read anyway (free tier or a lab instance) the result is
+        ``{"status": "served", "document": ...}`` — the document is returned
+        as fetched, NOT verified; if it prices the read the result is
+        ``{"status": "payment_required", "quote": <402 body>,
+        "payment_required_header": <raw header or None>, "terms": [...]}``.
+        Any other outcome is ``{"status": "error", "error": "..."}``. No
+        retry with credentials is attempted and the client's credentials are
+        not modified."""
         q = urllib.parse.urlencode({"capability": capability,
                                     "signed": "true" if signed else "false",
                                     "ttl_seconds": ttl_seconds})
         try:
-            doc = self._get(f"/check?{q}")
+            doc = self._get_unauthenticated(f"/check?{q}")
         except PaymentRequired as e:
             return {"status": "payment_required", "quote": e.quote,
                     "payment_required_header": e.payment_required_header,
@@ -610,7 +629,10 @@ class GuildClient:
                     "resource": f"{self.base}/check?{q}"}
         except Exception as e:
             return {"status": "error", "error": f"{type(e).__name__}: {e}"}
-        return {"status": "served", "document": doc}
+        return {"status": "served", "document": doc, "verified": False,
+                "note": "served without credentials; verify before use "
+                        "(verify_data_integrity / within_validity) or fetch "
+                        "through signed_decision()"}
 
     # -- explicit registration (optional; never implicit) -----------------------
     def register(self, name: str, capabilities: list[str], *,

@@ -6,9 +6,17 @@ agent's Guild-signed **Passport** offline, discover exactly what a signed
 trust decision would cost **without paying**, and — if you want — gate every
 delegation your framework makes under a policy **you** own.
 
-```
-pip install agentguild-trustplane          # core: stdlib + cryptography
-```
+> **Publication status: pending.** `agentguild-trustplane` is not yet on
+> PyPI; `pip install agentguild-trustplane` will not work until the first
+> release is uploaded. Until then install from source:
+>
+> ```
+> pip install "git+https://github.com/AgentTanuki/agent-guild.git@main#subdirectory=live/trustplane"
+> # or, from a checkout:
+> pip install ./live/trustplane
+> ```
+>
+> Once published: `pip install agentguild-trustplane` (core: stdlib + `cryptography`).
 
 Import name: `agentguild_trustplane`. Python ≥ 3.9. Apache-2.0.
 
@@ -18,14 +26,23 @@ Import name: `agentguild_trustplane`. Python ≥ 3.9. Apache-2.0.
 |---|---|---|---|
 | `client.preflight(url)` | **free**, no key | live checks of one endpoint: reachable, protocol handshake, agent card, card signature, payment claim, independent evidence; a verdict; and the **unknowns** the Guild could not check | an observation at request time — **unsigned, not cached** |
 | `client.passport_result(agent_id)` | **free**, no key | the agent's Guild-signed Verifiable Credential — returned only after signature, issuer, validity window and subject binding all check out | yes: verified offline against the issuer `did:key` |
-| `client.quote(capability)` | **free** — it asks, it does not pay | the x402 v2 terms the service quoted for a signed decision (amount, asset, network, payTo, resource) | a quote, read from the response |
-| `client.signed_decision(capability)` | **priced** on the public service (dynamic, USDC on Base; the live 402 names the exact amount) | a signed AGD-1 decision, verified before use; or `payment_required` / `cache` / `outage` | yes, when `channel == "live"` or `"cache"` |
+| `client.quote(capability)` | **free** — sent with no key and no credential headers; cannot pay or debit | the x402 v2 terms the service quoted for a signed decision (amount, asset, network, payTo, resource); or, on a free/lab instance, the served document **unverified** | a quote, read from the response |
+| `client.signed_decision(capability)` | **priced** on the public service (dynamic, USDC on Base; the live 402 names the exact amount). Unauthenticated → 402, nothing spent. With `api_key` → the key is presented and sandbox credits on it **can be debited** | a signed AGD-1 decision, verified before use; or `payment_required` / `cache` / `outage` | yes, when `channel == "live"` or `"cache"` |
 | `client.register(name, caps)` | free | a Guild identity (`did:key`) and, for custodial identities, a one-time API key | only runs when you call it |
 
-**This library never pays.** A 402 is surfaced as `PaymentRequired` (or
-channel `"payment_required"`) and that is where it stops: no signing, no
-retry with credentials, no wallet. Paying is your explicit act with your own
-x402 client, if you choose to.
+**No automatic x402 / wallet payment, ever.** A 402 is surfaced as
+`PaymentRequired` (or channel `"payment_required"`) and that is where it
+stops: no signing, no retry with credentials, no wallet. Paying is your
+explicit act with your own x402 client, if you choose to.
+
+**Credits are different from wallets.** `preflight()` and `quote()` are
+sent *without* your `api_key` or any credential/payment header, so they can
+never debit anything. `signed_decision()` / `Gateway.gate()` on a client
+constructed with an `api_key` **do** present that key, and if the key holds
+sandbox credits the Guild meters the read and can debit them — that is the
+documented, explicit behaviour of an authenticated call, not a surprise.
+Construct `GuildClient()` without a key if you want a client that cannot
+spend at all.
 
 ## 1. Preflight an endpoint (free)
 
@@ -60,12 +77,16 @@ else:
 ```
 
 A passport is returned only when **all** of these hold: the eddsa-jcs-2022
-proof verifies; the issuer is allowed (first-seen pin, or a *verified*
-dual-signed rotation chain from `/ledger/rotations` — never a silent
-re-pin); now is inside `validFrom`/`validUntil`; and the credential is about
-the identity you asked for (`credentialSubject.id` for a DID, the issuer's
-`urn:passport:<id>:` credential id for a Guild-local id). Anything else is
-reported with a reason and `r.doc is None`.
+proof verifies and the credential's `issuer` is the signing controller; now
+is inside `validFrom`/`validUntil` (a cached passport, too, must still be
+valid now); the credential is positively about the identity you asked for
+(`credentialSubject.id` for a DID; for a Guild-local id, only the issuer's
+well-formed `urn:passport:<id>:<timestamp>` credential id counts — anything
+unprovable is rejected, never assumed); and only then is the issuer
+accepted (first-seen pin, or a *verified* dual-signed rotation chain from
+`/ledger/rotations` — never a silent re-pin, and never a pin from a
+document that failed any earlier check). Anything else is reported with a
+reason and `r.doc is None`.
 
 To pin the issuer explicitly, fetch `GET /ledger/issuer` once and pass
 `RiskPolicy(trusted_issuers=[did])` to a `Gateway`, or use
@@ -95,7 +116,12 @@ elif q["status"] == "served":       # a free/lab instance answered
 
 Terms are read from the response (`PAYMENT-REQUIRED` header first, JSON body
 second); there is no price table in this package. `amount` is in the asset's
-atomic units exactly as quoted.
+atomic units exactly as quoted. `quote()` never sends your `api_key`,
+`Authorization`, `Cookie`, `PAYMENT-SIGNATURE`, `X-PAYMENT` or similar
+headers, whatever the client holds (attribution headers such as
+`X-Agent-Guild-First-Party` still travel). A `served` document is returned
+as fetched, **not verified** — check it with `verify_data_integrity` /
+`within_validity`, or use `signed_decision()` for the verified path.
 
 ## 4. Signed decisions with a cache and your policy
 
@@ -116,8 +142,19 @@ from the signed on-disk cache, re-verified on read, age reported),
 enforce mode always denies), `payment_required` (the service quoted a price
 and nothing verifiable is cached — falls to your tier's fail mode, the quote
 is on `gw.client.last_payment_required`, nothing was paid) or `outage`.
-Framework users don't write this loop: see `integrations/` (CrewAI,
-LangChain/LangGraph, OpenAI Agents), the sidecar and the MCP proxy below.
+
+**Read the default policy before relying on `gate.allowed`.** The default
+`RiskPolicy()` fails **open** on outage at the *micro* and *low* tiers
+(value at risk < 100) and closed at *medium* and *high*. On the public
+service a signed decision is priced, so with an empty cache a micro- or
+low-tier gate returns
+`allowed=True, channel="payment_required", fail_state="outage_open"` —
+that is your policy's outage rule speaking, not evidence, and
+`gate.routing` is `None` in that state. Check `gate.routing` and
+`gate.routing["routable"]` before invoking anything, as above, or set
+`fail_mode="closed"` for the tiers you care about. Framework users don't
+write this loop: see `integrations/` (CrewAI, LangChain/LangGraph, OpenAI
+Agents), the sidecar and the MCP proxy below.
 
 ## 5. Register an identity (optional; only when you call it)
 
@@ -151,6 +188,9 @@ self-sovereign identity. Then: `authed.passport_result(resp["id"])`.
 
 ## Optional extras
 
+(Extras use the same install source as above until the package is
+published — e.g. `pip install "./live/trustplane[sidecar]"`.)
+
 ```
 pip install "agentguild-trustplane[sidecar]"        # local HTTP daemon: /gate /report /a2a/forward /metrics
 pip install "agentguild-trustplane[mcp]"            # MCP stdio proxy gating downstream tools/call
@@ -180,9 +220,27 @@ URL so it can be pointed at a lab instance.
    evidence; an unverifiable answer is `unverified`, never `live`.
 3. **Unknowns stay unknown.** Preflight reports what it could not check;
    nothing is averaged into a score.
-4. **No money moves here.** 402 quotes are reported, not paid.
+4. **No automatic payment.** 402 quotes are reported, never paid; only an
+   explicitly authenticated call can spend the credits its key holds.
 5. **No lock-in.** `verify.py` + `conformance/` (in the repository) let any
    issuer issue and any verifier verify.
+
+## Verification profile — scope and limits
+
+`verify_data_integrity` implements the Guild's *issuing profile*, not a
+general W3C Data Integrity verifier: `DataIntegrityProof` /
+`eddsa-jcs-2022` / `proofPurpose: assertionMethod`, `verificationMethod` a
+`did:key` Ed25519 controller (`did:key:z…`, optional `#z…` fragment equal
+to the key), base58btc `proofValue`, `proof.@context` equal to the
+document's when present. The document's `issuer` must be a non-empty string
+(or `{"id": …}`) equal to the signing controller; credentials must carry
+one, decision envelopes may omit it. Not supported: other DID methods,
+other cryptosuites, `created`/`expires` on the proof, proof chains or
+sets, JSON-LD processing, status lists, or revocation. Validity windows
+(`within_validity`) tolerate 60 s of issuer clock lead on the start.
+Whether an issuer is *trusted* is separate from whether a signature
+*verifies*: pin it (`expected_issuer_did`, cache pins,
+`RiskPolicy.trusted_issuers`).
 
 ## Development
 
@@ -216,20 +274,11 @@ Service, OpenAPI and llms.txt: <https://agent-guild-5d5r.onrender.com>.
 | `experiments/trust_plane_ab.py` | A/B harness: the SAME unmodified tool run direct vs through each framework's REAL interceptor; self-fails on any unresolved outcome, deny-body-run, or route mismatch |
 | `tests/` | native-lifecycle integration tests + verify-before-use, destination-binding, and gateway/outcome readback tests against a real local Guild |
 
-## Quick start (gateway)
+## Framework use
 
-```python
-from agentguild_trustplane.gateway import Gateway
-from agentguild_trustplane.policy import RiskPolicy
-
-gw = Gateway(policy=RiskPolicy.load("policy.json"))   # or RiskPolicy() defaults
-gate = gw.gate("fact-check", value_at_risk=50.0)
-if gate.allowed:
-    result = my_invoke(gate.routing["endpoint"], task)
-    gw.report(gate, "accepted", deliverable=result)
-```
-
-Framework users never write that: `guard_tools(...)` (LangChain/LangGraph),
+The gateway loop is in section 4 above (guarded on `gate.routing`); a
+policy file can be loaded with `RiskPolicy.load("policy.json")`.
+Framework users never write that loop: `guard_tools(...)` (LangChain/LangGraph),
 `guard_tool(...)` + `TrustPlaneListener` (CrewAI), `guard_function_tools(...)`
 + `TrustPlaneRunHooks` (OpenAI Agents), or run the MCP proxy / sidecar and
 change nothing at all.

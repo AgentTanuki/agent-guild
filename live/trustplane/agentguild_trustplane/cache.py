@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+from .contract import passport_binding_violation
 from .verify import (verify_data_integrity, within_validity,
                      verify_rotation_chain)
 
@@ -119,6 +120,11 @@ class SignedDecisionCache:
             # must not enter the cache and must not establish a TOFU pin.
             self.counters["verify_failures"] += 1
             return False
+        if kind == "passport" and passport_binding_violation(key, signed_doc):
+            # a passport stored under an identity it is not about would be
+            # served back for that identity; refuse before any pin.
+            self.counters["verify_failures"] += 1
+            return False
         if not self.issuer_ok(v["issuer_did"]):
             self.counters["verify_failures"] += 1
             return False
@@ -131,9 +137,10 @@ class SignedDecisionCache:
                                                 str, Optional[float]]:
         """-> (doc|None, state, age_seconds). state: fresh|stale|miss|corrupt.
 
-        ``stale`` returns the doc anyway — the ENGINE decides whether a stale
-        decision is acceptable for the tier (max_decision_age_seconds); the
-        cache only reports honestly."""
+        For DECISIONS ``stale`` returns the doc anyway — the ENGINE decides
+        whether a stale decision is acceptable for the tier
+        (max_decision_age_seconds); the cache only reports honestly. For
+        PASSPORTS ``stale`` returns no doc: a passport must be valid now."""
         p = self._path(kind, key)
         if not p.exists():
             self.counters["miss"] += 1
@@ -154,6 +161,16 @@ class SignedDecisionCache:
             # (checked BEFORE issuer_ok) never a source of a TOFU pin.
             self.counters["verify_failures"] += 1
             return None, "corrupt", None
+        if kind == "passport":
+            # Passports: a stale credential is not evidence and a credential
+            # about someone else is not this key's passport. Both are
+            # rejected BEFORE issuer_ok so a bad cache entry never pins.
+            if not valid:
+                self.counters["hit_stale"] += 1
+                return None, "stale", age
+            if passport_binding_violation(key, doc):
+                self.counters["verify_failures"] += 1
+                return None, "corrupt", None
         if not self.issuer_ok(v["issuer_did"]):
             self.counters["verify_failures"] += 1
             return None, "corrupt", None

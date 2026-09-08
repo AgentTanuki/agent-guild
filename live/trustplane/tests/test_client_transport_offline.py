@@ -245,7 +245,7 @@ def test_live_passport_fixture_verifies_and_binds():
     doc = fx["body"]
     v = V.verify_data_integrity(doc)
     assert v["verified"] and v["issuer_did"] == fixture("live_issuer_2026-09-08.json")["body"]["did"]
-    from agentguild_trustplane.client import _passport_subject_ok
+    from agentguild_trustplane.contract import passport_binding_violation as _passport_subject_ok
     assert _passport_subject_ok(doc["credentialSubject"]["id"], doc) is None
     assert _passport_subject_ok("agent_d0a8f6ef9b41", doc) is None          # local id via urn
     assert "subject mismatch" in _passport_subject_ok("did:key:zSomebodyElse", doc)

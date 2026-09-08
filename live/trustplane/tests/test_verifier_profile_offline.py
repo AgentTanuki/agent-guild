@@ -205,11 +205,21 @@ def test_rejected_documents_do_not_establish_cache_pin(tmp_path):
     assert cache.trusted_issuers == []
     pins_file = [f for f in (tmp_path / "c").rglob("*") if "pin" in f.name.lower()]
     assert all("did:key" not in f.read_text() for f in pins_file if f.is_file())
-    # a valid document pins; a stale one written later is still served as stale (unchanged behaviour)
-    assert cache.put("passport", "z", vc(iss, start=NOW - timedelta(days=1), end=NOW + timedelta(days=1)))
+    # a passport stored under an identity it is not about is refused (no pin)
+    assert cache.put("passport", "z", vc(iss, start=NOW - timedelta(days=1), end=NOW + timedelta(days=1))) is False
+    assert cache.trusted_issuers == []
+    # a valid, correctly keyed passport pins
+    assert cache.put("passport", "did:key:zSubject", vc(iss, start=NOW - timedelta(days=1), end=NOW + timedelta(days=1)))
     assert cache.trusted_issuers == [iss.did]
-    cache._path("passport", "w").write_text(json.dumps({"stored_at": 0, "doc": expired}))
-    doc, state, age = cache.get("passport", "w")
+    # an expired passport is reported stale WITHOUT a document (passports must be valid now) ...
+    cache._path("passport", "did:key:zSubject").write_text(json.dumps({"stored_at": 0, "doc": expired}))
+    assert cache.get("passport", "did:key:zSubject")[:2] == (None, "stale")
+    # ... whereas an expired DECISION is still served as stale for the engine (unchanged)
+    dec = iss.sign({"type": "AgentGuildDecision", "issuer": iss.did,
+                    "issued_at": (NOW - timedelta(days=9)).isoformat(),
+                    "valid_until": (NOW - timedelta(days=2)).isoformat()})
+    cache._path("decision", "cap").write_text(json.dumps({"stored_at": 0, "doc": dec}))
+    doc, state, age = cache.get("decision", "cap")
     assert doc is not None and state == "stale" and age > 0
 
 

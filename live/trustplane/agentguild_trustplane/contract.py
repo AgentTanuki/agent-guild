@@ -21,6 +21,7 @@ integrators can vendor it.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 from .verify import within_validity
@@ -125,4 +126,49 @@ def staleness_days(decision: dict[str, Any]) -> Optional[float]:
     s = decision.get("staleness")
     if isinstance(s, dict):
         return s.get("age_days")
+    return None
+
+
+# --- Agent Passport subject binding (pure; shared by client and cache) --------
+PASSPORT_TYPE = "AgentGuildPassport"
+# The issuer's credential id for a passport: urn:passport:<guild agent id>:<unix ts>
+_PASSPORT_ID_RE = re.compile(r"^urn:passport:([A-Za-z0-9_.-]+):(\d+)$")
+
+
+def passport_binding_violation(agent_id: str, doc: Any) -> Optional[str]:
+    """Bind an Agent Passport to the identity that was asked for.
+
+    Returns None only when the binding is POSITIVELY proven; any doubt is a
+    reason string. Rules: ``credentialSubject.id`` must be a non-empty
+    string and ``type`` must include AgentGuildPassport. A ``did:`` request
+    must equal ``credentialSubject.id``. A Guild-local id can only be bound
+    through the issuer's well-formed credential id
+    ``urn:passport:<agent_id>:<timestamp>``; an absent, malformed or
+    differently-named credential id is a violation, never a pass-through."""
+    if not isinstance(agent_id, str) or not agent_id:
+        return "no subject requested"
+    if not isinstance(doc, dict):
+        return "credential is not an object"
+    subject = doc.get("credentialSubject")
+    if not isinstance(subject, dict):
+        return "credentialSubject missing"
+    sid = subject.get("id")
+    if not isinstance(sid, str) or not sid:
+        return "credentialSubject.id missing or not a string"
+    types = doc.get("type")
+    if isinstance(types, str):
+        types = [types]
+    if not isinstance(types, list) or PASSPORT_TYPE not in types:
+        return f"not an {PASSPORT_TYPE} credential"
+    if agent_id.startswith("did:"):
+        if sid != agent_id:
+            return f"subject mismatch: credential is about {sid!r}, not {agent_id!r}"
+        return None
+    cred_id = doc.get("id")
+    m = _PASSPORT_ID_RE.match(cred_id) if isinstance(cred_id, str) else None
+    if m is None:
+        return ("cannot bind local id: credential id is not a well-formed "
+                "urn:passport:<agent_id>:<timestamp>")
+    if m.group(1) != agent_id:
+        return f"subject mismatch: credential id names {m.group(1)!r}, not {agent_id!r}"
     return None

@@ -1,15 +1,16 @@
 """Find out what a signed AGD-1 decision costs — WITHOUT paying.
 
 The Guild prices `GET /check?signed=true` with an x402 v2 challenge (HTTP 402).
-This library never pays: it reports the exact terms the service quoted so the
-caller can decide, with its own wallet and its own policy, whether to.
+quote() sends NO api key and NO credential/payment headers, so it can neither
+settle a payment nor debit sandbox credits; it reports the exact terms the
+service quoted so the caller can decide, with its own wallet and policy.
 
     python quote_signed_decision.py <capability> [guild-base-url]
 """
 import json
 import sys
 
-from agentguild_trustplane import DEFAULT_BASE, GuildClient
+from agentguild_trustplane import DEFAULT_BASE, GuildClient, verify_data_integrity, within_validity
 
 
 def main(argv: list[str]) -> int:
@@ -27,10 +28,16 @@ def main(argv: list[str]) -> int:
         print("Nothing was paid. Amounts come from the response, never from this program.")
         return 0
     if q["status"] == "served":
-        # A free/lab instance served the document. Still verify before use:
-        env, channel, age = client.signed_decision(argv[1])
-        print(f"served; verified channel={channel} age={age}")
-        print(json.dumps(q["document"], indent=1)[:1500])
+        # A free/lab instance served the document without credentials. It is
+        # NOT verified by quote(); check it locally — no second request.
+        doc = q["document"]
+        v = verify_data_integrity(doc) if isinstance(doc, dict) else {"verified": False, "reason": "not an object"}
+        fresh, age = within_validity(doc) if isinstance(doc, dict) else (False, None)
+        print(f"served (unverified by quote); signature={v['verified']} ({v['reason']}) "
+              f"issuer={v.get('issuer_did')} inside_window={fresh} age={age}")
+        print("Issuer trust is your pin, not this program's. Use client.signed_decision() for the "
+              "fully verified path (contract, binding, issuer policy).")
+        print(json.dumps(doc, indent=1)[:1500])
         return 0
     print(f"error: {q['error']}")
     return 1

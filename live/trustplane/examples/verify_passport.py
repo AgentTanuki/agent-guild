@@ -12,14 +12,14 @@ import json
 import sys
 
 from agentguild_trustplane import DEFAULT_BASE, GuildClient, verify_data_integrity, within_validity
-from agentguild_trustplane.client import _passport_subject_ok
+from agentguild_trustplane.contract import passport_binding_violation
 
 
 def offline(path: str, expected_subject: str) -> int:
     doc = json.load(open(path, encoding="utf-8"))
     v = verify_data_integrity(doc)
     valid, age = within_validity(doc)
-    binding = _passport_subject_ok(expected_subject, doc)
+    binding = passport_binding_violation(expected_subject, doc)
     print(json.dumps({"signature": v, "inside_validity_window": valid,
                       "age_seconds": age, "subject_binding": binding or "ok",
                       "issuer_pinned": False,

@@ -97,13 +97,34 @@ SUPPORTED_PROOF_PURPOSE = "assertionMethod"
 CLOCK_SKEW_SECONDS = 60.0
 
 
-def _document_issuer(doc: dict[str, Any]) -> Optional[str]:
-    """The issuer the DOCUMENT claims: VC ``issuer`` (string or {"id": ...})
-    or the Guild decision envelope's ``issuer`` string. None when absent."""
-    iss = doc.get("issuer")
+_ABSENT = object()
+
+
+def _document_issuer(doc: dict[str, Any]) -> Any:
+    """The issuer the DOCUMENT claims: VC ``issuer`` (non-empty string or
+    {"id": <non-empty string>, ...}) or the Guild decision envelope's
+    ``issuer`` string. Returns ``_ABSENT`` when the key is absent, the
+    string when well-formed, and raises ValueError when present but
+    malformed (None, number, list, empty, object without a string id)."""
+    if "issuer" not in doc:
+        return _ABSENT
+    iss = doc["issuer"]
     if isinstance(iss, dict):
         iss = iss.get("id")
-    return iss if isinstance(iss, str) and iss else None
+    if not isinstance(iss, str) or not iss:
+        raise ValueError("issuer present but malformed")
+    return iss
+
+
+def _is_credential(doc: dict[str, Any]) -> bool:
+    """VC profile (passports, attestations): has a credentialSubject or a
+    VerifiableCredential type. Decision envelopes are not credentials."""
+    if "credentialSubject" in doc:
+        return True
+    types = doc.get("type")
+    if isinstance(types, str):
+        types = [types]
+    return isinstance(types, list) and "VerifiableCredential" in types
 
 
 def _controller_from_verification_method(vm: Any) -> str:
@@ -132,9 +153,12 @@ def verify_data_integrity(signed_doc: dict[str, Any],
     ``verificationMethod`` a did:key Ed25519 controller (``did:key:z…`` with
     an optional ``#z…`` fragment equal to the key), ``proofValue`` base58btc
     multibase, ``proof.@context`` (when present) equal to the document's.
-    The document's own ``issuer`` (VC ``issuer`` / envelope ``issuer``), when
-    present, MUST be the signing controller — a credential that names one
-    issuer and is signed by another does not verify. Validity windows and
+    The document's own ``issuer`` (VC ``issuer`` / envelope ``issuer``) MUST,
+    when present, be a non-empty string (or ``{"id": <string>}``) equal to
+    the signing controller — a credential that names one issuer and is
+    signed by another, or carries a malformed issuer, does not verify. A
+    credential (``credentialSubject`` / ``VerifiableCredential`` type) must
+    name an issuer; a decision envelope may omit it (historical shape). Validity windows and
     subject binding are separate checks (``within_validity``, client), and
     whether the controller is a TRUSTED issuer is policy, decided by the
     caller (``expected_issuer_did``, cache pins, RiskPolicy.trusted_issuers).
@@ -160,8 +184,17 @@ def verify_data_integrity(signed_doc: dict[str, Any],
         except ValueError as e:
             return {"verified": False, "reason": f"malformed: {e}",
                     "issuer_did": None}
-        claimed = _document_issuer(doc)
-        if claimed is not None and claimed != issuer_did:
+        try:
+            claimed = _document_issuer(doc)
+        except ValueError as e:
+            return {"verified": False, "reason": f"malformed: {e}",
+                    "issuer_did": issuer_did}
+        if claimed is _ABSENT and _is_credential(doc):
+            # VC profile: a credential must name its issuer. Decision
+            # envelopes historically omit the field and remain accepted.
+            return {"verified": False, "reason": "credential has no issuer",
+                    "issuer_did": issuer_did}
+        if claimed is not _ABSENT and claimed != issuer_did:
             return {"verified": False,
                     "reason": f"document issuer {claimed} is not the signing "
                               f"controller {issuer_did}",
