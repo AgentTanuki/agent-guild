@@ -1,0 +1,56 @@
+{
+  "fixture_only": true,
+  "not_live_guild_issuer": true,
+  "expected_issuer_did": "did:key:z6MkehRgf7yJbgaGfYsdoAsKdBPE3dj2CYhowQdcjqSJgvVd",
+  "expected_subject_did": "did:key:z6MkgcgPsQF6pkGw8xARWGRuohnyLCRuVYrNZkEAipKeaGUE",
+  "test_now": "2026-09-13T06:00:00.000Z",
+  "credential": {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2"
+    ],
+    "id": "urn:passport:offline-fixture:20260913",
+    "type": [
+      "VerifiableCredential",
+      "AgentGuildPassport"
+    ],
+    "issuer": "did:key:z6MkehRgf7yJbgaGfYsdoAsKdBPE3dj2CYhowQdcjqSJgvVd",
+    "validFrom": "2026-09-13T05:00:00.123456+00:00",
+    "validUntil": "2026-09-20T05:00:00.123456+00:00",
+    "credentialSubject": {
+      "id": "did:key:z6MkgcgPsQF6pkGw8xARWGRuohnyLCRuVYrNZkEAipKeaGUE",
+      "name": "Offline test fixture — not a customer",
+      "capabilities": [
+        "fixture-only"
+      ],
+      "trust": 44.0,
+      "rank": 0.0,
+      "confidence": 0.625,
+      "verified_task_count": 0,
+      "distinct_reviewers": 0,
+      "attestations_received": 0,
+      "collusion_suspicion": 0.0,
+      "recommendation": "caution",
+      "risk": 0.375,
+      "ledger_anchor": {
+        "verifiable_collaborations": 0,
+        "checkpoint_index": null,
+        "checkpoint_published_at": null,
+        "checkpoint": null
+      },
+      "issuer_name": "Synthetic fixture issuer",
+      "verify": "Not an endpoint; offline test",
+      "explore": "Not an endpoint; offline test"
+    },
+    "proof": {
+      "@context": [
+        "https://www.w3.org/ns/credentials/v2"
+      ],
+      "type": "DataIntegrityProof",
+      "cryptosuite": "eddsa-jcs-2022",
+      "created": "2026-09-13T05:00:00.123456+00:00",
+      "verificationMethod": "did:key:z6MkehRgf7yJbgaGfYsdoAsKdBPE3dj2CYhowQdcjqSJgvVd#z6MkehRgf7yJbgaGfYsdoAsKdBPE3dj2CYhowQdcjqSJgvVd",
+      "proofPurpose": "assertionMethod",
+      "proofValue": "zvHW27aCwfwdfCFEyeu7D5BtnWGWfQ1uuEGJLj1JpiDBXwZwJWV2ib5NpVhNQLvQRZxAKWHMSEEo2JR25Ghwfwns"
+    }
+  }
+}

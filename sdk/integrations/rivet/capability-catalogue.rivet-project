@@ -1,0 +1,62 @@
+version: 4
+data:
+  graphs:
+    guild-capability-catalogue:
+      metadata:
+        description: Inspect http_status before considering supplied/unmet_demand;
+          missing data is unknown.
+        id: guild-capability-catalogue
+        name: Capability catalogue
+      nodes:
+        '[catalogue-read]:httpCall "Http Call"':
+          data:
+            body: ""
+            errorOnNon200: false
+            headers: '{"Accept":"application/json"}'
+            isBinaryOutput: false
+            method: GET
+            url: https://agent-guild-5d5r.onrender.com/capabilities
+          outgoingConnections:
+            - json->"Extract Object Path" extract-supplied/object
+            - json->"Extract Object Path" extract-unmet_demand/object
+            - statusCode->"Graph Output" output-status/value
+          visualData: 0/0/250/null//
+        '[extract-supplied]:extractObjectPath "Extract Object Path"':
+          data:
+            path: $.supplied
+            usePathInput: false
+          outgoingConnections:
+            - match->"Graph Output" output-supplied/value
+          visualData: 350/0/250/null//
+        '[extract-unmet_demand]:extractObjectPath "Extract Object Path"':
+          data:
+            path: $.unmet_demand
+            usePathInput: false
+          outgoingConnections:
+            - match->"Graph Output" output-unmet_demand/value
+          visualData: 350/250/250/null//
+        '[output-status]:graphOutput "Graph Output"':
+          data:
+            dataType: number
+            id: http_status
+          visualData: 350/500/300/null//
+        '[output-supplied]:graphOutput "Graph Output"':
+          data:
+            dataType: any
+            id: supplied
+          visualData: 700/0/300/null//
+        '[output-unmet_demand]:graphOutput "Graph Output"':
+          data:
+            dataType: any
+            id: unmet_demand
+          visualData: 700/250/300/null//
+  metadata:
+    description: One free HTTP catalogue read. Service-reported counts are not
+      independent agents, demand ownership, trust, safety, or authorization. No
+      model, delegation, registration, or payment node. Read the companion
+      recipe limits before running.
+    id: agentguild-rivet-catalogue-example
+    mainGraphId: guild-capability-catalogue
+    title: Agent Guild capability catalogue (deliberate read)
+  plugins: []
+  references: []
