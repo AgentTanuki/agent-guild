@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Endpoint observation">
+  <rect width="64" height="64" rx="14" fill="#173f4f"/>
+  <circle cx="27" cy="27" r="13" fill="none" stroke="#e5f4ec" stroke-width="5"/>
+  <path d="m37 37 13 13" stroke="#e5f4ec" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="27" cy="27" r="4" fill="#8dd6b0"/>
+</svg>

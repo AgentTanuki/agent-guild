@@ -1,0 +1,12 @@
+Agent Guild Endpoint Observations
+Copyright 2026 AgentTanuki
+
+The endpoint transport and evidence projection derive from AgentTanuki's
+Agent Guild connector implementation, licensed under Apache License 2.0.
+The original neutral SVG icon is part of this integration.
+
+The standalone integration layout, TypeScript configuration, and native entry
+point pattern derive from the Botpress hello-world template at commit
+7bf2906580ab86fe647d4fb109b8c3bdcaef9c57, distributed under the MIT License.
+The complete upstream license is retained in LICENSE-BOTPRESS-TEMPLATE.
+No Botpress endorsement or hosted verification is implied.
