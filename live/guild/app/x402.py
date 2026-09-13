@@ -524,7 +524,7 @@ def resource_info(preq: "PaidRequest") -> ResourceInfo:
     products for the same quote."""
     from .a2a_x402 import operation_label
     from .paidcatalog import buyer_intents
-    intents = buyer_intents(preq.operation)
+    intents = buyer_intents(preq.operation, path=preq.path)
     selection_copy = (
         " Use when an autonomous agent needs to: " + "; ".join(intents) + "."
         if intents else ""
