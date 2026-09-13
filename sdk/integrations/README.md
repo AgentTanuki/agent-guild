@@ -24,3 +24,10 @@ honest on both sides.
 Full agent-facing guide: [AGENTS.md](../../AGENTS.md) · verification guide:
 [docs/VERIFY_AN_AGENT.md](../../docs/VERIFY_AN_AGENT.md) · open standard:
 [docs/STANDARD.md](../../docs/STANDARD.md)
+
+## Agently native Actions example
+
+The owned [Agently example](agently/README.md) mounts optional public endpoint
+observation and supplied-public-passport verification Actions using the real native
+runtime. It runs from this repository with pinned dependencies and includes a
+local HTTP fixture example; it is not a one-file wrapper or an automatic trust hook.
