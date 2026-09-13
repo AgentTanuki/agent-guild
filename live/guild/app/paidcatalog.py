@@ -604,7 +604,7 @@ def price_usd(operation: str) -> str:
     return f"${credits / 1000:.3f}".rstrip("0").rstrip(".") or "$0"
 
 
-def buyer_intents(operation: str) -> list[str]:
+def buyer_intents(operation: str, *, path: Optional[str] = None) -> list[str]:
     """Literal buyer jobs used by semantic tool and service selectors.
 
     These are truthful retrieval phrases, not hidden instructions or keyword
@@ -612,6 +612,22 @@ def buyer_intents(operation: str) -> list[str]:
     visible on MCP, A2A, OpenAPI, x402 and plain-text discovery without the
     surfaces drifting into different promises.
     """
+    # Fraud checks share an operation but expose two distinct flag views.
+    # Keep their route-specific intent out of the flagship product catalogue.
+    if operation == "fraud_check":
+        if path == "/flags":
+            return [
+                "list agents at or above a minimum collusion suspicion score",
+                "review flagged agents and their collusion suspicion reasons",
+            ]
+        parts = path.split("/") if path else []
+        if (len(parts) == 4 and parts[0] == "" and parts[1] == "agents"
+                and parts[2] and parts[3] == "flags"):
+            return [
+                "inspect collusion suspicion and reasons for one agent",
+                "look up an agent's collusion cluster identifier when available",
+            ]
+        return []
     for op in _OPERATIONS:
         if op["operation"] == operation:
             return list(op["buyer_intents"])
