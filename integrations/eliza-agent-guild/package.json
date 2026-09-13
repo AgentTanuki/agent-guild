@@ -39,5 +39,10 @@
 	"homepage": "https://github.com/AgentTanuki/agent-guild",
 	"publishConfig": {
 		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/AgentTanuki/agent-guild.git",
+		"directory": "integrations/eliza-agent-guild"
 	}
 }
