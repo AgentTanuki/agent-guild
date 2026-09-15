@@ -257,7 +257,8 @@ def _mcp_client(ua: str) -> str | None:
     return ua[4:].split("/", 1)[0].strip().lower() or None
 
 
-def is_genuine_external(event: dict[str, Any]) -> bool:
+def is_genuine_external(event: dict[str, Any], *,
+                        classified: Optional[str] = None) -> bool:
     """True iff `event` is attributable to an agent we do not operate.
 
     Accepts either the internal event shape (keys `fp`, `ua`, `key`) or the public
@@ -270,7 +271,10 @@ def is_genuine_external(event: dict[str, Any]) -> bool:
     holds for current metrics, historical aggregation (classification is
     read-time) and any dashboard built on them. Guarded by
     tests/test_analytics_invariant.py."""
-    cls = caller_class(event)
+    # Internal reducers may reuse a class computed from this SAME event.
+    # Store-level ownership overrides are not interchangeable with the raw
+    # event class. No result is cached across events or requests.
+    cls = caller_class(event) if classified is None else classified
     if not may_count_as_external_growth(cls):
         return False
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
@@ -293,13 +297,14 @@ def is_genuine_external(event: dict[str, Any]) -> bool:
     return False
 
 
-def attribution_class(event: dict[str, Any]) -> str:
+def attribution_class(event: dict[str, Any], *,
+                      classified: Optional[str] = None) -> str:
     """A human/agent-readable label for why an event is (not) genuine external."""
     if event.get("fp", event.get("first_party")):
         return "first_party"
     if _is_known_first_party_incident(event):
         return "first_party_incident"
-    if is_genuine_external(event):
+    if is_genuine_external(event, classified=classified):
         return "genuine_external"
     ua = (event.get("ua", event.get("user_agent")) or "").strip()
     if event.get("op"):
