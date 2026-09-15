@@ -12,7 +12,7 @@ import base64
 import json
 import os
 import sys
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -152,6 +152,7 @@ def test_body_bound_manifest_probe_returns_non_executable_body_template(
         assert detail["executable"] is False
         challenge = json.loads(base64.b64decode(
             response.headers["PAYMENT-REQUIRED"]))
+        _assert_non_executable_header(challenge)
         input_info = challenge["extensions"]["bazaar"]["info"]["input"]
         assert input_info["method"] == "POST"
         assert input_info["bodyType"] == "json"
@@ -301,6 +302,10 @@ def test_search_bare_registry_probe_is_non_executable(client, settle_spy):
     assert response.headers.get("PAYMENT-REQUIRED")
     challenge = json.loads(base64.b64decode(
         response.headers["PAYMENT-REQUIRED"]))
+    _assert_non_executable_header(challenge)
+    assert "capability" not in parse_qs(urlparse(
+        challenge["resource"]["url"]).query)
+    assert "discovery-only" not in json.dumps(challenge)
     assert response.json()["accepts"] == challenge["accepts"]
     assert response.json()["resource"] == challenge["resource"]
     assert response.json()["extensions"] == challenge["extensions"]
@@ -309,6 +314,58 @@ def test_search_bare_registry_probe_is_non_executable(client, settle_spy):
     assert set(output_schema["required"]) == {
         "capability", "count", "results"}
     assert response.headers.get("WWW-Authenticate", "").startswith("Payment ")
+    assert settle_spy == []
+
+
+def _assert_non_executable_header(challenge):
+    from jsonschema import Draft202012Validator
+    from x402.schemas import PaymentRequired
+
+    PaymentRequired.model_validate(challenge)
+    assert challenge["error"].startswith("discovery_only: Do not pay")
+    extension = challenge["extensions"]["agent-guild-discovery"]
+    assert extension["info"] == {
+        "discovery_only": True, "executable": False}
+    Draft202012Validator(extension["schema"]).validate(extension["info"])
+
+
+def test_search_discovery_materializes_a_distinct_task_quote(
+        client, settle_spy, search_payment_supply):
+    from jsonschema import Draft202012Validator
+
+    discovery = client.get("/search", params={"limit": 7, "min_trust": 0})
+    initial = json.loads(base64.b64decode(
+        discovery.headers["PAYMENT-REQUIRED"]))
+    _assert_non_executable_header(initial)
+    bazaar = initial["extensions"]["bazaar"]
+    validator = Draft202012Validator(bazaar["schema"])
+    validator.validate(bazaar["info"])
+    input_info = bazaar["info"]["input"]
+    query = dict(input_info["queryParams"])
+    assert query == {"capability": "fact-check", "limit": "7", "min_trust": "0"}
+    missing = {"input": {**input_info, "queryParams": {"limit": "7"}}}
+    assert not validator.is_valid(missing)
+    empty = {"input": {**input_info, "queryParams": {"capability": ""}}}
+    assert not validator.is_valid(empty)
+
+    # A machine chooses its own supported task, rather than paying a probe.
+    query["capability"] = "translation"
+    validator.validate({"input": {**input_info, "queryParams": query}})
+    task = client.get("/search", params=query)
+    assert task.status_code == 402
+    quoted = json.loads(base64.b64decode(task.headers["PAYMENT-REQUIRED"]))
+    assert "agent-guild-discovery" not in quoted["extensions"]
+    assert quoted["resource"]["url"] != initial["resource"]["url"]
+    assert parse_qs(urlparse(quoted["resource"]["url"]).query) == {
+        key: [value] for key, value in query.items()}
+    assert quoted["extensions"]["bazaar"]["info"]["input"]["queryParams"] == query
+
+    # Even a payment-bearing retry of the incomplete resource cannot settle.
+    resource = urlparse(initial["resource"]["url"])
+    retry = client.get(resource.path + "?" + resource.query,
+                       headers={"PAYMENT-SIGNATURE": "AAAA"})
+    assert retry.status_code == 422
+    assert "payment-response" not in retry.headers
     assert settle_spy == []
 
 

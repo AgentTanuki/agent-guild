@@ -3832,7 +3832,8 @@ def search(
     # before settlement when capability is absent.
     if not capability:
         _probe_challenge_or_none(
-            payments.search_request("discovery-only", limit, min_trust),
+            PaidRequest.build("best_agent", "GET", "/search", {
+                "limit": limit, "min_trust": min_trust}),
             x_api_key, discovery_only=True)
         raise HTTPException(422, "capability is required")
     capability, first_response = _http_objective_first_response(
