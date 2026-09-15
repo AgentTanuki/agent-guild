@@ -2896,7 +2896,12 @@ class Store:
                           or ev.get("actor_distinct") is False)
             # WHY an impression did not qualify, so the exclusion is auditable
             # rather than a single opaque bucket.
-            why = _attr.attribution_class(ev) if not external else None
+            # The store can upgrade historical ownership to AG_INTERNAL at
+            # read time. Preserve the original raw-event exclusion label in
+            # that case; every other class is safe to reuse for this event.
+            why = (_attr.attribution_class(
+                ev, classified=None if cls == "AG_INTERNAL" else cls)
+                if not external else None)
             for bucket, k in ((by_op, op), (by_source, src)):
                 d = bucket.setdefault(k, {
                     "impressions": 0, "qualified_impressions": 0,
@@ -3549,7 +3554,7 @@ class Store:
             return True
         if cls != "EXTERNAL_UNKNOWN":
             return False
-        return _attr.is_genuine_external(ev)
+        return _attr.is_genuine_external(ev, classified=cls)
 
     def _caller_class_for(self, ev: dict[str, Any]) -> str:
         """caller_class for a stored event, resolving member/verified from the
