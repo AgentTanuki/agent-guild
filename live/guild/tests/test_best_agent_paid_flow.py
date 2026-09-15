@@ -133,6 +133,7 @@ def test_http_check_records_a_completion_with_settlement_facts(store, client):
 
 
 def test_http_search_records_a_completion(store, client):
+    store.register_agent("Search supplier", ["fact-check"], {})
     r = client.get("/search", params={"capability": "fact-check"},
                    headers={"user-agent": EXT_UA})
     assert r.status_code == 200, r.text

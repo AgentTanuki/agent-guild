@@ -24,6 +24,7 @@ def isolated(request, tmp_path, monkeypatch):
     s = Store(path=str(tmp_path / "guild.json"))
     for module in (state, main, mcp_server, a2a_x402):
         monkeypatch.setattr(module, "store", s)
+    s.register_agent("Payment supplier", ["anything"], {})
     payments._inflight_reset_for_process_restart()
     x402.replay_guard._seen.clear()
     yield s

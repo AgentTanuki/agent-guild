@@ -43,7 +43,7 @@ PAYER = "0x" + "22" * 20
 
 
 @pytest.fixture(autouse=True)
-def _x402_env(monkeypatch):
+def _x402_env(monkeypatch, search_payment_supply):
     monkeypatch.setenv("GUILD_X402_ENABLED", "1")
     monkeypatch.setenv("GUILD_X402_PAY_TO", PAY_TO)
     monkeypatch.delenv("GUILD_X402_NETWORK", raising=False)

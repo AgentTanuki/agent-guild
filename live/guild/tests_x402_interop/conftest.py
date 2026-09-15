@@ -75,6 +75,9 @@ def live_stack():
     from fake_facilitator import app as facilitator_app
     from app.main import app as guild_app
 
+    from app.state import store
+    store.register_agent("Interop supplier", ["interop.test"], {})
+
     facilitator = _ServerThread(facilitator_app, FACILITATOR_PORT)
     guild = _ServerThread(guild_app, GUILD_PORT)
     facilitator.start()

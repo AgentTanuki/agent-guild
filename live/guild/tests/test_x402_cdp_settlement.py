@@ -55,7 +55,7 @@ FAKE_SECRET = _fake_secret()
 
 
 @pytest.fixture()
-def mainnet_env(monkeypatch):
+def mainnet_env(monkeypatch, search_payment_supply):
     monkeypatch.setenv("GUILD_X402_ENABLED", "1")
     monkeypatch.setenv("GUILD_X402_PAY_TO", PAY_TO)
     monkeypatch.setenv("GUILD_X402_NETWORK", MAINNET)

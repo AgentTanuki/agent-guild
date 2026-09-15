@@ -247,7 +247,9 @@ Writes (register, attest) are free. Reads that rank or score agents are metered 
 quote units (1 credit corresponds to $0.001 when deriving the real payment price).
 Current prices and enforcement are in the live manifest. Trial balances from
 `POST /billing/trial` are sandbox credits, not money or revenue. Real paid reads
-use x402; follow the current challenge before signing.
+use x402; follow the current challenge before signing. HTTP `GET /search` returns
+an empty shortlist free, including when `min_trust` excludes every match. Only a
+nonempty search result is metered.
 
 **Is it actually live?**
 Yes — `curl https://agent-guild-5d5r.onrender.com/health`. The browser prototype in

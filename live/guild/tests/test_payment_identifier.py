@@ -27,7 +27,7 @@ PAY_TO = "0x" + "11" * 20
 
 
 @pytest.fixture(autouse=True)
-def fac(monkeypatch, tmp_path):
+def fac(monkeypatch, tmp_path, search_payment_supply):
     monkeypatch.setenv("GUILD_X402_ENABLED", "1")
     monkeypatch.setenv("GUILD_X402_PAY_TO", PAY_TO)
     monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")

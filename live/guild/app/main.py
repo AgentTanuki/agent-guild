@@ -3849,7 +3849,10 @@ def search(
     preq = payments.search_request(capability, limit, min_trust)
     _recover_http_paid_result(preq)
     dem = _record_http_demand(request, capability, x_api_key)
-    facts = _meter_with_demand(preq, x_api_key, response, dem)
+    # Build the exact result before payment. A capability can have no supply,
+    # or min_trust can exclude every match; neither case earns a lookup fee.
+    # Recovery stays first so an existing purchase returns its original bytes
+    # even if the registry has changed since it was paid for.
     scores = store.reputation()
     items: list[SearchResultItem] = []
     for a in store.agents.values():
@@ -3867,6 +3870,14 @@ def search(
         ))
     items.sort(key=lambda x: x.trust, reverse=True)
     top = items[:limit]
+    if not top:
+        response.headers["X-Guild-Cost"] = "0"
+        store.record_event(x_api_key, "search_empty", ua=_ua.get(),
+                           endpoint="search", transport="http",
+                           capability=capability, min_trust=min_trust,
+                           price_credits=0, paid=False)
+        return SearchResponse(capability=capability, count=0, results=[])
+    facts = _meter_with_demand(preq, x_api_key, response, dem)
     # remember what we recommended, so a later hire can be attributed to it.
     if x_api_key:
         store.note_recommendations(x_api_key, [r.id for r in top])
