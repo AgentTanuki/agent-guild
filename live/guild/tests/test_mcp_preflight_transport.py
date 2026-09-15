@@ -169,6 +169,62 @@ def test_complete_sse_reply_proves_preflight_and_closes_without_draining(monkeyp
     assert stream.closed
 
 
+@pytest.mark.parametrize("sse", [False, True])
+def test_mcp_without_optional_a2a_card_has_no_false_caution(monkeypatch, sse):
+    """Observed on BotHire: valid MCP initialize, unrelated A2A card is 404."""
+    body = json.dumps(initialize()).encode()
+    if sse:
+        body = b'data: ' + body + b'\n\n'
+    monkeypatch.setattr(r, "_resolve_and_screen", lambda *args:
+                        (True, [(socket.AF_INET, "93.184.216.34")], "ok"))
+    monkeypatch.setattr(r, "_http_request_pinned", lambda *args, **kw: (200, body))
+    monkeypatch.setattr(preflight, "_probe_get", lambda *args: (404, b"", ""))
+    record = r.liveness_probe("https://example.com/mcp")
+    assert record["protocol_probe"] == {
+        "protocol": "mcp", "result": "proven", "http_status": 200}
+    out = preflight.run("https://example.com/mcp")
+    assert out["verdict"] == "no_failed_checks"
+    assert out["failed"] == []
+    assert "agent_card_resolves" in out["unknowns"]
+    assert "agent_card_resolves" not in out["scored"]
+    assert set(out["unknowns"]) == {
+        "agent_card_resolves", "agent_card_signed", "payment_claim_holds",
+        "independent_evidence"}
+    assert "not an endorsement" in out["headline"]
+
+
+@pytest.mark.parametrize("card", [b'{"name":"Example"}', b'not a card'])
+def test_mcp_does_not_hide_an_existing_unsigned_or_malformed_card(monkeypatch, card):
+    monkeypatch.setattr(r, "_resolve_and_screen", lambda *args:
+                        (True, [(socket.AF_INET, "93.184.216.34")], "ok"))
+    monkeypatch.setattr(r, "_http_request_pinned", lambda *args, **kw:
+                        (200, json.dumps(initialize()).encode()))
+    monkeypatch.setattr(preflight, "_probe_get", lambda *args: (200, card, ""))
+    out = preflight.run("https://example.com/mcp")
+    assert out["verdict"] == "delegate_with_caution"
+    assert out["failed"]
+
+
+def test_mcp_path_does_not_excuse_a_missing_card_without_observed_handshake(monkeypatch):
+    # URL labels and prose are not protocol evidence.
+    monkeypatch.setattr(r, "liveness_probe", lambda *args: {
+        "status": "recently_reachable", "evidence_level": "protocol_handshake",
+        "detail": "mcp initialise response"})
+    monkeypatch.setattr(preflight, "_probe_get", lambda *args: (404, b"", ""))
+    out = preflight.run("https://example.com/mcp")
+    assert "agent_card_resolves" in out["failed"]
+
+
+def test_missing_a2a_card_is_still_a_failure_for_a2a_endpoint(monkeypatch):
+    monkeypatch.setattr(r, "_resolve_and_screen", lambda *args:
+                        (True, [(socket.AF_INET, "93.184.216.34")], "ok"))
+    monkeypatch.setattr(r, "_http_request_pinned", lambda *args, **kw: (404, b""))
+    monkeypatch.setattr(preflight, "_probe_get", lambda *args: (404, b"", ""))
+    out = preflight.run("https://example.com/a2a")
+    assert out["verdict"] == "do_not_delegate"
+    assert "agent_card_resolves" in out["failed"]
+
+
 def test_slow_drip_has_total_deadline_and_preserves_http_evidence(monkeypatch):
     clock = {"now": 0.0, "reads": 0}
     stream = Stream(b"HTTP/1.1 200 OK\r\n\r\n")

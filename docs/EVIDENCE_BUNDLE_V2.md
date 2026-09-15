@@ -68,6 +68,12 @@ normalized index group; its history can merge those URL variants. The observatio
 is made for the requested URL. Expiry limits current use; a correctly signed but
 expired bundle can still describe the historical observation.
 
+An observed MCP initialization does not require an A2A Agent Card. When the
+optional card returns 404, its resolution and signature remain unknown, outside
+the scored checks. That absence alone does not produce a caution verdict. A
+served malformed or unsigned card retains its existing findings. A successful
+MCP handshake proves neither task execution nor payment or signing safety.
+
 ## The bytes and proof
 
 Version 2 uses raw Ed25519 with a hexadecimal signature over AGI-1 canonical JSON,
