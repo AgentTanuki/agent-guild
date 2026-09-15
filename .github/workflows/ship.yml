@@ -243,7 +243,10 @@ jobs:
             # User-authenticated push: ci.yml (push: ship/**) starts on its
             # own and reports the required contexts on this exact head SHA.
             # The ship job's own ship/revert-* guard keeps the loop acyclic.
-            git push --force \
+            # checkout persists GITHUB_TOKEN as an Authorization extraheader.
+            # Clear it for this push only; otherwise it overrides the URL's
+            # recovery token and GitHub suppresses the required push-event CI.
+            git -c http.https://github.com/.extraheader= push --force \
               "https://x-access-token:${RECOVERY_PUSH_TOKEN}@github.com/$REPO.git" \
               "ship/revert-$short"
           else
