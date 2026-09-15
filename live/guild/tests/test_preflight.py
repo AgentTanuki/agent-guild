@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import sys
 
 import pytest
@@ -85,6 +86,53 @@ def test_http_200_without_a_handshake_is_do_not_delegate(monkeypatch):
     out = preflight.run("https://example.com/a2a")
     assert out["verdict"] == "do_not_delegate"
     assert "protocol_handshake" in out["failed"]
+
+
+@pytest.mark.parametrize("http_code", [200, 402, 405])
+def test_plain_http_api_does_not_require_an_a2a_card(monkeypatch, http_code):
+    """Coppice's /api/vet responded, but an optional card 404 caused caution."""
+    monkeypatch.setattr(reachability, "_resolve_and_screen", lambda *args:
+                        (True, [(socket.AF_INET, "93.184.216.34")], "ok"))
+    monkeypatch.setattr(reachability, "_http_request_pinned",
+                        lambda *args, **kw: (http_code, b""))
+    monkeypatch.setattr(preflight, "_probe_get", lambda *args: (404, b"", ""))
+    out = preflight.run("https://example.com/api/vet")
+    assert out["verdict"] == "no_failed_checks"
+    assert out["failed"] == []
+    assert out["scored"] == ["endpoint_reachable"]
+    assert set(out["unknowns"]) == {
+        "protocol_handshake", "agent_card_resolves", "agent_card_signed",
+        "payment_claim_holds", "independent_evidence"}
+    assert "not an endorsement" in out["headline"]
+
+
+@pytest.mark.parametrize("card_code, card_body", [
+    (200, b'{"name":"Example"}'), (200, b'not a card'), (403, b''),
+])
+def test_plain_http_api_still_reports_card_defects(monkeypatch, card_code, card_body):
+    monkeypatch.setattr(reachability, "_resolve_and_screen", lambda *args:
+                        (True, [(socket.AF_INET, "93.184.216.34")], "ok"))
+    monkeypatch.setattr(reachability, "_http_request_pinned",
+                        lambda *args, **kw: (200, b""))
+    monkeypatch.setattr(preflight, "_probe_get",
+                        lambda *args: (card_code, card_body, ""))
+    out = preflight.run("https://example.com/api/vet")
+    assert out["verdict"] == "delegate_with_caution"
+    assert out["failed"]
+    assert "protocol_handshake" in out["unknowns"]
+    assert "payment_claim_holds" in out["unknowns"]
+
+
+def test_plain_http_api_failure_is_still_blocking(monkeypatch):
+    monkeypatch.setattr(reachability, "_resolve_and_screen", lambda *args:
+                        (True, [(socket.AF_INET, "93.184.216.34")], "ok"))
+    monkeypatch.setattr(reachability, "_http_request_pinned",
+                        lambda *args, **kw: (503, b""))
+    monkeypatch.setattr(preflight, "_probe_get", lambda *args: (404, b"", ""))
+    out = preflight.run("https://example.com/api/vet")
+    assert out["verdict"] == "do_not_delegate"
+    assert "endpoint_reachable" in out["failed"]
+    assert "protocol_handshake" in out["unknowns"]
 
 
 def test_unreachable_reports_downstream_checks_as_unknown_not_failed(monkeypatch):

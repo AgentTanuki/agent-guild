@@ -120,6 +120,10 @@ def run(url: str, *, store=None) -> dict[str, Any]:
                   and evidence == "protocol_handshake"
                   and protocol_probe.get("protocol") == "mcp"
                   and protocol_probe.get("result") == "proven")
+    http_only = (status == "http_responsive"
+                 and evidence == "http_response"
+                 and protocol_probe.get("protocol") == "unspecified"
+                 and protocol_probe.get("result") == "not_attempted")
     if status == "recently_reachable" and evidence == "protocol_handshake":
         checks.append(_check("endpoint_reachable", "proven",
                              rec.get("detail") or "responded"))
@@ -184,14 +188,18 @@ def run(url: str, *, store=None) -> dict[str, Any]:
         checks.append(_check("agent_card_signed",
                              "proven" if signed else "failed", why))
     else:
-        # MCP does not require an A2A Agent Card. Keep its absence unknown;
-        # a served malformed/unsigned card still receives the existing checks.
-        optional_absent_card = mcp_proven and code == 404
+        # Neither observed MCP nor an HTTP-only probe requires an A2A card.
+        # Only a 404 is optional absence; existing card defects stay visible.
+        optional_absent_card = code == 404 and (mcp_proven or http_only)
+        card_detail = err or f"no parsable card (http {code})"
+        if optional_absent_card:
+            card_detail = (
+                "no A2A card (http 404); not required for the observed MCP handshake"
+                if mcp_proven else
+                "no A2A card (http 404); no A2A protocol probe applies to this HTTP endpoint")
         checks.append(_check("agent_card_resolves",
                              "unknown" if optional_absent_card else "failed",
-                             "no A2A card (http 404); not required for the "
-                             "observed MCP handshake" if optional_absent_card
-                             else err or f"no parsable card (http {code})"))
+                             card_detail))
         checks.append(_check("agent_card_signed", "unknown",
                              "not attempted — no card to inspect"))
 
