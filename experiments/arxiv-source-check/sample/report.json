@@ -1,0 +1,92 @@
+{
+  "schema": "ag-arxiv-source-check-prototype-v1",
+  "scope": "Source metadata only; no overall validity or acceptance verdict.",
+  "window_start": "2026-03-01",
+  "window_end": "2026-09-15",
+  "records": [
+    {
+      "record_id": "listing38-submission418",
+      "arxiv_id": "2308.08155",
+      "source_url": "https://arxiv.org/abs/2308.08155",
+      "source_sha256": "67472921c0c51d0c9e39f3c51a32ab6cc617d181bfe478dccccd9b02ea5775db",
+      "identifier_matches": true,
+      "source_title": "AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation",
+      "title_matches_normalised": true,
+      "first_submitted_at": "2023-08-16T05:57:52+00:00",
+      "first_submission_in_window": false,
+      "primary_subject": "Artificial Intelligence (cs.AI)",
+      "source_fields_incomplete": false,
+      "not_checked": [
+        "semantic topic fit",
+        "author affiliation",
+        "contact-route suitability",
+        "quotation accuracy",
+        "research quality",
+        "bounty acceptance"
+      ],
+      "source_observed_at": "2026-09-15T15:23:45.733766+00:00"
+    },
+    {
+      "record_id": "listing38-submission422",
+      "arxiv_id": "2604.08239",
+      "source_url": "https://arxiv.org/abs/2604.08239",
+      "source_observed_at": "2026-09-15T15:24:58.598497+00:00",
+      "http_status": 406,
+      "fetch_error": "HTTPError",
+      "identifier_matches": null,
+      "source_title": null,
+      "title_matches_normalised": null,
+      "first_submitted_at": null,
+      "first_submission_in_window": null,
+      "primary_subject": null,
+      "source_fields_incomplete": true,
+      "not_checked": [
+        "All source claims; source unavailable"
+      ]
+    },
+    {
+      "record_id": "listing38-submission457",
+      "arxiv_id": "2606.08790",
+      "source_url": "https://arxiv.org/abs/2606.08790",
+      "source_sha256": "e80b838bb049cff4cfad01ffab441c706bca344593a959cfc3de80a34b42e2ae",
+      "identifier_matches": true,
+      "source_title": "RAILS: Verification-Native Clearing For Agentic Commerce",
+      "title_matches_normalised": true,
+      "first_submitted_at": "2026-06-07T19:12:55+00:00",
+      "first_submission_in_window": true,
+      "primary_subject": "Artificial Intelligence (cs.AI)",
+      "source_fields_incomplete": false,
+      "not_checked": [
+        "semantic topic fit",
+        "author affiliation",
+        "contact-route suitability",
+        "quotation accuracy",
+        "research quality",
+        "bounty acceptance"
+      ],
+      "source_observed_at": "2026-09-15T15:20:51.969989+00:00"
+    },
+    {
+      "record_id": "listing38-submission469",
+      "arxiv_id": "2607.23884",
+      "source_url": "https://arxiv.org/abs/2607.23884",
+      "source_sha256": "b603190646aa6db940ce3db692c1e2d33d5c87033c46e6dd34855674ad6872ec",
+      "identifier_matches": true,
+      "source_title": "A Comparative Study of MCP and A2A for Inter-Agent Coordination in LLM-Based Systems",
+      "title_matches_normalised": true,
+      "first_submitted_at": "2026-07-26T23:05:08+00:00",
+      "first_submission_in_window": true,
+      "primary_subject": "Multiagent Systems (cs.MA)",
+      "source_fields_incomplete": false,
+      "not_checked": [
+        "semantic topic fit",
+        "author affiliation",
+        "contact-route suitability",
+        "quotation accuracy",
+        "research quality",
+        "bounty acceptance"
+      ],
+      "source_observed_at": "2026-09-15T15:25:01.647052+00:00"
+    }
+  ]
+}

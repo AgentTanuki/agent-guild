@@ -1,0 +1,10 @@
+{
+  "window_start": "2026-03-01",
+  "window_end": "2026-09-15",
+  "records": [
+    {"record_id": "listing38-submission418", "arxiv_id": "2308.08155", "expected_title": "AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation"},
+    {"record_id": "listing38-submission422", "arxiv_id": "2604.08239", "expected_title": null},
+    {"record_id": "listing38-submission457", "arxiv_id": "2606.08790", "expected_title": "RAILS: Verification-Native Clearing For Agentic Commerce"},
+    {"record_id": "listing38-submission469", "arxiv_id": "2607.23884", "expected_title": "A Comparative Study of MCP and A2A for Inter-Agent Coordination in LLM-Based Systems"}
+  ]
+}
