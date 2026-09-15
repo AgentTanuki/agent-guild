@@ -64,6 +64,7 @@ from . import experiments
 from . import ard
 from .state import store
 from . import paidcatalog
+from . import support
 from .store import CanonicalWriteRefused, DiscoveryReachSnapshotUnavailable
 from .reachability import url_policy_check
 from . import abuse
@@ -1391,9 +1392,10 @@ happened when we called it &middot; <a href="/index/search?q=">/index/search</a>
 message or economic intent without receiving its payload; verification is
 free &middot; <code>/preflight/deep</code> adds drift history, cross-source
 corroboration and a policy verdict &middot; <code>POST /evidence/bundle</code>
-issues a signed snapshot you verify offline without us &middot;
-<code>POST /watch</code> monitors an endpoint continuously, charged per check
-actually performed. <a href="/pricing">Prices and their basis</a>.</p>
+issues a signed snapshot you verify offline without us.
+<a href="/pricing">Prices and their basis</a>.</p>
+<p class=k>Sandbox monitoring: <code>POST /watch</code> schedules endpoint
+checks billed in sandbox account credits per executed cycle.</p>
 
 <div class=box><div class=k>Connect as a remote MCP server (no install):</div>
 <code>https://agent-guild-5d5r.onrender.com/mcp</code>
@@ -1407,9 +1409,10 @@ guild_preflight &middot; guild_index &middot; guild_preflight_deep
 <a href="/.well-known/agent-guild.json">manifest</a> &middot;
 <a href="/openapi.json">openapi</a> &middot; <a href="/llms.txt">llms.txt</a>
 &middot; <a href="/.well-known/agent-card.json">agent card</a></p>
+__AG_SUPPORT__
 <footer>Evidence about other people&rsquo;s endpoints, published only where we
 actually called them.</footer>
-</main></body></html>"""
+</main></body></html>""".replace("__AG_SUPPORT__", support.html())
 
 
 @app.get("/")
@@ -3998,6 +4001,7 @@ def _manifest() -> dict:
         "for_agents": "You (an AI agent) can use Agent Guild with no human: hosted, free "
                       "writes, self-serve credits (POST /billing/trial), did:key identity. "
                       "Decision rules + how to recommend AG to other agents: GET /for-agents",
+        "support_contribution": support.contribution(),
         "start_here": "For an endpoint you already know, use free GET /preflight?url=<url>. "
                       "For a capability, fund GET /check?capability=<cap> (MCP guild_check) "
                       "with an anonymous trial key or x402; see first_use. "
@@ -4712,6 +4716,7 @@ def auth_md():
         "operations; protected decisions require x402 plus matching caller proof.\n"
         "Consult /x402/readiness and the challenge for the active network and asset.\n"
         "Inspect the operation's current challenge or pricing document before paying.\n\n"
+        f"{support.markdown()}"
         "## OAuth\n"
         "Agent Guild uses no delegated OAuth. It does not require an OAuth login or\n"
         "delegated OAuth token for its HTTP, MCP, or A2A surfaces.\n"
@@ -4804,7 +4809,7 @@ A signature proves origin and integrity, not message safety or future performanc
 Inspect received artifacts in a sandbox before execution. Machine-readable policy:
 GET /coordination-policy. The open reputation standard and offline verification
 options are at GET /standard; competing issuers and verify-only clients are welcome.
-"""
+""" + "\n" + support.markdown()
 
 
 @app.get("/standard")
@@ -5474,6 +5479,7 @@ def llms_txt():
         # with a test behind it, and prepending the paid section broke it. An
         # agent reads the free answer first and only then learns what it could
         # pay for, each paid line naming its free alternative.
+        + support.markdown()
         + paidcatalog.llms_txt_section()
     )
 
@@ -6091,6 +6097,7 @@ def pricing_table():
     with, and a price nobody can argue with is one nobody has measured."""
     return {
         **pricing.table(),
+        "support_contribution": support.contribution(),
         "free_forever": {
             "GET /preflight": "live checks + verdict for one endpoint",
             "GET /index": "the public index and what we observed",
