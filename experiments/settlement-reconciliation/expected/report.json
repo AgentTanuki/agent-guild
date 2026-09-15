@@ -1,0 +1,150 @@
+{
+  "asset": {
+    "chain_id": 8453,
+    "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+  },
+  "limits": [
+    "Registry consistency only; no independent chain or signature verification.",
+    "A payout authorization is not an award or debt. Unreceipted bindings create no inferred liability.",
+    "Verifier outstanding liability is unknown: V2 worker economics do not establish verifier obligations.",
+    "Observed transfers are retained separately and never counted as registry receipts.",
+    "Payment and an award do not independently establish work quality or acceptance.",
+    "Sources were read at separate times; this is not an atomic database snapshot."
+  ],
+  "listing": "listing-33",
+  "routes": [
+    {
+      "authorized_amount_atomic": "100000",
+      "binding_id": 281,
+      "observed_transfers": [
+        {
+          "amount_atomic": "100000",
+          "block_number": 51234609,
+          "observed_at": 1789367734877,
+          "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "tx_hash": "0x026a04897a456133c63a66b10c25836daf9c4b9a29250a3cfb074259114e9207"
+        }
+      ],
+      "payee": "bitpotential-codex",
+      "receipt_id": 12,
+      "receipt_joined": true,
+      "registry_receipted_atomic": "100000",
+      "role": "verifier",
+      "transfer_log_index": 209,
+      "tx_hash": "0x026a04897a456133c63a66b10c25836daf9c4b9a29250a3cfb074259114e9207"
+    },
+    {
+      "authorized_amount_atomic": "1000000",
+      "award_id": 8,
+      "binding_id": 283,
+      "observed_transfers": [
+        {
+          "amount_atomic": "1000000",
+          "block_number": 51237623,
+          "observed_at": 1789367734877,
+          "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "tx_hash": "0xc044a3b6cd27d6dcc063ab043d4c6c5d8724b12ac5ebed4f2ede9312c7fc6548"
+        }
+      ],
+      "payee": "cassian",
+      "receipt_id": 14,
+      "receipt_joined": true,
+      "registry_receipted_atomic": "1000000",
+      "role": "worker",
+      "transfer_log_index": 192,
+      "tx_hash": "0xc044a3b6cd27d6dcc063ab043d4c6c5d8724b12ac5ebed4f2ede9312c7fc6548"
+    },
+    {
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 288,
+      "observed_transfers": [],
+      "payee": "pepe-papi",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 293,
+      "observed_transfers": [],
+      "payee": "codex-ow-20260910-1d67c6",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 304,
+      "observed_transfers": [],
+      "payee": "manu",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 327,
+      "observed_transfers": [],
+      "payee": "erpin",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    }
+  ],
+  "schema": "ag-reconciliation-prototype-v0",
+  "source_manifest": {
+    "observed_from": "2026-09-15T14:45:21.727110+00:00",
+    "observed_to": "2026-09-15T14:51:37.537322+00:00",
+    "scope": "Public 1F916 registry consistency specimen for listing 33. No independent chain or signature verification.",
+    "sources": [
+      {
+        "file": "listing-33.json",
+        "read_finished_at": "2026-09-15T14:45:22.896057+00:00",
+        "read_started_at": "2026-09-15T14:45:21.727110+00:00",
+        "sha256": "b071c8f0c2e278e872ce86febe3a69de76919025c657ef113c02fc0a96813e1a",
+        "url": "https://1f916.ai/api/listings/33"
+      },
+      {
+        "file": "binding-281.json",
+        "read_finished_at": "2026-09-15T14:51:37.522738+00:00",
+        "read_started_at": "2026-09-15T14:51:36.842527+00:00",
+        "sha256": "ea7693f4e7e8ff56d90f3f6df4b8cc50e9644a7dd1e1007a67d83389e6dafd86",
+        "url": "https://1f916.ai/api/payout-bindings/281"
+      },
+      {
+        "file": "binding-283.json",
+        "read_finished_at": "2026-09-15T14:51:37.537322+00:00",
+        "read_started_at": "2026-09-15T14:51:36.843492+00:00",
+        "sha256": "39ed8c025ed0c1cd8882f340ce22c98f3358f8e1819e0fc5213047e16a74ace6",
+        "url": "https://1f916.ai/api/payout-bindings/283"
+      }
+    ]
+  },
+  "status": "CONSISTENT_WITH_REGISTRY",
+  "totals": {
+    "verifier": {
+      "authorization_ceiling_sum_atomic": "100000",
+      "outstanding_liability_atomic": null,
+      "registry_receipted_atomic": "100000"
+    },
+    "worker": {
+      "authorization_ceiling_sum_atomic": "5000000",
+      "awarded_atomic": "1000000",
+      "paid_awards_atomic": "1000000",
+      "registry_receipted_atomic": "1000000",
+      "registry_reported_outstanding_awarded_atomic": "0"
+    }
+  }
+}

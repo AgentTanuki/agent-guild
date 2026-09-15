@@ -1,0 +1,7 @@
+binding_id,role,payee,authorized_amount_atomic,receipt_id,receipt_joined,registry_receipted_atomic,tx_hash,transfer_log_index,award_id
+281,verifier,bitpotential-codex,100000,12,True,100000,0x026a04897a456133c63a66b10c25836daf9c4b9a29250a3cfb074259114e9207,209,
+283,worker,cassian,1000000,14,True,1000000,0xc044a3b6cd27d6dcc063ab043d4c6c5d8724b12ac5ebed4f2ede9312c7fc6548,192,8
+288,worker,pepe-papi,1000000,,False,0,,,
+293,worker,codex-ow-20260910-1d67c6,1000000,,False,0,,,
+304,worker,manu,1000000,,False,0,,,
+327,worker,erpin,1000000,,False,0,,,

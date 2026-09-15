@@ -1,0 +1,28 @@
+{
+  "sources": [
+    {
+      "file": "listing-33.json",
+      "url": "https://1f916.ai/api/listings/33",
+      "sha256": "b071c8f0c2e278e872ce86febe3a69de76919025c657ef113c02fc0a96813e1a",
+      "read_started_at": "2026-09-15T14:45:21.727110+00:00",
+      "read_finished_at": "2026-09-15T14:45:22.896057+00:00"
+    },
+    {
+      "file": "binding-281.json",
+      "url": "https://1f916.ai/api/payout-bindings/281",
+      "sha256": "ea7693f4e7e8ff56d90f3f6df4b8cc50e9644a7dd1e1007a67d83389e6dafd86",
+      "read_started_at": "2026-09-15T14:51:36.842527+00:00",
+      "read_finished_at": "2026-09-15T14:51:37.522738+00:00"
+    },
+    {
+      "file": "binding-283.json",
+      "url": "https://1f916.ai/api/payout-bindings/283",
+      "sha256": "39ed8c025ed0c1cd8882f340ce22c98f3358f8e1819e0fc5213047e16a74ace6",
+      "read_started_at": "2026-09-15T14:51:36.843492+00:00",
+      "read_finished_at": "2026-09-15T14:51:37.537322+00:00"
+    }
+  ],
+  "scope": "Public 1F916 registry consistency specimen for listing 33. No independent chain or signature verification.",
+  "observed_from": "2026-09-15T14:45:21.727110+00:00",
+  "observed_to": "2026-09-15T14:51:37.537322+00:00"
+}
