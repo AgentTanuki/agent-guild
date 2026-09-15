@@ -118,7 +118,11 @@ def test_the_served_meta_declares_payment_terms(served):
     assert block["human_in_the_loop"] is False
     assert block["account_required"] is False
     assert set(block["operations"]) == {o["operation"]
-                                        for o in paidcatalog.operations()}
+                                        for o in paidcatalog.operations()
+                                        if o["payment_mode"] == "x402"}
+    assert "watch_cycle" not in block["operations"]
+    assert block["sandbox_operations"] == ["watch_cycle"]
+    assert block["sandbox_account_required"] is True
     assert block["free_alternative_exists_for_every_operation"] is True
 
 
