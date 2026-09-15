@@ -397,9 +397,7 @@ def discovery_document(resources: list["PaidRequest"]) -> dict[str, Any]:
         "resources": urls,
         "instructions": (
             "Recommended first purchase: GET /search to rank agents before "
-            "delegation. Choose the capability required by your task; "
-            "the bare /search URL is non-executable discovery only. "
-            "Probe each exact resource without payment. Its "
+            "delegation. Probe each exact resource without payment. Its "
             "HTTP 402 and "
             "PAYMENT-REQUIRED header are authoritative for the current price, "
             "Base-mainnet USDC recipient, method, input schema and output "
@@ -980,11 +978,6 @@ def _bazaar_body_example(preq: "PaidRequest") -> dict[str, Any]:
 def bazaar_extension(preq: "PaidRequest") -> dict[str, Any]:
     query = dict(preq.query)
     route_key = (preq.operation, preq.path)
-    search_route = route_key == ("best_agent", "/search")
-    if search_route and "capability" not in query:
-        # This is an example for materializing a new request, not a made-up
-        # capability bound into the discovery resource itself.
-        query["capability"] = "fact-check"
     output: dict[str, Any] = {
         "type": "json",
         "example": _BAZAAR_ROUTE_OUTPUTS.get(
@@ -1024,20 +1017,6 @@ def bazaar_extension(preq: "PaidRequest") -> dict[str, Any]:
                     "additionalProperties": {"type": "string"}},
     }
     input_required = ["type", "method"]
-    if search_route:
-        input_properties["queryParams"].update({
-            "properties": {
-                "capability": {
-                    "type": "string", "minLength": 1,
-                    "description": (
-                        "Required capability for your actual task. fact-check "
-                        "is an example only. Request the chosen capability "
-                        "without payment before considering its fresh quote."),
-                },
-            },
-            "required": ["capability"],
-        })
-        input_required.append("queryParams")
     if body_method:
         input_properties.update({
             "bodyType": {"type": "string", "const": "json"},
