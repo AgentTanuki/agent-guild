@@ -707,6 +707,45 @@ def internal_recovery_id(payload: PaymentPayload, preq: PaidRequest) -> str:
         canonicalize_jcs(binding).encode("utf-8"))[:40]
 
 
+def recover_completed(payload: PaymentPayload, preq: PaidRequest, *,
+                      method: Optional[str] = None) -> None:
+    """Return only a completed purchase, authenticated by its original bytes.
+
+    Expiry limits a new transfer, not retrieval of an already purchased result.
+    This read-only lookup neither reserves an identifier nor authorizes work.
+    Incomplete and absent records still require the ordinary settlement checks.
+    """
+    from .state import store
+    if method is not None and method.upper() != preq.method.upper():
+        raise x402.PaymentBindingError("method_mismatch",
+                                       "retrieval must use the original method")
+    pid = extract_payment_identifier(payload, validate=False)
+    if pid is None:
+        if not x402.is_mainnet(x402.network()):
+            return
+        pid = internal_recovery_id(payload, preq)
+    elif not is_valid_payment_id(pid):
+        raise PaymentIdConflict("invalid_payment_identifier",
+                                "invalid payment identifier")
+    with _pid_lock:
+        rec = store.x402_payment_id_get(pid)
+        if rec is None or rec.get("status") != "completed":
+            return
+        inner = payload.payload if isinstance(payload.payload, dict) else {}
+        auth = inner.get("authorization")
+        auth = auth if isinstance(auth, dict) else {}
+        for field, expected, reason in (
+            ("payer", str(auth.get("from") or "").lower(), "payer"),
+            ("request_hash", preq.request_hash, "resource"),
+            ("payload_fingerprint", _payload_fingerprint(payload), "payload"),
+        ):
+            if rec.get(field) != expected:
+                raise PaymentIdConflict(
+                    f"payment_identifier_{reason}_mismatch",
+                    "identifier is bound to a different purchase", payment_id=pid)
+        raise CachedPaidResult(rec)
+
+
 def _handle_payment_identifier(payload: PaymentPayload, preq: PaidRequest,
                                ) -> tuple[Optional[str], str, str,
                                           Optional[dict[str, Any]]]:
@@ -963,6 +1002,7 @@ def _settle_x402_inner(payload: PaymentPayload, preq: PaidRequest,
     tests/test_payment_crash_recovery.py)."""
     from .state import store
     cost = preq.cost
+    recover_completed(payload, preq, method=method)
     if x402.config_errors():
         raise x402.PaymentBindingError("x402_misconfigured",
                                        "; ".join(x402.config_errors()))

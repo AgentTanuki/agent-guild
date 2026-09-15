@@ -1162,6 +1162,32 @@ def meter(preq: PaidRequest, x_api_key: Optional[str], response: Response) -> di
         return _meter_inner(preq, x_api_key, response)
 
 
+def _recover_http_paid_result(preq: PaidRequest) -> None:
+    """Recover an exact x402 result before recomputing current demand/supply.
+
+    Everything except a proven completed purchase continues through the normal
+    demand recorder and payment gateway, including malformed/mixed credentials.
+    MPP retains its own challenge-validation path.
+    """
+    signature = _xpay_sig.get()
+    if (not signature or not x402.enabled() or _xpay_v1.get()
+            or _mpp_payment_present()):
+        return
+    try:
+        payload = x402.decode_payment_signature(signature)
+        payments.recover_completed(payload, preq)
+    except CachedPaidResult as exc:
+        with paymentdiag.observe(preq.operation, "http", _fp_flag.get() is True) as diag:
+            diag.emit("credential_present")
+            diag.emit("credential_parsed")
+            diag.emit("recovery_started")
+            exc.diagnostic = diag
+        raise
+    except (x402.PaymentBindingError, PaymentIdConflict, ValueError):
+        # The normal gateway supplies the existing rejection and diagnostics.
+        return
+
+
 def _meter_inner(preq: PaidRequest, x_api_key: Optional[str],
                  response: Response, *, prepare_only: bool = False) -> dict:
     """Charge one priced request through the shared paid-operation gateway
@@ -3413,8 +3439,9 @@ def check(
     if first_response is not None:
         return first_response
     assert capability is not None
-    dem = _record_http_demand(request, capability, x_api_key)
     preq = payments.check_request(capability, signed, ttl_seconds)
+    _recover_http_paid_result(preq)
+    dem = _record_http_demand(request, capability, x_api_key)
     facts = _meter_with_demand(preq, x_api_key, response, dem)
     # The COMPLETION event, with settlement facts. Every other sold operation
     # records one (machine_envelope_issued, deep_preflight_run, ...); the
@@ -3816,8 +3843,9 @@ def search(
     if first_response is not None:
         return first_response
     assert capability is not None
-    dem = _record_http_demand(request, capability, x_api_key)
     preq = payments.search_request(capability, limit, min_trust)
+    _recover_http_paid_result(preq)
+    dem = _record_http_demand(request, capability, x_api_key)
     facts = _meter_with_demand(preq, x_api_key, response, dem)
     scores = store.reputation()
     items: list[SearchResultItem] = []

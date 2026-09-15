@@ -31,6 +31,15 @@ on-chain, and the service itself enforces that definition
   re-present the same payment for idempotent recovery — never charged twice.
 * Replay, resource/price/recipient binding, duplicate-transaction and
   double-settlement guards persist across restarts.
+* For a **completed** x402 purchase, retain the exact original request and
+  `PAYMENT-SIGNATURE` privately. Repeating them retrieves the saved response
+  and original receipt even after the transfer authorization expires; no new
+  signature or transfer is needed. `/check` and `/search` recover before
+  recomputing current supply or reputation. This returns the original
+  observation, not a refreshed verdict or extended validity period. A public
+  transaction hash or payment identifier alone cannot retrieve the result.
+  Incomplete settlements retain their existing validation/recovery rules;
+  this does not extend an MPP challenge or bypass the x402 enabled switch.
 * `GET /x402/readiness` reports enabled/network/asset/recipient/facilitator
   host/config validity — never credentials.
 
