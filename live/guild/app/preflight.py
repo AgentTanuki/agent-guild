@@ -115,6 +115,11 @@ def run(url: str, *, store=None) -> dict[str, Any]:
     rec = reachability.liveness_probe(url)
     status = rec.get("status")
     evidence = rec.get("evidence_level")
+    protocol_probe = rec.get("protocol_probe") or {}
+    mcp_proven = (status == "recently_reachable"
+                  and evidence == "protocol_handshake"
+                  and protocol_probe.get("protocol") == "mcp"
+                  and protocol_probe.get("result") == "proven")
     if status == "recently_reachable" and evidence == "protocol_handshake":
         checks.append(_check("endpoint_reachable", "proven",
                              rec.get("detail") or "responded"))
@@ -179,8 +184,14 @@ def run(url: str, *, store=None) -> dict[str, Any]:
         checks.append(_check("agent_card_signed",
                              "proven" if signed else "failed", why))
     else:
-        checks.append(_check("agent_card_resolves", "failed",
-                             err or f"no parsable card (http {code})"))
+        # MCP does not require an A2A Agent Card. Keep its absence unknown;
+        # a served malformed/unsigned card still receives the existing checks.
+        optional_absent_card = mcp_proven and code == 404
+        checks.append(_check("agent_card_resolves",
+                             "unknown" if optional_absent_card else "failed",
+                             "no A2A card (http 404); not required for the "
+                             "observed MCP handshake" if optional_absent_card
+                             else err or f"no parsable card (http {code})"))
         checks.append(_check("agent_card_signed", "unknown",
                              "not attempted — no card to inspect"))
 

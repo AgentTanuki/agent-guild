@@ -471,6 +471,8 @@ def liveness_probe(url: str, *, ssl_context: Optional[ssl.SSLContext] = None
     if outcome == OUTCOME_PROTOCOL_RESPONSIVE:
         record = _probe_record("recently_reachable", "protocol_probe",
                                "protocol_handshake", url, detail=detail)
+        if observations.get("protocol_probe"):
+            record["protocol_probe"] = observations["protocol_probe"]
         if observations.get("execution_availability"):
             record["execution_availability"] = observations["execution_availability"]
         return record
@@ -569,6 +571,9 @@ def _classify(parts, req, observations: Optional[dict] = None
                                  "Accept: application/json, text/event-stream\r\n")
         if code and 200 <= code < 300 and _mcp_initialize_result(body):
             version = _mcp_initialize_message(body)["result"]["protocolVersion"]
+            if observations is not None:
+                observations["protocol_probe"] = {
+                    "protocol": "mcp", "result": "proven", "http_status": code}
             return OUTCOME_PROTOCOL_RESPONSIVE, code, f"mcp initialise response (protocol {version})"
         if code in (401, 402, 403):
             if observations is not None:
