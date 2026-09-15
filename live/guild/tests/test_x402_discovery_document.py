@@ -201,7 +201,7 @@ def test_body_bound_discovery_quotes_keep_canonical_prices(monkeypatch):
 
 
 def test_every_published_product_is_probeable_and_has_its_own_quote(
-        monkeypatch):
+        monkeypatch, search_payment_supply):
     monkeypatch.setenv("GUILD_X402_ENABLED", "1")
     monkeypatch.setenv("GUILD_X402_PAY_TO", PAY_TO)
     monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")

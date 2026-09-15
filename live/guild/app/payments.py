@@ -423,6 +423,26 @@ class PaymentChallenge(Exception):
         self.preq = preq
         self.cost = preq.cost
         self.model = challenge_model(preq)
+        if extra and extra.get("discovery_only") is True:
+            # HTTP clients consume PAYMENT-REQUIRED, often without its JSON
+            # body. Keep the non-executable warning on that canonical wire
+            # surface as well; a discovery quote is never a purchase request.
+            self.model.error = (
+                "discovery_only: Do not pay this non-executable quote. "
+                "Supply the required inputs for your task, remove any "
+                "discovery marker, and request a fresh quote without payment.")
+            self.model.extensions["agent-guild-discovery"] = {
+                "info": {"discovery_only": True, "executable": False},
+                "schema": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                        "discovery_only": {"type": "boolean", "const": True},
+                        "executable": {"type": "boolean", "const": False},
+                    },
+                    "required": ["discovery_only", "executable"],
+                },
+            }
         self.body = x402.payment_required_body(preq, self.cost, model=self.model)
         if extra:
             self.body.update(extra)
