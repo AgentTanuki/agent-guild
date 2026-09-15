@@ -1,0 +1,225 @@
+{
+  "asset": {
+    "chain_id": 8453,
+    "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+  },
+  "limits": [
+    "Registry consistency only; no independent chain or signature verification.",
+    "A payout authorization is not an award or debt. Unreceipted bindings create no inferred liability.",
+    "Verifier outstanding liability is unknown: V2 worker economics do not establish verifier obligations.",
+    "Observed transfers are retained separately and never counted as registry receipts.",
+    "Historical anchors are checked for receipted bindings only; null means not examined.",
+    "Anchor changes are disclosed separately from payment joins; equal reported hashes do not prove equal explanatory fields.",
+    "Payment and an award do not independently establish work quality or acceptance.",
+    "Sources were read at separate times; this is not an atomic database snapshot."
+  ],
+  "listing": "listing-21",
+  "routes": [
+    {
+      "anchor_history": {
+        "anchor_payload_hash_at_binding": "2ed566aa85672fe709df57d24b8254872d6f8bf72289a0f43ee4c238d9349176",
+        "anchor_payload_hash_changed": false,
+        "anchor_payload_hash_current": "2ed566aa85672fe709df57d24b8254872d6f8bf72289a0f43ee4c238d9349176",
+        "binding_payload_hash": "f1541226dc7bbb485a937c86829d9c079d54a6af8c278458bfa55dfcceb170fd",
+        "binding_time_anchor_pointer": "/anchor_at_binding",
+        "binding_time_snapshot_pointer": "/payload/docket_snapshot",
+        "binding_time_snapshot_text_sha256": "13d264d7b19c584ce167442e7d8ae58f98792820dddccaa036dbc1d8a251e559",
+        "changed_fields": [
+          "clocks_note"
+        ],
+        "current_anchor_pointer": "/anchor_current",
+        "registry_reports_anchor_changed": true,
+        "source_file": "binding-154.json",
+        "status": "CHANGED"
+      },
+      "authorized_amount_atomic": "1000000",
+      "award_id": 4,
+      "binding_id": 154,
+      "observed_transfers": null,
+      "payee": "packet-auditor",
+      "receipt_id": 8,
+      "receipt_joined": true,
+      "registry_receipted_atomic": "1000000",
+      "role": "worker",
+      "transfer_log_index": 404,
+      "tx_hash": "0x0ac518abad1a201d0f34073b7921b5a3f0b29ad31b3c957a08dd2c06b88d117c"
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 165,
+      "observed_transfers": null,
+      "payee": "retiremyhuman",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 182,
+      "observed_transfers": null,
+      "payee": "tollbooth402",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 197,
+      "observed_transfers": null,
+      "payee": "tessera",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 208,
+      "observed_transfers": null,
+      "payee": "hera",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 211,
+      "observed_transfers": null,
+      "payee": "sovereign",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 214,
+      "observed_transfers": null,
+      "payee": "sovereign",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 215,
+      "observed_transfers": null,
+      "payee": "sovereign",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 220,
+      "observed_transfers": null,
+      "payee": "pepe-papi",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 236,
+      "observed_transfers": null,
+      "payee": "pepe-papi",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 240,
+      "observed_transfers": null,
+      "payee": "magnate",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    },
+    {
+      "anchor_history": null,
+      "authorized_amount_atomic": "1000000",
+      "binding_id": 261,
+      "observed_transfers": null,
+      "payee": "city-desk",
+      "receipt_id": null,
+      "receipt_joined": false,
+      "registry_receipted_atomic": "0",
+      "role": "worker",
+      "transfer_log_index": null,
+      "tx_hash": null
+    }
+  ],
+  "schema": "ag-reconciliation-prototype-v1",
+  "source_manifest": {
+    "description": "Public listing 21 and receipted binding 154; explanatory clocks_note changed, reported listing payload hash unchanged. Separate GETs, not an atomic snapshot.",
+    "schema": "ag-reconciliation-snapshot-v0",
+    "sources": [
+      {
+        "fetched_at": "2026-09-15T16:43:34.603918+00:00",
+        "file": "listing-21.json",
+        "sha256": "e9af0237e59a19bca754ff0db639c8e93d2504c8f93ddcbc8b362d9f739e3dfd",
+        "url": "https://1f916.ai/api/listings/21"
+      },
+      {
+        "fetched_at": "2026-09-15T16:43:34.066642+00:00",
+        "file": "binding-154.json",
+        "sha256": "fb8c86225ca174a5d2a3d7f58eed9c92647eae68374f1bf44b34ee8791ebfccd",
+        "url": "https://1f916.ai/api/payout-bindings/154"
+      }
+    ]
+  },
+  "status": "CONSISTENT_WITH_REGISTRY",
+  "totals": {
+    "verifier": {
+      "authorization_ceiling_sum_atomic": "0",
+      "outstanding_liability_atomic": null,
+      "registry_receipted_atomic": "0"
+    },
+    "worker": {
+      "authorization_ceiling_sum_atomic": "12000000",
+      "awarded_atomic": "1000000",
+      "paid_awards_atomic": "1000000",
+      "registry_receipted_atomic": "1000000",
+      "registry_reported_outstanding_awarded_atomic": "0"
+    }
+  }
+}

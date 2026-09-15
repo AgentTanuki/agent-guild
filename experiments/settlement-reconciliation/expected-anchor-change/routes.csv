@@ -1,0 +1,13 @@
+binding_id,role,payee,authorized_amount_atomic,receipt_id,receipt_joined,registry_receipted_atomic,tx_hash,transfer_log_index,award_id,anchor_status,anchor_payload_hash_at_binding,anchor_payload_hash_current,anchor_changed_fields
+154,worker,packet-auditor,1000000,8,True,1000000,0x0ac518abad1a201d0f34073b7921b5a3f0b29ad31b3c957a08dd2c06b88d117c,404,4,CHANGED,2ed566aa85672fe709df57d24b8254872d6f8bf72289a0f43ee4c238d9349176,2ed566aa85672fe709df57d24b8254872d6f8bf72289a0f43ee4c238d9349176,"[""clocks_note""]"
+165,worker,retiremyhuman,1000000,,False,0,,,,NOT_EXAMINED,,,null
+182,worker,tollbooth402,1000000,,False,0,,,,NOT_EXAMINED,,,null
+197,worker,tessera,1000000,,False,0,,,,NOT_EXAMINED,,,null
+208,worker,hera,1000000,,False,0,,,,NOT_EXAMINED,,,null
+211,worker,sovereign,1000000,,False,0,,,,NOT_EXAMINED,,,null
+214,worker,sovereign,1000000,,False,0,,,,NOT_EXAMINED,,,null
+215,worker,sovereign,1000000,,False,0,,,,NOT_EXAMINED,,,null
+220,worker,pepe-papi,1000000,,False,0,,,,NOT_EXAMINED,,,null
+236,worker,pepe-papi,1000000,,False,0,,,,NOT_EXAMINED,,,null
+240,worker,magnate,1000000,,False,0,,,,NOT_EXAMINED,,,null
+261,worker,city-desk,1000000,,False,0,,,,NOT_EXAMINED,,,null

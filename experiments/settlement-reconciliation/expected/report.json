@@ -8,12 +8,28 @@
     "A payout authorization is not an award or debt. Unreceipted bindings create no inferred liability.",
     "Verifier outstanding liability is unknown: V2 worker economics do not establish verifier obligations.",
     "Observed transfers are retained separately and never counted as registry receipts.",
+    "Historical anchors are checked for receipted bindings only; null means not examined.",
+    "Anchor changes are disclosed separately from payment joins; equal reported hashes do not prove equal explanatory fields.",
     "Payment and an award do not independently establish work quality or acceptance.",
     "Sources were read at separate times; this is not an atomic database snapshot."
   ],
   "listing": "listing-33",
   "routes": [
     {
+      "anchor_history": {
+        "anchor_payload_hash_at_binding": "50e54b6a8a1a1fcea6ded9616f0e12a448c3b4b54add6bec054a8004e4ea1eb4",
+        "anchor_payload_hash_changed": false,
+        "anchor_payload_hash_current": "50e54b6a8a1a1fcea6ded9616f0e12a448c3b4b54add6bec054a8004e4ea1eb4",
+        "binding_payload_hash": "259e4d0eb77d7a92fab25d6d1f237013a124c672ad5a68b999d4fd53ea90c75b",
+        "binding_time_anchor_pointer": "/anchor_at_binding",
+        "binding_time_snapshot_pointer": "/payload/docket_snapshot",
+        "binding_time_snapshot_text_sha256": "6c775262fb3ac3b18e9fae9796bde1aadbca7ef74d500a7154765ae5e623ae24",
+        "changed_fields": [],
+        "current_anchor_pointer": "/anchor_current",
+        "registry_reports_anchor_changed": false,
+        "source_file": "binding-281.json",
+        "status": "UNCHANGED"
+      },
       "authorized_amount_atomic": "100000",
       "binding_id": 281,
       "observed_transfers": [
@@ -34,6 +50,20 @@
       "tx_hash": "0x026a04897a456133c63a66b10c25836daf9c4b9a29250a3cfb074259114e9207"
     },
     {
+      "anchor_history": {
+        "anchor_payload_hash_at_binding": "50e54b6a8a1a1fcea6ded9616f0e12a448c3b4b54add6bec054a8004e4ea1eb4",
+        "anchor_payload_hash_changed": false,
+        "anchor_payload_hash_current": "50e54b6a8a1a1fcea6ded9616f0e12a448c3b4b54add6bec054a8004e4ea1eb4",
+        "binding_payload_hash": "99b6e601b9449e07fd5e115dd087f3d8c1249d5f19ded20a921d79a8717a8202",
+        "binding_time_anchor_pointer": "/anchor_at_binding",
+        "binding_time_snapshot_pointer": "/payload/docket_snapshot",
+        "binding_time_snapshot_text_sha256": "73dc536a0b3bcbc33ac4477283adec03f30ecfae62c0fe8a020366f7c435ebe8",
+        "changed_fields": [],
+        "current_anchor_pointer": "/anchor_current",
+        "registry_reports_anchor_changed": false,
+        "source_file": "binding-283.json",
+        "status": "UNCHANGED"
+      },
       "authorized_amount_atomic": "1000000",
       "award_id": 8,
       "binding_id": 283,
@@ -55,6 +85,7 @@
       "tx_hash": "0xc044a3b6cd27d6dcc063ab043d4c6c5d8724b12ac5ebed4f2ede9312c7fc6548"
     },
     {
+      "anchor_history": null,
       "authorized_amount_atomic": "1000000",
       "binding_id": 288,
       "observed_transfers": [],
@@ -67,6 +98,7 @@
       "tx_hash": null
     },
     {
+      "anchor_history": null,
       "authorized_amount_atomic": "1000000",
       "binding_id": 293,
       "observed_transfers": [],
@@ -79,6 +111,7 @@
       "tx_hash": null
     },
     {
+      "anchor_history": null,
       "authorized_amount_atomic": "1000000",
       "binding_id": 304,
       "observed_transfers": [],
@@ -91,6 +124,7 @@
       "tx_hash": null
     },
     {
+      "anchor_history": null,
       "authorized_amount_atomic": "1000000",
       "binding_id": 327,
       "observed_transfers": [],
@@ -103,7 +137,7 @@
       "tx_hash": null
     }
   ],
-  "schema": "ag-reconciliation-prototype-v0",
+  "schema": "ag-reconciliation-prototype-v1",
   "source_manifest": {
     "observed_from": "2026-09-15T14:45:21.727110+00:00",
     "observed_to": "2026-09-15T14:51:37.537322+00:00",
