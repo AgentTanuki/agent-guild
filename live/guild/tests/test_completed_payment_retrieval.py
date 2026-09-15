@@ -63,6 +63,7 @@ def test_completed_http_purchase_survives_expiry_restart_and_provider_outage(
     if explicit_identifier:
         payload = _with_pid(payload, _pid())
     headers = {"PAYMENT-SIGNATURE": sig_header(payload)}
+    store.register_agent("Recovery supplier", ["paid-recovery", "another-task"], {})
     url = f"/{path}?capability=paid-recovery"
     with TestClient(main.app) as client:
         paid = client.get(url, headers=headers)

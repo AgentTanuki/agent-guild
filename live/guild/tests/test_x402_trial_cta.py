@@ -1,6 +1,9 @@
 """One-variable x402 conversion experiment: quote copy, not capability."""
 import base64
 import json
+import pytest
+
+pytestmark = pytest.mark.usefixtures("search_payment_supply")
 
 from fastapi.testclient import TestClient
 

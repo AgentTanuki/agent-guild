@@ -35,3 +35,26 @@ def fresh_scout_demand(monkeypatch):
     prior = {row["capability"] for row in original()}
     monkeypatch.setattr(store, "demand_feed_entries", lambda: [
         row for row in original() if row["capability"] not in prior])
+
+
+@pytest.fixture()
+def search_payment_supply(monkeypatch):
+    """Payment-protocol tests buy a nonempty shortlist, not an empty result.
+
+    Keep this supplier request-local and out of durable discovery/identity
+    tables. These tests exercise payment mechanics; registration and empty
+    registries are covered with real isolated stores in test_empty_search.
+    """
+    from app.main import store
+    agents = dict(store.agents)
+    agents["payment-fixture-supplier"] = {
+        "id": "payment-fixture-supplier", "did": "did:key:test-payment-supplier",
+        "name": "Payment test supplier",
+        "capabilities": ["anything", "x", "code-review", "fact-check",
+                         "translation", "different-capability"],
+        "metadata": {}, "seed": False,
+    }
+    monkeypatch.setattr(store, "agents", agents)
+    store._rep_cache = None
+    yield
+    store._rep_cache = None

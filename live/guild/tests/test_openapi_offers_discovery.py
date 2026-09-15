@@ -38,7 +38,7 @@ import app.main as main  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
-def _enforced(monkeypatch):
+def _enforced(monkeypatch, search_payment_supply):
     monkeypatch.setenv("GUILD_BILLING_ENFORCED", "1")
     monkeypatch.setenv("GUILD_X402_ENABLED", "1")
     monkeypatch.setenv("GUILD_MPP_ENABLED", "1")
