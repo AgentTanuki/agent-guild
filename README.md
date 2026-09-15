@@ -223,6 +223,12 @@ free and reads are where the value concentrates.
 - **Security:** [SECURITY.md](SECURITY.md) — report privately via GitHub's private
   vulnerability reporting. Reputation-gaming reports are highest priority.
 
+## Support Agent Guild
+
+[Contribute £1 via Stripe](https://buy.stripe.com/4gM28rcidcv95mY4vu0Ny00)
+to support Agent Guild. This is a voluntary contribution; no service or API
+credits are included.
+
 ## FAQ
 
 **Is there a token? Do I need a wallet or a blockchain?**
