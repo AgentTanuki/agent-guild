@@ -500,11 +500,14 @@ _OPERATIONS: tuple[dict[str, Any], ...] = (
             "the bundle cannot be fully produced, signed and anchored, you are "
             "not charged."),
         "free_alternative": (
-            "GET /agents/{id}/passport — the free Guild-signed passport, also "
-            "offline-verifiable, without the bundled proof set."),
+            "GET /preflight?url=<endpoint> — a live endpoint check, free and "
+            "unauthenticated. Use it when you do not need to retain a signed "
+            "observation and ledger inclusion proof."),
     },
     {
         "operation": "watch_cycle",
+        "payment_mode": "credits_sandbox",
+        "payment": "Sandbox account credits per executed cycle; no x402 purchase.",
         "buyer_intents": (
             "monitor an agent endpoint for changes",
             "recheck endpoint trust continuously",
@@ -671,7 +674,8 @@ def operations(base: Optional[str] = None) -> list[dict[str, Any]]:
                     "immutable": protected_schedule["immutable"],
                     "exact_quote": "POST the signed request and inspect the 402 accepts.amount",
                 }} if name == "protected_payment_decision" else {}),
-            "payment": "x402 (USDC on Base mainnet, eip155:8453)",
+            "payment_mode": op.get("payment_mode", "x402"),
+            "payment": op.get("payment", "x402 (USDC on Base mainnet, eip155:8453)"),
             # HOW YOU CALL IT — executable verbatim.
             "entrypoint": ep,
             # WHAT THE PAYMENT BINDS — an identifier, not a call. Derived from
@@ -679,7 +683,10 @@ def operations(base: Optional[str] = None) -> list[dict[str, Any]]:
             "settlement": {
                 "method": preq.method,
                 "canonical_resource": preq.resource_url,
-                "note": ("The canonical resource the x402 challenge binds and "
+                "note": ("Internal billing identifier only. Watch cycles debit "
+                         "sandbox account credits, not a public x402 settlement."
+                         if op.get("payment_mode") == "credits_sandbox" else
+                         "The canonical resource the x402 challenge binds and "
                          "the payment settles against. Parameters are "
                          "canonicalised into the query string even when the "
                          "call itself sends them in a JSON body — match a "
@@ -728,7 +735,8 @@ def _authentication_block(base: Optional[str] = None) -> dict[str, Any]:
             f"{' and '.join(keyed)} bill per unit of work actually performed, "
             "so they need an account to bill: the provisioning call requires "
             "X-API-Key. Provisioning itself is free, and the key is self-serve "
-            "— POST /billing/trial issues credits with no human involved.")
+            "— POST /billing/trial issues sandbox credits with no human involved. "
+            "Watch cycles do not accept x402 payments.")
     return out
 
 
@@ -758,11 +766,17 @@ def llms_txt_section(base: Optional[str] = None) -> str:
     """Plain-text rendering for /llms.txt. Prints the CALLABLE entrypoint, not
     the settlement identifier — a machine reading this should be able to copy
     the line and have it work."""
-    lines = ["## Paid operations (x402, USDC on Base mainnet)",
+    lines = ["## Paid operations and sandbox monitoring",
+             "One-off paid operations use x402, USDC on Base mainnet. "
+             "Watch cycles use sandbox account credits, not x402.",
              "Each paid call names its free alternative. Use the free one if "
              "it answers your question.", ""]
     for op in operations(base):
-        lines.append(f"- {op['operation']} — {op['price_usd']} per call")
+        sandbox = op["payment_mode"] == "credits_sandbox"
+        price = (f"{op['price_credits']} sandbox credits per executed cycle"
+                 if sandbox else f"{op['price_usd']} per call")
+        lines.append(f"- {op['operation']} — {price}")
+        lines.append(f"  payment:  {op['payment']}")
         lines.append("  use when: " + "; ".join(op["buyer_intents"]))
         if op["directly_callable"]:
             lines.append(f"  call:     {op['entrypoint']['call']}")
@@ -778,7 +792,8 @@ def llms_txt_section(base: Optional[str] = None) -> str:
                 lines.append("  body:      "
                              + _json.dumps(op["entrypoint"]["body_example"]))
         lines.append(f"  auth:     {op['entrypoint']['auth']}")
-        lines.append(f"  settles:  {op['settlement']['method']} "
+        label = "billing identifier" if sandbox else "settles"
+        lines.append(f"  {label}:  {op['settlement']['method']} "
                      f"{op['settlement']['canonical_resource']}"
                      + ("  (binding identifier, not a call)"
                         if op["settlement"]["differs_from_entrypoint"] else ""))
@@ -814,6 +829,10 @@ def mcp_discovery_meta(base: Optional[str] = None) -> dict[str, Any]:
     behavioural hints that ARE standard are set separately via
     `ToolAnnotations`."""
     root = _base_url(base)
+    cash_ops = [op for op in _OPERATIONS
+                if op.get("payment_mode", "x402") == "x402"]
+    sandbox_ops = [op["operation"] for op in _OPERATIONS
+                   if op.get("payment_mode") == "credits_sandbox"]
     return {
         "ai.agent-guild/paid": {
             "payment_protocol": "x402",
@@ -822,10 +841,12 @@ def mcp_discovery_meta(base: Optional[str] = None) -> dict[str, Any]:
             "autonomous": True,
             "human_in_the_loop": False,
             "account_required": False,
-            "operations": [op["operation"] for op in _OPERATIONS],
+            "operations": [op["operation"] for op in cash_ops],
+            "sandbox_operations": sandbox_ops,
+            "sandbox_account_required": bool(sandbox_ops),
             "buyer_intents": {
                 op["operation"]: list(op["buyer_intents"])
-                for op in _OPERATIONS
+                for op in cash_ops
             },
             "free_alternative_exists_for_every_operation": True,
             "price_source": {
@@ -837,8 +858,8 @@ def mcp_discovery_meta(base: Optional[str] = None) -> dict[str, Any]:
                                  "?src=paid_offer:registry"),
             },
             "returns": ("per operation: literal buyer intents, current price, "
-                        "exact callable entrypoint, canonical x402 settlement "
-                        "resource, and the free alternative"),
+                        "exact callable entrypoint, payment mode, canonical "
+                        "settlement or sandbox billing identifier, and the free alternative"),
         }
     }
 
@@ -869,6 +890,8 @@ def mcp_discovery_output_schema() -> dict[str, Any]:
                                       "description": "current, live"},
                         "price_credits": {"type": "integer"},
                         "payment": {"type": "string"},
+                        "payment_mode": {"type": "string",
+                                         "enum": ["x402", "credits_sandbox"]},
                         "buyer_intents": {
                             "type": "array",
                             "items": {"type": "string"},
@@ -884,9 +907,9 @@ def mcp_discovery_output_schema() -> dict[str, Any]:
                         },
                         "settlement": {
                             "type": "object", "additionalProperties": True,
-                            "description": ("canonical resource the x402 "
-                                            "challenge binds; an identifier, "
-                                            "not a call"),
+                            "description": ("canonical x402 settlement resource "
+                                            "or internal sandbox billing identifier; "
+                                            "not necessarily a callable route"),
                         },
                         "what_you_get": {"type": "string"},
                         "free_alternative": {"type": "string"},

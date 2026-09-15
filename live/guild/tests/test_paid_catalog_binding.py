@@ -180,6 +180,8 @@ def test_watch_cycle_is_labelled_not_directly_callable_and_routes_the_machine():
     # …and the entrypoint we DO advertise is the real provisioning route.
     assert (op["entrypoint"]["method"], op["entrypoint"]["path"]) in _routes()
     assert "mcp" in op["alternatives"]
+    assert op["payment_mode"] == "credits_sandbox"
+    assert "no x402 purchase" in op["payment"]
 
 
 def test_provisioning_entrypoint_is_callable_and_states_its_auth():

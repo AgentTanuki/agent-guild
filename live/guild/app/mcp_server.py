@@ -796,11 +796,12 @@ def guild_paid_operations(ctx: Context = None) -> dict:
                        guild_evidence_verify free. The issuer attests its own
                        observation and timestamps, not independently proven truth
                        or endpoint safety. HTTP: POST /evidence/bundle.
-    watch_cycle      — continuous re-verification, billed per recheck actually
-                       performed.
+    watch_cycle      — scheduled re-verification billed in sandbox account
+                       credits per executed cycle; requires a billing key.
 
-    Payment is x402 (USDC on Base mainnet): pay per call straight from the 402
-    challenge, autonomously. No account, no subscription, no sales contact.
+    One-off paid operations use x402 (USDC on Base mainnet): pay per call from
+    the 402 challenge without an account or sales contact. Watch cycles use
+    sandbox credits and do not accept x402 payments.
 
     Prices are deliberately NOT written into this description — they move, and
     a stale number is worse than none. Call this tool (free) for the live
