@@ -1,0 +1,31 @@
+name: elizaOS plugin draft
+
+on:
+  push:
+    branches: [main, "codex/**", "ship/**"]
+    paths:
+      - "integrations/eliza-agent-guild/**"
+      - ".github/workflows/eliza-package.yml"
+  pull_request:
+    paths:
+      - "integrations/eliza-agent-guild/**"
+      - ".github/workflows/eliza-package.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-handler-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/eliza-agent-guild
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node scripts/build.mjs
+      - run: git diff --exit-code -- dist
+      - run: node --test test/*.test.mjs

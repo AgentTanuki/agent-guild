@@ -1,0 +1,48 @@
+{
+	"name": "elizaos-plugin-agent-guild",
+	"version": "0.1.0-dev.0",
+	"description": "Explicit public endpoint observations and operator-supplied passport verification for elizaOS",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE",
+		"NOTICE"
+	],
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"test": "node --test test/*.test.mjs"
+	},
+	"engines": {
+		"node": ">=24"
+	},
+	"peerDependencies": {
+		"@elizaos/core": "2.0.3-beta.7"
+	},
+	"keywords": [
+		"elizaos",
+		"elizaos-plugin",
+		"agent-guild",
+		"passport",
+		"endpoint-evidence"
+	],
+	"license": "Apache-2.0",
+	"author": "AgentTanuki",
+	"homepage": "https://github.com/AgentTanuki/agent-guild",
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/AgentTanuki/agent-guild.git",
+		"directory": "integrations/eliza-agent-guild"
+	}
+}
