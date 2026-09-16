@@ -1,0 +1,9 @@
+{
+  "name": "agent-guild-anythingllm-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test tests/handler.test.cjs"
+  }
+}

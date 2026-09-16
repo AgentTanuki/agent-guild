@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Mintplex-Labs/anything-llm/3a85d3e75490f09453de7e8c440b9463f4a82019/server/utils/agents/imported-manifest.schema.json",
+  "active": false,
+  "hubId": "agent-guild-passport",
+  "name": "Agent Guild Passport — offline verification",
+  "schema": "skill-1.0.0",
+  "version": "0.1.0",
+  "description": "Verify a caller-supplied public Agent Guild Passport offline against the administrator-pinned issuer and an independently known subject DID. Checks signature, identity binding and a 24-hour signed freshness policy. Does not fetch, register, pay, assess safety or authorize hiring. Supply the complete credential JSON text; do not infer the expected subject from it.",
+  "author": "AgentTanuki",
+  "author_url": "https://github.com/AgentTanuki",
+  "license": "Apache-2.0",
+  "setup_args": {
+    "EXPECTED_ISSUER_DID": {
+      "type": "string",
+      "required": true,
+      "input": {
+        "type": "text",
+        "placeholder": "did:key:z...",
+        "hint": "Pin the trusted Guild issuer independently of the supplied passport. No automatic issuer discovery or trust-on-first-use."
+      }
+    }
+  },
+  "examples": [
+    {
+      "prompt": "Verify this public Agent Passport against the issuer configured by my administrator. I already know the expected subject DID from my task.",
+      "call": "{\"credential_json\":\"<complete public Agent Passport JSON text>\",\"expected_subject_did\":\"<independently known subject did:key>\"}"
+    }
+  ],
+  "entrypoint": {
+    "file": "handler.js",
+    "params": {
+      "credential_json": {
+        "type": "string",
+        "description": "Complete public AgentGuildPassport VC 2.0 JSON text, including every original signed field and proof. Maximum 65,536 UTF-8 bytes. No secrets or private credentials."
+      },
+      "expected_subject_did": {
+        "type": "string",
+        "description": "The Ed25519 did:key subject already known independently from this credential. Must match credentialSubject.id exactly; never copy it from the untrusted passport merely to make the check pass."
+      }
+    }
+  },
+  "imported": true
+}

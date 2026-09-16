@@ -1,0 +1,12 @@
+{
+  "name": "agent-guild-rivet-catalogue-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/native.mjs"
+  },
+  "devDependencies": {
+    "@ironclad/rivet-core": "1.25.0"
+  }
+}
