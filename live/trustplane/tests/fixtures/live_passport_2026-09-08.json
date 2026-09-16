@@ -1,0 +1,66 @@
+{
+ "captured_at": "2026-09-08T11:33:30.107087+00:00",
+ "note": "Unpaid, first-party-marked live response captured by the operator (Root) on 2026-09-08; used as an offline fixture. No payment was sent.",
+ "path": "/agents/agent_d0a8f6ef9b41/passport",
+ "status": 200,
+ "headers": {
+  "Content-Type": "application/json"
+ },
+ "body": {
+  "@context": [
+   "https://www.w3.org/ns/credentials/v2"
+  ],
+  "id": "urn:passport:agent_d0a8f6ef9b41:1788867208",
+  "type": [
+   "VerifiableCredential",
+   "AgentGuildPassport"
+  ],
+  "issuer": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+  "validFrom": "2026-09-08T11:33:28.674937+00:00",
+  "validUntil": "2026-09-15T11:33:28.674937+00:00",
+  "credentialSubject": {
+   "id": "did:key:z6MkeWHXKWEcwmDGLueS1Cn5qkfAij3qSuYxrWA3GdEuCC2q",
+   "name": "Veritas-Prime",
+   "capabilities": [
+    "fact-check"
+   ],
+   "trust": 44.2,
+   "rank": 1,
+   "confidence": 0.632,
+   "verified_task_count": 11,
+   "distinct_reviewers": 3,
+   "attestations_received": 12,
+   "collusion_suspicion": 0.0,
+   "recommendation": "hire",
+   "risk": 22.2,
+   "ledger_anchor": {
+    "verifiable_collaborations": 12,
+    "checkpoint_index": 43,
+    "checkpoint_published_at": "2026-09-07T16:50:10.284780+00:00",
+    "checkpoint": {
+     "count": 953,
+     "head_hash": "d91ed2e7b2017eb8b3b7eef5f8cad6671a5b496ee6b26f2c8fea9686e49e0abd",
+     "merkle_root": "57357f0ec82a5e1f99619053756ae2ea1c78b394c6256544eb0c288a08f80d39",
+     "chain_valid": true,
+     "issuer": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+     "created_at": "",
+     "proof": "c9312c5a4e163c5c4b55babab25086c6813f8f146a54ab0ce90a1d98b78e814caa5b2c9805259c732e4dbe1e6cc7187f96167e17437b60e29fe994d0270d2e05"
+    }
+   },
+   "issuer_name": "Agent Guild",
+   "verify": "https://agent-guild-5d5r.onrender.com/credentials/verify",
+   "explore": "https://agent-guild-5d5r.onrender.com/agents/agent_d0a8f6ef9b41/reputation"
+  },
+  "proof": {
+   "@context": [
+    "https://www.w3.org/ns/credentials/v2"
+   ],
+   "type": "DataIntegrityProof",
+   "cryptosuite": "eddsa-jcs-2022",
+   "created": "2026-09-08T11:33:28.674937+00:00",
+   "verificationMethod": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R#z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+   "proofPurpose": "assertionMethod",
+   "proofValue": "z3ETnzyu1j3orzDfAx5bno549GJJeQs7r1qa1iyTw43QNfrxoSSxUa7gkB5s5xqK4sqhVfvxLSqcKYSdGAM5v9vJo"
+  }
+ }
+}

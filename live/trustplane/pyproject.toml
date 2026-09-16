@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentguild-trustplane"
+dynamic = ["version"]
+description = "Agent Guild trust plane client: free endpoint preflight, offline-verifiable Agent Passports and signed AGD-1 decisions, explicit x402 quotes (never paid automatically), caller-owned delegation policy."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.9"
+authors = [{ name = "AgentTanuki" }]
+keywords = ["agents", "trust", "delegation", "verifiable-credentials", "did-key", "x402", "mcp", "a2a"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+# Core: stdlib + cryptography (Ed25519 for eddsa-jcs-2022 / did:key).
+dependencies = ["cryptography>=42"]
+
+[project.optional-dependencies]
+# Local HTTP daemon exposing gate()/report() to any process (sidecar.py).
+sidecar = ["fastapi>=0.115", "uvicorn>=0.30", "pydantic>=2"]
+# MCP stdio proxy gating downstream tools/call (mcp_proxy.py). Tested 1.26 / 1.28.
+mcp = ["mcp>=1.20,<2"]
+# Framework interceptors (integrations/). Tested versions in integrations/pins.py;
+# crewai and the mcp proxy do NOT co-resolve in one environment (see requirements/).
+crewai = ["crewai>=1.15,<2"]
+langchain = ["langchain-core>=1.4,<2", "langgraph>=1.0,<2"]
+openai-agents = ["openai-agents>=0.18,<0.30"]
+test = ["pytest>=8"]
+
+[project.urls]
+Homepage = "https://github.com/AgentTanuki/agent-guild"
+Source = "https://github.com/AgentTanuki/agent-guild/tree/main/live/trustplane"
+Issues = "https://github.com/AgentTanuki/agent-guild/issues"
+Service = "https://agent-guild-5d5r.onrender.com"
+
+[tool.setuptools.dynamic]
+version = { attr = "agentguild_trustplane._version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["agentguild_trustplane", "agentguild_trustplane.*"]
+
+[tool.setuptools.package-data]
+agentguild_trustplane = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

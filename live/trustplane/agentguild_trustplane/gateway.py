@@ -93,7 +93,7 @@ class GateResult:
     policy: PolicyResult
     decision: Optional[dict[str, Any]]
     routing: Optional[dict[str, Any]]
-    channel: str                     # live | cache | unverified | outage
+    channel: str                     # live | cache | unverified | payment_required | outage
     gate_latency_ms: float
     worker_id: Optional[str] = None
     # --- binding (corrective 2026-07-13): what this gate is ABOUT -----------
@@ -184,6 +184,14 @@ class Gateway:
             if binding_errs:
                 pol.reasons.append("counterparty binding violated: "
                                    + "; ".join(binding_errs[:3]))
+            if channel == "payment_required":
+                # The Guild priced the signed decision (HTTP 402). This is an
+                # availability state for the caller's fail mode, reported
+                # explicitly; the gateway never pays or retries with keys.
+                pol.reasons.append(
+                    "guild quoted payment for the signed decision (HTTP 402) "
+                    "and no verifiable cached decision exists; not paid — "
+                    "see client.last_payment_required")
             self.metrics["outage_gates"] += 1
         else:
             pol = evaluate(decision, self.policy, tier,

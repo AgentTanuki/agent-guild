@@ -1,0 +1,8 @@
+include LICENSE NOTICE README.md
+recursive-include agentguild_trustplane py.typed
+recursive-include examples *.py
+recursive-include tests *.py
+recursive-include tests/fixtures *.json
+prune .venv-*
+prune experiments
+prune conformance
