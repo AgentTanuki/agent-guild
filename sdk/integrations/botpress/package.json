@@ -1,0 +1,26 @@
+{
+  "name": "@agent-guild/botpress-endpoint-observations",
+  "integrationName": "agent-guild-observations",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "author": "AgentTanuki",
+  "scripts": {
+    "build": "bp build",
+    "check:type": "tsc --noEmit",
+    "test": "node --test --test-concurrency=1 tests/native.test.mjs",
+    "check:format": "prettier --check integration.definition.ts src tests hub.md README.md"
+  },
+  "dependencies": {
+    "@botpress/client": "2.4.0",
+    "@botpress/sdk": "7.2.3"
+  },
+  "devDependencies": {
+    "@botpress/cli": "7.1.3",
+    "@types/node": "22.16.4",
+    "typescript": "6.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -21,6 +21,10 @@ self-contained (stdlib HTTP) and Apache-2.0.
 Every wrapper sends an identifying User-Agent, so adoption is measurable and
 honest on both sides.
 
+## Packaged integrations
+
+The [Botpress endpoint-observation integration](botpress/README.md) uses Botpress's native SDK and CLI. It provides one optional action for observing a caller-selected public endpoint before a separate connection decision. It requires its declared build dependencies; it is not a single-file wrapper. Hosted installation and Hub verification are separate account actions.
+
 Full agent-facing guide: [AGENTS.md](../../AGENTS.md) · verification guide:
 [docs/VERIFY_AN_AGENT.md](../../docs/VERIFY_AN_AGENT.md) · open standard:
 [docs/STANDARD.md](../../docs/STANDARD.md)
