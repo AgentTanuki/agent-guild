@@ -1,0 +1,40 @@
+name: Agently example
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - 'sdk/integrations/agently/**'
+      - 'sdk/agentguild_verify.py'
+      - '.github/workflows/agently-example.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-example:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install isolated example dependencies
+        run: |
+          python -m pip install --only-binary=:all: -r sdk/integrations/agently/requirements-test.txt
+      - name: Native action tests with local HTTP fixtures
+        run: |
+          python -m pytest sdk/integrations/agently/tests -q --junitxml=agently-results.xml
+          ruff check sdk/integrations/agently
+          ruff format --check sdk/integrations/agently
+          python -m sdk.integrations.agently.example | tee agently-example.txt
+      - name: Retain native results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: agently-example-results
+          path: |
+            agently-results.xml
+            agently-example.txt
+          if-no-files-found: error
