@@ -968,9 +968,11 @@ async def a2a_endpoint(request: Request):
     elif caller_kind == "objective_no_match":
         payload = _objective.unresolved_capsule(objective)
     elif caller_kind == "capabilities_map":
+        report = store.demand_summary_report()
         payload: dict[str, Any] = {
             "supplied": store.capability_index(),
-            "demand": store.demand_summary(),
+            "demand": report["summary"],
+            "demand_measurement": {k: v for k, v in report.items() if k != "summary"},
         }
     elif caller_kind == "coordination_policy":
         from . import coordination as _coord

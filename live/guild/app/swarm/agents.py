@@ -166,12 +166,9 @@ def _tick_gap_scout(store, asgi_client, http_client) -> dict:
     """Mandate: read unmet demand from our own surfaces and propose (only
     propose) seed-capability candidates."""
     demand = store.demand_summary() if hasattr(store, "demand_summary") else {}
-    asks = [e.get("capability") for e in store.events
-            if e.get("type") == "query" and e.get("caller_kind") == "capability_ask"
-            and e.get("capability")]
     from .capabilities import CAPABILITIES
     supplied = set(CAPABILITIES)
-    proposals = sorted({a for a in asks if a and a not in supplied})[:20]
+    proposals = sorted(cap for cap in demand if cap not in supplied)[:20]
     _log_action(store, agent="gap-scout", reason_code="demand_scan",
                 target="events+demand_watches", protocol="internal",
                 outcome=f"proposals:{len(proposals)}", policy="allowed",

@@ -126,18 +126,20 @@ def test_check_proven_supplier_has_no_guild_next():
     assert "guild_next" not in r
 
 
-def test_check_records_capability_demand_and_summary():
-    """Every /check is recorded as dated demand; the summary separates
-    supplied from unsupplied lookups so /capabilities can be honest."""
+def test_direct_checks_are_recorded_without_claiming_external_demand():
+    """Internal store calls remain in history but have no external caller."""
     s = _seeded_store()
     s.check("fact-check")
     s.check("web-research")
     s.check("web-research")
-    d = s.demand_summary()
-    assert d["fact-check"]["supplied_lookups"] == 1
-    assert d["web-research"]["lookups"] == 2
-    assert d["web-research"]["supplied_lookups"] == 0
-    assert d["web-research"]["last_lookup"] is not None
+    events = [e for e in s.events if e["type"] == "capability_demand"]
+    supplied = [e for e in events if e["capability"] == "fact-check"]
+    missing = [e for e in events if e["capability"] == "web-research"]
+    assert len(supplied) == 1 and supplied[0]["supplied"]
+    assert len(missing) == 2 and not any(e["supplied"] for e in missing)
+    assert all(e.get("at") for e in events)
+    assert "fact-check" not in s.demand_summary()
+    assert "web-research" not in s.demand_summary()
 
 
 def test_capability_index_counts_suppliers():
