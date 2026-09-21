@@ -4464,30 +4464,47 @@ class Store:
         return None
 
     def demand_summary(self) -> dict[str, dict[str, Any]]:
-        """Aggregate recorded capability demand: capability → lookup count,
-        how many found supply, and the latest lookup time. The supply-side
-        mirror of /check — lets an agent pick a capability where demand is
-        demonstrated but supply is missing."""
-        summary: dict[str, dict[str, Any]] = {}
-        for e in self.events:
-            if e.get("type") != "capability_demand":
-                continue
-            cap = e.get("capability", "")
-            if not cap:
-                continue
-            # Demand honesty (machine-economics audit R3): before 2026-07-06 the
-            # a2a first-token fallback recorded greetings ("hello", "ping") as
-            # demand. Only explicit asks (marked at record time) or asks that
-            # found supply count — advertised demand data must be priceable.
-            if not (e.get("explicit") or e.get("supplied")):
-                continue
-            row = summary.setdefault(
-                cap, {"lookups": 0, "supplied_lookups": 0, "last_lookup": None})
-            row["lookups"] += 1
-            if e.get("supplied"):
-                row["supplied_lookups"] += 1
-            row["last_lookup"] = e.get("at")
-        return summary
+        """Qualified historical asks, using the same rules as /demand/feed."""
+        return self.demand_summary_report()["summary"]
+
+    def demand_summary_report(self) -> dict[str, Any]:
+        """Supplier-facing counts and recency exclude owned/unqualified asks.
+
+        Read one bounded durable snapshot; never infer demand from just the
+        retained serving cache. The qualification is not proof of ownership,
+        budget or useful work. Raw events remain available for measurement.
+        """
+        events, coverage = self.measurement_event_view(
+            types=("capability_demand", "query"))
+        rows = self._derive_demand_rows(events)
+        summary = {
+            cap: {
+                "lookups": row["genuine_lookups"],
+                "supplied_lookups": row["qualified_supplied_lookups"],
+                "first_lookup": row["qualified_first_seen"],
+                "last_lookup": row["qualified_last_seen"],
+                "verified_lookups": row["verified_lookups"],
+                "heuristic_lookups": row["heuristic_lookups"],
+                "provenance": row["provenance"],
+            }
+            for cap, row in rows.items() if row["genuine_lookups"] > 0
+        }
+        return {
+            "summary": summary,
+            "measurement_version": "capability-demand-summary-v2",
+            "measurement_coverage": {k: coverage.get(k) for k in (
+                "source", "read_mode", "history_complete", "history_floor")},
+            "interpretation": (
+                "Qualified historical capability asks, not funded jobs or "
+                "demonstrated useful outcomes. Counts and recency exclude "
+                "Guild-operated, crawler and unattributable asks, and "
+                "deduplicate each actor/capability/hour. Caller proof verifies "
+                "identity, not external ownership; other qualification is "
+                "heuristic. Restored history is not new demand. "
+                "supplied_lookups counts qualified asks recorded as finding "
+                "supply; legacy asks may lack that observation. Compacted "
+                "JSON history remains incomplete."),
+        }
 
     def _derive_demand_rows(self, events=None) -> dict[str, dict[str, Any]]:
         """Read-time aggregation of demand, keyed by capability, from TWO
@@ -4531,11 +4548,13 @@ class Store:
                 "demand_id": demand_mod.demand_id_for(cap),
                 "lookups": 0, "genuine_lookups": 0,
                 "verified_lookups": 0, "heuristic_lookups": 0,
+                "qualified_supplied_lookups": 0,
+                "qualified_first_seen": None, "qualified_last_seen": None,
                 "provenance": [],
                 "first_seen": at, "last_seen": at, "transports": []})
 
         def _count(cap, actor, at, transport, *, genuine, verified, heuristic,
-                   provenance):
+                   provenance, supplied=False):
             key = (actor or "anon", cap, _bucket(at))
             if key in seen:
                 return
@@ -4544,6 +4563,15 @@ class Store:
             row["lookups"] += 1                # total, incl. non-genuine
             if genuine:
                 row["genuine_lookups"] += 1
+                if supplied:
+                    row["qualified_supplied_lookups"] += 1
+                if at:
+                    first = row["qualified_first_seen"]
+                    last = row["qualified_last_seen"]
+                    if first is None or str(at) < str(first):
+                        row["qualified_first_seen"] = at
+                    if last is None or str(at) > str(last):
+                        row["qualified_last_seen"] = at
                 if verified:
                     row["verified_lookups"] += 1
                 if heuristic:
@@ -4587,6 +4615,7 @@ class Store:
             _count(cap, actor, e.get("at"), e.get("transport"),
                    genuine=genuine, verified=genuine and verified,
                    heuristic=genuine and not verified,
+                   supplied=bool(e.get("supplied")),
                    provenance=("verified_machine_demand" if verified
                                else "recorder_heuristic"))
 
@@ -4606,6 +4635,7 @@ class Store:
                 continue
             _count(cap, e.get("actor") or e.get("key"), e.get("at"), "a2a",
                    genuine=True, verified=False, heuristic=True,
+                   supplied=bool(e.get("supplied")),
                    provenance="legacy_derived_heuristic")
         return rows
 

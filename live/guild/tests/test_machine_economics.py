@@ -130,6 +130,7 @@ def test_probe_messages_get_probe_ack_and_pollute_no_demand():
         assert len(json.dumps(payload).encode()) < 1024
     demand = store.demand_summary()
     assert "hello" not in demand and "ping" not in demand and "你好" not in demand
-    # Explicit asks still count as demand, supplied or not.
-    client.get("/check?capability=underwater-basket-weaving")
+    # A qualified external ask still counts, supplied or not.
+    client.get("/check?capability=underwater-basket-weaving",
+               headers={"User-Agent": "langchain/0.3"})
     assert "underwater-basket-weaving" in store.demand_summary()

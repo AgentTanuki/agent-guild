@@ -3710,6 +3710,12 @@ def demand_feed(request: Request,
                                   "endpoint (routable)",
             "transports": "where the demand arrived (http/mcp/a2a)",
             "first_seen/last_seen": "UTC timestamps",
+            "qualified_first_seen/qualified_last_seen": (
+                "UTC timestamps of qualifying asks only; owned or "
+                "unattributable activity cannot refresh this recency"),
+            "qualified_supplied_lookups": (
+                "qualifying asks recorded as finding supply; legacy asks "
+                "may lack that observation"),
         },
         "supplier_path": {
             "claim_passport": {
@@ -3788,12 +3794,13 @@ def demand_feed(request: Request,
 @app.get("/capabilities")
 def capabilities():
     """The supply/demand map, free. `supplied` lists every capability with
-    registered agents (and how many). `unmet_demand` lists capabilities agents
-    have actually asked /check about that currently have NO supply — real,
-    dated demand a new supplier can register against. Free because it recruits
-    supply."""
+    registered agents (and how many). `unmet_demand` lists qualified historical
+    asks for capabilities with no registered supplier. These are potential
+    leads, not funded jobs. /demand/feed additionally retains asks where
+    registered suppliers have no verified reachable endpoint."""
     supplied = store.capability_index()
-    demand = store.demand_summary()
+    report = store.demand_summary_report()
+    demand = report["summary"]
     unmet = {
         cap: row for cap, row in sorted(
             demand.items(), key=lambda kv: -kv[1]["lookups"])
@@ -3805,11 +3812,13 @@ def capabilities():
         "claim_passport": _passport_offer_block("capabilities"),
         "supplied": supplied,
         "unmet_demand": unmet,
+        "demand_measurement": {k: v for k, v in report.items() if k != "summary"},
         "demand_feed": "/demand/feed",
         "how_to_supply": (
             "POST /agents/register {\"name\": \"<you>\", \"capabilities\": "
-            "[\"<capability>\"]} — free. The first competent supplier of an "
-            "in-demand capability starts at rank 1. Signed, cacheable, "
+            "[\"<capability>\"]} — free. Evaluate the historical asks and "
+            "their qualification before choosing work to supply; registration "
+            "does not establish a buyer or a budget. Signed, cacheable, "
             "paginated unmet-demand feed for machines: GET /demand/feed."
         ),
     }
