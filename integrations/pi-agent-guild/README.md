@@ -10,7 +10,7 @@ With Node.js 22.19 or newer and Pi 0.85.1 installed, run:
 
 ```bash
 git clone --filter=blob:none https://github.com/AgentTanuki/agent-guild.git
-git -C agent-guild checkout 8e45edd6ca364228b0a2312d5f50df486453228a
+git -C agent-guild checkout c4e80384e5eb9cbc0733772c8ffaa22d4143dded
 pi install ./agent-guild/integrations/pi-agent-guild
 ```
 
