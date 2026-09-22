@@ -50,6 +50,8 @@ from . import deepcheck
 from . import envelopes
 from . import indexops
 from . import preflight
+from . import preflight_outcomes
+import time as _time
 from . import pricing
 from . import trustindex
 from .state import store
@@ -712,7 +714,9 @@ def guild_preflight(url: str, ctx: Context = None) -> dict:
 
     Example: guild_preflight(url="https://some-agent.example/a2a")
     """
-    out = preflight.run(url, store=store)
+    _pf_started = _time.monotonic()
+    out = preflight_outcomes.stamp(preflight.run(url, store=store),
+                                   started=_pf_started)
     _pf_actor, _pf_distinct = _mcp_actor(ctx)
     store.record_event(_pf_actor, "paid_offer_served", ua=_client_ua(ctx),
                        offer="paid", operation="deep_preflight",
@@ -724,8 +728,45 @@ def guild_preflight(url: str, ctx: Context = None) -> dict:
                        endpoint="preflight", target=url,
                        transport="mcp", verdict=out["verdict"],
                        failed_count=len(out["failed"]),
-                       unknown_count=len(out["unknowns"]))
+                       unknown_count=len(out["unknowns"]),
+                       preflight_id=out["preflight_id"],
+                       probe_latency_ms=out["probe_latency_ms"])
     return out
+
+
+@mcp.tool()
+def guild_preflight_outcome(preflight_id: str, action: str,
+                            observed: str = "unknown",
+                            detail: str = "not_applicable",
+                            baseline_direct_check: str = "not_run",
+                            overhead_ms: Optional[int] = None,
+                            ctx: Context = None) -> dict:
+    """After a guild_preflight verdict, tell the Guild what you did and what
+    happened (AGPO-1). Free, no key, optional.
+
+    action: called | delegated | declined | skipped.
+    observed: success | failure | unknown (unknown when you did not call).
+    baseline_direct_check: success | failure | not_run — whether you checked
+    the endpoint yourself without the Guild. Without it a skip is recorded as
+    counterfactual_unobserved, never as a benefit.
+
+    Benefits and mistakes are measured with equal weight; see
+    GET /preflight/outcomes for the public classification rules.
+    """
+    try:
+        rec = preflight_outcomes.validate({
+            "preflight_id": preflight_id, "action": action,
+            "observed": observed, "detail": detail,
+            "baseline": {"direct_check": baseline_direct_check},
+            "overhead_ms": overhead_ms, "reporter_kind": "agent"})
+    except preflight_outcomes.OutcomeError as exc:
+        return {"schema": "AGERR-1/1.0", "kind": "preflight_outcome_invalid",
+                "error": {"code": "invalid_outcome_report", "detail": str(exc)}}
+    store.record_event("mcp", "preflight_outcome", ua=_client_ua(ctx),
+                       endpoint="preflight_outcome", transport="mcp", **rec)
+    return {"schema": preflight_outcomes.SCHEMA, "recorded": True,
+            "preflight_id": rec["preflight_id"],
+            "authority": {"mode": "advisory", "grants": []}}
 
 
 @mcp.tool

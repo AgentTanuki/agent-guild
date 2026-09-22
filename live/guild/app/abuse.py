@@ -36,6 +36,7 @@ _DEFAULTS = {
     "read_burst": (240, 60, "READ_BURST"),     # unfunded priced reads per IP/min
     "write_burst": (120, 3600, "WRITE_BURST"), # collaborations/attestations per IP/hr
     "incident": (30, 3600, "INCIDENT"),         # confidential safety reports/IP/hr
+    "preflight_outcome": (120, 3600, "PREFLIGHT_OUTCOME"),  # AGPO-1 outcome reports/IP/hr
     "evidence_issue": (120, 3600, "EVIDENCE_ISSUE"),  # new commitments/IP/hr; saved retries exempt
     "demand_watch": (60, 3600, "DEMAND_WATCH"),
     "spend_authorize": (120, 60, "SPEND_AUTHORIZE"),

@@ -17,6 +17,7 @@ import html
 import json
 import os
 import uuid
+import time
 import contextvars
 from urllib.parse import quote
 from typing import Any, Callable, Literal, Optional
@@ -52,6 +53,7 @@ from . import mpp
 from .billing import InsufficientCredits, UnknownAccount, CREDIT_USD
 from . import instanceid
 from . import preflight
+from . import preflight_outcomes
 from . import protecteddecision
 from . import protectedmarket
 from . import pricing
@@ -5517,16 +5519,65 @@ def delegation_preflight(request: Request, url: str = Query(
     at publication time — a server can change its tool descriptions after any
     one-off review. `unknowns` are reported, never averaged into the verdict.
     """
-    out = preflight.run(url, store=store)
+    _started = time.monotonic()
+    out = preflight_outcomes.stamp(preflight.run(url, store=store),
+                                   started=_started)
     # Demand instrumentation: WHO is asking, and do they come back? This is
     # the only honest way to learn whether the check is wanted, and it is
-    # recorded as a query, never as adoption of anything.
+    # recorded as a query, never as adoption of anything. The preflight_id
+    # and latency are what a later outcome report joins to (AGPO-1).
     store.record_event(None, "preflight_run", ua=_ua.get(),
                        endpoint="preflight", target=url,
                        verdict=out["verdict"],
                        failed_count=len(out["failed"]),
-                       unknown_count=len(out["unknowns"]))
+                       unknown_count=len(out["unknowns"]),
+                       preflight_id=out["preflight_id"],
+                       probe_latency_ms=out["probe_latency_ms"])
     return out
+
+
+@app.post("/preflight/outcome", status_code=201)
+def preflight_outcome(request: Request, body: dict):
+    """AGPO-1 — report what you did after a /preflight verdict and what
+    happened. Free, no key, one small record.
+
+    This is how the Guild measures whether preflight evidence changed a
+    decision for the better — or for the worse. Benefits and mistakes are
+    recorded with equal weight; the classification rules are public at
+    GET /preflight/outcomes. A skipped call whose counterfactual you did
+    not check is recorded as unobserved, never as a benefit.
+    """
+    abuse.guard(request, "preflight_outcome")
+    try:
+        rec = preflight_outcomes.validate(body or {})
+    except preflight_outcomes.OutcomeError as exc:
+        return JSONResponse(status_code=422, content={
+            "schema": "AGERR-1/1.0", "kind": "preflight_outcome_invalid",
+            "error": {"code": "invalid_outcome_report", "detail": str(exc)},
+            "authority": {"mode": "advisory", "grants": []},
+            "available_actions": [{
+                "id": "preflight.outcomes.rules", "effect": "read",
+                "requires_local_authorisation": False,
+                "call": {"method": "GET", "path": "/preflight/outcomes"}}],
+        })
+    store.record_event(None, "preflight_outcome", ua=_ua.get(),
+                       endpoint="preflight_outcome", transport="http", **rec)
+    return {"schema": preflight_outcomes.SCHEMA, "recorded": True,
+            "preflight_id": rec["preflight_id"],
+            "our_inference": "published in aggregate only, at GET "
+                             "/preflight/outcomes, joined to the verdict you "
+                             "were shown",
+            "authority": {"mode": "advisory", "grants": []}}
+
+
+@app.get("/preflight/outcomes")
+def preflight_outcomes_summary():
+    """AGPO-1 — the evidence → action → outcome ledger for the free preflight
+    decision, split by actor class. Only the `independent` bucket can ever
+    show that another operator's agent benefited; first-party records show
+    capability, never adoption. Rules and coverage travel with the numbers.
+    """
+    return preflight_outcomes.summary(store)
 
 
 @app.get("/preflight/deep")
