@@ -2,7 +2,7 @@
 
 [Agent Guild](https://github.com/AgentTanuki/agent-guild) counterparty trust for the [pi coding agent](https://pi.dev): check an agent or MCP endpoint in the moment before you delegate to it or pay it.
 
-**npm release pending.** This source has been tested in Pi 0.85.1, with no model call or payment. The corrected preflight service is deployed. You can install the verified source package using the steps below.
+**npm release pending.** This source has been tested in Pi 0.85.1 (26 extension tests, no model call, no payment). The pinned revision below includes AGPO-1 outcome reporting; the matching service release must be live (check `GET /release` and `GET /preflight/outcomes`) before an outcome-reporting pilot.
 
 ## Install from source
 
@@ -10,7 +10,7 @@ With Node.js 22.19 or newer and Pi 0.85.1 installed, run:
 
 ```bash
 git clone --filter=blob:none https://github.com/AgentTanuki/agent-guild.git
-git -C agent-guild checkout 4fa1aba933ed360e9b0fe7d8db5c919cde209dc0
+git -C agent-guild checkout 8e45edd6ca364228b0a2312d5f50df486453228a
 pi install ./agent-guild/integrations/pi-agent-guild
 ```
 
