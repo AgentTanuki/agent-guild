@@ -46,6 +46,23 @@ export interface PreflightResult {
   scored?: string[];
   method?: string;
   limits?: string;
+  /** AGPO-1 evidence identity (present on Guild builds from 2026-09-22). */
+  preflight_id?: string;
+  observed_at?: string;
+  probe_latency_ms?: number;
+}
+
+/** AGPO-1 outcome report: what happened after a verdict. Benefits and mistakes both count. */
+export type OutcomeAction = "called" | "delegated" | "declined" | "skipped";
+export type OutcomeObserved = "success" | "failure" | "unknown";
+export interface OutcomeReport {
+  action: OutcomeAction;
+  observed?: OutcomeObserved;
+  detail?: string;
+  /** Whether the reporter checked the endpoint itself WITHOUT the Guild. Without this a skip is "counterfactual_unobserved", never a benefit. */
+  baseline_direct_check?: "success" | "failure" | "not_run";
+  overhead_ms?: number;
+  reporter_kind: "integration" | "agent";
 }
 
 export interface GuildConfig {
@@ -54,6 +71,8 @@ export interface GuildConfig {
   maxAgeMs: number;
   gate: "off" | "warn" | "block";
   scanMcpConfig: boolean;
+  /** opt-in: the gate reports a blocked (declined) call to the Guild as an AGPO-1 outcome */
+  reportOutcomes: boolean;
   /** hosts never preflighted / never gated */
   allowHosts: string[];
 }
@@ -73,6 +92,7 @@ const DEFAULTS: GuildConfig = {
   maxAgeMs: 300_000,
   gate: "off",
   scanMcpConfig: false,
+  reportOutcomes: false,
   allowHosts: ["localhost", "127.0.0.1", "::1"],
 };
 
@@ -94,6 +114,7 @@ export async function loadConfig(deps: GuildDeps = {}): Promise<GuildConfig> {
     baseUrl: (env.AGENT_GUILD_BASE_URL ?? fileCfg.baseUrl ?? DEFAULTS.baseUrl).replace(/\/+$/, ""),
     gate: (["off", "warn", "block"].includes(gateEnv) ? gateEnv : fileCfg.gate ?? DEFAULTS.gate) as GuildConfig["gate"],
     scanMcpConfig: env.AGENT_GUILD_SCAN_MCP !== undefined ? env.AGENT_GUILD_SCAN_MCP === "1" : fileCfg.scanMcpConfig === true,
+    reportOutcomes: env.AGENT_GUILD_REPORT_OUTCOMES !== undefined ? env.AGENT_GUILD_REPORT_OUTCOMES === "1" : fileCfg.reportOutcomes === true,
     allowHosts: [...DEFAULTS.allowHosts, ...(Array.isArray(fileCfg.allowHosts) ? fileCfg.allowHosts.filter(x => typeof x === "string") : [])],
   };
   cfg.timeoutMs = Number.isFinite(cfg.timeoutMs) ? Math.max(1000, Math.min(30000, cfg.timeoutMs)) : DEFAULTS.timeoutMs;
@@ -221,6 +242,45 @@ export class GuildClient {
   }
 
   clear(): void { this.epoch++; this.verdicts.clear(); }
+
+  /**
+   * AGPO-1: tell the Guild what happened after a verdict. Free, no key, one
+   * small record, no payload and no identity beyond this extension's UA.
+   * Best-effort: never throws, never blocks the agent; returns whether the
+   * Guild acknowledged the record.
+   */
+  async reportOutcome(preflightId: string, report: OutcomeReport, signal?: AbortSignal): Promise<boolean> {
+    if (!/^pf_[A-Za-z0-9]{5,37}$/.test(preflightId)) return false;
+    const body = {
+      preflight_id: preflightId,
+      action: report.action,
+      observed: report.observed ?? "unknown",
+      detail: report.detail ?? "not_applicable",
+      baseline: { direct_check: report.baseline_direct_check ?? "not_run" },
+      overhead_ms: report.overhead_ms,
+      reporter_kind: report.reporter_kind,
+    };
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(new Error("Agent Guild outcome report timeout")), this.cfg.timeoutMs);
+    const abort = () => ac.abort(signal?.reason);
+    signal?.addEventListener("abort", abort, { once: true });
+    try {
+      const r = await this.f(new URL(this.cfg.baseUrl + "/preflight/outcome"), {
+        method: "POST",
+        headers: { ...this.headers, "content-type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ac.signal,
+        redirect: "error",
+      });
+      await r.body?.cancel().catch(() => {});
+      return r.status === 201;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(t);
+      signal?.removeEventListener("abort", abort);
+    }
+  }
 
   verdictFor(url: string): PreflightResult | undefined {
     let key: string;
@@ -373,10 +433,42 @@ export async function createExtension(pi: ExtensionAPI, deps: GuildDeps = {}): P
     },
   });
 
+  pi.registerTool({
+    name: "guild_preflight_outcome",
+    label: "Agent Guild preflight outcome",
+    description:
+      "After a guild_preflight verdict, report what you did with the endpoint and what happened (AGPO-1). Free, optional, one small record. " +
+      "This is how the Guild measures whether its evidence helped or misled: benefits and mistakes are recorded with equal weight. " +
+      "If you did NOT call the endpoint, say whether you checked it yourself (baseline_direct_check) — without that, a skip is recorded as unobserved, never as a benefit.",
+    promptSnippet: "Report the outcome of an endpoint call after an Agent Guild preflight",
+    promptGuidelines: [
+      "After acting on a guild_preflight verdict, call guild_preflight_outcome once with the preflight_id from that verdict; report failures and successes alike, including when the Guild's verdict turned out to be wrong.",
+    ],
+    parameters: Type.Object({
+      preflight_id: Type.String({ description: "The preflight_id returned by guild_preflight" }),
+      action: Type.Union([Type.Literal("called"), Type.Literal("delegated"), Type.Literal("declined"), Type.Literal("skipped")]),
+      observed: Type.Optional(Type.Union([Type.Literal("success"), Type.Literal("failure"), Type.Literal("unknown")], { description: "Only when you called it; unknown otherwise" })),
+      detail: Type.Optional(Type.String({ description: "ok | timeout | unreachable | http_4xx | http_5xx | protocol_error | payment_mismatch | wrong_result | other" })),
+      baseline_direct_check: Type.Optional(Type.Union([Type.Literal("success"), Type.Literal("failure"), Type.Literal("not_run")], { description: "Did you check the endpoint yourself without the Guild?" })),
+      overhead_ms: Type.Optional(Type.Integer({ description: "Time the preflight step cost you, if measured" })),
+    }),
+    async execute(_id, params, signal) {
+      const ok = await client.reportOutcome(params.preflight_id, {
+        action: params.action, observed: params.observed, detail: params.detail,
+        baseline_direct_check: params.baseline_direct_check, overhead_ms: params.overhead_ms,
+        reporter_kind: "agent",
+      }, signal);
+      return {
+        content: [{ type: "text", text: ok ? "Outcome recorded by Agent Guild (aggregate only; see GET /preflight/outcomes)." : "Agent Guild did not record the outcome (invalid id, offline, or rate-limited). Nothing else changes." }],
+        details: { recorded: ok },
+      };
+    },
+  });
+
   pi.registerCommand("guild", {
     description: "Show Agent Guild extension status and this session's endpoint verdicts",
     handler: async (_args, ctx) => {
-      ctx.ui.notify(`${PACKAGE_NAME} ${PACKAGE_VERSION} — base ${cfg.baseUrl}, gate=${cfg.gate}, scanMcpConfig=${cfg.scanMcpConfig}`, "info");
+      ctx.ui.notify(`${PACKAGE_NAME} ${PACKAGE_VERSION} — base ${cfg.baseUrl}, gate=${cfg.gate}, scanMcpConfig=${cfg.scanMcpConfig}, reportOutcomes=${cfg.reportOutcomes}`, "info");
     },
   });
 
@@ -409,7 +501,15 @@ export async function createExtension(pi: ExtensionAPI, deps: GuildDeps = {}): P
         const v = client.verdictFor(raw);
         if (v?.verdict === "do_not_delegate") {
           const reason = `Agent Guild rated ${v.target} do_not_delegate this session (failed: ${(v.failed ?? []).join(", ") || "n/a"}). Run guild_preflight again or set AGENT_GUILD_GATE=warn to proceed.`;
-          if (cfg.gate === "block") return { block: true, reason };
+          if (cfg.gate === "block") {
+            if (cfg.reportOutcomes && v.preflight_id) {
+              // Observed action: the integration itself declined the call. The
+              // counterfactual is NOT checked here, so the Guild records this as
+              // counterfactual_unobserved, never as a benefit.
+              void client.reportOutcome(v.preflight_id, { action: "declined", reporter_kind: "integration" });
+            }
+            return { block: true, reason };
+          }
           ctx.ui.notify(reason, "warning");
         }
       }

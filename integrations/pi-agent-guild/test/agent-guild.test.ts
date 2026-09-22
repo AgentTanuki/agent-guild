@@ -50,10 +50,10 @@ const FIX_BAD: PreflightResult = {
 };
 
 function stubFetch(routes: Record<string, (u: URL) => { status: number; body: unknown }>) {
-  const calls: { url: URL; headers: Record<string, string> }[] = [];
+  const calls: { url: URL; headers: Record<string, string>; method?: string; body?: string }[] = [];
   const f = (async (input: any, init: any) => {
     const url = input instanceof URL ? input : new URL(String(input));
-    calls.push({ url, headers: init?.headers ?? {} });
+    calls.push({ url, headers: init?.headers ?? {}, method: init?.method ?? "GET", body: typeof init?.body === "string" ? init.body : undefined });
     const route = routes[url.pathname];
     if (!route) return new Response("not found", { status: 404 });
     const r = route(url);
@@ -80,7 +80,7 @@ test("registers tools and lifecycle cleanup; scanning and gating are off by defa
   const { pi, tools, commands, handlers } = fakePi();
   const { f } = stubFetch({});
   await createExtension(pi, { ...noFiles, env: {}, fetch: f });
-  assert.deepEqual([...tools.keys()].sort(), ["guild_check", "guild_preflight"]);
+  assert.deepEqual([...tools.keys()].sort(), ["guild_check", "guild_preflight", "guild_preflight_outcome"]);
   assert.ok(commands.has("guild"));
   assert.deepEqual([...handlers.keys()].sort(), ["session_shutdown", "session_start"]);
   for (const t of tools.values()) {
@@ -227,4 +227,64 @@ test("verdict contract matches public preflight.run (f541d61): no `delegate` ver
   await createExtension(pi2, { ...noFiles, env: {}, fetch: ok.f, resolve: async () => [{ address: "93.184.216.34" }] });
   const r2 = await tools2.get("guild_preflight").execute("t2", { url: "https://bad.example/mcp" }, undefined, undefined, ctx);
   assert.equal(r2.details.verdict, "no_failed_checks");
+});
+
+const FIX_BAD_STAMPED: PreflightResult = { ...FIX_BAD, preflight_id: "pf_0123456789abcdef0123", observed_at: "2026-09-22T08:00:00+00:00", probe_latency_ms: 12 };
+
+test("AGPO-1: gate=block reports a declined call only when reportOutcomes is on, as an unobserved counterfactual", async () => {
+  const routes = { "/preflight": () => ({ status: 200, body: FIX_BAD_STAMPED }), "/preflight/outcome": () => ({ status: 201, body: { recorded: true } }) };
+  // Off by default: block, but no report leaves the machine.
+  const off = stubFetch(routes);
+  const { pi, tools, handlers, ctx } = fakePi();
+  await createExtension(pi, { ...noFiles, env: { AGENT_GUILD_GATE: "block" }, fetch: off.f });
+  await tools.get("guild_preflight").execute("t1", { url: "https://bad.example/mcp" }, undefined, undefined, ctx);
+  const res = await handlers.get("tool_call")![0]({ toolName: "bash", input: { command: "curl https://bad.example/mcp" } }, ctx);
+  assert.equal(res?.block, true);
+  await new Promise(r => setTimeout(r, 10));
+  assert.deepEqual(off.calls.filter(c => c.url.pathname === "/preflight/outcome"), []);
+  // Opt-in: the integration reports what IT observed — it declined — and nothing more.
+  const on = stubFetch(routes);
+  const { pi: pi2, tools: tools2, handlers: h2 } = fakePi();
+  await createExtension(pi2, { ...noFiles, env: { AGENT_GUILD_GATE: "block", AGENT_GUILD_REPORT_OUTCOMES: "1" }, fetch: on.f });
+  await tools2.get("guild_preflight").execute("t1", { url: "https://bad.example/mcp" }, undefined, undefined, ctx);
+  const res2 = await h2.get("tool_call")![0]({ toolName: "bash", input: { command: "curl https://bad.example/mcp" } }, ctx);
+  assert.equal(res2?.block, true);
+  await new Promise(r => setTimeout(r, 10));
+  const reports = on.calls.filter(c => c.url.pathname === "/preflight/outcome");
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].method, "POST");
+  const body = JSON.parse(reports[0].body!);
+  assert.equal(body.preflight_id, "pf_0123456789abcdef0123");
+  assert.equal(body.action, "declined");
+  assert.equal(body.observed, "unknown");
+  assert.deepEqual(body.baseline, { direct_check: "not_run" });
+  assert.equal(body.reporter_kind, "integration");
+  assert.equal(reports[0].headers["content-type"], "application/json");
+  assert.match(reports[0].headers["user-agent"], /^pi-agent-guild\//);
+});
+
+test("AGPO-1: guild_preflight_outcome lets the agent report its own outcome, benefit or mistake alike", async () => {
+  const st = stubFetch({ "/preflight/outcome": () => ({ status: 201, body: { recorded: true } }) });
+  const { pi, tools, ctx } = fakePi();
+  await createExtension(pi, { ...noFiles, env: {}, fetch: st.f });
+  const r = await tools.get("guild_preflight_outcome").execute("t1", {
+    preflight_id: "pf_0123456789abcdef0123", action: "called", observed: "failure", detail: "http_5xx", overhead_ms: 80,
+  }, undefined, undefined, ctx);
+  assert.equal(r.details.recorded, true);
+  const body = JSON.parse(st.calls[0].body!);
+  assert.equal(body.reporter_kind, "agent");
+  assert.equal(body.observed, "failure");
+  assert.equal(body.detail, "http_5xx");
+  assert.equal(body.overhead_ms, 80);
+  // A malformed id never leaves the machine and never throws.
+  const r2 = await tools.get("guild_preflight_outcome").execute("t2", { preflight_id: "nope", action: "called" }, undefined, undefined, ctx);
+  assert.equal(r2.details.recorded, false);
+  assert.equal(st.calls.length, 1);
+  // A Guild refusal (rate limit / offline) is reported honestly, not as recorded.
+  const down = stubFetch({ "/preflight/outcome": () => ({ status: 429, body: { error: "rate_limited" } }) });
+  const { pi: pi2, tools: tools2 } = fakePi();
+  await createExtension(pi2, { ...noFiles, env: {}, fetch: down.f });
+  const r3 = await tools2.get("guild_preflight_outcome").execute("t3", { preflight_id: "pf_0123456789abcdef0123", action: "skipped", baseline_direct_check: "failure" }, undefined, undefined, ctx);
+  assert.equal(r3.details.recorded, false);
+  assert.match(r3.content[0].text, /did not record/);
 });
