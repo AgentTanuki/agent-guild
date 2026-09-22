@@ -288,3 +288,55 @@ test("AGPO-1: guild_preflight_outcome lets the agent report its own outcome, ben
   assert.equal(r3.details.recorded, false);
   assert.match(r3.content[0].text, /did not record/);
 });
+
+test("AGPO-1: a registered participant key is presented on BOTH the preflight and the report, never elsewhere", async () => {
+  const routes = { "/preflight": () => ({ status: 200, body: FIX_BAD_STAMPED }), "/preflight/outcome": () => ({ status: 201, body: { recorded: true } }) };
+  const st = stubFetch(routes);
+  const { pi, tools, ctx } = fakePi();
+  await createExtension(pi, { ...noFiles, env: { AGENT_GUILD_API_KEY: "ak_test_participant" }, fetch: st.f });
+  await tools.get("guild_preflight").execute("t1", { url: "https://bad.example/mcp" }, undefined, undefined, ctx);
+  await tools.get("guild_preflight_outcome").execute("t2", { preflight_id: "pf_0123456789abcdef0123", action: "declined", baseline_direct_check: "failure", decision_basis: "ag_evidence" }, undefined, undefined, ctx);
+  assert.equal(st.calls.length, 2);
+  for (const c of st.calls) assert.equal(c.headers["x-api-key"], "ak_test_participant");
+  const body = JSON.parse(st.calls[1].body!);
+  assert.equal(body.decision_basis, "ag_evidence");
+  // Without a key, no header — and the report defaults its claim to unknown.
+  const st2 = stubFetch(routes);
+  const { pi: pi2, tools: tools2 } = fakePi();
+  await createExtension(pi2, { ...noFiles, env: {}, fetch: st2.f });
+  await tools2.get("guild_preflight_outcome").execute("t3", { preflight_id: "pf_0123456789abcdef0123", action: "called", observed: "success" }, undefined, undefined, ctx);
+  assert.equal(st2.calls[0].headers["x-api-key"], undefined);
+  assert.equal(JSON.parse(st2.calls[0].body!).decision_basis, "unknown");
+});
+
+test("AGPO-1: permitted calls are reported from tool_result with the observed success/failure; off by default", async () => {
+  const OK: PreflightResult = { ...FIX_BAD_STAMPED, target: "https://ok.example/mcp", verdict: "no_failed_checks", failed: [], preflight_id: "pf_ok0123456789abcdef" };
+  const routes = { "/preflight": () => ({ status: 200, body: OK }), "/preflight/outcome": () => ({ status: 201, body: { recorded: true } }) };
+  const on = stubFetch(routes);
+  const { pi, tools, handlers, ctx } = fakePi();
+  await createExtension(pi, { ...noFiles, env: { AGENT_GUILD_REPORT_OUTCOMES: "1" }, fetch: on.f });
+  await tools.get("guild_preflight").execute("t1", { url: "https://ok.example/mcp" }, undefined, undefined, ctx);
+  const [onCall] = handlers.get("tool_call")!;
+  const [onResult] = handlers.get("tool_result")!;
+  // gate is off: the call is never blocked, but it is remembered
+  assert.equal(await onCall({ toolName: "fetch", toolCallId: "c1", input: { url: "https://ok.example/mcp" } }, ctx), undefined);
+  await onResult({ toolCallId: "c1", isError: true }, ctx);
+  await onCall({ toolName: "fetch", toolCallId: "c2", input: { url: "https://ok.example/mcp" } }, ctx);
+  await onResult({ toolCallId: "c2", isError: false }, ctx);
+  await onResult({ toolCallId: "unrelated", isError: false }, ctx);
+  await new Promise(r => setTimeout(r, 10));
+  const reports = on.calls.filter(c => c.url.pathname === "/preflight/outcome").map(c => JSON.parse(c.body!));
+  assert.equal(reports.length, 2);
+  assert.deepEqual(reports.map(r => [r.preflight_id, r.action, r.observed, r.detail, r.reporter_kind, r.decision_basis]), [
+    ["pf_ok0123456789abcdef", "called", "failure", "other", "integration", "unknown"],
+    ["pf_ok0123456789abcdef", "called", "success", "ok", "integration", "unknown"],
+  ]);
+  // Default configuration registers no tool_result observer and sends nothing.
+  const off = stubFetch(routes);
+  const { pi: pi2, tools: tools2, handlers: h2 } = fakePi();
+  await createExtension(pi2, { ...noFiles, env: {}, fetch: off.f });
+  await tools2.get("guild_preflight").execute("t1", { url: "https://ok.example/mcp" }, undefined, undefined, ctx);
+  assert.equal(h2.has("tool_result"), false);
+  assert.equal(h2.has("tool_call"), false);
+  assert.equal(off.calls.filter(c => c.url.pathname === "/preflight/outcome").length, 0);
+});

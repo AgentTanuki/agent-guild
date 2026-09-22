@@ -5501,9 +5501,26 @@ def llms_txt():
     )
 
 
+def _preflight_participant(x_api_key: Optional[str]) -> dict:
+    """AGPO-1 provenance: an OPTIONAL registered key on a free call. Presenting
+    a key never changes the answer; it only lets the same agent's later
+    outcome report join as a registered participant. An invalid key is a 401,
+    never a silent downgrade to anonymous."""
+    if not x_api_key:
+        return {}
+    agent = store.agent_for_presented_key(x_api_key)
+    if agent is None:
+        raise HTTPException(401, "invalid X-API-Key")
+    from . import attribution as _attr
+    return {"participant_agent_id": agent["id"],
+            "participant_first_party": _attr.is_guild_operated_agent(
+                agent["id"], agent)}
+
+
 @app.get("/preflight")
 def delegation_preflight(request: Request, url: str = Query(
-        ..., description="The agent endpoint you are about to delegate to")):
+        ..., description="The agent endpoint you are about to delegate to"),
+        x_api_key: Optional[str] = Header(None)):
     """PREFLIGHT — run this in the moment before you delegate or pay.
 
     Separates what an endpoint CLAIMS from what it just PROVED, live, at
@@ -5519,6 +5536,7 @@ def delegation_preflight(request: Request, url: str = Query(
     at publication time — a server can change its tool descriptions after any
     one-off review. `unknowns` are reported, never averaged into the verdict.
     """
+    participant = _preflight_participant(x_api_key)
     _started = time.monotonic()
     out = preflight_outcomes.stamp(preflight.run(url, store=store),
                                    started=_started)
@@ -5531,13 +5549,14 @@ def delegation_preflight(request: Request, url: str = Query(
                        verdict=out["verdict"],
                        failed_count=len(out["failed"]),
                        unknown_count=len(out["unknowns"]),
-                       preflight_id=out["preflight_id"],
-                       probe_latency_ms=out["probe_latency_ms"])
+                       **preflight_outcomes.run_event_fields(out),
+                       **participant)
     return out
 
 
 @app.post("/preflight/outcome", status_code=201)
-def preflight_outcome(request: Request, body: dict):
+def preflight_outcome(request: Request, body: dict,
+                      x_api_key: Optional[str] = Header(None)):
     """AGPO-1 — report what you did after a /preflight verdict and what
     happened. Free, no key, one small record.
 
@@ -5548,6 +5567,7 @@ def preflight_outcome(request: Request, body: dict):
     not check is recorded as unobserved, never as a benefit.
     """
     abuse.guard(request, "preflight_outcome")
+    participant = _preflight_participant(x_api_key)
     try:
         rec = preflight_outcomes.validate(body or {})
     except preflight_outcomes.OutcomeError as exc:
@@ -5561,12 +5581,16 @@ def preflight_outcome(request: Request, body: dict):
                 "call": {"method": "GET", "path": "/preflight/outcomes"}}],
         })
     store.record_event(None, "preflight_outcome", ua=_ua.get(),
-                       endpoint="preflight_outcome", transport="http", **rec)
+                       endpoint="preflight_outcome", transport="http",
+                       **rec, **participant)
     return {"schema": preflight_outcomes.SCHEMA, "recorded": True,
             "preflight_id": rec["preflight_id"],
             "our_inference": "published in aggregate only, at GET "
                              "/preflight/outcomes, joined to the verdict you "
-                             "were shown",
+                             "were shown; reporter_kind and decision_basis "
+                             "are recorded as your claims",
+            "provenance": ("registered_participant" if participant.get(
+                "participant_agent_id") else "unauthenticated"),
             "authority": {"mode": "advisory", "grants": []}}
 
 

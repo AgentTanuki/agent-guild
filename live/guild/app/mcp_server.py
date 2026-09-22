@@ -729,8 +729,7 @@ def guild_preflight(url: str, ctx: Context = None) -> dict:
                        transport="mcp", verdict=out["verdict"],
                        failed_count=len(out["failed"]),
                        unknown_count=len(out["unknowns"]),
-                       preflight_id=out["preflight_id"],
-                       probe_latency_ms=out["probe_latency_ms"])
+                       **preflight_outcomes.run_event_fields(out))
     return out
 
 
@@ -739,6 +738,7 @@ def guild_preflight_outcome(preflight_id: str, action: str,
                             observed: str = "unknown",
                             detail: str = "not_applicable",
                             baseline_direct_check: str = "not_run",
+                            decision_basis: str = "unknown",
                             overhead_ms: Optional[int] = None,
                             ctx: Context = None) -> dict:
     """After a guild_preflight verdict, tell the Guild what you did and what
@@ -749,6 +749,9 @@ def guild_preflight_outcome(preflight_id: str, action: str,
     baseline_direct_check: success | failure | not_run — whether you checked
     the endpoint yourself without the Guild. Without it a skip is recorded as
     counterfactual_unobserved, never as a benefit.
+    decision_basis: ag_evidence | own_check | both | other | unknown — what
+    actually drove your decision. Recorded as your claim. AG is credited only
+    when its warning was right AND you say it drove the decision.
 
     Benefits and mistakes are measured with equal weight; see
     GET /preflight/outcomes for the public classification rules.
@@ -758,6 +761,7 @@ def guild_preflight_outcome(preflight_id: str, action: str,
             "preflight_id": preflight_id, "action": action,
             "observed": observed, "detail": detail,
             "baseline": {"direct_check": baseline_direct_check},
+            "decision_basis": decision_basis,
             "overhead_ms": overhead_ms, "reporter_kind": "agent"})
     except preflight_outcomes.OutcomeError as exc:
         return {"schema": "AGERR-1/1.0", "kind": "preflight_outcome_invalid",
