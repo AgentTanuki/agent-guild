@@ -46,6 +46,25 @@ export interface PreflightResult {
   scored?: string[];
   method?: string;
   limits?: string;
+  /** AGPO-1 evidence identity (present on Guild builds from 2026-09-22). */
+  preflight_id?: string;
+  observed_at?: string;
+  probe_latency_ms?: number;
+}
+
+/** AGPO-1 outcome report: what happened after a verdict. Benefits and mistakes both count. */
+export type OutcomeAction = "called" | "delegated" | "declined" | "skipped";
+export type OutcomeObserved = "success" | "failure" | "unknown";
+export interface OutcomeReport {
+  action: OutcomeAction;
+  observed?: OutcomeObserved;
+  detail?: string;
+  /** Whether the reporter checked the endpoint itself WITHOUT the Guild. Without this a skip is "counterfactual_unobserved", never a benefit. */
+  baseline_direct_check?: "success" | "failure" | "not_run";
+  /** What drove the decision — recorded by the Guild as YOUR CLAIM. AG is credited only when its warning was right AND you say it drove the decision. */
+  decision_basis?: "ag_evidence" | "own_check" | "both" | "other" | "unknown";
+  overhead_ms?: number;
+  reporter_kind: "integration" | "agent";
 }
 
 export interface GuildConfig {
@@ -54,6 +73,10 @@ export interface GuildConfig {
   maxAgeMs: number;
   gate: "off" | "warn" | "block";
   scanMcpConfig: boolean;
+  /** opt-in: report observed outcomes (blocked calls, and permitted calls' success/failure via tool_result) to the Guild as AGPO-1 records */
+  reportOutcomes: boolean;
+  /** optional registered Agent Guild key: presented on preflights AND outcome reports so this operator's records join as a registered participant. Never used to pay. */
+  apiKey?: string;
   /** hosts never preflighted / never gated */
   allowHosts: string[];
 }
@@ -73,6 +96,7 @@ const DEFAULTS: GuildConfig = {
   maxAgeMs: 300_000,
   gate: "off",
   scanMcpConfig: false,
+  reportOutcomes: false,
   allowHosts: ["localhost", "127.0.0.1", "::1"],
 };
 
@@ -94,6 +118,8 @@ export async function loadConfig(deps: GuildDeps = {}): Promise<GuildConfig> {
     baseUrl: (env.AGENT_GUILD_BASE_URL ?? fileCfg.baseUrl ?? DEFAULTS.baseUrl).replace(/\/+$/, ""),
     gate: (["off", "warn", "block"].includes(gateEnv) ? gateEnv : fileCfg.gate ?? DEFAULTS.gate) as GuildConfig["gate"],
     scanMcpConfig: env.AGENT_GUILD_SCAN_MCP !== undefined ? env.AGENT_GUILD_SCAN_MCP === "1" : fileCfg.scanMcpConfig === true,
+    reportOutcomes: env.AGENT_GUILD_REPORT_OUTCOMES !== undefined ? env.AGENT_GUILD_REPORT_OUTCOMES === "1" : fileCfg.reportOutcomes === true,
+    apiKey: typeof env.AGENT_GUILD_API_KEY === "string" && env.AGENT_GUILD_API_KEY.trim() ? env.AGENT_GUILD_API_KEY.trim() : (typeof fileCfg.apiKey === "string" && fileCfg.apiKey.trim() ? fileCfg.apiKey.trim() : undefined),
     allowHosts: [...DEFAULTS.allowHosts, ...(Array.isArray(fileCfg.allowHosts) ? fileCfg.allowHosts.filter(x => typeof x === "string") : [])],
   };
   cfg.timeoutMs = Number.isFinite(cfg.timeoutMs) ? Math.max(1000, Math.min(30000, cfg.timeoutMs)) : DEFAULTS.timeoutMs;
@@ -123,11 +149,14 @@ export class GuildClient {
   }
 
   get headers(): Record<string, string> {
-    return {
+    const h: Record<string, string> = {
       accept: "application/json",
       // Identify the integration so the Guild can attribute framework traffic honestly.
       "user-agent": `${PACKAGE_NAME}/${PACKAGE_VERSION} (pi coding agent extension)`,
     };
+    // A registered participant key is provenance for evaluation, never payment authority.
+    if (this.cfg.apiKey) h["x-api-key"] = this.cfg.apiKey;
+    return h;
   }
 
   private async get(path: string, params: Record<string, string | undefined>, signal?: AbortSignal): Promise<unknown> {
@@ -221,6 +250,46 @@ export class GuildClient {
   }
 
   clear(): void { this.epoch++; this.verdicts.clear(); }
+
+  /**
+   * AGPO-1: tell the Guild what happened after a verdict. Free, no key, one
+   * small record, no payload and no identity beyond this extension's UA.
+   * Best-effort: never throws, never blocks the agent; returns whether the
+   * Guild acknowledged the record.
+   */
+  async reportOutcome(preflightId: string, report: OutcomeReport, signal?: AbortSignal): Promise<boolean> {
+    if (!/^pf_[A-Za-z0-9]{5,37}$/.test(preflightId)) return false;
+    const body = {
+      preflight_id: preflightId,
+      action: report.action,
+      observed: report.observed ?? "unknown",
+      detail: report.detail ?? "not_applicable",
+      baseline: { direct_check: report.baseline_direct_check ?? "not_run" },
+      decision_basis: report.decision_basis ?? "unknown",
+      overhead_ms: report.overhead_ms,
+      reporter_kind: report.reporter_kind,
+    };
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(new Error("Agent Guild outcome report timeout")), this.cfg.timeoutMs);
+    const abort = () => ac.abort(signal?.reason);
+    signal?.addEventListener("abort", abort, { once: true });
+    try {
+      const r = await this.f(new URL(this.cfg.baseUrl + "/preflight/outcome"), {
+        method: "POST",
+        headers: { ...this.headers, "content-type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ac.signal,
+        redirect: "error",
+      });
+      await r.body?.cancel().catch(() => {});
+      return r.status === 201;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(t);
+      signal?.removeEventListener("abort", abort);
+    }
+  }
 
   verdictFor(url: string): PreflightResult | undefined {
     let key: string;
@@ -373,10 +442,45 @@ export async function createExtension(pi: ExtensionAPI, deps: GuildDeps = {}): P
     },
   });
 
+  pi.registerTool({
+    name: "guild_preflight_outcome",
+    label: "Agent Guild preflight outcome",
+    description:
+      "After a guild_preflight verdict, report what you did with the endpoint and what happened (AGPO-1). Free, optional, one small record. " +
+      "This is how the Guild measures whether its evidence helped or misled: benefits and mistakes are recorded with equal weight. " +
+      "If you did NOT call the endpoint, say whether you checked it yourself (baseline_direct_check) — without that, a skip is recorded as unobserved, never as a benefit. " +
+      "Say what drove the decision (decision_basis): the Guild credits itself only when its warning was right AND you say it drove the decision.",
+    promptSnippet: "Report the outcome of an endpoint call after an Agent Guild preflight",
+    promptGuidelines: [
+      "After acting on a guild_preflight verdict, call guild_preflight_outcome once with the preflight_id from that verdict; report failures and successes alike, including when the Guild's verdict turned out to be wrong.",
+    ],
+    parameters: Type.Object({
+      preflight_id: Type.String({ description: "The preflight_id returned by guild_preflight" }),
+      action: Type.Union([Type.Literal("called"), Type.Literal("delegated"), Type.Literal("declined"), Type.Literal("skipped")]),
+      observed: Type.Optional(Type.Union([Type.Literal("success"), Type.Literal("failure"), Type.Literal("unknown")], { description: "Only when you called it; unknown otherwise" })),
+      detail: Type.Optional(Type.String({ description: "ok | timeout | unreachable | http_4xx | http_5xx | protocol_error | payment_mismatch | wrong_result | other" })),
+      baseline_direct_check: Type.Optional(Type.Union([Type.Literal("success"), Type.Literal("failure"), Type.Literal("not_run")], { description: "Did you check the endpoint yourself without the Guild?" })),
+      decision_basis: Type.Optional(Type.Union([Type.Literal("ag_evidence"), Type.Literal("own_check"), Type.Literal("both"), Type.Literal("other"), Type.Literal("unknown")], { description: "What actually drove your decision; recorded as your claim" })),
+      overhead_ms: Type.Optional(Type.Integer({ description: "Time the preflight step cost you, if measured" })),
+    }),
+    async execute(_id, params, signal) {
+      const ok = await client.reportOutcome(params.preflight_id, {
+        action: params.action, observed: params.observed, detail: params.detail,
+        baseline_direct_check: params.baseline_direct_check, decision_basis: params.decision_basis,
+        overhead_ms: params.overhead_ms,
+        reporter_kind: "agent",
+      }, signal);
+      return {
+        content: [{ type: "text", text: ok ? "Outcome recorded by Agent Guild (aggregate only; see GET /preflight/outcomes)." : "Agent Guild did not record the outcome (invalid id, offline, or rate-limited). Nothing else changes." }],
+        details: { recorded: ok },
+      };
+    },
+  });
+
   pi.registerCommand("guild", {
     description: "Show Agent Guild extension status and this session's endpoint verdicts",
     handler: async (_args, ctx) => {
-      ctx.ui.notify(`${PACKAGE_NAME} ${PACKAGE_VERSION} — base ${cfg.baseUrl}, gate=${cfg.gate}, scanMcpConfig=${cfg.scanMcpConfig}`, "info");
+      ctx.ui.notify(`${PACKAGE_NAME} ${PACKAGE_VERSION} — base ${cfg.baseUrl}, gate=${cfg.gate}, scanMcpConfig=${cfg.scanMcpConfig}, reportOutcomes=${cfg.reportOutcomes}, participant=${cfg.apiKey ? "registered key set" : "none"}`, "info");
     },
   });
 
@@ -399,20 +503,54 @@ export async function createExtension(pi: ExtensionAPI, deps: GuildDeps = {}): P
     });
   }
 
-  if (cfg.gate !== "off") {
-    pi.on("tool_call", async (event, ctx) => {
-      if (event.toolName === "guild_preflight" || event.toolName === "guild_check") return;
-      for (const raw of extractUrls(event.input)) {
-        let host: string;
-        try { host = new URL(raw).hostname; } catch { continue; }
-        if (cfg.allowHosts.includes(host)) continue;
-        const v = client.verdictFor(raw);
-        if (v?.verdict === "do_not_delegate") {
-          const reason = `Agent Guild rated ${v.target} do_not_delegate this session (failed: ${(v.failed ?? []).join(", ") || "n/a"}). Run guild_preflight again or set AGENT_GUILD_GATE=warn to proceed.`;
-          if (cfg.gate === "block") return { block: true, reason };
-          ctx.ui.notify(reason, "warning");
+  // AGPO-1 observed outcomes (opt-in). A tool call whose input carries a URL
+  // this session preflighted is remembered by toolCallId; its tool_result is
+  // reported as called + success/failure. isError is a coarse signal, so the
+  // detail is "other" and the Guild classifies it as out-of-scope unless the
+  // verdict's own checks explain it. Blocked calls are reported as declined
+  // with the counterfactual explicitly NOT checked.
+  const pending = new Map<string, { preflightId: string }>();
+  if (cfg.reportOutcomes) {
+    pi.on("session_start", () => { pending.clear(); });
+    pi.on("session_shutdown", () => { pending.clear(); });
+  }
+
+  if (cfg.gate !== "off" || cfg.reportOutcomes) pi.on("tool_call", async (event, ctx) => {
+    if (event.toolName === "guild_preflight" || event.toolName === "guild_check" || event.toolName === "guild_preflight_outcome") return;
+    for (const raw of extractUrls(event.input)) {
+      let host: string;
+      try { host = new URL(raw).hostname; } catch { continue; }
+      if (cfg.allowHosts.includes(host)) continue;
+      const v = client.verdictFor(raw);
+      if (!v) continue;
+      if (cfg.gate !== "off" && v.verdict === "do_not_delegate") {
+        const reason = `Agent Guild rated ${v.target} do_not_delegate this session (failed: ${(v.failed ?? []).join(", ") || "n/a"}). Run guild_preflight again or set AGENT_GUILD_GATE=warn to proceed.`;
+        if (cfg.gate === "block") {
+          if (cfg.reportOutcomes && v.preflight_id) {
+            void client.reportOutcome(v.preflight_id, { action: "declined", decision_basis: "ag_evidence", reporter_kind: "integration" });
+          }
+          return { block: true, reason };
         }
+        ctx.ui.notify(reason, "warning");
       }
+      if (cfg.reportOutcomes && v.preflight_id && typeof (event as any).toolCallId === "string") {
+        pending.set((event as any).toolCallId, { preflightId: v.preflight_id });
+      }
+    }
+  });
+
+  if (cfg.reportOutcomes) {
+    pi.on("tool_result", async (event) => {
+      const id = typeof (event as any).toolCallId === "string" ? (event as any).toolCallId : undefined;
+      if (!id) return;
+      const p = pending.get(id);
+      if (!p) return;
+      pending.delete(id);
+      const failed = (event as any).isError === true;
+      void client.reportOutcome(p.preflightId, {
+        action: "called", observed: failed ? "failure" : "success", detail: failed ? "other" : "ok",
+        decision_basis: "unknown", reporter_kind: "integration",
+      });
     });
   }
 

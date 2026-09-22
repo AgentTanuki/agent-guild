@@ -70,6 +70,7 @@
   "guild_passport",
   "guild_preflight",
   "guild_preflight_deep",
+  "guild_preflight_outcome",
   "guild_prove",
   "guild_prove_verify",
   "guild_record",
@@ -960,6 +961,18 @@
     "GET"
    ],
    "path": "/preflight/deep"
+  },
+  {
+   "methods": [
+    "POST"
+   ],
+   "path": "/preflight/outcome"
+  },
+  {
+   "methods": [
+    "GET"
+   ],
+   "path": "/preflight/outcomes"
   },
   {
    "methods": [
