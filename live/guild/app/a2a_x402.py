@@ -234,6 +234,7 @@ OPERATION_LABEL: dict[str, str] = {
                         "endpoint, anchored to the published ledger"),
     "watch_cycle": "one recheck cycle of continuous endpoint monitoring",
     "best_agent": "trust read: which agent to hire for a capability",
+    "fraud_check": "collusion suspicion scores, reasons and cluster identifiers",
     "signed_decision": ("signed, offline-verifiable trust decision for a "
                         "capability, with a bounded validity window"),
 }
