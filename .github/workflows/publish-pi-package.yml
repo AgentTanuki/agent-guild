@@ -1,0 +1,123 @@
+name: Publish pi-agent-guild to npm
+
+# Publishes integrations/pi-agent-guild to the public npm registry.
+#
+# Credential model (docs/DIRECTION_2026-09-22.md — no credential ever passes
+# through an agent session):
+#   * FIRST publish: npm does not allow OIDC trusted publishing for a package
+#     that does not exist yet (npm/cli#8544), so the first run needs the
+#     repository secret NPM_TOKEN — a granular, publish-only, short-lived token
+#     the owner creates on npmjs.com and adds to the repo secrets themself.
+#   * LATER publishes: once the package exists, the owner configures a
+#     Trusted Publisher on npmjs.com (repo AgentTanuki/agent-guild, workflow
+#     publish-pi-package.yml) and DELETES the secret; this workflow then
+#     publishes with GitHub OIDC (id-token: write) and provenance.
+#
+# Honesty gates: nothing is reported published until the registry serves the
+# exact version back with the tarball shasum computed here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Pack and verify only; do not publish"
+        type: boolean
+        default: false
+
+concurrency:
+  group: publish-pi-package
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/pi-agent-guild
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: npm CLI >= 11.5.1 (required for OIDC trusted publishing)
+        run: |
+          set -euo pipefail
+          npm install -g npm@latest
+          npm --version
+
+      - name: Offline tests
+        run: |
+          set -euo pipefail
+          npm install --ignore-scripts --legacy-peer-deps
+          npm test
+
+      - name: Pack and inspect
+        id: pack
+        run: |
+          set -euo pipefail
+          npm pack --json > pack.json
+          name=$(node -p "require('./pack.json')[0].name")
+          version=$(node -p "require('./pack.json')[0].version")
+          shasum=$(node -p "require('./pack.json')[0].shasum")
+          filename=$(node -p "require('./pack.json')[0].filename")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "shasum=$shasum" >> "$GITHUB_OUTPUT"
+          echo "filename=$filename" >> "$GITHUB_OUTPUT"
+          node -p "require('./pack.json')[0].files.map(f=>f.path).join('\n')"
+
+      - name: Guard — public identity only
+        # The package must carry the AgentTanuki identity and nothing else.
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/inspect && tar xzf "${{ steps.pack.outputs.filename }}" -C /tmp/inspect
+          if grep -ril "rwdburley" /tmp/inspect; then
+            echo "::error::private identity string found in tarball"; exit 1
+          fi
+          echo "identity guard passed"
+
+      - name: Guard — version not already on the registry
+        run: |
+          set -euo pipefail
+          v="${{ steps.pack.outputs.version }}"
+          if npm view "${{ steps.pack.outputs.name }}@${v}" version >/dev/null 2>&1; then
+            echo "::error::${v} is already published; bump package.json"; exit 1
+          fi
+          echo "${v} not yet published"
+
+      - name: Publish
+        if: ${{ !inputs.dry_run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "publishing with NPM_TOKEN (first publish route)"
+            npm publish --access public
+          else
+            echo "publishing with OIDC trusted publishing"
+            npm publish --access public --provenance
+          fi
+
+      - name: Verify registry READBACK (hard gate)
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          name="${{ steps.pack.outputs.name }}"
+          v="${{ steps.pack.outputs.version }}"
+          want="${{ steps.pack.outputs.shasum }}"
+          for i in $(seq 1 12); do
+            got=$(curl -fsS "https://registry.npmjs.org/${name}/${v}" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).dist.shasum" 2>/dev/null || true)
+            if [ "$got" = "$want" ]; then
+              echo "registry serves ${name}@${v} shasum ${got} — PUBLISHED"; exit 0
+            fi
+            echo "attempt $i: registry shasum '${got}' != '${want}'; waiting"; sleep 10
+          done
+          echo "::error::registry never served the exact tarball back"; exit 1
