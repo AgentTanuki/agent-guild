@@ -579,18 +579,45 @@ def _record_card_offer(request: Request) -> None:
                            endpoint="agent_card")
 
 
+def _signed_agent_card(base: str) -> dict[str, Any]:
+    """The card we serve, signed (A2A §8.4) with the Guild's persistent
+    Ed25519 service key so the Guild meets the same `agent_card_signed`
+    bar /preflight applies to every other A2A endpoint. The kid is the
+    did:web key URL on the CONFIGURED public origin (never a request
+    header); the signed content is the card as rendered for this request."""
+    from . import a2a_card_signing
+    origin = a2a_card_signing_origin()
+    return a2a_card_signing.sign_agent_card(
+        _agent_card(base), store.guild_identity(), origin)
+
+
+def a2a_card_signing_origin() -> str:
+    from . import x402_artifacts
+    return x402_artifacts.service_origin()
+
+
 @router.get("/.well-known/agent-card.json")
 def agent_card(request: Request):
-    """A2A agent card at the spec's recommended well-known path."""
+    """A2A agent card at the spec's recommended well-known path (signed)."""
     _record_card_offer(request)
-    return _agent_card(str(request.base_url).rstrip("/"))
+    return _signed_agent_card(str(request.base_url).rstrip("/"))
 
 
 @router.get("/.well-known/agent.json")
 def agent_card_legacy(request: Request):
-    """Legacy/alternate agent-card path some crawlers still read."""
+    """Legacy/alternate agent-card path some crawlers still read (signed)."""
     _record_card_offer(request)
-    return _agent_card(str(request.base_url).rstrip("/"))
+    return _signed_agent_card(str(request.base_url).rstrip("/"))
+
+
+@router.get("/.well-known/jwks.json")
+def jwks(request: Request):
+    """The Guild service signing key as a JWK Set (the `jku` named in the
+    agent-card signature's protected header). Same Ed25519 key as
+    /.well-known/did.json; never the treasury key."""
+    from . import a2a_card_signing
+    return a2a_card_signing.jwks_document(store.guild_identity(),
+                                          a2a_card_signing_origin())
 
 
 def _text_from_message(message: dict[str, Any]) -> str:
