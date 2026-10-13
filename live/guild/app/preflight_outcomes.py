@@ -44,14 +44,16 @@ Honesty rules enforced by construction:
 """
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
+from urllib.parse import urlparse
 
 from . import attribution
 
-SCHEMA = "AGPO-1/1.1"
+SCHEMA = "AGPO-1/1.2"
 
 ACTIONS = ("called", "delegated", "declined", "skipped")
 OBSERVED = ("success", "failure", "unknown")
@@ -388,7 +390,67 @@ def _empty_bucket() -> dict[str, Any]:
             "by_decision_basis_claim": {},
             "runs_stamped": 0, "runs_without_outcome": 0,
             "median_probe_latency_ms": None,
-            "median_reported_overhead_ms": None}
+            "median_reported_overhead_ms": None,
+            # AGPO-1.2 run breakdown (additive): what the stamped runs in this
+            # bucket look like, from fields the run event already carries.
+            # Answers "one poller or many agents?" without collecting anything
+            # new. Keys are capped, counts are exact, nothing is inferred.
+            "runs_by_surface": {},
+            "runs_by_ua_family": {},
+            "runs_by_target_host": {},
+            "runs_by_day": {},
+            "distinct_ua_families": 0,
+            "distinct_target_hosts": 0,
+            "distinct_actor_keys": 0,
+            "top_ua_family_share": None}
+
+
+_TOP_N = 8
+_AG_HOSTS = ("agent-guild-5d5r.onrender.com",)
+
+
+def ua_family(ua: str) -> str:
+    """A coarse, non-identifying family for a User-Agent: the product token
+    before the first '/' or space, lower-cased, with transport prefixes kept
+    (mcp:<client>, a2a:<client>). Empty UA → 'none'. Never the raw string."""
+    ua = (ua or "").strip()
+    if not ua:
+        return "none"
+    low = ua.lower()
+    for pfx in ("mcp:", "a2a:"):
+        if low.startswith(pfx):
+            rest = low[len(pfx):]
+            tok = re.split(r"[/\s(;,]", rest, 1)[0] or "unknown"
+            return pfx + tok[:40]
+    if attribution.PROPAGATION_UA_RE.search(ua):
+        return "pi-agent-guild"
+    tok = re.split(r"[/\s(;,]", low, 1)[0]
+    return (tok or "unknown")[:40]
+
+
+def target_host(target: Any) -> str:
+    try:
+        host = (urlparse(str(target or "")).hostname or "").lower()
+    except ValueError:
+        host = ""
+    if not host:
+        return "none"
+    return "self:" + host if host in _AG_HOSTS else host
+
+
+def _day(e: Mapping[str, Any]) -> str:
+    return str(e.get("at") or "")[:10] or "unknown"
+
+
+def _top(counter: Mapping[str, int], n: int = _TOP_N) -> dict[str, int]:
+    """The n largest entries plus an 'other' roll-up, so the field stays
+    bounded however many distinct values exist."""
+    items = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
+    head = dict(items[:n])
+    rest = sum(v for _, v in items[n:])
+    if rest:
+        head["other"] = rest
+    return head
 
 
 def _median(xs: list[int]) -> Optional[int]:
@@ -459,16 +521,44 @@ def summary(store: Any) -> dict[str, Any]:
         bk["by_decision_basis_claim"][basis] = bk["by_decision_basis_claim"].get(basis, 0) + 1
         if latest.get("overhead_ms") is not None:
             overheads[own].append(int(latest["overhead_ms"]))
+    surfaces: dict[str, dict[str, int]] = {k: {} for k in OWNERSHIPS}
+    families: dict[str, dict[str, int]] = {k: {} for k in OWNERSHIPS}
+    hosts: dict[str, dict[str, int]] = {k: {} for k in OWNERSHIPS}
+    days: dict[str, dict[str, int]] = {k: {} for k in OWNERSHIPS}
+    keys: dict[str, set[str]] = {k: set() for k in OWNERSHIPS}
     for pid, run in runs.items():
         own = ownership(run)
-        buckets[own]["runs_stamped"] += 1
+        bk = buckets[own]
+        bk["runs_stamped"] += 1
         if pid not in decided:
-            buckets[own]["runs_without_outcome"] += 1
+            bk["runs_without_outcome"] += 1
         if run.get("probe_latency_ms") is not None:
             latencies[own].append(int(run["probe_latency_ms"]))
+        sf = str(run.get("surface") or "unknown_surface")
+        surfaces[own][sf] = surfaces[own].get(sf, 0) + 1
+        fam = ua_family(str(run.get("ua") or ""))
+        families[own][fam] = families[own].get(fam, 0) + 1
+        host = target_host(run.get("target"))
+        hosts[own][host] = hosts[own].get(host, 0) + 1
+        d = _day(run)
+        days[own][d] = days[own].get(d, 0) + 1
+        key = str(run.get("key") or "")
+        if key and key != "anon":
+            keys[own].add(key)
     for k, bk in buckets.items():
         bk["median_probe_latency_ms"] = _median(latencies[k])
         bk["median_reported_overhead_ms"] = _median(overheads[k])
+        bk["runs_by_surface"] = dict(sorted(surfaces[k].items()))
+        bk["runs_by_ua_family"] = _top(families[k])
+        bk["runs_by_target_host"] = _top(hosts[k])
+        recent = sorted(days[k].items())[-14:]
+        bk["runs_by_day"] = dict(recent)
+        bk["distinct_ua_families"] = len(families[k])
+        bk["distinct_target_hosts"] = len(hosts[k])
+        bk["distinct_actor_keys"] = len(keys[k])
+        total = bk["runs_stamped"]
+        bk["top_ua_family_share"] = (
+            round(max(families[k].values()) / total, 3) if total else None)
     reg = buckets["registered_participant"]
     demonstrated = reg["benefit"] > 0
     return {
@@ -484,6 +574,16 @@ def summary(store: Any) -> dict[str, Any]:
         "by_ownership": buckets,
         "unjoined_outcome_reports": unjoined,
         "reading_rules": {
+            "run_breakdown": "runs_by_* fields describe the STAMPED runs in a "
+                             "bucket from fields the run event already "
+                             "carries (transport surface, User-Agent family, "
+                             "target host, UTC day, non-anonymous key). A "
+                             "bucket dominated by one UA family hitting one "
+                             "host is a monitor, not adoption; many families "
+                             "and hosts with no outcome reports is reach "
+                             "without joining. Anonymous HTTP callers cannot "
+                             "be distinguished beyond their UA family, so "
+                             "distinct_actor_keys undercounts them.",
             "registered_participant": "the SAME registered, non-first-party "
                                       "agent presented its key on the preflight "
                                       "AND the report; the only bucket that can "
