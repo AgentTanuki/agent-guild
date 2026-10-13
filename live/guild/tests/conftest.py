@@ -20,6 +20,7 @@ os.environ.setdefault("GUILD_DISCOVERY_REACH_CACHE", "0")
 # beyond real-world burst limits, so they are exercised explicitly in
 # tests/test_abuse_controls.py and disabled everywhere else.
 os.environ.setdefault("GUILD_ABUSE_CONTROLS", "0")
+os.environ.setdefault("GUILD_REPORT_CACHE_TTL_S", "0")  # reports recompute per request in tests
 
 
 @pytest.fixture()
