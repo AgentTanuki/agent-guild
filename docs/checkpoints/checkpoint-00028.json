@@ -1,0 +1,17 @@
+{
+ "checkpoint": {
+  "chain_valid": true,
+  "count": 870,
+  "created_at": "",
+  "head_hash": "ac8ee38fc8c898cf44d575c2228f107f02b90d26c0cb4c80188dafa32795e14d",
+  "issuer": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+  "merkle_root": "12f51b824c3aca9f6d5355c76149fa3504761263eaebb3d81785b40fd3787f92",
+  "proof": "aad8f3061948f1f1e05f5a53cea9d16738596ce92262a0b0357ff47f1b1a9c6ce8d5ae2832d197611a15abbdc68c58e28ff4c7ab0730704a60cf2daa9547b00c"
+ },
+ "entry_proof": "b10a0d6222d27194d003542863e9b95b3335b931daf872e89528fe7923146056e145b819b97b995d90b03558c49ebfb2cdef2f810456fe3cc86531ac9ec7fd03",
+ "feed_version": 2,
+ "index": 28,
+ "ledger_length": 870,
+ "prev_entry_sha256": "e2fc90654d3809a28aab1037d4ce3065b9e320b1e9f1810099f59a917c7e33b8",
+ "published_at": "2026-08-16T00:25:12.156135+00:00"
+}

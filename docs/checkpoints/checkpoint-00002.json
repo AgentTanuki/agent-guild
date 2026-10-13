@@ -1,0 +1,14 @@
+{
+ "checkpoint": {
+  "chain_valid": true,
+  "count": 210,
+  "created_at": "",
+  "head_hash": "12e4c173ddf0f3e465d9d648fbe646d0753da3be2853e0fca4f8198b3294a1bd",
+  "issuer": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+  "merkle_root": "dc8ccd641f33d22a6df8c4af011eedb5b3c8b4d3f9b18479b3ab2a26ab56c515",
+  "proof": "2f950074d1e1e0f04da90f67ce6b2f956822a03f4343fd265c11867cee3cd574b9a89d230c9dbf1d41da72e26f0aaeb3f4856470a2bd81165bf435c8527eb808"
+ },
+ "index": 2,
+ "ledger_length": 210,
+ "published_at": "2026-07-09T05:12:34.408845+00:00"
+}
