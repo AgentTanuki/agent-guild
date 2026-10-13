@@ -1,0 +1,61 @@
+name: Pin ledger checkpoints
+
+# Daily, secret-free copy of the PUBLIC checkpoint feed into docs/checkpoints
+# (the "GitHub copy" in the external-pin integrity claim), plus an Internet
+# Archive snapshot request. Sealing itself happens on the service (swarm
+# runner, at most once per ~20h). Changes land through the normal ship loop:
+# this workflow pushes a ship/* branch and dispatches ship.yml for it, because
+# pushes made with GITHUB_TOKEN never trigger push-event workflows.
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pin-checkpoints
+  cancel-in-progress: false
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Pin the public feed
+        id: pin
+        run: |
+          set -euo pipefail
+          python3 live/scripts/pin_checkpoints_from_feed.py | tee pin.out
+          changed=$(grep -E '^CHANGED=' pin.out | cut -d= -f2)
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+      - name: Ship the new pins
+        if: steps.pin.outputs.changed != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          branch="ship/pin-checkpoints-$(date -u +%Y%m%d-%H%M)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add docs/checkpoints
+          git commit -m "chore(ledger): pin checkpoints from the public feed ($(date -u +%F))"
+          git push origin "$branch"
+          # GITHUB_TOKEN pushes do not fire push-event workflows: dispatch
+          # the ship loop for this branch explicitly.
+          gh workflow run ship.yml --ref "$branch"
+          echo "dispatched ship.yml for $branch"
+      - name: Internet Archive snapshot (independent copy; never fatal)
+        run: |
+          curl -fsS -m 60 "https://web.archive.org/save/https://agent-guild-5d5r.onrender.com/ledger/checkpoints?limit=5" >/dev/null \
+            && echo "archive.org snapshot requested" || echo "WARN: archive.org save failed"

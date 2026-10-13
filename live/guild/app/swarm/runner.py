@@ -442,6 +442,18 @@ def run_once(store: Any, fetch: Callable = scout.safe_fetch_json,
             index_summary = _run_index_cycle(store)
         except Exception as exc:  # noqa: BLE001
             index_summary = {"error": type(exc).__name__}
+        # --- daily ledger sealing (infrastructure integrity, 2026-10-13) ---
+        # The checkpoint feed third parties pin used to depend on an operator
+        # running an admin-token script from a laptop; it stalled for six
+        # weeks. Sealing now happens on this same lease-guarded cadence:
+        # at most once per SEAL_INTERVAL_S, idempotent (publish_checkpoint
+        # returns the existing head when nothing new landed), and never
+        # allowed to fail the cycle. Pinning the public feed into the repo
+        # is a separate, secret-free GitHub workflow (pin-checkpoints.yml).
+        try:
+            index_summary["checkpoint_seal"] = _maybe_seal_checkpoint(store)
+        except Exception as exc:  # noqa: BLE001
+            index_summary["checkpoint_seal"] = {"error": type(exc).__name__}
         if store.discovery_reach_cache_enabled():
             try:
                 # Refresh the complete signed census on the same bounded,
@@ -525,6 +537,31 @@ def _plan(store: Any, next_interval_at: float,
     if deadline is not None:
         waits.append(deadline - now)
     return None, max(0.05, min(waits))
+
+
+SEAL_INTERVAL_S = int(os.environ.get("GUILD_SEAL_INTERVAL_S", str(20 * 3600)))
+
+
+def _maybe_seal_checkpoint(store: Any, *, now: Optional[float] = None) -> dict[str, Any]:
+    """Seal the ledger head into the published checkpoint feed if the newest
+    published checkpoint is older than SEAL_INTERVAL_S (or none exists).
+    Returns what it did; never raises past the caller's guard."""
+    import time as _t
+    from datetime import datetime as _dt
+    now = _t.time() if now is None else now
+    head = store.latest_checkpoint(publish_if_empty=False)
+    if head is not None:
+        try:
+            age = now - _dt.fromisoformat(str(head.get("published_at"))).timestamp()
+        except (TypeError, ValueError):
+            age = float("inf")
+        if age < SEAL_INTERVAL_S:
+            return {"action": "skipped", "reason": "recent",
+                    "index": head.get("index"), "age_s": int(age)}
+    entry = store.publish_checkpoint()
+    cp = entry.get("checkpoint", entry)
+    return {"action": "sealed", "index": entry.get("index"),
+            "ledger_length": entry.get("ledger_length", cp.get("count"))}
 
 
 def _loop(store: Any) -> None:
