@@ -42,7 +42,6 @@ permissions:
   pull-requests: write
   actions: write
   issues: write
-  statuses: write   # mirror the dispatched ci job results onto the certified SHA
 
 concurrency:
   group: release-gate-production
@@ -100,37 +99,7 @@ jobs:
             [ "$rid" != "$before" ] || { echo "dispatched ci run never appeared" >&2; return 1; }
             echo "waiting on ci run $rid" >&2
             gh run watch "$rid" --exit-status --interval 15 >&2
-            mirror_statuses "$rid" >&2
             gh run view "$rid" --json headSha --jq .headSha
-          }
-
-          mirror_statuses() {
-            # Root cause of every "could not certify a combined state" stall
-            # (#213 #215 #217 #219 #223): after `update-branch` the merge
-            # commit is pushed with GITHUB_TOKEN, which never triggers the
-            # push-event ci, and GitHub's merge box does not count the check
-            # runs of the ci run we DISPATCH on that SHA — so the required
-            # checks read "expected / waiting" and the squash is refused by
-            # branch policy. The dispatched run is the real certification;
-            # this relays each of its successful job results as a commit
-            # status with the same context name on the same SHA, pointing at
-            # the run. Nothing is asserted that ci did not establish: this
-            # function is only reached after `gh run watch --exit-status`
-            # returned success, and only successful jobs are mirrored.
-            local rid="$1" sha url
-            sha=$(gh run view "$rid" --json headSha --jq .headSha)
-            url=$(gh run view "$rid" --json url --jq .url)
-            gh run view "$rid" --json jobs \
-              --jq '.jobs[] | select(.conclusion=="success") | .name' |
-            while IFS= read -r job; do
-              [ -n "$job" ] || continue
-              gh api -X POST "repos/$REPO/statuses/$sha" \
-                -f state=success -f context="$job" \
-                -f description="mirrored from dispatched ci run $rid" \
-                -f target_url="$url" >/dev/null \
-                || echo "WARN: could not mirror status for '$job'"
-            done
-            echo "mirrored ci job statuses onto $sha"
           }
 
           for round in 1 2 3; do
