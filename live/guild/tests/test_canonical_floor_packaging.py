@@ -196,10 +196,13 @@ def test_runtime_lookup_still_resolves_in_a_repo_checkout():
 # --------------------------------------------------------------------------
 # 3. THE PIN'S CONTENT AND ITS SCOPE
 # --------------------------------------------------------------------------
-def test_the_committed_pin_is_the_current_checkpoint_17_840():
+def test_the_committed_pin_is_a_real_checkpoint_at_or_above_17_840():
+    # The pin advances daily (pin-checkpoints.yml copies the public feed);
+    # it may only ever move up from the 2026-08 floor of 17 / 840.
     d = json.loads(PIN.read_text())
-    assert int(d["index"]) == 17
-    assert int(d["ledger_length"]) == 840
+    assert int(d["index"]) >= 17
+    assert int(d["ledger_length"]) >= 840
+    assert int(d["ledger_length"]) == int(d["checkpoint"]["count"])
     assert d["checkpoint"]["chain_valid"] is True
     assert d["checkpoint"]["issuer"].startswith("did:key:")
 
@@ -278,7 +281,7 @@ def _simulate_image_build(tmp_path):
     return root
 
 
-def test_the_built_image_resolves_the_floor_to_17_840(tmp_path):
+def test_the_built_image_resolves_the_floor_to_the_committed_pin(tmp_path):
     import subprocess
     import sys
     root = _simulate_image_build(tmp_path)
@@ -301,5 +304,7 @@ def test_the_built_image_resolves_the_floor_to_17_840(tmp_path):
     assert r.returncode == 0, r.stderr[-2000:]
     floor = json.loads(r.stdout.strip().splitlines()[-1])
     assert floor["sources"] == ["image_pin"], floor
-    assert floor["checkpoint_index"] == 17
-    assert floor["ledger_length"] == 840
+    pinned = json.loads(PIN.read_text())
+    assert floor["checkpoint_index"] == int(pinned["index"])
+    assert floor["ledger_length"] == int(pinned["ledger_length"])
+    assert floor["checkpoint_index"] >= 17 and floor["ledger_length"] >= 840
