@@ -72,7 +72,10 @@ def main() -> int:
         if "GET" not in entry["methods"] or "{" in entry["path"]:
             continue
         try:
-            with get(HOST + entry["path"]) as r:
+            # Aggregate reports are served from a cache (app/reportcache.py)
+            # but the first request after a deploy may still compute them;
+            # allow for that instead of calling a slow-but-correct route drift.
+            with get(HOST + entry["path"], timeout=90.0) as r:
                 check(f"GET {entry['path']}", r.status < 500, f"status={r.status}")
         except urllib.error.HTTPError as e:
             # conforming non-200s: auth/payment-gated (401/402/403) and

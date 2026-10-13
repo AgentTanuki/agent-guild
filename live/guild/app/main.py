@@ -69,6 +69,7 @@ from . import paidcatalog
 from .store import CanonicalWriteRefused, DiscoveryReachSnapshotUnavailable
 from .reachability import url_policy_check
 from . import abuse
+from . import reportcache
 from . import coordination
 from . import incidents
 from . import evidence_semantics
@@ -188,6 +189,15 @@ async def _lifespan(app: "FastAPI"):
         swarm_runner.start(store)
     except Exception as exc:
         _log.warning("scout runner not started: %s", exc)
+    # Heavy aggregate reports take 20–90 s cold; warm them once in the
+    # background so the release gate and crawlers never hit them cold.
+    reportcache.warm({
+        "commercial:None": lambda: _commercial_compute(None),
+        "funnel_paid:None": lambda: store.paid_offer_funnel(None),
+        "funnel_paid_actors": store.paid_actor_journeys,
+        "funnel": store.conversion_funnel,
+        "funnel_passports": store.passport_funnel,
+    })
     try:
         async with mcp_app.lifespan(app):
             async with payment_safety_mcp_app.lifespan(app):
@@ -3608,7 +3618,7 @@ def conversion_funnel():
     unknown_mainnet_settlement. Attributable stages carry an external /
     first-party / unknown breakdown; the headline count is external only,
     and a first-party canary settlement is never external revenue."""
-    return store.conversion_funnel()
+    return reportcache.cached("funnel", store.conversion_funnel)
 
 
 @app.get("/funnel/passports")
@@ -3621,7 +3631,7 @@ def passport_funnel():
     by_surface (mcp/a2a/http; events predating the surface field read
     'unknown_surface'), distinct-actor counts, and self-reported abandonment
     reasons (POST /feedback/abandonment)."""
-    return store.passport_funnel()
+    return reportcache.cached("funnel_passports", store.passport_funnel)
 
 
 @app.post("/feedback/abandonment")
@@ -6096,7 +6106,8 @@ def paid_offer_funnel(operation: Optional[str] = None):
     accepted `?operation=` and returned the portfolio totals, so a caller
     reading one operation's exposure was handed all three and could not tell."""
     _require_known_operation(operation)
-    return store.paid_offer_funnel(operation)
+    return reportcache.cached(f"funnel_paid:{operation}",
+                              lambda: store.paid_offer_funnel(operation))
 
 
 @app.get("/funnel/paid/actors")
@@ -6108,7 +6119,7 @@ def paid_actor_journeys():
     or payment payloads. Some pseudonymous actor keys may be network-derived.
     This is a diagnostic read, not a buyer event and not a revenue claim.
     """
-    return store.paid_actor_journeys()
+    return reportcache.cached("funnel_paid_actors", store.paid_actor_journeys)
 
 
 @app.get("/funnel/spend-mandates")
@@ -6132,15 +6143,8 @@ def _require_known_operation(operation: Optional[str]) -> None:
                  f"{', '.join(known)}")
 
 
-@app.get("/commercial")
-def commercial_report(operation: Optional[str] = None):
-    """The commercial scorecard, revenue first — the number that decides.
-
-    Deliberately ordered so the only figures that can carry a decision come
-    first, and the flattering ones are labelled as unable to carry one.
-    Reach, inventory, free checks and passports appear under
-    `supporting_never_sufficient` because that is exactly what they are."""
-    _require_known_operation(operation)
+def _commercial_compute(operation: Optional[str]) -> dict[str, Any]:
+    """Body of /commercial; cached by reportcache (see that module)."""
     snap = experiments.snapshot(store, operation)
     idx = trustindex.summarise(store.trust_index.values())
     return {
@@ -6176,6 +6180,20 @@ def commercial_report(operation: Optional[str] = None):
             "definition": snap["commercial"]["revenue_definition"],
         },
     }
+
+
+@app.get("/commercial")
+def commercial_report(operation: Optional[str] = None):
+    """The commercial scorecard, revenue first — the number that decides.
+
+    Deliberately ordered so the only figures that can carry a decision come
+    first, and the flattering ones are labelled as unable to carry one.
+    Reach, inventory, free checks and passports appear under
+    `supporting_never_sufficient` because that is exactly what they are.
+    Served from the report cache (recomputed at most once per TTL)."""
+    _require_known_operation(operation)
+    return reportcache.cached(f"commercial:{operation}",
+                              lambda: _commercial_compute(operation))
 
 
 @app.get("/pricing")
