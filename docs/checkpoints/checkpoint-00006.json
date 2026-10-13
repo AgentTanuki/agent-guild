@@ -1,0 +1,37 @@
+{
+ "bridge": {
+  "covers_indices": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "legacy_entry_sha256": [
+   "7d5659847e3d28b2633a910f0360e547430658b9faabaa6c98c5e26bf331cda7",
+   "358ce01382d14758423232754afe887119c6a1b893e0059024058a007ab52d2a",
+   "870512036db073ec75d6edd1c9b855c0f890cd2be63e921e75c808228f3bc436",
+   "b1f1f8b1d24b6b33e12091e8d48e7f7bb5029191c84c49d6ed674d5579daf0c6",
+   "4298b540a2b36e2af41fffdf381391cc3be9625b02dfc98c2a91b64aba7919b3",
+   "461d041d6ba2141a6f63eb3a65555667d6083239b78ec941248ab37f3627bd95"
+  ],
+  "note": "signed epoch bridge: commits the exact bytes of feed entries published before entry signatures/predecessor commitments existed; legacy entries are NOT rewritten",
+  "version": 1
+ },
+ "checkpoint": {
+  "chain_valid": true,
+  "count": 743,
+  "created_at": "",
+  "head_hash": "2aa2f8b7589e4efd5eafdef08ef47cbab957e46ae548bb817ced77c4cbbb6cfe",
+  "issuer": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
+  "merkle_root": "2fb39b9b0fc154c2c4178396851894c8170db8a39ac97b9bb71b9483863f295d",
+  "proof": "992672f92471299019bc2a10bb696a63c92324f8f754b1018c91821bd87b6ff345e587734498ad49335d83eac67aa0f367cdb0c5a9503021fa28c1194953b60d"
+ },
+ "entry_proof": "a74ae2d092cf22ea6bb76089221720131d21bd1bf04751ef829c5b280ee3d8572408833e4f71ff05f5d0ea185e39c3d8652406c669c28dff5ccc20cf4458b100",
+ "feed_version": 2,
+ "index": 6,
+ "ledger_length": 743,
+ "prev_entry_sha256": "461d041d6ba2141a6f63eb3a65555667d6083239b78ec941248ab37f3627bd95",
+ "published_at": "2026-07-13T18:30:36.502877+00:00"
+}

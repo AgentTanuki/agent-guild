@@ -50,7 +50,10 @@ concurrency:
 
 jobs:
   ship:
-    if: "github.event_name == 'push' && !startsWith(github.ref_name, 'ship/revert-')"
+    # push: an autonomous session pushed a ship/* branch. workflow_dispatch:
+    # a workflow that pushed a ship/* branch with GITHUB_TOKEN (which never
+    # fires push events) dispatches the loop for it explicitly.
+    if: "(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref_name, 'ship/') && !startsWith(github.ref_name, 'ship/revert-')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
