@@ -125,7 +125,7 @@ def test_preflight_is_stamped_and_the_run_event_keeps_check_names(_isolate):
 
 def test_summary_is_empty_and_honest_before_any_report():
     s = _summary()
-    assert s["schema"] == "AGPO-1/1.1"
+    assert s["schema"] == "AGPO-1/1.2"
     assert s["independently_demonstrated_benefit"] is False
     assert s["headline"] == "No independently demonstrated benefit yet."
     assert s["rules"] == list(po.RULES)
@@ -495,3 +495,76 @@ def test_mcp_tool_writes_the_same_record(_isolate):
     s = _summary()
     assert s["by_ownership"]["registered_participant"]["decisions"] == 0
     assert s["independently_demonstrated_benefit"] is False
+
+
+# --- AGPO-1.2: run breakdown (who exercises the path, from stored fields) ---
+
+def test_ua_family_is_coarse_and_never_the_raw_string():
+    assert po.ua_family("") == "none"
+    assert po.ua_family("python-requests/2.32.0") == "python-requests"
+    assert po.ua_family("Mozilla/5.0 (X11; Linux) Chrome/1") == "mozilla"
+    assert po.ua_family("mcp:claude-desktop/1.2") == "mcp:claude-desktop"
+    assert po.ua_family("a2a:langchain/0.2.1 (+https://x)") == "a2a:langchain"
+    assert po.ua_family("pi-agent-guild/0.1.0 node") == "pi-agent-guild"
+    assert len(po.ua_family("x" * 500)) <= 40
+
+
+def test_target_host_marks_our_own_host_and_tolerates_junk():
+    assert po.target_host("https://mcp.deepwiki.com/mcp") == "mcp.deepwiki.com"
+    assert po.target_host("https://agent-guild-5d5r.onrender.com/a2a") == \
+        "self:agent-guild-5d5r.onrender.com"
+    assert po.target_host("not a url") == "none"
+    assert po.target_host(None) == "none"
+
+
+def test_run_breakdown_distinguishes_a_single_poller_from_many_callers(tmp_path):
+    """The reason for the field: 7,000 anonymous runs read differently when
+    they are one UA on one host every day vs many families on many hosts."""
+    from app.store import Store
+    s = Store(path=str(tmp_path / "g.json"))
+    for i in range(20):
+        s.record_event(None, "preflight_run", ua="SomePoller/1.0",
+                       endpoint="preflight",
+                       target="https://example.com/mcp", verdict="no_failed_checks",
+                       preflight_id=f"pf_poll{i:04d}", probe_latency_ms=100,
+                       failed_checks=[], unknown_checks=[], scored_checks=[])
+    for i, (ua, tgt) in enumerate([("python-requests/2.3", "https://a.example/mcp"),
+                                   ("node-fetch/3", "https://b.example/a2a"),
+                                   ("curl/8.0", "https://c.example/mcp")]):
+        s.record_event(None, "preflight_run", ua=ua, endpoint="preflight",
+                       target=tgt, verdict="no_failed_checks",
+                       preflight_id=f"pf_many{i:04d}", probe_latency_ms=100,
+                       failed_checks=[], unknown_checks=[], scored_checks=[])
+    bk = po.summary(s)["by_ownership"]
+    # UptimeBot and node-fetch are not tooling UAs → unknown; curl and
+    # python-requests are tooling → tooling_or_crawler. The breakdown must
+    # make the poller visible in whichever bucket it lands.
+    u, t = bk["unknown"], bk["tooling_or_crawler"]
+    assert u["runs_by_ua_family"]["somepoller"] == 20
+    assert t["runs_by_ua_family"] == {"python-requests": 1, "curl": 1}
+    # node-fetch reads as a framework UA → heuristic_external, still visible
+    all_fams = {}
+    for b in bk.values():
+        for fam, n in b["runs_by_ua_family"].items():
+            all_fams[fam] = all_fams.get(fam, 0) + n
+    assert all_fams["node-fetch"] == 1
+    assert u["runs_by_surface"] == {"http": 20}
+    assert u["runs_by_target_host"] == {"example.com": 20}
+    assert u["distinct_target_hosts"] == 1 and u["distinct_ua_families"] == 1
+    assert u["top_ua_family_share"] == 1.0
+    assert u["distinct_actor_keys"] == 0  # anonymous callers are not keys
+    assert len(u["runs_by_day"]) == 1
+    # bounded: top-N plus 'other'
+    assert len(u["runs_by_ua_family"]) <= po._TOP_N + 1
+
+
+def test_run_breakdown_is_additive_and_present_on_every_bucket(tmp_path):
+    from app.store import Store
+    s = Store(path=str(tmp_path / "g.json"))
+    for b in po.summary(s)["by_ownership"].values():
+        for f in ("runs_by_surface", "runs_by_ua_family", "runs_by_target_host",
+                  "runs_by_day", "distinct_ua_families", "distinct_target_hosts",
+                  "distinct_actor_keys", "top_ua_family_share"):
+            assert f in b
+        assert b["top_ua_family_share"] is None and b["runs_by_day"] == {}
+    assert "run_breakdown" in po.summary(s)["reading_rules"]
