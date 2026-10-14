@@ -3,7 +3,17 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.7.0"   # MINOR native MCP evidence purchase + free verification
+__version__ = "2.7.1"   # PATCH preflight evidence integrity (2026-10-14): card
+                        # signatures verified (did:key / same-origin did:web /
+                        # JWKS) with presence, validity and binding kept apart;
+                        # independent_evidence needs an endpoint-identity binding
+                        # AND attestations; outcome benefit needs the direct-check
+                        # failure to match the warned check; registered key =
+                        # identity continuity, independence attested separately
+                        # (AGPO-1/1.3); MCP preflight/outcome carry participant
+                        # attribution; malformed targets and non-object cards
+                        # answered, never raised. History of 2.7.0: MINOR native
+                        # MCP evidence purchase + free verification
                         # (2026-09-07): shared HTTP payment binding and recovery,
                         # byte-stable signed artifacts, ordinary JSON tool text.
                         # History of 2.6.4: PATCH bounded census warm-up streams

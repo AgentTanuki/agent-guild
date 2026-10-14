@@ -5547,6 +5547,20 @@ def delegation_preflight(request: Request, url: str = Query(
     one-off review. `unknowns` are reported, never averaged into the verdict.
     """
     participant = _preflight_participant(x_api_key)
+    bad = preflight.validate_target(url)
+    if bad:
+        # A malformed target (invalid port, broken IPv6 literal, non-http
+        # scheme) is a request error, answered as one: no probe, no stamped
+        # run, no 500.
+        return JSONResponse(status_code=422, content={
+            "schema": "AGERR-1/1.0", "kind": "preflight_target_invalid",
+            "error": {"code": "invalid_target_url", "detail": bad},
+            "authority": {"mode": "advisory", "grants": []},
+            "available_actions": [{
+                "id": "preflight.run", "effect": "read",
+                "requires_local_authorisation": False,
+                "call": {"method": "GET", "path": "/preflight?url=<absolute http(s) url>"}}],
+        })
     _started = time.monotonic()
     out = preflight_outcomes.stamp(preflight.run(url, store=store),
                                    started=_started)
@@ -6070,6 +6084,57 @@ def _require_incident_admin(x_admin_token: Optional[str]) -> None:
     if not ADMIN_TOKEN or x_admin_token != ADMIN_TOKEN:
         raise HTTPException(
             403, "incident access requires a configured valid X-Admin-Token")
+
+
+@app.get("/admin/evaluation/participants")
+def admin_evaluation_participants(x_admin_token: Optional[str] = Header(None)):
+    """AGPO-1/1.3 — the participants currently attested as independently
+    operated (operator outside the project team). Operator-only. A registered
+    key never implies this; it is recorded here, with its public basis, and
+    is revocable."""
+    _require_incident_admin(x_admin_token)
+    return {"schema": preflight_outcomes.SCHEMA,
+            "attested": preflight_outcomes.attested_independent_participants(store),
+            "bases": list(preflight_outcomes.INDEPENDENCE_BASES)}
+
+
+@app.post("/admin/evaluation/participants", status_code=201)
+def admin_evaluation_participant_attest(
+        body: dict, x_admin_token: Optional[str] = Header(None)):
+    """Record (or revoke) an independence attestation for a registered
+    participant: {"agent_id", "basis": "operator_outside_project_team",
+    "public_source": <url or short reference>, "revoke"?: true}. The agent
+    must exist and must not be first-party. Nothing about the participant's
+    records changes; only whether its decisions may reach the headline."""
+    _require_incident_admin(x_admin_token)
+    body = body or {}
+    agent_id = str(body.get("agent_id") or "")
+    agent = store.agents.get(agent_id)
+    if agent is None:
+        raise HTTPException(404, "unknown agent_id")
+    from . import attribution as _attr
+    if _attr.is_guild_operated_agent(agent_id, agent):
+        raise HTTPException(409, "a first-party agent cannot be attested as "
+                                 "independent")
+    if body.get("revoke"):
+        store.record_event(None, preflight_outcomes.REVOKE_EVENT, op=True,
+                           agent_id=agent_id,
+                           reason=str(body.get("reason") or "")[:200])
+        return {"schema": preflight_outcomes.SCHEMA, "agent_id": agent_id,
+                "attested": False}
+    basis = str(body.get("basis") or "")
+    if basis not in preflight_outcomes.INDEPENDENCE_BASES:
+        raise HTTPException(
+            422, f"basis must be one of {preflight_outcomes.INDEPENDENCE_BASES}")
+    source = str(body.get("public_source") or "").strip()
+    if not source:
+        raise HTTPException(422, "public_source is required (where the "
+                                 "operator's independence can be checked)")
+    store.record_event(None, preflight_outcomes.ATTEST_EVENT, op=True,
+                       agent_id=agent_id, basis=basis,
+                       public_source=source[:300])
+    return {"schema": preflight_outcomes.SCHEMA, "agent_id": agent_id,
+            "attested": True, "basis": basis}
 
 
 @app.get("/admin/incidents")

@@ -123,17 +123,23 @@ def endpoint_fingerprint(url: Optional[str]) -> Optional[str]:
 def url_policy_check(url: str) -> tuple[bool, str]:
     if not url or len(url) > 500:
         return False, "empty or over-long url"
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+        hostname, port = parts.hostname, parts.port   # both may raise ValueError
+    except ValueError as e:
+        # An invalid port ("abc", 99999) or a malformed IPv6 literal ("[::1")
+        # used to escape here as an exception and become a 500 upstream.
+        return False, f"malformed url: {e}"
     if parts.scheme not in ("http", "https"):
         return False, f"unsupported scheme {parts.scheme!r} (http/https only)"
     if parts.username or parts.password or "@" in (parts.netloc or ""):
         return False, "embedded credentials are not allowed in the endpoint"
-    if not parts.hostname:
+    if not hostname:
         return False, "missing host"
-    if parts.port is not None and parts.port not in ALLOWED_PORTS:
-        return False, f"port {parts.port} not permitted"
+    if port is not None and port not in ALLOWED_PORTS:
+        return False, f"port {port} not permitted"
     try:
-        ip = ipaddress.ip_address(parts.hostname)
+        ip = ipaddress.ip_address(hostname)
         ok, reason = _screen_ip(ip)
         if not ok:
             return False, reason

@@ -69,8 +69,22 @@ def test_canonical_payload_is_rfc8785_and_excludes_signatures():
     assert cs.canonical_payload(card) == b'{"a":{"x":"\xc3\xa9","y":[1,2]},"b":1}'
 
 
-def test_preflight_rates_our_own_card_as_signed():
-    """The reason for the change: /preflight's presence check on our card."""
+def test_preflight_verifies_our_own_card_signature(monkeypatch):
+    """The reason for the change: /preflight's check on our card. Since
+    2026-10-14 that check VERIFIES the JWS: the kid is our did:web, so the
+    verifier resolves it from this origin's own /.well-known/did.json. The
+    probe is stubbed to serve our own documents for our own origin."""
     card = client.get("/.well-known/agent-card.json").json()
-    signed, why = preflight._card_is_signed(card)
-    assert signed and "signatures" in why
+    did_doc = client.get("/.well-known/did.json").json()
+
+    def _get(url, path, timeout_ctx=None):
+        if path == "/.well-known/did.json":
+            return 200, json.dumps(did_doc).encode(), ""
+        return 404, b"", ""
+    monkeypatch.setattr(preflight, "_probe_get", _get)
+    sig = preflight._card_signature("https://agent-guild-5d5r.onrender.com/a2a", card)
+    assert sig["status"] == "proven" and sig["verification"] == "verified"
+    assert sig["key_source"] == "did:web (same origin)"
+    # served from any OTHER origin the same card is presence-only, never proven
+    other = preflight._card_signature("https://impostor.example/a2a", card)
+    assert other["status"] == "unknown" and "cross-origin" in other["detail"]

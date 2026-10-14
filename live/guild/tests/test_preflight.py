@@ -219,7 +219,9 @@ def test_signature_presence_is_never_called_verification(monkeypatch):
           card_body=card)
     out = preflight.run("https://example.com/a2a")
     sig = next(c for c in out["checks"] if c["check"] == "agent_card_signed")
-    assert "not verified here" in sig["detail"]
+    assert sig["status"] == "unknown"
+    assert sig["verification"] == "unverified_presence"
+    assert "Presence is not verification" in sig["detail"]
 
 
 def test_private_and_loopback_targets_are_refused(monkeypatch):

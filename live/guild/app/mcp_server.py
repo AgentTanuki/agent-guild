@@ -695,10 +695,46 @@ def _serve_paid_inner(preq: PaidRequest, produce: Callable[[], Any],
     return result
 
 
+def _preflight_participant_mcp(api_key: str) -> "dict | None":
+    """AGPO-1 participant provenance on the MCP transport, with the same
+    semantics as the HTTP X-API-Key: optional; never changes the answer; an
+    invalid key is REFUSED (an AGERR dict), never silently downgraded. The
+    credential may arrive as the `api_key` argument or as the X-API-Key
+    header of the Streamable-HTTP request; the argument wins when both are
+    present. Only the resolved agent id is ever recorded — the ledger body
+    hash already excludes `api_key`, and the secret is not written anywhere."""
+    presented = (api_key or "").strip()
+    if not presented:
+        presented = (_http_headers_for_attribution().get("x-api-key") or "").strip()
+    if not presented:
+        return {}
+    agent = store.agent_for_presented_key(presented)
+    if agent is None:
+        return None
+    from . import attribution as _attr
+    return {"participant_agent_id": agent["id"],
+            "participant_first_party": _attr.is_guild_operated_agent(
+                agent["id"], agent)}
+
+
+_INVALID_KEY = {"schema": "AGERR-1/1.0", "kind": "preflight_participant_invalid",
+                "error": {"code": "invalid_api_key",
+                          "detail": "the presented api_key / X-API-Key is not a "
+                                    "valid registered credential; omit it to "
+                                    "run anonymously (never downgraded "
+                                    "silently)"},
+                "authority": {"mode": "advisory", "grants": []}}
+
+
 @mcp.tool
-def guild_preflight(url: str, ctx: Context = None) -> dict:
+def guild_preflight(url: str, api_key: str = "", ctx: Context = None) -> dict:
     """Run this in the moment BEFORE you delegate to, or pay, an agent endpoint
     you did not write. Free, no key, one call.
+
+    api_key (optional): your registered Guild key, so a later
+    guild_preflight_outcome from the same key joins as the same participant
+    (identity continuity — not a claim of independence). Presenting a key
+    never changes the verdict; an invalid key is refused, not ignored.
 
     Separates what the endpoint CLAIMS from what it just PROVED, live. Measured
     across the live ecosystem on 2026-07-31: 92.9% of registry-listed agents
@@ -714,6 +750,14 @@ def guild_preflight(url: str, ctx: Context = None) -> dict:
 
     Example: guild_preflight(url="https://some-agent.example/a2a")
     """
+    participant = _preflight_participant_mcp(api_key)
+    if participant is None:
+        return dict(_INVALID_KEY)
+    bad = preflight.validate_target(url)
+    if bad:
+        return {"schema": "AGERR-1/1.0", "kind": "preflight_target_invalid",
+                "error": {"code": "invalid_target_url", "detail": bad},
+                "authority": {"mode": "advisory", "grants": []}}
     _pf_started = _time.monotonic()
     out = preflight_outcomes.stamp(preflight.run(url, store=store),
                                    started=_pf_started)
@@ -729,7 +773,8 @@ def guild_preflight(url: str, ctx: Context = None) -> dict:
                        transport="mcp", verdict=out["verdict"],
                        failed_count=len(out["failed"]),
                        unknown_count=len(out["unknowns"]),
-                       **preflight_outcomes.run_event_fields(out))
+                       **preflight_outcomes.run_event_fields(out),
+                       **participant)
     return out
 
 
@@ -740,22 +785,34 @@ def guild_preflight_outcome(preflight_id: str, action: str,
                             baseline_direct_check: str = "not_run",
                             decision_basis: str = "unknown",
                             overhead_ms: Optional[int] = None,
+                            api_key: str = "",
                             ctx: Context = None) -> dict:
     """After a guild_preflight verdict, tell the Guild what you did and what
     happened (AGPO-1). Free, no key, optional.
 
     action: called | delegated | declined | skipped.
     observed: success | failure | unknown (unknown when you did not call).
+    detail: what failed — by your call, or by your OWN direct check when you
+    did not call (timeout | unreachable | http_5xx | protocol_error |
+    payment_mismatch | card_unavailable | signature_invalid |
+    identity_mismatch | wrong_result | other | http_4xx). AG's warning is
+    credited only when this names the same check AG failed.
     baseline_direct_check: success | failure | not_run — whether you checked
     the endpoint yourself without the Guild. Without it a skip is recorded as
     counterfactual_unobserved, never as a benefit.
     decision_basis: ag_evidence | own_check | both | other | unknown — what
     actually drove your decision. Recorded as your claim. AG is credited only
     when its warning was right AND you say it drove the decision.
+    api_key (optional): the same registered key you presented to
+    guild_preflight, so the two records join under one identity (identity
+    continuity only — not a claim of independence). Invalid keys are refused.
 
     Benefits and mistakes are measured with equal weight; see
     GET /preflight/outcomes for the public classification rules.
     """
+    participant = _preflight_participant_mcp(api_key)
+    if participant is None:
+        return dict(_INVALID_KEY)
     try:
         rec = preflight_outcomes.validate({
             "preflight_id": preflight_id, "action": action,
@@ -767,9 +824,12 @@ def guild_preflight_outcome(preflight_id: str, action: str,
         return {"schema": "AGERR-1/1.0", "kind": "preflight_outcome_invalid",
                 "error": {"code": "invalid_outcome_report", "detail": str(exc)}}
     store.record_event("mcp", "preflight_outcome", ua=_client_ua(ctx),
-                       endpoint="preflight_outcome", transport="mcp", **rec)
+                       endpoint="preflight_outcome", transport="mcp", **rec,
+                       **participant)
     return {"schema": preflight_outcomes.SCHEMA, "recorded": True,
             "preflight_id": rec["preflight_id"],
+            "provenance": ("registered_participant" if participant.get(
+                "participant_agent_id") else "unauthenticated"),
             "authority": {"mode": "advisory", "grants": []}}
 
 
