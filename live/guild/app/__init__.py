@@ -3,7 +3,16 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.7.1"   # PATCH preflight evidence integrity (2026-10-14): card
+__version__ = "2.7.2"   # PATCH evidence-integrity review fixes (2026-10-19): a
+                        # verified card signature binds an endpoint only when the
+                        # signed card names that url (replay from another origin
+                        # is a claim); only verified, non-self, non-first-party
+                        # attestations make independent_evidence proven; the
+                        # registered-endpoint binding is path-aware and labelled
+                        # self-declared; did:web keys https-only; hostile key
+                        # material cannot escape the verifier; an internal probe
+                        # error reports all-unknown (never a failed check).
+                        # History of 2.7.1: PATCH preflight evidence integrity (2026-10-14): card
                         # signatures verified (did:key / same-origin did:web /
                         # JWKS) with presence, validity and binding kept apart;
                         # independent_evidence needs an endpoint-identity binding

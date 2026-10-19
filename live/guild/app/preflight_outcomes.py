@@ -197,8 +197,10 @@ INDEPENDENCE_BASES = ("operator_outside_project_team",)
 def attested_independent_participants(store: Any) -> dict[str, dict[str, Any]]:
     """agent_id → attestation record for every participant currently
     attested as independently operated (latest event wins; a revocation
-    removes the entry). Durable on both backends: these are ordinary
-    measurement events."""
+    removes the entry). These are ordinary measurement events: durable
+    under the sqlite backend (production); under the JSON backend they
+    live in the retained in-memory view and may age out, so the operator
+    re-attests if `independent.attested_participants` ever drops."""
     try:
         events, _ = store.measurement_event_snapshot(
             types=(ATTEST_EVENT, REVOKE_EVENT))
