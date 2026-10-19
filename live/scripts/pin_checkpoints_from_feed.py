@@ -22,7 +22,10 @@ OUTDIR = REPO / "docs" / "checkpoints"
 
 
 def main() -> int:
-    with urllib.request.urlopen(f"{HOST}/ledger/checkpoints?limit=500",
+    # The feed caps `limit` at 200 (Query(le=200)); asking for 500 was a 422
+    # that failed the pin workflow five days running (10-14 → 10-18) and let
+    # the repo pin fall behind the sealed head. 200 is the whole feed today.
+    with urllib.request.urlopen(f"{HOST}/ledger/checkpoints?limit=200",
                                 timeout=60) as r:
         items = json.loads(r.read().decode("utf-8"))
     if isinstance(items, dict):
