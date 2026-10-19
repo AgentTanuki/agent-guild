@@ -191,9 +191,13 @@ def _resolve_signing_key(url: str, card: dict[str, Any], kid: str
     if kid.startswith("did:key:"):
         try:
             return crypto.public_key_from_did(base_kid), "did:key (kid)", ""
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, IndexError):
             return None, "", "kid is a did:key this verifier cannot decode"
     if kid.startswith("did:web:"):
+        if not url.lower().startswith("https://"):
+            # did:web resolves over HTTPS only (W3C did:web §3.2); a document
+            # fetched over plain http proves nothing about key control.
+            return None, "", "did:web keys resolve over https only; this target is http"
         if base_kid != target_did_web:
             return None, "", (f"kid names {base_kid}, which is not this "
                               f"endpoint's origin ({target_did_web}); a "
@@ -207,7 +211,8 @@ def _resolve_signing_key(url: str, card: dict[str, Any], kid: str
             return None, "", "did:web document is not JSON"
         if not isinstance(doc, dict):
             return None, "", "did:web document is not an object"
-        for vm in doc.get("verificationMethod") or []:
+        methods = doc.get("verificationMethod")
+        for vm in (methods if isinstance(methods, list) else []):
             if isinstance(vm, dict) and vm.get("id") == kid:
                 hexkey = (_hex_from_multibase(vm.get("publicKeyMultibase"))
                           or _hex_from_jwk(vm.get("publicKeyJwk")))
@@ -219,7 +224,7 @@ def _resolve_signing_key(url: str, card: dict[str, Any], kid: str
     if card_did.startswith("did:key:"):
         try:
             return crypto.public_key_from_did(card_did), "did:key (card `did`)", ""
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, IndexError):
             pass
     if kid:
         code, body, err = _probe_get(url, "/.well-known/jwks.json")
@@ -229,7 +234,8 @@ def _resolve_signing_key(url: str, card: dict[str, Any], kid: str
             except ValueError:
                 jwks = None
             if isinstance(jwks, dict):
-                for jwk in jwks.get("keys") or []:
+                keys = jwks.get("keys")
+                for jwk in (keys if isinstance(keys, list) else []):
                     if isinstance(jwk, dict) and jwk.get("kid") == kid:
                         hexkey = _hex_from_jwk(jwk)
                         if hexkey:
@@ -257,7 +263,8 @@ def _card_signature(url: str, card: dict[str, Any]) -> dict[str, Any]:
     sigs = card.get("signatures")
     if isinstance(sigs, list) and sigs:
         first_reason = ""
-        for entry in sigs:
+        invalid: list[tuple[str, str]] = []
+        for entry in sigs[:8]:
             if not isinstance(entry, dict):
                 continue
             header = _b64url_json(entry.get("protected")) or {}
@@ -281,17 +288,24 @@ def _card_signature(url: str, card: dict[str, Any]) -> dict[str, Any]:
                     f"JWS EdDSA signature VERIFIED under a key resolved from "
                     f"{source}; this proves the card's integrity and that the "
                     "holder of that key signed it — not safety, not "
-                    "competence",
+                    "competence"
+                    + (f" ({len(invalid)} other signature entr"
+                       f"{'y' if len(invalid) == 1 else 'ies'} did not verify)"
+                       if invalid else ""),
                     verification="verified", key_source=source,
                     kid=kid[:160] or None,
-                    signer_did_key=crypto.did_from_public_key(hexkey))
+                    signer_did_key=crypto.did_from_public_key(hexkey),
+                    invalid_entries=len(invalid))
+            invalid.append((source, kid[:160]))
+        if invalid:
+            source, kid = invalid[0]
             return _check(
                 "agent_card_signed", "failed",
                 f"a JWS signature is present but did NOT verify under the "
                 f"key it names (resolved from {source}); treat the card as "
                 "tampered or mis-signed",
-                verification="invalid", key_source=source,
-                kid=kid[:160] or None)
+                verification="invalid", key_source=source, kid=kid or None,
+                invalid_entries=len(invalid))
         return _check(
             "agent_card_signed", "unknown",
             "a JWS signature is present but its validity could not be "
@@ -321,16 +335,76 @@ _NO_EVIDENCE = ("no independent evidence — the Guild holds no attestation "
                 "self-declaration.")
 
 
+def _path_of(url: str) -> str:
+    try:
+        return (urlsplit(url).path or "/").rstrip("/") or "/"
+    except ValueError:
+        return "/"
+
+
+def _same_endpoint(declared: str, target: str) -> bool:
+    """The registered agent's declared endpoint covers the target: same
+    origin AND the declared path is the target path or a parent of it. A
+    declaration at https://host/tenant-a never covers https://host/tenant-b
+    (path-multi-tenant hosts)."""
+    if not declared or not _origin(declared) or _origin(declared) != _origin(target):
+        return False
+    dp, tp = _path_of(declared), _path_of(target)
+    return tp == dp or dp == "/" or tp.startswith(dp + "/")
+
+
+def _qualifying_attestations(store, agent: dict[str, Any]) -> tuple[int, int, int]:
+    """(total, qualifying, distinct_issuers). An attestation qualifies only
+    when its credential VERIFIED, it is not self-issued, and its issuer is
+    not a Guild-operated (first-party) agent. Unverified or self-signed
+    records are listed for audit but never make evidence `proven` —
+    registering a puppet and attesting to oneself costs nothing."""
+    try:
+        atts = list(store.attestations_for(agent.get("id")))
+    except Exception:  # noqa: BLE001
+        return 0, 0, 0
+    from . import attribution as _attr
+    issuers: set[str] = set()
+    for a in atts:
+        if not isinstance(a, dict) or not a.get("verified"):
+            continue
+        issuer = str(a.get("issuer_id") or "")
+        if not issuer or issuer == agent.get("id"):
+            continue
+        try:
+            issuer_rec = store.agents.get(issuer)
+        except Exception:  # noqa: BLE001
+            issuer_rec = None
+        if _attr.is_guild_operated_agent(issuer, issuer_rec):
+            continue
+        issuers.add(issuer)
+    qualifying = sum(1 for a in atts if isinstance(a, dict) and a.get("verified")
+                     and str(a.get("issuer_id") or "") in issuers)
+    return len(atts), qualifying, len(issuers)
+
+
 def _independent_evidence(url: str, card: dict[str, Any],
                           checks: list[dict[str, Any]], store) -> dict[str, Any]:
     """The `independent_evidence` check.
 
     proven  — a registered Guild agent is BOUND to this endpoint (see
-              `binding`) AND the Guild holds ≥1 attestation for it.
+              `binding`) AND the Guild holds ≥1 QUALIFYING attestation for it
+              (verified credential, not self-issued, not first-party).
     unknown — everything else, with the reason stated: no claimed identity;
               a claimed identity nothing binds to this endpoint (reported as
               `identity_match: claimed_unverified`); or a bound identity with
-              no attestation history (nothing to audit)."""
+              no qualifying attestation (nothing to audit).
+
+    Binding, in decreasing strength:
+      card_signature_and_url  — the card's VERIFIED signature is that agent's
+                                key AND the signed card's own `url` is this
+                                endpoint. A verified signature alone is not a
+                                binding: a signed card can be copied verbatim
+                                and served from any origin.
+      registered_endpoint     — the registered agent itself declared an
+                                endpoint that covers this URL (same origin,
+                                same or parent path). Self-declared and
+                                not verified at registration; labelled so."""
     claimed = ""
     if card:
         provider = card.get("provider") if isinstance(card.get("provider"), dict) else {}
@@ -346,42 +420,49 @@ def _independent_evidence(url: str, card: dict[str, Any],
                       claimed_did=claimed[:160],
                       identity_match="no_registered_agent")
     sig = next((c for c in checks if c["check"] == "agent_card_signed"), {})
+    signed_by_agent = (sig.get("verification") == "verified"
+                       and sig.get("signer_did_key") == str(known.get("did") or ""))
+    card_url = str(card.get("url") or "")
+    declared = str((known.get("metadata") or {}).get("endpoint") or "")
     binding = None
-    if (sig.get("verification") == "verified"
-            and sig.get("signer_did_key") == str(known.get("did") or "")):
-        binding = "card_signature"
-    else:
-        declared = str((known.get("metadata") or {}).get("endpoint") or "")
-        if declared and _origin(declared) and _origin(declared) == _origin(url):
-            binding = "registered_endpoint_declaration"
-    try:
-        attestations = len(store.attestations_for(known.get("id")))
-    except Exception:  # noqa: BLE001
-        attestations = 0
+    strength = None
+    if signed_by_agent and card_url and _same_endpoint(card_url, url):
+        binding, strength = "card_signature_and_url", "cryptographic"
+    elif _same_endpoint(declared, url):
+        binding, strength = "registered_endpoint", "self_declared_unverified"
+    total, qualifying, issuers = _qualifying_attestations(store, known)
     if binding is None:
+        why = ("the card is verifiably signed by that agent's key but names a "
+               "different endpoint url, so it may be a copy served from "
+               "elsewhere" if signed_by_agent else
+               "the card is not verifiably signed by that agent's key")
         return _check(
             "independent_evidence", "unknown",
-            "the card names a registered Guild DID, but nothing binds THIS "
-            "endpoint to that identity: the card is not verifiably signed by "
-            "that agent's key and the agent's registration declares no "
-            "endpoint at this origin. This is a claimed identity match, "
-            "unverified — do not read it as evidence.",
+            f"the card names a registered Guild DID, but nothing binds THIS "
+            f"endpoint to that identity: {why}, and the agent's registration "
+            "declares no endpoint covering this URL. This is a claimed "
+            "identity match, unverified — do not read it as evidence.",
             claimed_did=claimed[:160], identity_match="claimed_unverified",
-            attestations_received=attestations)
-    if attestations == 0:
+            attestations_received=total, qualifying_attestations=qualifying)
+    if qualifying == 0:
         return _check(
             "independent_evidence", "unknown",
-            f"identity bound to this endpoint ({binding}), but the Guild holds "
-            "no attestation history for it — there is nothing to audit. "
-            "Absence of evidence is NOT evidence of risk.",
+            f"identity bound to this endpoint ({binding}, {strength}), but "
+            f"the Guild holds no QUALIFYING attestation for it ({total} on "
+            "record; unverified, self-issued and first-party ones do not "
+            "count) — there is nothing to audit. Absence of evidence is NOT "
+            "evidence of risk.",
             agent_id=known.get("id"), binding=binding,
-            identity_match="bound", attestations_received=0)
+            binding_strength=strength, identity_match="bound",
+            attestations_received=total, qualifying_attestations=0)
     return _check(
         "independent_evidence", "proven",
-        f"a registered Guild agent is bound to this endpoint ({binding}) and "
-        f"has {attestations} attestation(s) you can audit",
-        agent_id=known.get("id"), binding=binding, identity_match="bound",
-        attestations_received=attestations)
+        f"a registered Guild agent is bound to this endpoint ({binding}, "
+        f"{strength}) and has {qualifying} qualifying attestation(s) from "
+        f"{issuers} distinct issuer(s) you can audit ({total} on record)",
+        agent_id=known.get("id"), binding=binding, binding_strength=strength,
+        identity_match="bound", attestations_received=total,
+        qualifying_attestations=qualifying, distinct_issuers=issuers)
 
 
 def _invalid_target(url: Any, reason: str) -> dict[str, Any]:
@@ -411,6 +492,34 @@ def _invalid_target(url: Any, reason: str) -> dict[str, Any]:
     }
 
 
+def _internal_error(url: str, exc: BaseException) -> dict[str, Any]:
+    """The preflight itself failed part-way. Nothing is inferred from that:
+    every check is `unknown`, nothing is `failed`, and the verdict is
+    caution — an outcome report against this run can never be credited as
+    a benefit (no failed check to match) and never faulted as a missed
+    problem (no check scored)."""
+    names = ("endpoint_reachable", "protocol_handshake", "agent_card_resolves",
+             "agent_card_signed", "payment_claim_holds", "independent_evidence")
+    checks = [_check(n, "unknown", "not determined — the preflight hit an "
+                     "internal error before this check could be reported")
+              for n in names]
+    return {
+        "target": url,
+        "input_error": f"internal error during probe: {type(exc).__name__}",
+        "verdict": "delegate_with_caution",
+        "headline": "The preflight could not complete; nothing was proven or "
+                    "disproven about this endpoint.",
+        "checks": checks,
+        "failed": [],
+        "unknowns": list(names),
+        "scored": [],
+        "method": "live probe at request time; the probe raised an internal "
+                  "error and was abandoned, so partial observations are not "
+                  "reported",
+        "limits": "an incomplete preflight is not evidence either way — re-run",
+    }
+
+
 def run(url: str, *, store=None) -> dict[str, Any]:
     """Run the preflight for one endpoint URL. Never raises."""
     bad = validate_target(url)
@@ -419,8 +528,7 @@ def run(url: str, *, store=None) -> dict[str, Any]:
     try:
         return _run(url, store=store)
     except Exception as e:  # noqa: BLE001 — a preflight must never 500
-        return _invalid_target(url, f"internal error during probe: "
-                                    f"{type(e).__name__}")
+        return _internal_error(url, e)
 
 
 def _run(url: str, *, store=None) -> dict[str, Any]:
@@ -597,8 +705,11 @@ def _run(url: str, *, store=None) -> dict[str, Any]:
             "otherwise its presence is reported as unknown validity, never "
             "as proof. A verified signature proves integrity and key "
             "control, not safety. `independent_evidence` is proven only when "
-            "a registered identity is bound to this endpoint AND has an "
-            "attestation history; a DID merely named in a card is a claim. "
+            "a registered identity is bound to this endpoint (a verified "
+            "signature over a card naming this url, or the agent's own "
+            "endpoint declaration — labelled self-declared) AND has at least "
+            "one verified, non-self, non-first-party attestation; a DID "
+            "merely named in a card is a claim. "
             "We do not execute a paid task. We cannot see what the endpoint "
             "does with your data. `unknowns` are excluded from the verdict "
             "rather than averaged into it, so a clean result over four "

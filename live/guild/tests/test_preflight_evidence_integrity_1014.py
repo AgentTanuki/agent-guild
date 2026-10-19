@@ -104,7 +104,24 @@ def _registered(st: Store, **meta) -> dict:
 
 # ==========================================================================
 # F1 — a DID named in a card is a CLAIM until bound, and evidence needs evidence
+# (tightened 19 Oct after independent review: a verified signature alone is
+# not a binding — a signed card can be replayed from any origin — and only
+# verified, non-self, non-first-party attestations count.)
 # ==========================================================================
+def _attest(st: Store, subject: dict, *, issuer: dict | None = None,
+            verified: bool = True) -> dict:
+    issuer = issuer or _registered(st)
+    rec = {"id": "att_" + str(len(st.attestations)), "issuer_id": issuer["id"],
+           "subject_id": subject["id"], "verified": verified}
+    st.attestations.append(rec)
+    return issuer
+
+
+def _signed_card(agent: dict, **fields) -> dict:
+    return _sign({"protocolVersion": "0.3", "did": agent["did"], **fields},
+                 agent["private_key"], crypto.did_key_verification_method(agent["did"]))
+
+
 def test_f1_named_registered_did_with_zero_attestations_is_unknown(monkeypatch, fresh):
     agent = _registered(fresh)
     _fake_net(monkeypatch, card={"protocolVersion": "0.3", "did": agent["did"]})
@@ -117,48 +134,104 @@ def test_f1_named_registered_did_with_zero_attestations_is_unknown(monkeypatch, 
 
 def test_f1_bound_identity_without_attestations_is_still_unknown(monkeypatch, fresh):
     agent = _registered(fresh)
-    card = _sign({"protocolVersion": "0.3", "did": agent["did"]},
-                 agent["private_key"], crypto.did_key_verification_method(agent["did"]))
-    _fake_net(monkeypatch, card=card)
+    _fake_net(monkeypatch, card=_signed_card(agent, url=TARGET))
     ev = _check(preflight.run(TARGET, store=fresh), "independent_evidence")
     assert ev["status"] == "unknown"
-    assert ev["identity_match"] == "bound" and ev["binding"] == "card_signature"
-    assert ev["attestations_received"] == 0
+    assert ev["identity_match"] == "bound" and ev["binding"] == "card_signature_and_url"
+    assert ev["qualifying_attestations"] == 0
 
 
-def test_f1_signature_binding_plus_attestations_is_proven(monkeypatch, fresh):
+def test_f1_signature_over_this_url_plus_qualifying_attestation_is_proven(monkeypatch, fresh):
     agent = _registered(fresh)
-    fresh.attestations.append({"subject_id": agent["id"], "id": "att_1"})
-    card = _sign({"protocolVersion": "0.3", "did": agent["did"]},
-                 agent["private_key"], crypto.did_key_verification_method(agent["did"]))
-    _fake_net(monkeypatch, card=card)
+    _attest(fresh, agent)
+    _fake_net(monkeypatch, card=_signed_card(agent, url=TARGET))
     ev = _check(preflight.run(TARGET, store=fresh), "independent_evidence")
     assert ev["status"] == "proven"
-    assert ev["binding"] == "card_signature" and ev["attestations_received"] == 1
+    assert ev["binding"] == "card_signature_and_url"
+    assert ev["binding_strength"] == "cryptographic"
+    assert ev["qualifying_attestations"] == 1 and ev["distinct_issuers"] == 1
     assert ev["agent_id"] == agent["id"]
 
 
-def test_f1_registered_endpoint_declaration_binds_only_the_same_origin(monkeypatch, fresh):
-    agent = _registered(fresh, endpoint="https://agent.example/other-path")
-    fresh.attestations.append({"subject_id": agent["id"], "id": "att_1"})
+def test_f1_replayed_signed_card_from_another_origin_does_not_bind(monkeypatch, fresh):
+    """Review finding 1: the JWS covers the card bytes, not where they are
+    served from. The real agent's card, copied verbatim to an impostor
+    origin, must not bind the impostor endpoint to the agent."""
+    agent = _registered(fresh)
+    _attest(fresh, agent)
+    real = _signed_card(agent, url="https://real.example/a2a")
+    _fake_net(monkeypatch, card=real)
+    assert _check(preflight.run("https://real.example/a2a", store=fresh),
+                  "independent_evidence")["status"] == "proven"
+    ev = _check(preflight.run("https://impostor.example/a2a", store=fresh),
+                "independent_evidence")
+    assert ev["status"] == "unknown" and ev["identity_match"] == "claimed_unverified"
+    assert "different endpoint url" in ev["detail"]
+    # a signed card that names no url at all binds nothing either
+    _fake_net(monkeypatch, card=_signed_card(agent))
+    ev = _check(preflight.run(TARGET, store=fresh), "independent_evidence")
+    assert ev["status"] == "unknown" and ev["identity_match"] == "claimed_unverified"
+
+
+def test_f1_registered_endpoint_declaration_binds_same_origin_and_path_only(monkeypatch, fresh):
+    agent = _registered(fresh, endpoint="https://agent.example/a2a")
+    _attest(fresh, agent)
     _fake_net(monkeypatch, card={"protocolVersion": "0.3", "did": agent["did"]})
     ev = _check(preflight.run(TARGET, store=fresh), "independent_evidence")
     assert ev["status"] == "proven"
-    assert ev["binding"] == "registered_endpoint_declaration"
+    assert ev["binding"] == "registered_endpoint"
+    assert ev["binding_strength"] == "self_declared_unverified"   # labelled as such
     # the same card served from ANOTHER origin is a claim, not a binding
     ev2 = _check(preflight.run("https://impostor.example/a2a", store=fresh),
                  "independent_evidence")
-    assert ev2["status"] == "unknown"
-    assert ev2["identity_match"] == "claimed_unverified"
+    assert ev2["status"] == "unknown" and ev2["identity_match"] == "claimed_unverified"
+
+
+def test_f1_declaration_on_a_shared_host_does_not_cover_another_tenant(monkeypatch, fresh):
+    """Review finding 5: path-multi-tenant hosts. A declaration at
+    /tenant-a must not bind /tenant-evil on the same origin."""
+    agent = _registered(fresh, endpoint="https://shared.example/tenant-a")
+    _attest(fresh, agent)
+    _fake_net(monkeypatch, card={"protocolVersion": "0.3", "did": agent["did"]})
+    ok = _check(preflight.run("https://shared.example/tenant-a/a2a", store=fresh),
+                "independent_evidence")
+    assert ok["status"] == "proven"
+    bad = _check(preflight.run("https://shared.example/tenant-evil", store=fresh),
+                 "independent_evidence")
+    assert bad["status"] == "unknown" and bad["identity_match"] == "claimed_unverified"
+    root = _registered(fresh, endpoint="https://root.example/")
+    _attest(fresh, root)
+    _fake_net(monkeypatch, card={"protocolVersion": "0.3", "did": root["did"]})
+    assert _check(preflight.run("https://root.example/anything/a2a", store=fresh),
+                  "independent_evidence")["status"] == "proven"
+
+
+def test_f1_unverified_self_and_first_party_attestations_never_make_proven(monkeypatch, fresh):
+    """Review finding 4: registering a puppet and attesting to oneself costs
+    nothing; an unverified credential is stored but proves nothing."""
+    agent = _registered(fresh, endpoint=TARGET)
+    _attest(fresh, agent, verified=False)                     # unverified
+    _attest(fresh, agent, issuer=agent)                       # self-issued
+    ours = fresh.register_agent("ours", ["x"], {}, first_party=True)
+    _attest(fresh, agent, issuer=ours)                        # first-party issuer
+    _fake_net(monkeypatch, card={"protocolVersion": "0.3", "did": agent["did"]})
+    ev = _check(preflight.run(TARGET, store=fresh), "independent_evidence")
+    assert ev["status"] == "unknown" and ev["identity_match"] == "bound"
+    assert ev["attestations_received"] == 3 and ev["qualifying_attestations"] == 0
+    assert "QUALIFYING" in ev["detail"]
+    _attest(fresh, agent)                                     # one real one
+    ev = _check(preflight.run(TARGET, store=fresh), "independent_evidence")
+    assert ev["status"] == "proven" and ev["qualifying_attestations"] == 1
+    assert ev["attestations_received"] == 4
 
 
 def test_f1_signature_by_a_different_key_than_the_claimed_did_does_not_bind(monkeypatch, fresh):
     agent = _registered(fresh)
-    fresh.attestations.append({"subject_id": agent["id"], "id": "att_1"})
+    _attest(fresh, agent)
     other_priv, other_pub = crypto.generate_keypair()
     other_did = crypto.did_from_public_key(other_pub)
     # signed by someone else, but the card names the registered agent's DID
-    card = _sign({"protocolVersion": "0.3", "did": agent["did"]},
+    card = _sign({"protocolVersion": "0.3", "did": agent["did"], "url": TARGET},
                  other_priv, crypto.did_key_verification_method(other_did))
     _fake_net(monkeypatch, card=card)
     out = preflight.run(TARGET, store=fresh)
@@ -244,6 +317,55 @@ def test_f2_unsupported_alg_is_unknown(monkeypatch):
     _fake_net(monkeypatch, card=card)
     sig = _check(preflight.run(TARGET), "agent_card_signed")
     assert sig["status"] == "unknown" and "ES256" in sig["detail"]
+
+
+def test_f2_hostile_key_material_never_escapes_the_verifier(monkeypatch):
+    """Review finding 2: `did:key:z`, non-list verificationMethod / keys."""
+    priv, pub = crypto.generate_keypair()
+    for card, extra in (
+        ({"protocolVersion": "0.3", "did": "did:key:z",
+          "signatures": [{"protected": _b64(json.dumps({"alg": "EdDSA", "kid": "did:key:z"}).encode()),
+                          "signature": "x"}]}, None),
+        (a2a_card_signing.sign_agent_card({"protocolVersion": "0.3"},
+                                          {"public_key": pub, "private_key": priv,
+                                           "did": crypto.did_from_public_key(pub)},
+                                          "https://agent.example"),
+         {"/.well-known/did.json": (200, {"verificationMethod": 5})}),
+        (_sign({"protocolVersion": "0.3"}, priv, "urn:some-kid"),
+         {"/.well-known/jwks.json": (200, {"keys": 5})}),
+    ):
+        _fake_net(monkeypatch, card=card, extra=extra)
+        out = preflight.run(TARGET)
+        assert "input_error" not in out, out
+        sig = _check(out, "agent_card_signed")
+        assert sig["status"] == "unknown" and sig["verification"] == "unverified_presence"
+        assert _check(out, "endpoint_reachable")["status"] == "proven"
+
+
+def test_f2_did_web_over_plain_http_is_not_resolved(monkeypatch):
+    """Review finding 6: did:web resolves over https only."""
+    priv, pub = crypto.generate_keypair()
+    identity = {"public_key": pub, "private_key": priv,
+                "did": crypto.did_from_public_key(pub)}
+    from app import x402_artifacts
+    did_doc = x402_artifacts.did_web_document(identity, "http://agent.example")
+    card = a2a_card_signing.sign_agent_card({"protocolVersion": "0.3"}, identity,
+                                            "http://agent.example")
+    _fake_net(monkeypatch, card=card, extra={"/.well-known/did.json": (200, did_doc)})
+    sig = _check(preflight.run("http://agent.example/a2a"), "agent_card_signed")
+    assert sig["status"] == "unknown" and "https only" in sig["detail"]
+
+
+def test_f2_a_later_valid_signature_still_verifies_after_an_invalid_one(monkeypatch):
+    """Review note 7: multi-signature cards."""
+    priv, pub = crypto.generate_keypair()
+    did = crypto.did_from_public_key(pub)
+    good = _sign({"protocolVersion": "0.3"}, priv, crypto.did_key_verification_method(did))
+    bad_entry = dict(good["signatures"][0], signature=_b64(b"\x00" * 64))
+    card = dict(good, signatures=[bad_entry, good["signatures"][0]])
+    _fake_net(monkeypatch, card=card)
+    sig = _check(preflight.run(TARGET), "agent_card_signed")
+    assert sig["status"] == "proven" and sig["invalid_entries"] == 1
 
 
 def test_f2_data_integrity_proof_is_presence_only(monkeypatch):
@@ -596,10 +718,23 @@ def test_f6_url_policy_check_reports_malformed_urls_as_data():
         assert ok is False and reason
 
 
-def test_f6_a_probe_exception_is_contained(monkeypatch):
+def test_f6_a_probe_exception_is_contained_and_claims_nothing(monkeypatch):
+    """Review findings 2–3: an internal error must not report a failed
+    reachability check (it observed nothing) and must not be creditable."""
     def boom(url, **kw):
         raise RuntimeError("probe exploded")
     monkeypatch.setattr(reachability, "liveness_probe", boom)
     out = preflight.run(TARGET)
-    assert out["verdict"] == "do_not_delegate"
+    assert out["verdict"] == "delegate_with_caution"
     assert "RuntimeError" in out["input_error"]
+    assert out["failed"] == [] and out["scored"] == []
+    assert all(c["status"] == "unknown" for c in out["checks"])
+    assert "no network request" not in out["method"]
+    run = {"verdict": out["verdict"], "failed_checks": out["failed"],
+           "unknown_checks": out["unknowns"], "scored_checks": out["scored"]}
+    c = po.classify(run, _rec("unreachable"))
+    assert c["kind"] != "benefit" and c["result"] == "unknown_check_not_covered"
+    c = po.classify(run, po.validate({"preflight_id": "pf_" + "a" * 20,
+                                      "action": "called", "observed": "failure",
+                                      "detail": "unreachable", "reporter_kind": "agent"}))
+    assert c["kind"] != "mistake"
