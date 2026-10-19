@@ -125,7 +125,7 @@ def test_preflight_is_stamped_and_the_run_event_keeps_check_names(_isolate):
 
 def test_summary_is_empty_and_honest_before_any_report():
     s = _summary()
-    assert s["schema"] == "AGPO-1/1.2"
+    assert s["schema"] == "AGPO-1/1.3"
     assert s["independently_demonstrated_benefit"] is False
     assert s["headline"] == "No independently demonstrated benefit yet."
     assert s["rules"] == list(po.RULES)
@@ -138,20 +138,26 @@ def test_benefit_requires_warning_verdict_direct_failure_and_ag_basis():
     key = _register(HEURISTIC_UA)
     out = _pf("https://x.example/down", HEURISTIC_UA, key)
     r = _report({"preflight_id": out["preflight_id"], "action": "declined",
-                 "baseline": {"direct_check": "failure"},
+                 "baseline": {"direct_check": "failure", "detail": "protocol_error"},
                  "decision_basis": "ag_evidence",
                  "reporter_kind": "integration"}, HEURISTIC_UA, key)
     assert r.status_code == 201, r.text
     b = _bucket("registered_participant")
     assert b["benefit"] == 1 and b["by_result"] == {"avoided_broken_endpoint": 1}
-    assert _summary()["independently_demonstrated_benefit"] is True
+    # A registered key on both legs joins the records under one identity; it
+    # does not make the operator independent. The headline stays put until
+    # the operator is attested as independent (see test_independence_*).
+    s = _summary()
+    assert s["independently_demonstrated_benefit"] is False
+    assert s["headline"].startswith("No independently demonstrated benefit yet")
+    assert "identity continuity" in s["headline"]
 
 
 def test_ag_right_but_agent_decided_on_its_own_check_is_not_a_benefit():
     key = _register(HEURISTIC_UA)
     out = _pf("https://x.example/down", HEURISTIC_UA, key)
     _report({"preflight_id": out["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "own_check", "reporter_kind": "agent"},
             HEURISTIC_UA, key)
     b = _bucket("registered_participant")
@@ -166,7 +172,7 @@ def test_ag_clean_verdict_but_direct_check_failed_is_a_missed_problem():
     key = _register(HEURISTIC_UA)
     out = _pf("https://x.example/ok", HEURISTIC_UA, key)
     _report({"preflight_id": out["preflight_id"], "action": "skipped",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "own_check", "reporter_kind": "agent"},
             HEURISTIC_UA, key)
     b = _bucket("registered_participant")
@@ -178,7 +184,7 @@ def test_influence_not_reported_stays_unresolved():
     key = _register(HEURISTIC_UA)
     out = _pf("https://x.example/down", HEURISTIC_UA, key)
     _report({"preflight_id": out["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "reporter_kind": "agent"}, HEURISTIC_UA, key)
     b = _bucket("registered_participant")
     assert b["unresolved"] == 1 and b["benefit"] == 0
@@ -275,7 +281,7 @@ def test_repeated_identical_reports_count_one_decision():
     key = _register(HEURISTIC_UA)
     out = _pf("https://x.example/down", HEURISTIC_UA, key)
     body = {"preflight_id": out["preflight_id"], "action": "declined",
-            "baseline": {"direct_check": "failure"},
+            "baseline": {"direct_check": "failure", "detail": "protocol_error"},
             "decision_basis": "ag_evidence", "reporter_kind": "integration"}
     assert _report(body, HEURISTIC_UA, key).status_code == 201
     assert _report(body, HEURISTIC_UA, key).status_code == 201
@@ -288,7 +294,7 @@ def test_a_later_different_report_is_a_visible_correction():
     key = _register(HEURISTIC_UA)
     out = _pf("https://x.example/down", HEURISTIC_UA, key)
     first = {"preflight_id": out["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "ag_evidence", "reporter_kind": "integration"}
     _report(first, HEURISTIC_UA, key)
     _report({**first, "decision_basis": "own_check"}, HEURISTIC_UA, key)
@@ -326,7 +332,7 @@ def test_stale_reports_do_not_join_as_decisions():
 def test_framework_user_agent_is_heuristic_external_never_headline():
     out = _pf("https://x.example/down", HEURISTIC_UA)
     _report({"preflight_id": out["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "ag_evidence", "reporter_kind": "integration"},
             HEURISTIC_UA)
     s = _summary()
@@ -338,12 +344,12 @@ def test_framework_user_agent_is_heuristic_external_never_headline():
 def test_propagation_and_tooling_never_reach_the_headline():
     out = _pf("https://x.example/down", PROPAGATION_UA)
     _report({"preflight_id": out["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "ag_evidence", "reporter_kind": "integration"},
             PROPAGATION_UA)
     out2 = _pf("https://y.example/down", TOOLING_UA)
     _report({"preflight_id": out2["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "ag_evidence", "reporter_kind": "integration"},
             TOOLING_UA)
     s = _summary()
@@ -357,7 +363,7 @@ def test_registered_participant_requires_the_same_key_on_both_legs():
     k1, k2 = _register(HEURISTIC_UA), _register(HEURISTIC_UA)
     out = _pf("https://x.example/down", HEURISTIC_UA, k1)
     _report({"preflight_id": out["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "ag_evidence", "reporter_kind": "integration"},
             HEURISTIC_UA, k2)
     s = _summary()
@@ -366,7 +372,7 @@ def test_registered_participant_requires_the_same_key_on_both_legs():
     # key on the report only
     out2 = _pf("https://y.example/down", HEURISTIC_UA)
     _report({"preflight_id": out2["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "ag_evidence", "reporter_kind": "integration"},
             HEURISTIC_UA, k1)
     assert _summary()["by_ownership"]["registered_participant"]["decisions"] == 0
@@ -378,7 +384,7 @@ def test_pi_extension_with_a_participant_key_is_a_registered_participant():
     key = _register(PROPAGATION_UA)
     out = _pf("https://x.example/down", PROPAGATION_UA, key)
     _report({"preflight_id": out["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "ag_evidence", "reporter_kind": "integration"},
             PROPAGATION_UA, key)
     b = _bucket("registered_participant")
@@ -393,7 +399,7 @@ def test_first_party_key_is_first_party_whatever_the_user_agent(_isolate):
         _isolate.agents[agent["id"]]["first_party"] = True
     out = _pf("https://x.example/down", HEURISTIC_UA, key)
     _report({"preflight_id": out["preflight_id"], "action": "declined",
-             "baseline": {"direct_check": "failure"},
+             "baseline": {"direct_check": "failure", "detail": "protocol_error"},
              "decision_basis": "ag_evidence", "reporter_kind": "integration"},
             HEURISTIC_UA, key)
     s = _summary()
@@ -482,7 +488,7 @@ def test_mcp_tool_writes_the_same_record(_isolate):
             assert pf["preflight_id"].startswith("pf_")
             rd = _data(await c.call_tool("guild_preflight_outcome", {
                 "preflight_id": pf["preflight_id"], "action": "declined",
-                "baseline_direct_check": "failure",
+                "baseline_direct_check": "failure", "detail": "protocol_error",
                 "decision_basis": "ag_evidence"}))
             assert rd["recorded"] is True
     asyncio.run(go())

@@ -53,12 +53,16 @@ from urllib.parse import urlparse
 
 from . import attribution
 
-SCHEMA = "AGPO-1/1.2"
+SCHEMA = "AGPO-1/1.3"
 
 ACTIONS = ("called", "delegated", "declined", "skipped")
 OBSERVED = ("success", "failure", "unknown")
+# `detail` names the failure the reporter observed — by the call it made, or
+# by its OWN direct check when it did not call. It is the only thing that lets
+# an outcome be matched to the specific check AG scored.
 DETAILS = ("ok", "timeout", "unreachable", "http_4xx", "http_5xx",
-           "protocol_error", "payment_mismatch", "wrong_result", "other",
+           "protocol_error", "payment_mismatch", "card_unavailable",
+           "signature_invalid", "identity_mismatch", "wrong_result", "other",
            "not_applicable")
 BASELINE_CHECKS = ("success", "failure", "not_run")
 REPORTER_KINDS = ("integration", "agent")
@@ -74,7 +78,14 @@ DETAIL_TO_CHECK = {
     "http_5xx": "endpoint_reachable",
     "protocol_error": "protocol_handshake",
     "payment_mismatch": "payment_claim_holds",
+    "card_unavailable": "agent_card_resolves",
+    "signature_invalid": "agent_card_signed",
+    "identity_mismatch": "independent_evidence",
 }
+# A failure detail that names no check at all (the reporter did not say what
+# failed). Distinguished from `wrong_result`/`other`, which name a failure AG
+# never claims to test.
+UNSPECIFIED_DETAILS = frozenset({"not_applicable", "ok"})
 # Checks that a SUCCESSFUL call (or successful direct check) contradicts.
 # Identity / evidence / payment-claim checks are not contradicted by a call
 # that happened to work.
@@ -96,24 +107,38 @@ RESULT_KINDS = {
     "consistent_outcome": "neutral",
     "consistent_no_action": "neutral",
     "failure_out_of_scope": "unresolved",
+    "direct_check_unspecified": "unresolved",
     "counterfactual_unobserved": "unknown",
     "stale_join": "unresolved",
     "unknown": "unknown",
 }
 
 RULES: tuple[dict[str, str], ...] = (
-    {"when": "not called; direct_check == failure; verdict is a warning; decision_basis in (ag_evidence, both)",
+    # --- not called: the reporter's OWN direct check is the only observation.
+    # Its failure `detail` must map to the SAME check AG failed before AG's
+    # warning can be credited. An unsigned-card warning followed by a
+    # wrong-result failure is not a prediction AG made (corrected 2026-10-14).
+    {"when": "not called; direct_check == failure; detail maps to a check AG reported FAILED; decision_basis in (ag_evidence, both)",
      "result": "avoided_broken_endpoint",
-     "checked_by": "reporter's own direct check confirmed a problem AG warned about, and the reporter says AG's evidence drove the decision (a claim)"},
-    {"when": "not called; direct_check == failure; verdict is a warning; decision_basis == own_check",
+     "checked_by": "reporter's own direct check confirmed the SPECIFIC problem AG warned about, and the reporter says AG's evidence drove the decision (a claim)"},
+    {"when": "not called; direct_check == failure; detail maps to a check AG reported FAILED; decision_basis == own_check",
      "result": "correct_warning_independently_confirmed",
-     "checked_by": "AG was right, but the reporter decided on its own check — no benefit attributable to AG"},
-    {"when": "not called; direct_check == failure; verdict is a warning; decision_basis in (other, unknown)",
+     "checked_by": "AG was right about that check, but the reporter decided on its own check — no benefit attributable to AG"},
+    {"when": "not called; direct_check == failure; detail maps to a check AG reported FAILED; decision_basis in (other, unknown)",
      "result": "correct_warning_influence_unknown",
-     "checked_by": "AG was right; whether it influenced the decision was not reported"},
-    {"when": "not called; direct_check == failure; verdict == no_failed_checks",
+     "checked_by": "AG was right about that check; whether it influenced the decision was not reported"},
+    {"when": "not called; direct_check == failure; detail maps to a check AG scored as proven",
      "result": "missed_problem",
-     "checked_by": "reporter's own direct check found a problem AG's checks passed"},
+     "checked_by": "reporter's own direct check found failing a check AG said passed — whatever the overall verdict"},
+    {"when": "not called; direct_check == failure; detail maps to a check AG reported UNKNOWN",
+     "result": "unknown_check_not_covered",
+     "checked_by": "AG said it could not test this; the failure is not a missed problem and the warning (if any) is not credited"},
+    {"when": "not called; direct_check == failure; detail names no preflight check (wrong_result, other, http_4xx)",
+     "result": "failure_out_of_scope",
+     "checked_by": "nothing — AG's checks made no claim about this failure, so neither a benefit nor a mistake can be read from it"},
+    {"when": "not called; direct_check == failure; detail not given",
+     "result": "direct_check_unspecified",
+     "checked_by": "nothing — the reporter did not say what its direct check found, so it cannot be matched to AG's claim"},
     {"when": "not called; direct_check == success; verdict is a warning; every failed check is one a working call contradicts",
      "result": "unnecessary_refusal",
      "checked_by": "reporter's own direct check succeeded where AG reported reachability/handshake failures"},
@@ -158,6 +183,40 @@ OWNERSHIPS = ("first_party", "registered_participant", "heuristic_external",
               "propagation_client", "tooling_or_crawler", "unknown")
 FIRST_PARTY_CLASSES = ("AG_INTERNAL", "AG_TEST", "OPERATOR")
 
+# A registered key on both legs proves IDENTITY CONTINUITY: the same
+# credential holder produced the preflight and the report. It does not prove
+# that the holder operates outside the project team. Independence is a
+# separate, operator-level fact recorded by the Guild's operator as an
+# attestation event (with its public basis), and revocable. Only decisions
+# from attested-independent participants can move the headline.
+ATTEST_EVENT = "evaluation_participant_attested"
+REVOKE_EVENT = "evaluation_participant_revoked"
+INDEPENDENCE_BASES = ("operator_outside_project_team",)
+
+
+def attested_independent_participants(store: Any) -> dict[str, dict[str, Any]]:
+    """agent_id → attestation record for every participant currently
+    attested as independently operated (latest event wins; a revocation
+    removes the entry). Durable on both backends: these are ordinary
+    measurement events."""
+    try:
+        events, _ = store.measurement_event_snapshot(
+            types=(ATTEST_EVENT, REVOKE_EVENT))
+    except Exception:  # noqa: BLE001
+        return {}
+    state: dict[str, dict[str, Any]] = {}
+    for e in sorted(events, key=lambda e: (_ts(e) or 0.0)):
+        aid = str(e.get("agent_id") or "")
+        if not aid:
+            continue
+        if e.get("type") == ATTEST_EVENT:
+            state[aid] = {"attested_at": e.get("at"),
+                          "basis": e.get("basis"),
+                          "public_source": e.get("public_source")}
+        elif e.get("type") == REVOKE_EVENT:
+            state.pop(aid, None)
+    return state
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -187,13 +246,21 @@ def stamp(out: dict[str, Any], *, started: float) -> dict[str, Any]:
         "body": {"preflight_id": out["preflight_id"],
                  "action": list(ACTIONS), "observed": list(OBSERVED),
                  "detail?": list(DETAILS),
-                 "baseline?": {"direct_check": list(BASELINE_CHECKS)},
+                 "baseline?": {"direct_check": list(BASELINE_CHECKS),
+                               "detail?": "what YOUR direct check found "
+                                          "(same vocabulary as detail); "
+                                          "required to credit or fault a "
+                                          "specific check when you did not "
+                                          "call"},
                  "decision_basis?": list(DECISION_BASIS),
                  "overhead_ms?": "int", "reporter_kind": list(REPORTER_KINDS)},
-        "provenance": ("present the same X-API-Key on this call and on the "
-                       "report to be counted as a registered participant; "
-                       "without it your report is classed by User-Agent "
-                       "heuristics and can never establish independence"),
+        "provenance": ("present the same registered key on this call and on "
+                       "the report (HTTP: X-API-Key header; MCP: the "
+                       "api_key argument or the same header) so the two "
+                       "records join under one identity. The key proves "
+                       "identity continuity only; operator independence is "
+                       "attested separately and never inferred from a key or "
+                       "a User-Agent"),
         "requires_local_authorisation": False,
         "effect": "write (one small record; no payload)",
     }
@@ -237,6 +304,13 @@ def validate(body: Mapping[str, Any]) -> dict[str, Any]:
     direct = str(baseline.get("direct_check") or "not_run")
     if direct not in BASELINE_CHECKS:
         raise OutcomeError(f"baseline.direct_check must be one of {BASELINE_CHECKS}")
+    # When the endpoint was NOT called, `detail` describes what the
+    # reporter's own direct check found. `baseline.detail` is the explicit
+    # spelling of the same thing and takes precedence.
+    if action in ("declined", "skipped") and baseline.get("detail") is not None:
+        detail = str(baseline.get("detail") or "not_applicable")
+        if detail not in DETAILS:
+            raise OutcomeError(f"baseline.detail must be one of {DETAILS}")
     basis = str(body.get("decision_basis") or "unknown")
     if basis not in DECISION_BASIS:
         raise OutcomeError(f"decision_basis must be one of {DECISION_BASIS}")
@@ -282,15 +356,26 @@ def classify(run: Mapping[str, Any], rec: Mapping[str, Any]) -> dict[str, str]:
 
     if action in ("declined", "skipped"):
         if direct == "failure":
-            if warning:
+            # The direct check's failure must be matched to the SPECIFIC
+            # check AG scored. A warning about check X followed by a
+            # failure of Y is not a prediction AG made.
+            detail = str(rec.get("detail") or "not_applicable")
+            if detail in UNSPECIFIED_DETAILS:
+                return r("direct_check_unspecified")
+            check = DETAIL_TO_CHECK.get(detail)
+            if check is None:
+                return r("failure_out_of_scope")
+            if check in failed:
                 if basis in ("ag_evidence", "both"):
                     return r("avoided_broken_endpoint")
                 if basis == "own_check":
                     return r("correct_warning_independently_confirmed")
                 return r("correct_warning_influence_unknown")
-            if clean:
+            if check in unknown:
+                return r("unknown_check_not_covered")
+            if check in proven:
                 return r("missed_problem")
-            return r("unknown")
+            return r("failure_out_of_scope")
         if direct == "success":
             if warning:
                 if failed and failed <= CONTRADICTED_BY_SUCCESS:
@@ -420,11 +505,11 @@ def ua_family(ua: str) -> str:
     for pfx in ("mcp:", "a2a:"):
         if low.startswith(pfx):
             rest = low[len(pfx):]
-            tok = re.split(r"[/\s(;,]", rest, 1)[0] or "unknown"
+            tok = re.split(r"[/\s(;,]", rest, maxsplit=1)[0] or "unknown"
             return pfx + tok[:40]
     if attribution.PROPAGATION_UA_RE.search(ua):
         return "pi-agent-guild"
-    tok = re.split(r"[/\s(;,]", low, 1)[0]
+    tok = re.split(r"[/\s(;,]", low, maxsplit=1)[0]
     return (tok or "unknown")[:40]
 
 
@@ -487,6 +572,13 @@ def summary(store: Any) -> dict[str, Any]:
     latencies: dict[str, list[int]] = {k: [] for k in OWNERSHIPS}
     overheads: dict[str, list[int]] = {k: [] for k in OWNERSHIPS}
     decided: set[str] = set()
+    attested = attested_independent_participants(store)
+    independent: dict[str, Any] = {
+        "attested_participants": len(attested),
+        "participants_with_decisions": 0,
+        "decisions": 0, "benefit": 0, "mistake": 0, "neutral": 0,
+        "unresolved": 0, "unknown": 0, "by_result": {}}
+    independent_pids: set[str] = set()
     for pid, evs in reports.items():
         run = runs.get(pid)
         if run is None:
@@ -509,6 +601,13 @@ def summary(store: Any) -> dict[str, Any]:
             c = classify(run, latest)
         bk[c["kind"]] += 1
         bk["by_result"][c["result"]] = bk["by_result"].get(c["result"], 0) + 1
+        pa = str(run.get("participant_agent_id") or "")
+        if own == "registered_participant" and pa in attested:
+            independent["decisions"] += 1
+            independent[c["kind"]] += 1
+            independent["by_result"][c["result"]] = (
+                independent["by_result"].get(c["result"], 0) + 1)
+            independent_pids.add(pa)
         v = str(run.get("verdict") or "unknown")
         bk["by_verdict"][v] = bk["by_verdict"].get(v, 0) + 1
         ct = client_type(latest)
@@ -560,17 +659,37 @@ def summary(store: Any) -> dict[str, Any]:
         bk["top_ua_family_share"] = (
             round(max(families[k].values()) / total, 3) if total else None)
     reg = buckets["registered_participant"]
-    demonstrated = reg["benefit"] > 0
+    independent["participants_with_decisions"] = len(independent_pids)
+    demonstrated = independent["benefit"] > 0
+    if demonstrated:
+        headline = (
+            f"{independent['benefit']} participant-reported benefit "
+            f"decision(s) and {independent['mistake']} mistake decision(s) "
+            f"from {independent['participants_with_decisions']} attested-"
+            "independent participant(s); corroboration is the reporter's "
+            "own direct check (a claim), not an AG observation")
+    elif reg["benefit"] > 0:
+        headline = (
+            "No independently demonstrated benefit yet. "
+            f"{reg['benefit']} identity-joined (registered-key) benefit "
+            "decision(s) exist, but the key proves identity continuity, "
+            "not that the operator is independent of the project")
+    else:
+        headline = "No independently demonstrated benefit yet."
     return {
         "schema": SCHEMA,
         "question": "How did an independently operated agent benefit from "
                     "AG's preflight evidence?",
         "independently_demonstrated_benefit": demonstrated,
-        "headline": (
-            f"{reg['benefit']} registered-participant benefit decision(s), "
-            f"{reg['mistake']} mistake decision(s)"
-            if demonstrated else
-            "No independently demonstrated benefit yet."),
+        "headline": headline,
+        "independent": {
+            **independent,
+            "rule": ("decisions from registered participants whose operator "
+                     "the Guild's operator has attested as outside the project "
+                     "team (basis recorded, revocable). A registered key on "
+                     "both legs is identity continuity only; it never "
+                     "establishes independence by itself"),
+        },
         "by_ownership": buckets,
         "unjoined_outcome_reports": unjoined,
         "reading_rules": {
@@ -585,9 +704,18 @@ def summary(store: Any) -> dict[str, Any]:
                              "be distinguished beyond their UA family, so "
                              "distinct_actor_keys undercounts them.",
             "registered_participant": "the SAME registered, non-first-party "
-                                      "agent presented its key on the preflight "
-                                      "AND the report; the only bucket that can "
-                                      "satisfy the objective",
+                                      "key was presented on the preflight AND "
+                                      "the report. This proves IDENTITY "
+                                      "CONTINUITY between the two records — "
+                                      "not independent operation, and not an "
+                                      "independently verified benefit. Only "
+                                      "decisions from participants attested as "
+                                      "independent (see `independent`) reach "
+                                      "the headline",
+            "independence": "an operator-level fact recorded by the Guild's "
+                            "operator as an attestation event with a public "
+                            "basis, revocable; never inferred from a key, a "
+                            "User-Agent, or traffic",
             "heuristic_external": "framework-looking User-Agents on both legs; "
                                   "software identity, NOT operator "
                                   "independence — never a headline",
@@ -602,13 +730,17 @@ def summary(store: Any) -> dict[str, Any]:
                                           "classified",
             "claims": "reporter_kind and decision_basis are the reporter's "
                       "claims, labelled as such; nothing verifies them",
-            "benefit": "requires a warning verdict, a reporter-run direct "
-                       "check confirming the problem, AND a claimed decision "
-                       "basis of ag_evidence/both; AG being right while the "
-                       "agent decided on its own check is not a benefit",
+            "benefit": "requires a reporter-run direct check whose failure "
+                       "`detail` maps to the SAME check AG reported failed, "
+                       "AND a claimed decision basis of ag_evidence/both; AG "
+                       "being right while the agent decided on its own check "
+                       "is not a benefit; a warning about one check followed "
+                       "by a failure of another is not a prediction AG made",
             "scope": "a working call does not contradict identity/payment "
                      "warnings; a failure AG never claimed to test is "
-                     "failure_out_of_scope; consistent_outcome is not benefit",
+                     "failure_out_of_scope; a direct-check failure with no "
+                     "detail is direct_check_unspecified; consistent_outcome "
+                     "is not benefit",
             "runs_without_outcome": "UNKNOWN — neither refusal nor success",
             "payment": "irrelevant; the path is free and payment proves nothing",
         },
