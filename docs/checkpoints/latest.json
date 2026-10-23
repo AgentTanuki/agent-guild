@@ -1,17 +1,17 @@
 {
  "checkpoint": {
   "chain_valid": true,
-  "count": 1045,
+  "count": 1054,
   "created_at": "",
-  "head_hash": "f74af61b96e749ec527de8e930aff9fc00d293c6f5c20ce12c9e85bd1618d25a",
+  "head_hash": "297e25ea0fe477e654c01c2fad129030c52b07a19681edc49f069956890b1cc1",
   "issuer": "did:key:z6MkkSis851QCeP153LUWrxgSKRkSgy91BpUv5geXN7z4P6R",
-  "merkle_root": "4c307ff479a4d5db8a76592b69ed1327b076bab94999370a51dd1d473fe573c1",
-  "proof": "0ff5769b8dde63fd015417fcab129c15f7305077830edbdf91a5278fae359f3ca481370ce25e675b957ecf7d7ba33d96d17b07adeaf5c03ead7d7bb68bccd90b"
+  "merkle_root": "d84af6ed7d55e78f7278a525833aff3cf2c8871a159cc69143e0d202f53c2c92",
+  "proof": "01f06012086527a20330c1c8a65eb771d95eeaf66dd2d47cbc31ed51bde894820bf48e622b405121ce587515fb530a203d1e6c0ed4ffb04c2b26ab9c8c11f901"
  },
- "entry_proof": "422a7c9a461c53da0f2ae530eb22f43f7d5760623fd5e64b9aa2184d3d745e8b36884cab3d9a2102988c26d26d0f026cd69235ce664563e254eef5e14e831801",
+ "entry_proof": "4357932146d0df1713f1d74f50d16921ce8eaab21041a71e329e23e62afdbed2e615107d312f45d8cd7a6ccfbf25ab3c8002d9e64f018c357add85e705a12009",
  "feed_version": 2,
- "index": 59,
- "ledger_length": 1045,
- "prev_entry_sha256": "0d797d2eaa23940899ae01c8b1c1475ff0a38211e7868cf0d84488ae1c51507b",
- "published_at": "2026-10-21T10:13:47.048700+00:00"
+ "index": 61,
+ "ledger_length": 1054,
+ "prev_entry_sha256": "e8a9f6f9bad6e5a1c572e65e40b9c2007de1a1b95b618f3baff4145fec00574f",
+ "published_at": "2026-10-23T03:36:46.469829+00:00"
 }
