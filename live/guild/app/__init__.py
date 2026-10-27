@@ -3,7 +3,12 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.7.2"   # PATCH evidence-integrity review fixes (2026-10-19): a
+__version__ = "2.7.3"   # PATCH keyed-request cost (2026-10-27): a presented
+                        # api key is resolved by its public key_id and verified
+                        # against that record only — the KDF no longer runs
+                        # over every agent record (keyed /preflight ~10 s → the
+                        # keyless ~0.6 s on production). No behaviour change.
+                        # History of 2.7.2: PATCH evidence-integrity review fixes (2026-10-19): a
                         # verified card signature binds an endpoint only when the
                         # signed card names that url (replay from another origin
                         # is a claim); only verified, non-self, non-first-party

@@ -60,6 +60,11 @@ try:
         done("success")
     done("failure", "card_unavailable")
 except urllib.error.HTTPError as e:
+    # 2026-10-27: a 404/410 on the card path IS "card unavailable" — reporting
+    # the earlier step's http_4xx instead named no preflight check, so a paired
+    # record on a non-agent host classified as failure_out_of_scope.
+    if e.code in (404, 410):
+        done("failure", "card_unavailable")
     done("failure", "http_5xx" if e.code >= 500 else (last if last != "protocol_error" else "card_unavailable"))
 except TimeoutError:
     done("failure", "timeout")
