@@ -2190,10 +2190,31 @@ class Store:
                                 ) -> Optional[dict[str, Any]]:
         """The agent that owns a presented credential — constant-time compare
         per record, both storage forms (plaintext / sha256), honouring
-        revocation and expiry. Replaces raw equality scans."""
+        revocation and expiry. Replaces raw equality scans.
+
+        Lookup is by the public ``key_id`` first (sha256(raw)[:12], carried by
+        every hashed record since issue/migration): only the record(s) with
+        that key_id are put through the PBKDF2 verifier. Before 2.7.3 every
+        presented key ran the ≥100k-iteration KDF against EVERY agent record,
+        so one keyed ``/preflight`` took ~10 s on production (measured
+        2026-10-27; keyless ~0.6 s) — an integration cost no participant
+        should pay. The full scan remains only as the fallback for legacy
+        plaintext records and any hashed record that lacks a key_id."""
         if not presented:
             return None
+        kid = creds.key_id_of(presented)   # deterministic, prefix-independent
         for a in self.agents.values():
+            if a.get("key_id") == kid and creds.verify_agent_key(a, presented):
+                self._note_legacy_scope_use(a)
+                return a
+        # Fallback: records that cannot be found by key_id — legacy plaintext
+        # credentials and any hashed record that never received one. A record
+        # that carries a key_id was either tried above (kid matched) or cannot
+        # hold this secret (its key_id was derived from the same raw value),
+        # so the KDF is never run on it.
+        for a in self.agents.values():
+            if a.get("key_id"):
+                continue
             if creds.verify_agent_key(a, presented):
                 self._note_legacy_scope_use(a)
                 return a
