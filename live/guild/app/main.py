@@ -2072,7 +2072,21 @@ def open_escrow(req: EscrowRequest, x_api_key: Optional[str] = Header(None)):
                                   "needed": e.cost})
     except ValueError as e:
         raise HTTPException(400, str(e))
-    return esc
+    return _public_escrow(esc)
+
+
+def _public_escrow(esc: dict) -> dict:
+    """The escrow as any reader may see it. The stored `requester_key` is the
+    payer's ACCOUNT key; for a legacy/trial account that value IS the spendable
+    credential, so it never leaves the service. Readers get `payer_ref`, a
+    one-way reference that is stable per payer and authenticates nothing."""
+    import hashlib as _hl
+    out = {k: v for k, v in esc.items() if k != "requester_key"}
+    rk = esc.get("requester_key")
+    out["payer_ref"] = ("payer_" + _hl.sha256(
+        ("agent-guild/escrow-payer-ref/v1:" + rk).encode()).hexdigest()[:16]
+        if rk else None)
+    return out
 
 
 @app.get("/escrow/{escrow_id}")
@@ -2080,7 +2094,7 @@ def get_escrow(escrow_id: str):
     esc = store.get_escrow(escrow_id)
     if esc is None:
         raise HTTPException(404, "escrow not found")
-    return esc
+    return _public_escrow(esc)
 
 
 @app.post("/escrow/{escrow_id}/release")
