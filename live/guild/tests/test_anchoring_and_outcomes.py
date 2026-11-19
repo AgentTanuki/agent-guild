@@ -170,6 +170,20 @@ def test_signed_outcome_roundtrip_with_readback():
     assert rb["body"]["gate_envelope_sha256"] == "e" * 64
 
 
+def test_watchlist_citation_is_bound_to_the_requester_signature():
+    provider, _ = _seed(cap="outcome-watchlist")
+    _, priv, did = _self_sovereign_requester()
+    version = "wl1_" + "f" * 64
+    doc = _outcome_doc(store.get_agent(provider["id"]), did, priv,
+                       watchlist_id=version, watchlist_effect="changed")
+    assert client.post("/outcomes", json={**doc, "watchlist_effect": "none"}).status_code == 422
+    receipt = client.post("/outcomes", json=doc)
+    assert receipt.status_code == 200
+    recorded = client.get(receipt.json()["readback"]).json()["record"]["body"]
+    assert recorded["watchlist_id"] == version
+    assert recorded["watchlist_effect"] == "changed"
+
+
 def test_outcome_signer_must_control_registered_requester_did():
     provider, _ = _seed(cap="outcome-cap2")
     provider = store.get_agent(provider["id"])

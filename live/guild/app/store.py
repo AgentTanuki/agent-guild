@@ -7430,6 +7430,8 @@ class Store:
             raise ValueError(
                 "outcome must be accepted|rejected|disputed|declined|infeasible|"
                 "blocked|cannot_verify")
+        from .watchlist import citation_fields
+        citation_fields(outcome)  # Validate optional fields without changing signed bytes.
         core = {k: v for k, v in outcome.items() if k != "proof"}
         requester = next((a for a in self.agents.values()
                           if a.get("did") == outcome["requester_did"]), None)

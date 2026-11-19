@@ -786,7 +786,9 @@ def guild_preflight_outcome(preflight_id: str, action: str,
                             decision_basis: str = "unknown",
                             overhead_ms: Optional[int] = None,
                             api_key: str = "",
-                            ctx: Context = None) -> dict:
+                            ctx: Context = None, *,
+                            watchlist_id: Optional[str] = None,
+                            watchlist_effect: Optional[str] = None) -> dict:
     """After a guild_preflight verdict, tell the Guild what you did and what
     happened (AGPO-1). Free, no key, optional.
 
@@ -807,6 +809,9 @@ def guild_preflight_outcome(preflight_id: str, action: str,
     guild_preflight, so the two records join under one identity (identity
     continuity only — not a claim of independence). Invalid keys are refused.
 
+    watchlist_id: optional version from GET /flags. watchlist_effect is the
+    caller's assessment: changed | confirmed | none | unknown.
+
     Benefits and mistakes are measured with equal weight; see
     GET /preflight/outcomes for the public classification rules.
     """
@@ -819,6 +824,7 @@ def guild_preflight_outcome(preflight_id: str, action: str,
             "observed": observed, "detail": detail,
             "baseline": {"direct_check": baseline_direct_check},
             "decision_basis": decision_basis,
+            "watchlist_id": watchlist_id, "watchlist_effect": watchlist_effect,
             "overhead_ms": overhead_ms, "reporter_kind": "agent"})
     except preflight_outcomes.OutcomeError as exc:
         return {"schema": "AGERR-1/1.0", "kind": "preflight_outcome_invalid",

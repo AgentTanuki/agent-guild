@@ -73,7 +73,7 @@ from . import reportcache
 from . import coordination
 from . import incidents
 from . import evidence_semantics
-from . import crypto
+from . import crypto, watchlist
 from . import callerproof
 from . import demand
 from . import objective_match
@@ -3376,8 +3376,11 @@ def list_flags(response: Response, min_suspicion: float = Query(0.4, ge=0.0, le=
             out.append({"agent_id": aid, "name": store.agents[aid]["name"],
                         "suspicion": round(f.suspicion, 3), "reasons": f.reasons,
                         "cluster_id": f.cluster_id})
-    out.sort(key=lambda x: x["suspicion"], reverse=True)
-    return {"count": len(out), "flagged": out}
+    out.sort(key=lambda row: (-row["suspicion"], row["agent_id"]))
+    snapshot = watchlist.snapshot(out, min_suspicion)
+    store.record_event(x_api_key, "watchlist_snapshot", ua=_ua.get(),
+                       watchlist_id=snapshot["watchlist_id"], count=len(out))
+    return snapshot
 
 
 def _passport_offer_block(surface: str) -> dict[str, Any]:

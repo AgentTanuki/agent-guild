@@ -489,11 +489,14 @@ def test_mcp_tool_writes_the_same_record(_isolate):
             rd = _data(await c.call_tool("guild_preflight_outcome", {
                 "preflight_id": pf["preflight_id"], "action": "declined",
                 "baseline_direct_check": "failure", "detail": "protocol_error",
-                "decision_basis": "ag_evidence"}))
+                "decision_basis": "ag_evidence", "watchlist_id": "wl1_" + "a" * 64,
+                "watchlist_effect": "confirmed"}))
             assert rd["recorded"] is True
     asyncio.run(go())
     outcomes = [e for e in _isolate.events if e["type"] == "preflight_outcome"]
     assert len(outcomes) == 1
+    assert outcomes[0]["watchlist_id"] == "wl1_" + "a" * 64
+    assert outcomes[0]["watchlist_effect"] == "confirmed"
     assert outcomes[0]["transport"] == "mcp"
     assert outcomes[0]["reporter_kind"] == "agent"
     assert outcomes[0]["decision_basis"] == "ag_evidence"
@@ -574,3 +577,36 @@ def test_run_breakdown_is_additive_and_present_on_every_bucket(tmp_path):
             assert f in b
         assert b["top_ua_family_share"] is None and b["runs_by_day"] == {}
     assert "run_breakdown" in po.summary(s)["reading_rules"]
+
+
+def test_watchlist_version_and_optional_http_citation(_isolate, monkeypatch):
+    import hashlib
+    from types import SimpleNamespace
+    from app.crypto import canonicalize_jcs
+
+    monkeypatch.setattr(main_module, "meter", lambda *args: None)
+    agent_id = "test-watchlist-agent"
+    flag = SimpleNamespace(suspicion=0.8, reasons=["example"], cluster_id="c")
+    monkeypatch.setattr(_isolate, "flags", lambda: {agent_id: flag})
+    monkeypatch.setitem(_isolate.agents, agent_id, {"name": "sample"})
+    snapshot = client.get("/flags").json()
+    payload = {k: snapshot[k] for k in ("min_suspicion", "flagged")}
+    expected = hashlib.sha256(canonicalize_jcs(payload).encode()).hexdigest()
+    version = "wl1_" + expected
+    assert snapshot["watchlist_id"] == version
+    assert client.get("/flags").json()["watchlist_id"] == version
+    assert client.get("/flags?min_suspicion=0.7").json()["watchlist_id"] != version
+    flag.suspicion = 0.9
+    assert client.get("/flags").json()["watchlist_id"] != version
+    assert any(e.get("watchlist_id") == version and e["type"] == "watchlist_snapshot"
+               for e in _isolate.events)
+    run = _pf("https://x.example/ok", HEURISTIC_UA)
+    body = {"preflight_id": run["preflight_id"], "action": "skipped",
+            "reporter_kind": "agent", "watchlist_effect": "changed"}
+    assert _report(body, HEURISTIC_UA).status_code == 422
+    body["watchlist_id"] = version
+    assert _report(body, HEURISTIC_UA).status_code == 201
+    reports = [e for e in _isolate.events if e["type"] == "preflight_outcome"]
+    assert reports[-1]["watchlist_id"] == version
+    assert reports[-1]["watchlist_effect"] == "changed"
+    assert not _summary()["independently_demonstrated_benefit"]
