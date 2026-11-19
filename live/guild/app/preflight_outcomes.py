@@ -325,10 +325,15 @@ def validate(body: Mapping[str, Any]) -> dict[str, Any]:
             overhead = max(0, min(int(overhead), 3_600_000))
         except (TypeError, ValueError):
             raise OutcomeError("overhead_ms must be an integer") from None
+    from .watchlist import citation_fields
+    try:
+        citation = citation_fields(body)
+    except ValueError as exc:
+        raise OutcomeError(str(exc)) from exc
     return {"preflight_id": pid, "action": action, "observed": observed,
             "detail": detail, "baseline_direct_check": direct,
             "decision_basis": basis, "reporter_kind": kind,
-            "overhead_ms": overhead}
+            "overhead_ms": overhead, **citation}
 
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,8 @@
 # Single source of truth for the service version. Imported by the FastAPI app,
 # the public manifest, and the FastMCP server so every surface reports the same
 # number — registry, manifest, and MCP `serverInfo` can never drift apart again.
-__version__ = "2.7.4"   # PATCH escrow payer reference (2026-11-10): public
+__version__ = "2.8.0"   # Optional fraud-watchlist citations in decision reports.
+                        # History of 2.7.4: PATCH escrow payer reference (2026-11-10): public
                         # escrow reads (POST /escrow, GET /escrow/{id}) no longer
                         # return `requester_key` — for a trial/legacy account that
                         # value was the payer's spendable credential. They return
